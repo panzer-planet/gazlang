@@ -1,0 +1,76 @@
+ok r needs the file to be there
+ok so does r+
+ok w makes the file
+ok what w wrote is there once it is closed
+ok w empties what was there
+ok a adds at the end
+ok a makes a file that isn't there
+ok r+ reads
+ok and writes where the reading stopped
+ok and reads what it wrote
+ok r+ doesn't empty the file
+ok the mode is r by default
+ok r says so
+ok an unknown mode
+ok modes are exact
+ok a mode is a string
+ok a directory isn't a file to read
+ok or to write
+ok or to read and write
+ok a missing directory
+ok a NUL byte names nothing
+ok r can't write
+ok w can't read bytes
+ok or lines
+ok a can't read
+ok a closed file can't be read
+ok or written
+ok or sought
+ok closing twice is fine
+ok file_read wants a file
+ok and a length
+ok of 1 or more
+ok and at most 16 MiB
+ok 16 MiB itself is fine
+ok file_write wants a string
+ok file_write gives null
+ok every byte value goes out and back
+ok a read of one byte at a time
+ok NUL bytes are bytes
+ok read in uneven pieces
+ok a line is up to a \n, NUL bytes and all
+ok from the start, by default
+ok reads go on from there
+ok current is where it is
+ok forward from current
+ok back from current
+ok from the end
+ok reads the last byte
+ok then the end
+ok start, said
+ok past the end is allowed
+ok and reads nothing
+ok before the start isn't
+ok an unknown origin
+ok an offset is an int
+ok a writer's position
+ok a write after a seek lands there
+ok a pipe has no position
+ok three megabytes in 64KB pieces
+ok the same bytes
+ok a seek into the middle
+ok a read bigger than the file gives the file
+ok nothing yet
+ok nothing yet in bytes
+ok a line written after the end was read
+ok then the end again
+ok lines go on
+ok bytes too
+ok and the end again
+ok after the writer closed
+ok a write waits in a buffer
+ok closing writes it out
+ok a file closed says so
+ok a failed write out is an error at the close
+ok a big write fails at once
+ok the scratch directory is gone

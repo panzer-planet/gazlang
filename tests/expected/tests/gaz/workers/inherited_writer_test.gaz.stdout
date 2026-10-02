@@ -1,0 +1,5 @@
+ok a worker that ends by exit()
+ok a worker that ends at the end of the program
+ok a worker that lets go of the file
+ok a worker that closes it
+ok a worker that ends with an error

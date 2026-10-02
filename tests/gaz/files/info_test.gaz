@@ -1,0 +1,126 @@
+import "std/test.gaz" use expect, throws;
+import "std/crypto.gaz";
+
+/*
+ * What is at a path (file_info), moving a file (rename_file), making directories with their
+ * parents (make_dir($path, true)) and trimming a set of bytes (trim($s, $chars)). In a directory
+ * of this run's own under the system's temporary directory, removed at the end however the
+ * checks went.
+ */
+fn scratch_directory(): string {
+    $dir = (getenv("TMPDIR") ?? "/tmp") .. "/gaz-info-test-" .. crypto::hex(random_bytes(8));
+    make_dir($dir, true);
+    return $dir;
+}
+
+fn written(string $path, string $data): string {
+    write_file($path, $data);
+    return $path;
+}
+
+// The permission bits a new file gets: 0666 less the umask, which this machine's shell says
+fn new_file_mode(): int {
+    $umask = trim(run(["sh", "-c", "umask"])["stdout"]);
+    $mask = 0;
+    foreach (split($umask, "") as $digit) {
+        $mask = $mask * 8 + to_int($digit);
+    }
+    return 438 & ~$mask;
+}
+
+fn info(string $dir): null {
+    $path = written($dir .. "/five.txt", "12345");
+    $file = file_info($path);
+    expect("a file's kind", $file["kind"], "file");
+    expect("its size in bytes", $file["size"], 5);
+    expect("the fields, in order", keys($file), ["kind", "size", "mtime", "mode"]);
+    expect("its modification time is whole seconds", type_of($file["mtime"]), "int");
+    expect("and comparable with time()", abs(time() - $file["mtime"]) < 60, true);
+    expect("its mode is the permission bits, 0666 less the umask", $file["mode"], new_file_mode());
+    expect("a directory", file_info($dir)["kind"], "dir");
+    expect("nothing there is null", file_info($dir .. "/nope"), null);
+    expect("nor through a file", file_info($path .. "/inside"), null);
+    expect("nor with a NUL byte", file_info($path .. "\0"), null);
+    expect("the empty path", file_info(""), null);
+    run(["ln", "-s", "five.txt", $dir .. "/link"]);
+    expect("a link is followed by default", file_info($dir .. "/link")["kind"], "file");
+    expect("to what it points at", file_info($dir .. "/link")["size"], 5);
+    expect("and is itself when told not to follow", file_info($dir .. "/link", false)["kind"], "link");
+    expect("a file is a file either way", file_info($path, false)["kind"], "file");
+    run(["ln", "-s", "nowhere", $dir .. "/dangling"]);
+    expect("a dangling link leads nowhere", file_info($dir .. "/dangling"), null);
+    expect("but is there itself", file_info($dir .. "/dangling", false)["kind"], "link");
+    run(["mkfifo", $dir .. "/fifo"]);
+    expect("a fifo is other", file_info($dir .. "/fifo")["kind"], "other");
+    run(["touch", "-t", "200001020304.05", $path]);
+    $touched = file_info($path)["mtime"];
+    expect("a time set by touch, seen in seconds", $touched > 946684800 && $touched < 946944000, true);
+    run(["chmod", "755", $path]);
+    expect("chmod 755 is 493", file_info($path)["mode"], 493);
+    throws("a path is a string", () -> file_info(1), "file_info() expects string, got int");
+    throws("follow is a bool", () -> file_info($path, 1), "file_info() expects bool, got int");
+}
+
+fn renaming(string $dir): null {
+    $from = written($dir .. "/old.txt", "old");
+    rename_file($from, $dir .. "/new.txt");
+    expect("the old name is gone", file_exists($from), false);
+    expect("the new one has it", read_file($dir .. "/new.txt"), "old");
+    written($dir .. "/target.txt", "target");
+    written($dir .. "/replacement.txt", "replacement");
+    expect("rename gives null", rename_file($dir .. "/replacement.txt", $dir .. "/target.txt"), null);
+    expect("it replaces a file in the way", read_file($dir .. "/target.txt"), "replacement");
+    make_dir($dir .. "/folder");
+    rename_file($dir .. "/folder", $dir .. "/moved");
+    expect("a directory moves too", is_dir($dir .. "/moved"), true);
+    throws("from nothing", () -> rename_file($dir .. "/nope", $dir .. "/x"),
+        "Cannot rename \"{$dir}/nope\" to \"{$dir}/x\": No such file or directory");
+    throws("into a missing directory", () -> rename_file($dir .. "/new.txt", $dir .. "/no/x"),
+        "Cannot rename \"{$dir}/new.txt\" to \"{$dir}/no/x\": No such file or directory");
+    throws("a NUL byte", () -> rename_file($dir .. "/new.txt\0", $dir .. "/x"),
+        "Cannot rename \"{$dir}/new.txt\\x00\" to \"{$dir}/x\": No such file or directory");
+    throws("a file over a directory", () -> rename_file($dir .. "/new.txt", $dir .. "/moved"),
+        "Cannot rename \"{$dir}/new.txt\" to \"{$dir}/moved\": Is a directory");
+    throws("both are strings", () -> rename_file($dir .. "/new.txt", 5), "rename_file() expects string, got int");
+}
+
+fn making(string $dir): null {
+    make_dir($dir .. "/a/b/c", true);
+    expect("every level is made", is_dir($dir .. "/a/b/c"), true);
+    expect("again is fine", make_dir($dir .. "/a/b/c", true), null);
+    expect("a trailing slash too", make_dir($dir .. "/a/b/d/", true), null);
+    expect("made", is_dir($dir .. "/a/b/d"), true);
+    make_dir($dir .. "/one");
+    expect("one level is still the default", is_dir($dir .. "/one"), true);
+    throws("and it wants the parent", () -> make_dir($dir .. "/x/y"), "Cannot make directory \"{$dir}/x/y\": No such file or directory");
+    throws("and the name free", () -> make_dir($dir .. "/one"), "Cannot make directory \"{$dir}/one\": File exists");
+    throws("false is the default", () -> make_dir($dir .. "/one", false), "Cannot make directory \"{$dir}/one\": File exists");
+    written($dir .. "/a/file", "");
+    throws("a file in the way", () -> make_dir($dir .. "/a/file/b", true), "Cannot make directory \"{$dir}/a/file/b\": Not a directory");
+    throws("a file at the end", () -> make_dir($dir .. "/a/file", true), "Cannot make directory \"{$dir}/a/file\": Not a directory");
+    throws("the empty path", () -> make_dir("", true), "Cannot make directory \"\": No such file or directory");
+    throws("parents is a bool", () -> make_dir($dir, 1), "make_dir() expects bool, got int");
+}
+
+fn trimming(): null {
+    expect("whitespace by default", trim(" \t a b \n\r"), "a b");
+    expect("null is the default", trim("  a  ", null), "a");
+    expect("a set of bytes from both ends", trim("--==a-b==--", "=-"), "a-b");
+    expect("trailing slashes", trim("dir///", "/"), "dir");
+    expect("all of it", trim("xxx", "x"), "");
+    expect("an empty set trims nothing", trim("  a  ", ""), "  a  ");
+    expect("a NUL byte is a byte", trim("\0a\0", "\0"), "a");
+    expect("bytes, not characters", trim("éa", "\xc3"), "\xa9a");
+    throws("the set is a string", () -> trim("a", 1), "trim() expects string or null, got int");
+}
+
+$dir = scratch_directory();
+try {
+    info($dir);
+    renaming($dir);
+    making($dir);
+    trimming();
+} finally {
+    run(["rm", "-rf", $dir]);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

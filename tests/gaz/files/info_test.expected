@@ -1,0 +1,54 @@
+ok a file's kind
+ok its size in bytes
+ok the fields, in order
+ok its modification time is whole seconds
+ok and comparable with time()
+ok its mode is the permission bits, 0666 less the umask
+ok a directory
+ok nothing there is null
+ok nor through a file
+ok nor with a NUL byte
+ok the empty path
+ok a link is followed by default
+ok to what it points at
+ok and is itself when told not to follow
+ok a file is a file either way
+ok a dangling link leads nowhere
+ok but is there itself
+ok a fifo is other
+ok a time set by touch, seen in seconds
+ok chmod 755 is 493
+ok a path is a string
+ok follow is a bool
+ok the old name is gone
+ok the new one has it
+ok rename gives null
+ok it replaces a file in the way
+ok a directory moves too
+ok from nothing
+ok into a missing directory
+ok a NUL byte
+ok a file over a directory
+ok both are strings
+ok every level is made
+ok again is fine
+ok a trailing slash too
+ok made
+ok one level is still the default
+ok and it wants the parent
+ok and the name free
+ok false is the default
+ok a file in the way
+ok a file at the end
+ok the empty path
+ok parents is a bool
+ok whitespace by default
+ok null is the default
+ok a set of bytes from both ends
+ok trailing slashes
+ok all of it
+ok an empty set trims nothing
+ok a NUL byte is a byte
+ok bytes, not characters
+ok the set is a string
+ok the scratch directory is gone

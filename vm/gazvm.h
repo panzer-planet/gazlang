@@ -50,7 +50,7 @@ typedef enum {
     T_OBJECT,
     T_SOCKET,   /* a connection, closed when the last reference goes */
     T_DB,       /* a database connection, the same */
-    T_FILE,     /* a file open for reading, the same */
+    T_FILE,     /* an open file, the same */
     T_ERROR,    /* a raised error, as the stack holds it in a catch or finally block */
     T_KIND,    /* lives as long as the program: not counted */
     T_ENTRY,    /* the method entry GET_METHOD pushes: points into a kind, not counted */
@@ -206,11 +206,18 @@ struct Db {
     int owner;          /* the vm_process that opened it (see workers.c) */
 };
 
-/* A file made by file_open(), read a line at a time: a handle, so copies share the position */
+/* What a file's stdio stream did last: C wants a flush or a seek between a write and a read */
+typedef enum { FILE_IDLE, FILE_READING, FILE_WRITING } FileLast;
+
+/* A file made by file_open(): a handle, so copies share the position */
 struct File {
     int64_t rc;
     FILE *fp;           /* NULL once closed */
     int owner;          /* the vm_process that opened it (see workers.c) */
+    Str *path;          /* as file_open() was given it, for messages */
+    const char *mode;   /* "r", "w", "a" or "r+" */
+    bool readable, writable;
+    FileLast last;
 };
 
 /* An error on its way up. */

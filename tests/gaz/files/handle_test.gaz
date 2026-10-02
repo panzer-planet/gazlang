@@ -1,0 +1,227 @@
+import "std/test.gaz" use expect, throws;
+import "std/crypto.gaz";
+
+/*
+ * A file handle: file_open()'s modes, file_read(), file_write(), file_seek(), file_read_line()
+ * and file_close(), on bytes of every value, a file of a few megabytes, and a file that grows
+ * while it is being read. Everything happens in a directory of this run's own under the system's
+ * temporary directory, removed at the end however the checks went.
+ */
+const MEGABYTE = 1048576;
+const CHUNK = 65536;
+
+fn scratch_directory(): string {
+    $dir = (getenv("TMPDIR") ?? "/tmp") .. "/gaz-handle-test-" .. crypto::hex(random_bytes(8));
+    make_dir($dir, true);
+    return $dir;
+}
+
+fn written(string $path, string $data): string {
+    $file = file_open($path, "w");
+    file_write($file, $data);
+    file_close($file);
+    return $path;
+}
+
+// Every byte value, NUL included, once each
+fn all_bytes(): string {
+    $bytes = "";
+    for ($b = 0; $b < 256; $b++) {
+        $bytes ..= chr($b);
+    }
+    return $bytes;
+}
+
+fn read_all(file $file, int $chunk): string {
+    $data = "";
+    while (($piece = file_read($file, $chunk)) != "") {
+        $data ..= $piece;
+    }
+    return $data;
+}
+
+fn modes(string $dir): null {
+    $path = $dir .. "/modes.txt";
+    throws("r needs the file to be there", () -> file_open($path), "Cannot open \"{$path}\": No such file or directory");
+    throws("so does r+", () -> file_open($path, "r+"), "Cannot open \"{$path}\": No such file or directory");
+    $w = file_open($path, "w");
+    expect("w makes the file", read_file($path), "");
+    file_write($w, "one\n");
+    file_close($w);
+    expect("what w wrote is there once it is closed", read_file($path), "one\n");
+    written($path, "two\n");
+    expect("w empties what was there", read_file($path), "two\n");
+    $a = file_open($path, "a");
+    file_write($a, "three\n");
+    file_close($a);
+    expect("a adds at the end", read_file($path), "two\nthree\n");
+    $fresh = $dir .. "/appended.txt";
+    $a = file_open($fresh, "a");
+    file_write($a, "new");
+    file_close($a);
+    expect("a makes a file that isn't there", read_file($fresh), "new");
+    $both = file_open($path, "r+");
+    expect("r+ reads", file_read_line($both), "two");
+    file_write($both, "THREE");
+    expect("and writes where the reading stopped", file_read($both, 10), "\n");
+    file_seek($both, 0);
+    expect("and reads what it wrote", file_read($both, 100), "two\nTHREE\n");
+    file_close($both);
+    expect("r+ doesn't empty the file", read_file($path), "two\nTHREE\n");
+    expect("the mode is r by default", file_read_line(file_open($path)), "two");
+    expect("r says so", file_read_line(file_open($path, "r")), "two");
+    throws("an unknown mode", () -> file_open($path, "rw"), "file_open() mode must be \"r\", \"w\", \"a\" or \"r+\", got \"rw\"");
+    throws("modes are exact", () -> file_open($path, "R"), "file_open() mode must be \"r\", \"w\", \"a\" or \"r+\", got \"R\"");
+    throws("a mode is a string", () -> file_open($path, 1), "file_open() expects string, got int");
+    throws("a directory isn't a file to read", () -> file_open($dir), "Cannot open \"{$dir}\": Is a directory");
+    throws("or to write", () -> file_open($dir, "w"), "Cannot open \"{$dir}\": Is a directory");
+    throws("or to read and write", () -> file_open($dir, "r+"), "Cannot open \"{$dir}\": Is a directory");
+    throws("a missing directory", () -> file_open($dir .. "/no/such.txt", "w"), "Cannot open \"{$dir}/no/such.txt\": No such file or directory");
+    throws("a NUL byte names nothing", () -> file_open($path .. "\0", "w"), "Cannot open \"{$path}\\x00\": No such file or directory");
+}
+
+fn what_a_mode_refuses(string $dir): null {
+    $path = written($dir .. "/refused.txt", "text\n");
+    $reader = file_open($path);
+    throws("r can't write", () -> file_write($reader, "x"), "file_write() on a file opened with \"r\", which can't be written");
+    $writer = file_open($dir .. "/refused-out.txt", "w");
+    throws("w can't read bytes", () -> file_read($writer, 1), "file_read() on a file opened with \"w\", which can't be read");
+    throws("or lines", () -> file_read_line($writer), "file_read_line() on a file opened with \"w\", which can't be read");
+    $appender = file_open($path, "a");
+    throws("a can't read", () -> file_read($appender, 1), "file_read() on a file opened with \"a\", which can't be read");
+    file_close($writer);
+    file_close($appender);
+    throws("a closed file can't be read", () -> file_read($writer, 1), "file_read() on a closed file");
+    throws("or written", () -> file_write($writer, "x"), "file_write() on a closed file");
+    throws("or sought", () -> file_seek($writer, 0), "file_seek() on a closed file");
+    expect("closing twice is fine", file_close($writer), null);
+    throws("file_read wants a file", () -> file_read("x", 1), "file_read() expects file, got string");
+    throws("and a length", () -> file_read($reader, "1"), "file_read() expects int, got string");
+    throws("of 1 or more", () -> file_read($reader, 0), "file_read() length must be 1 to 16777216, got 0");
+    throws("and at most 16 MiB", () -> file_read($reader, 16777217), "file_read() length must be 1 to 16777216, got 16777217");
+    expect("16 MiB itself is fine", file_read($reader, 16777216), "text\n");
+    throws("file_write wants a string", () -> file_write($reader, 5), "file_write() expects string, got int");
+    expect("file_write gives null", file_write(file_open($dir .. "/null.txt", "w"), "x"), null);
+}
+
+fn bytes(string $dir): null {
+    $every = all_bytes();
+    $path = written($dir .. "/bytes.bin", $every .. $every);
+    expect("every byte value goes out and back", read_file($path), $every .. $every);
+    $file = file_open($path);
+    expect("a read of one byte at a time", file_read($file, 1), "\0");
+    expect("NUL bytes are bytes", file_read($file, 2), "\x01\x02");
+    file_seek($file, 0);
+    expect("read in uneven pieces", read_all($file, 7), $every .. $every);
+    file_seek($file, 255);
+    expect("a line is up to a \\n, NUL bytes and all", file_read_line($file), "\xff\0\x01\x02\x03\x04\x05\x06\x07\x08\t");
+}
+
+fn seeking(string $dir): null {
+    $path = written($dir .. "/seek.txt", "0123456789");
+    $file = file_open($path);
+    expect("from the start, by default", file_seek($file, 4), 4);
+    expect("reads go on from there", file_read($file, 2), "45");
+    expect("current is where it is", file_seek($file, 0, "current"), 6);
+    expect("forward from current", file_seek($file, 2, "current"), 8);
+    expect("back from current", file_seek($file, -5, "current"), 3);
+    expect("from the end", file_seek($file, -1, "end"), 9);
+    expect("reads the last byte", file_read($file, 5), "9");
+    expect("then the end", file_read($file, 5), "");
+    expect("start, said", file_seek($file, 1, "start"), 1);
+    expect("past the end is allowed", file_seek($file, 20), 20);
+    expect("and reads nothing", file_read($file, 1), "");
+    throws("before the start isn't", () -> file_seek($file, -1), "Cannot seek \"{$path}\": Invalid argument");
+    throws("an unknown origin", () -> file_seek($file, 0, "begin"), "file_seek() from must be \"start\", \"current\" or \"end\", got \"begin\"");
+    throws("an offset is an int", () -> file_seek($file, 1.5), "file_seek() expects int, got float");
+    $writer = file_open($dir .. "/seek-write.txt", "w");
+    file_write($writer, "aaaaa");
+    file_seek($writer, 1);
+    file_write($writer, "b");
+    expect("a writer's position", file_seek($writer, 0, "end"), 5);
+    file_close($writer);
+    expect("a write after a seek lands there", read_file($dir .. "/seek-write.txt"), "abaaa");
+    $seek_stdin = '$f = file_open("/dev/stdin"); try { file_seek($f, 0); } catch (Error $e) { print($e.message); }';
+    $pipe = run(["sh", "-c", "printf x | \"\$0\" -e \"\$1\"", program_path(), $seek_stdin]);
+    expect("a pipe has no position", $pipe["stdout"], "Cannot seek \"/dev/stdin\": Illegal seek");
+}
+
+fn large_file(string $dir): null {
+    $block = repeat(all_bytes(), 4096);
+    $path = written($dir .. "/large.bin", $block .. $block .. $block);
+    $file = file_open($path);
+    $data = read_all($file, CHUNK);
+    expect("three megabytes in 64KB pieces", len($data), 3 * MEGABYTE);
+    expect("the same bytes", $data == $block .. $block .. $block, true);
+    file_seek($file, MEGABYTE + 1);
+    expect("a seek into the middle", file_read($file, 3), "\x01\x02\x03");
+    $big = file_read(file_open($path), 16777216);
+    expect("a read bigger than the file gives the file", len($big), 3 * MEGABYTE);
+}
+
+/*
+ * Reading to the end and reading again after more has been written: tail -f. Two handles on one
+ * file, one writing and one reading.
+ */
+fn tailing(string $dir): null {
+    $path = $dir .. "/log.txt";
+    $writer = file_open($path, "w");
+    $reader = file_open($path);
+    expect("nothing yet", file_read_line($reader), null);
+    expect("nothing yet in bytes", file_read($reader, 10), "");
+    file_write($writer, "first\n");
+    file_seek($writer, 0, "current");
+    expect("a line written after the end was read", file_read_line($reader), "first");
+    expect("then the end again", file_read_line($reader), null);
+    file_write($writer, "second\nthird\n");
+    file_seek($writer, 0, "current");
+    expect("lines go on", file_read_line($reader), "second");
+    expect("bytes too", file_read($reader, 100), "third\n");
+    expect("and the end again", file_read($reader, 100), "");
+    file_write($writer, "fourth\n");
+    file_close($writer);
+    expect("after the writer closed", file_read($reader, 100), "fourth\n");
+}
+
+fn closing(string $dir): null {
+    $path = $dir .. "/buffered.txt";
+    $file = file_open($path, "w");
+    file_write($file, "kept in a buffer");
+    expect("a write waits in a buffer", read_file($path), "");
+    file_close($file);
+    expect("closing writes it out", read_file($path), "kept in a buffer");
+    expect("a file closed says so", to_string($file), "file (closed)");
+    /*
+     * A file grown past the process's limit (ulimit -f, here 1 block) can't be written. SIGXFSZ
+     * is ignored, so the write fails with EFBIG instead of ending the program. Below the size of
+     * stdio's buffer only the close finds out; above it, the write does.
+     */
+    $limited = 'trap "" XFSZ; ulimit -f 1; exec "$0" -e "$1"';
+    $at_close = '$f = file_open($argv, "w"); file_write($f, repeat("x", 2000)); print("written "); try { file_close($f); } catch (Error $e) { print($e.message); }';
+    $at_close = replace($at_close, '$argv', text_literal($dir .. "/limited.txt"));
+    $closed = run(["sh", "-c", $limited, program_path(), $at_close]);
+    expect("a failed write out is an error at the close", $closed["stdout"], "written Cannot write \"{$dir}/limited.txt\": File too large");
+    $at_write = '$f = file_open($argv, "w"); try { file_write($f, repeat("x", 100000)); } catch (Error $e) { print($e.message); }';
+    $at_write = replace($at_write, '$argv', text_literal($dir .. "/limited2.txt"));
+    $wrote = run(["sh", "-c", $limited, program_path(), $at_write]);
+    expect("a big write fails at once", $wrote["stdout"], "Cannot write \"{$dir}/limited2.txt\": File too large");
+}
+
+// A string as a GazLang literal, to put into a program
+fn text_literal(string $s): string {
+    return slice(to_string([$s]), 1, -1);
+}
+
+$dir = scratch_directory();
+try {
+    modes($dir);
+    what_a_mode_refuses($dir);
+    bytes($dir);
+    seeking($dir);
+    large_file($dir);
+    tailing($dir);
+    closing($dir);
+} finally {
+    run(["rm", "-rf", $dir]);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

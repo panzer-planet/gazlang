@@ -91,6 +91,7 @@ void value_free(Value v) {
         break;
     case T_FILE:
         file_close(v.file);
+        decref(v_str(v.file->path));
         free(v.file);
         break;
     case T_ERROR: {

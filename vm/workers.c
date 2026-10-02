@@ -211,9 +211,11 @@ bool start_workers(int64_t count, Value *out) {
     if (count < 1 || count > MAX_WORKERS) {
         return raisef("workers() expects 1 to %d workers, got %lld", MAX_WORKERS, (long long)count);
     }
-    /* Or what is buffered would be written once by each of them */
+    /* Or what is buffered would be written once by each of them: the output, and a file_open()
+       file's writes, which a worker that ends by exit() would write out again (fflush(NULL) is
+       every stream open for writing) */
     flush_output();
-    fflush(stderr);
+    fflush(NULL);
 
     struct sigaction stop = {.sa_handler = on_stop};
     sigemptyset(&stop.sa_mask);

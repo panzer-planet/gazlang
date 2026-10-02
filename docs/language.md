@@ -626,7 +626,7 @@ kind's fields, methods and constants across its hierarchy.
 | `slice($x, $start, $length = null)` | The piece of a string or list from `$start`, `$length` long or to the end; a negative position counts from the end |
 | `lower($s)` | The string with its ASCII letters in lowercase |
 | `upper($s)` | The string with its ASCII letters in uppercase |
-| `trim($s)` | The string without the spaces, tabs, newlines and carriage returns at either end |
+| `trim($s, $chars = null)` | The string without the spaces, tabs, newlines and carriage returns at either end, or without the bytes of `$chars` |
 | `split($s, $sep, $limit = null)` | The pieces of `$s` between each `$sep`, at most `$limit` of them |
 | `join($list, $sep)` | The list's elements as text, with `$sep` between each two |
 | `replace($s, $search, $replacement)` | The string with every `$search` in it replaced |
@@ -645,7 +645,9 @@ The builtins for strings are `len`, `slice($x, $start, $length)`, `lower`, `uppe
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
 `starts_with($s, $prefix, $offset)`, `index_of($s, $needle, $offset)`, `repeat($s, $count)`, `chr`,
 `ord`. `split`'s `$limit` (an int of 1 or more, or `null` for none) caps the parts, the last
-holding the rest: `split("a=b=c", "=", 2)` is `["a", "b=c"]`. Both offsets are optional and count from the end when negative; one outside the string is
+holding the rest: `split("a=b=c", "=", 2)` is `["a", "b=c"]`. `trim`'s `$chars` is a set of
+bytes to take off both ends instead of whitespace (`trim("dir///", "/")` is `"dir"`), byte by byte,
+so a character of more than one byte isn't one of them; `""` takes nothing off. Both offsets are optional and count from the end when negative; one outside the string is
 an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true only for an empty
 prefix.
 
@@ -774,9 +776,12 @@ objects as `$seen[object_id($x)] = true`).
 | `read_stdin()` | All of standard input that is left |
 | `read_line()` | The next line of standard input, or `null` at its end |
 | `read_stdin_bytes($n)` | Exactly `$n` bytes of standard input; an error if it ends first |
-| `file_open($path)` | Opens a file to read a line at a time, as a `file` |
+| `file_open($path, $mode = "r")` | Opens a file, as a `file`: `"r"` to read, `"w"` to write it anew, `"a"` to add to its end, `"r+"` to read and write |
 | `file_read_line($file)` | The next line of the file, or `null` at its end |
-| `file_close($file)` | Closes the file |
+| `file_read($file, $length)` | Up to `$length` bytes of the file, or `""` at its end |
+| `file_write($file, $string)` | Writes the string to the file |
+| `file_seek($file, $offset, $from = "start")` | Moves to `$offset` from the `"start"`, the `"current"` position or the `"end"`, and gives the new position |
+| `file_close($file)` | Writes out what is waiting and closes the file |
 | `flush_output()` | Writes standard output's buffer out now, instead of waiting |
 | `args()` | The program's arguments, as a list of strings |
 | `program_path()` | How `gaz` itself was invoked (see below) |
@@ -812,16 +817,37 @@ end in `;`, a value is printed with `echo`, and nothing is imported for you, so 
 project, as piped source's are. `-c`, `--tokens` and `--ast` work with it, to see how a one-liner
 was read. It can't be combined with a file, `--watch`, `-S` or `--tty`.
 
-`file_open($path)`, `file_read_line($file)` and `file_close($file)` read a file a line at a time,
-so a large one needn't be in memory whole (`read_file()` gives all of it at once). A line is read
-as `read_line()` reads one, without its `"\n"` or `"\r\n"` and with the last needing neither, and
-`null` is the end: `while (($line = file_read_line($f)) != null)` reads every line. A file is a
-handle, as a socket is: copies share the position, `==` is identity, it prints as `file` (or
-`file (closed)`), and one no variable holds any more is closed by itself. Closing again does
-nothing; reading a closed file, a path that can't be opened and a directory are errors
+`file_open($path, $mode = "r")` opens a file as a handle, so a large one needn't be in memory
+whole (`read_file()` gives all of it at once) and a program can read, write and move about in it.
+The mode is `"r"` (read; the file must be there), `"w"` (write, making the file or emptying it),
+`"a"` (write at the end, making the file if it isn't there; every write goes to the end, wherever
+a seek moved to) or `"r+"` (read and write a file that is there, from its start); anything else is
+an error naming the four. A file it makes can be read and written by everyone the umask allows.
+
+`file_read_line($file)` reads a line as `read_line()` reads one, without its `"\n"` or `"\r\n"`
+and with the last needing neither, and `null` is the end: `while (($line = file_read_line($f)) !=
+null)` reads every line. `file_read($file, $length)` reads bytes, any bytes: up to `$length`
+(1 to 16777216, 16 MiB), fewer only at the end of the file, and `""` there. **The end is only where
+the file ends now**: once more has been written to it, by this program or another, the next read
+gets it, so a log can be followed as it grows (`null` or `""`, wait, read again).
+`file_write($file, $string)` writes all of the string and gives `null`. `file_seek($file, $offset,
+$from = "start")` moves to `$offset` bytes from the `"start"`, the `"current"` position or the
+`"end"` (an offset may be negative, and past the end is allowed) and gives the new position from
+the start, so `file_seek($f, 0, "current")` is where the file is. A pipe has no position: seeking
+one is an error.
+
+**Writes wait in a buffer** until it fills, a seek, or `file_close($file)`, which writes out what
+is waiting and closes the file, and **is an error when the writing fails** (`Cannot write
+"out.txt": No space left on device`), so a program that closes what it wrote knows it arrived. A
+file no variable holds any more is closed by itself, as a socket is, but nothing can report an
+error then: close a file you wrote. Closing again does nothing.
+
+A file is a handle, as a socket is: copies share the position, `==` is identity, and it prints as
+`file` (or `file (closed)`). Reading or writing a closed file, reading a file opened with `"w"` or
+`"a"`, writing one opened with `"r"`, a path that can't be opened and a directory are errors
 (`Cannot open "path": No such file or directory`). A pipe or `/dev/stdin` opens too, and lines
 arrive as they are written. A file is not inherited by a program started with `run()`, and one
-opened before `workers()` can't be read in a worker (see `workers()`): open it after.
+opened before `workers()` can't be used in a worker (see `workers()`): open it after.
 
 `read_stdin_bytes($n)` reads exactly `$n` bytes, leaving the rest of the stream for the next
 call, which is what a protocol framed by a byte count (a `Content-Length` header) needs: unlike
@@ -839,17 +865,49 @@ before a server's first `socket_accept()`.
 | --- | --- |
 | `list_dir($path)` | The names of what a directory holds, sorted byte by byte |
 | `is_dir($path)` | Whether there is a directory at `$path` |
-| `make_dir($path)` | Makes one directory |
+| `make_dir($path, $parents = false)` | Makes a directory, and with `true` every one along the way |
 | `delete_dir($path)` | Removes an empty directory |
 | `delete_file($path)` | Removes a file or a symlink |
+| `rename_file($from, $to)` | Moves a file or directory to a new name, replacing a file there |
+| `file_info($path, $follow = true)` | What is at `$path`: its kind, size, modification time and mode, or `null` |
 
 `list_dir($path)` is the names of what a directory holds, without `.` and
 `..`, sorted byte by byte (so `"10"` before `"9"` and `"Z"` before `"a"`), the same on every
 system. `is_dir($path)` is whether there is a directory there (through a symlink too).
-`make_dir($path)` makes one directory, whose parent must be there; `delete_dir($path)` removes an
+`make_dir($path)` makes one directory, whose parent must be there; `make_dir($path, true)`
+makes every directory along the path that isn't there, and one that is there already is fine
+(something in the way that isn't a directory is still an error). `delete_dir($path)` removes an
 empty one; `delete_file($path)` removes a file (or a symlink), never a directory. Each gives
 `null`, and what it can't do is an error naming the path and the system's reason:
 `Cannot make directory "out": File exists`.
+
+`rename_file($from, $to)` gives a file or directory a new name, replacing a file already at `$to`,
+in one step: whoever opens `$to` gets the old file or the new one, never part of either, which is
+how a file is replaced safely (write a new one beside it, close it, rename it over the old). It
+can't move between file systems (`Cannot rename "a" to "/mnt/b": they are on different file
+systems`); other failures name both paths and the system's reason.
+
+`file_info($path, $follow = true)` is what is at `$path` as a map, or `null` when nothing is:
+
+```gaz
+write_file("/tmp/info-example.txt", "hello");
+$info = file_info("/tmp/info-example.txt");
+echo [$info["kind"], $info["size"]];
+echo file_info("/tmp/no such file");
+delete_file("/tmp/info-example.txt");
+```
+
+```
+["file", 5]
+null
+```
+
+`"kind"` is `"file"`, `"dir"`, `"link"` or `"other"` (a pipe, a socket, a device); `"size"` the size
+in bytes; `"mtime"` when it was last changed, in whole seconds since 1970 as `time()` counts them;
+`"mode"` its permission bits as an int (`420` is `0644`, read and write for its owner and read
+for everyone else). It follows a symbolic link to what it points at (and a link to nothing is
+`null`); with `$follow` `false` the link is itself, `"link"`, which is how a walk through a tree
+keeps out of a loop.
 
 ### Paths
 

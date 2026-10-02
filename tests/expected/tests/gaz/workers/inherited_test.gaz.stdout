@@ -2,6 +2,10 @@ ok the first worker is 1
 ok a db
 ok through lib/db.gaz
 ok a file
+ok a file's bytes
+ok seeking a file
+ok writing a file
+ok seeking a file being written
 ok reading a connection
 ok writing to a connection
 ok a connection's port
@@ -17,3 +21,5 @@ ok a db opened in the worker
 ok a file opened in the worker
 ok closed, it is closed
 ok closed, a file is closed
+ok closing a file being written is no error
+ok what the master wrote is there

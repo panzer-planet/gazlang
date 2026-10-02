@@ -37,7 +37,7 @@ char *program_exe;   /* argv[0] as main() was given it: program_path() */
 
 /* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
-    {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 1},
+    {"len", 1, 1}, {"slice", 2, 3}, {"lower", 1, 1}, {"upper", 1, 1}, {"trim", 1, 2},
     {"split", 2, 3}, {"join", 2, 2}, {"replace", 3, 3}, {"contains", 2, 2}, {"starts_with", 2, 3},
     {"ends_with", 2, 2}, {"index_of", 2, 3}, {"repeat", 2, 2}, {"chr", 1, 1}, {"ord", 1, 1},
     {"to_int", 1, 2}, {"to_float", 1, 2}, {"floor", 1, 1}, {"ceil", 1, 1}, {"round", 1, 2},
@@ -57,16 +57,18 @@ const BuiltinInfo builtin_info[] = {
     {"socket_listen", 2, 3}, {"socket_accept", 1, 2}, {"socket_port", 1, 1}, {"workers", 1, 1},
     {"time", 0, 0}, {"kind_name", 1, 1}, {"sqrt", 1, 1},
     {"getenv", 1, 1}, {"sleep", 1, 1},
-    {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 1}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
+    {"list_dir", 1, 1}, {"is_dir", 1, 1}, {"make_dir", 1, 2}, {"delete_file", 1, 1}, {"delete_dir", 1, 1},
     {"read_line", 0, 0},
     {"random_bytes", 1, 1}, {"sha256", 1, 1}, {"hmac_sha256", 2, 2}, {"pbkdf2_sha256", 4, 4},
     {"scrypt", 6, 6}, {"argon2id", 6, 8},
     {"read_stdin_bytes", 1, 1},
     {"flush_output", 0, 0}, {"worker_recycle", 0, 0},
     {"term_is_virtual", 0, 0},
-    {"file_open", 1, 1}, {"file_read_line", 1, 1}, {"file_close", 1, 1},
+    {"file_open", 1, 2}, {"file_read_line", 1, 1}, {"file_close", 1, 1},
     {"utf8_valid", 1, 1}, {"utf8_length", 1, 1}, {"utf8_chars", 1, 1}, {"socket_peer", 1, 1},
     {"socket_wait", 2, 2},
+    {"file_read", 2, 2}, {"file_write", 2, 2}, {"file_seek", 2, 3}, {"file_info", 1, 2},
+    {"rename_file", 2, 2},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -93,6 +95,8 @@ enum {
     B_FILE_OPEN, B_FILE_READ_LINE, B_FILE_CLOSE,
     B_UTF8_VALID, B_UTF8_LENGTH, B_UTF8_CHARS, B_SOCKET_PEER,
     B_SOCKET_WAIT,
+    B_FILE_READ, B_FILE_WRITE, B_FILE_SEEK, B_FILE_INFO,
+    B_RENAME_FILE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -776,43 +780,105 @@ static bool raise_path(const char *what, Str *path, int err) {
     return raise_str(buf_to_str(&m));
 }
 
-/* file_open($path): a file to read a line at a time, so a large one needn't be in memory whole.
-   Not a directory, which fopen() opens on Linux and which then fails at the first read; a pipe or
-   /dev/stdin is fine, since reading as it arrives is what a line at a time is for. */
-static bool open_file(Str *path, Value *out) {
-    struct stat st;
+/* A file mode, as file_open() takes it, and what it asks of fopen() */
+typedef struct {
+    const char *name;
+    const char *fopen_mode;     /* "b" changes nothing on POSIX, and says these are bytes */
+    bool readable, writable;
+} FileMode;
+
+static const FileMode FILE_MODES[] = {
+    {"r", "rb", true, false},       /* read; the file must exist */
+    {"w", "wb", false, true},       /* write, making the file or emptying it */
+    {"a", "ab", false, true},       /* write at the end, making the file if it isn't there */
+    {"r+", "r+b", true, true},      /* read and write; the file must exist */
+};
+#define NFILE_MODES (sizeof FILE_MODES / sizeof FILE_MODES[0])
+
+/* file_open($path, $mode = "r"): a handle on a file, to read a line or some bytes at a time, to
+   write, or to seek. A file "w" or "a" makes gets 0666 less the umask, as fopen() gives it. A
+   directory is refused in every mode: fopen() opens one for reading on Linux and macOS, and it
+   then fails at the first read. A pipe or /dev/stdin is fine for reading, since reading as it
+   arrives is what a handle is for. */
+static bool open_file(Str *path, Str *mode_name, Value *out) {
+    const FileMode *mode = NULL;
+    for (size_t i = 0; i < NFILE_MODES; i++) {
+        if (strlen(FILE_MODES[i].name) == mode_name->len && !memcmp(FILE_MODES[i].name, mode_name->data, mode_name->len)) {
+            mode = &FILE_MODES[i];
+        }
+    }
+    if (!mode) {
+        Buf m = {0};
+        buf_adds(&m, "file_open() mode must be \"r\", \"w\", \"a\" or \"r+\", got ");
+        quote(mode_name, &m);
+        return raise_str(buf_to_str(&m));
+    }
     if (memchr(path->data, '\0', path->len)) return raise_path("Cannot open", path, ENOENT);
-    if (stat(path->data, &st) != 0) return raise_path("Cannot open", path, errno);
-    if (S_ISDIR(st.st_mode)) return raise_path("Cannot open", path, EISDIR);
-    FILE *fp = fopen(path->data, "rb");
+    FILE *fp = fopen(path->data, mode->fopen_mode);
     if (!fp) return raise_path("Cannot open", path, errno);
+    struct stat st;
+    if (fstat(fileno(fp), &st) == 0 && S_ISDIR(st.st_mode)) {
+        fclose(fp);
+        return raise_path("Cannot open", path, EISDIR);
+    }
     /* Not for a run() child to inherit, as no socket is */
     fcntl(fileno(fp), F_SETFD, FD_CLOEXEC);
     File *f = xmalloc(sizeof *f);
     counted++;
-    *f = (File){.rc = 1, .fp = fp, .owner = vm_process};
+    incref(v_str(path));
+    *f = (File){.rc = 1, .fp = fp, .owner = vm_process, .path = path, .mode = mode->name,
+                .readable = mode->readable, .writable = mode->writable, .last = FILE_IDLE};
     *out = v_file(f);
+    return true;
+}
+
+/* 'Cannot read "data.txt": Input/output error', for a handle */
+static bool raise_file(const char *verb, File *f, int err) {
+    return raise_path(verb, f->path, err);
+}
+
+/* What every handle builtin checks first: the file is open and this process's */
+static bool open_here(const char *builtin, File *f) {
+    if (!f->fp) return raisef("%s() on a closed file", builtin);
+    if (f->owner != vm_process) return refuse_inherited(builtin, "file");
+    return true;
+}
+
+/* And then that it can do what is asked: 'file_read() on a file opened with "w", which can't be
+   read'. C asks for a flush between a write and a read and a seek between a read and a write; a
+   seek to where the file already is does both, and fails only where there is no position at all,
+   a pipe, where there is no mixing either. */
+static bool usable_file(const char *builtin, File *f, bool to_write) {
+    if (!open_here(builtin, f)) return false;
+    if (to_write && !f->writable) return raisef("%s() on a file opened with \"%s\", which can't be written", builtin, f->mode);
+    if (!to_write && !f->readable) return raisef("%s() on a file opened with \"%s\", which can't be read", builtin, f->mode);
+    if (f->last == (to_write ? FILE_READING : FILE_WRITING)) fseeko(f->fp, 0, SEEK_CUR);
+    f->last = to_write ? FILE_WRITING : FILE_READING;
+    return true;
+}
+
+/* The end of a short read. C's end-of-file flag sticks, and a stream that has it gives nothing
+   more, so it is cleared, and a file that someone is still writing to is read further next time.
+   An error is cleared too, once reported. */
+static bool finish_read(File *f, int err) {
+    bool failed = ferror(f->fp);
+    clearerr(f->fp);
+    if (failed) return raise_file("Cannot read", f, err);
     return true;
 }
 
 /* file_read_line($file): the next line without its "\n" or "\r\n", or null at the end, as
    read_line() gives one of standard input */
 static bool read_file_line(File *f, Value *out) {
-    if (!f->fp) return raisef("file_read_line() on a closed file");
-    if (f->owner != vm_process) return refuse_inherited("file_read_line", "file");
+    if (!usable_file("file_read_line", f, false)) return false;
     char *line = NULL;
     size_t cap = 0;
     ssize_t n = getline(&line, &cap, f->fp);
     if (n < 0) {
         int err = errno;
-        bool failed = ferror(f->fp);
         free(line);
-        if (failed) {
-            clearerr(f->fp);
-            return raisef("Cannot read file: %s", strerror(err));
-        }
         *out = v_null();
-        return true;
+        return finish_read(f, err);
     }
     if (n > 0 && line[n - 1] == '\n') n -= n > 1 && line[n - 2] == '\r' ? 2 : 1;
     *out = v_str(str_new(line, (size_t)n));
@@ -820,16 +886,161 @@ static bool read_file_line(File *f, Value *out) {
     return true;
 }
 
-/* file_close($file), and what freeing one does; closing twice does nothing. A file a worker
-   inherited shares its offset with the process that opened it, and fclose() may move that offset
-   back to where this process's reading had got to (POSIX asks it to for a file being read, and
-   macOS does), moving it for the other process too, so its descriptor is pointed at /dev/null
-   first (see workers.c). */
+/* file_read($file, $length): up to $length bytes, fewer only at the end of the file, and "" there.
+   The cap keeps a mistake from asking for all the memory there is; a program wanting more reads
+   again. The bytes are read into a heap buffer, never call_builtin()'s frame. */
+#define FILE_READ_MAX (16 * 1024 * 1024)
+
+static bool read_file_bytes(File *f, int64_t length, Value *out) {
+    if (length < 1 || length > FILE_READ_MAX) {
+        return raisef("file_read() length must be 1 to %d, got %lld", FILE_READ_MAX, (long long)length);
+    }
+    if (!usable_file("file_read", f, false)) return false;
+    char *bytes = xmalloc((size_t)length);
+    size_t n = fread(bytes, 1, (size_t)length, f->fp);
+    int err = errno;
+    if (n < (size_t)length && !finish_read(f, err)) {
+        free(bytes);
+        return false;
+    }
+    *out = v_str(str_new(bytes, n));
+    free(bytes);
+    return true;
+}
+
+/* file_write($file, $data): all of it, into stdio's buffer first, so a failure may only show
+   when the buffer is written out: at a later write, a seek, or file_close() */
+static bool write_file_bytes(File *f, Str *data) {
+    if (!usable_file("file_write", f, true)) return false;
+    if (fwrite(data->data, 1, data->len, f->fp) != data->len) {
+        int err = errno;
+        clearerr(f->fp);
+        return raise_file("Cannot write", f, err);
+    }
+    return true;
+}
+
+/* file_seek($file, $offset, $from = "start"): the new position, counted from the start of the
+   file. A seek writes out what is buffered and clears the end of the file, so a read after it
+   reads on. */
+static bool seek_file(File *f, int64_t offset, Str *from, Value *out) {
+    static const char *const FROM[] = {"start", "current", "end"};
+    static const int WHENCE[] = {SEEK_SET, SEEK_CUR, SEEK_END};
+    int whence = -1;
+    for (int i = 0; i < 3; i++) {
+        if (strlen(FROM[i]) == from->len && !memcmp(FROM[i], from->data, from->len)) whence = WHENCE[i];
+    }
+    if (whence < 0) {
+        Buf m = {0};
+        buf_adds(&m, "file_seek() from must be \"start\", \"current\" or \"end\", got ");
+        quote(from, &m);
+        return raise_str(buf_to_str(&m));
+    }
+    if (!open_here("file_seek", f)) return false;
+    /* off_t is 64 bits wherever gaz builds: always on macOS, and on 64-bit Linux */
+    if (fseeko(f->fp, (off_t)offset, whence) != 0) return raise_file("Cannot seek", f, errno);
+    f->last = FILE_IDLE;
+    off_t at = ftello(f->fp);
+    if (at < 0) return raise_file("Cannot seek", f, errno);
+    *out = v_int((int64_t)at);
+    return true;
+}
+
+/* What freeing a file does, and file_close() of one a worker inherited; closing twice does
+   nothing. An inherited file shares its offset with the process that opened it, and fclose() may
+   move that offset back to where this process's reading had got to (POSIX asks it to for a file
+   being read, and macOS does), moving it for the other process too, so its descriptor is pointed
+   at /dev/null first (see workers.c), which is where anything still buffered goes too. Freeing
+   can't raise, so a failed write is lost here: close_file() is the close that tells. */
 void file_close(File *f) {
     if (!f->fp) return;
     if (f->owner != vm_process) abandon_fd(fileno(f->fp));
     fclose(f->fp);
     f->fp = NULL;
+}
+
+/* file_close($file) as the program asks for it: what is buffered is written out first, and a
+   failure (a full disk, a file grown past its limit) is an error, so the program learns that its
+   data didn't arrive */
+static bool close_file(File *f) {
+    if (!f->fp || f->owner != vm_process || !f->writable) {
+        file_close(f);
+        return true;
+    }
+    int err = fflush(f->fp) == 0 ? 0 : errno;
+    if (fclose(f->fp) != 0 && !err) err = errno;
+    f->fp = NULL;
+    if (err) return raise_file("Cannot write", f, err);
+    return true;
+}
+
+/* file_info($path, $follow = true): what is at $path, or null if nothing is. With $follow false a
+   symbolic link is itself, "link", rather than what it points at. */
+static bool file_info(Str *path, bool follow, Value *out) {
+    struct stat st;
+    bool named = !memchr(path->data, '\0', path->len);
+    int err = 0;
+    if (!named) err = ENOENT;
+    else if ((follow ? stat(path->data, &st) : lstat(path->data, &st)) != 0) err = errno;
+    /* Nothing there, or a path through something that isn't a directory, which names nothing */
+    if (err == ENOENT || err == ENOTDIR) {
+        *out = v_null();
+        return true;
+    }
+    if (err) return raise_path("Cannot get information about", path, err);
+    const char *kind = S_ISREG(st.st_mode) ? "file" : S_ISDIR(st.st_mode) ? "dir" : S_ISLNK(st.st_mode) ? "link" : "other";
+    const char *names[] = {"kind", "size", "mtime", "mode"};
+    Value values[] = {v_str(str_cstr(kind)), v_int((int64_t)st.st_size), v_int((int64_t)st.st_mtime),
+                      v_int((int64_t)(st.st_mode & 07777))};
+    Map *m = map_new();
+    for (int i = 0; i < 4; i++) {
+        Value name = v_str(str_cstr(names[i]));
+        map_set(m, name, values[i]);
+        decref(name);
+    }
+    *out = v_map(m);
+    return true;
+}
+
+/* rename_file($from, $to): rename(2), which replaces a file at $to in one step, so a reader sees
+   the old file or the new one and never half of either. Between file systems it can't, and says
+   so in words of its own, since strerror()'s for EXDEV differ between Linux and macOS. */
+static bool rename_path(Str *from, Str *to) {
+    int err = 0;
+    if (memchr(from->data, '\0', from->len) || memchr(to->data, '\0', to->len)) err = ENOENT;
+    else if (rename(from->data, to->data) != 0) err = errno;
+    if (!err) return true;
+    Buf m = {0};
+    buf_adds(&m, "Cannot rename ");
+    quote(from, &m);
+    buf_adds(&m, " to ");
+    quote(to, &m);
+    buf_adds(&m, ": ");
+    buf_adds(&m, err == EXDEV ? "they are on different file systems" : strerror(err));
+    return raise_str(buf_to_str(&m));
+}
+
+/* make_dir($path, true): every directory along $path that isn't there, a level at a time, and one
+   that is there already is fine. 0, or the errno that stopped it, ENOTDIR for something in the
+   way that isn't a directory. The copy it cuts up is on the heap, not in call_builtin()'s frame. */
+static int make_dirs(const Str *path) {
+    char *copy = xmalloc(path->len + 1);
+    memcpy(copy, path->data, path->len);
+    copy[path->len] = '\0';
+    int err = 0;
+    /* Each '/' after the first byte ends a level, and so does the end of the path */
+    for (size_t end = 1; end <= path->len && !err; end++) {
+        if (end < path->len && copy[end] != '/') continue;
+        copy[end] = '\0';
+        struct stat st;
+        if (mkdir(copy, 0777) != 0) {
+            err = errno;
+            if (err == EEXIST) err = stat(copy, &st) == 0 && S_ISDIR(st.st_mode) ? 0 : ENOTDIR;
+        }
+        if (end < path->len) copy[end] = '/';
+    }
+    free(copy);
+    return err;
 }
 
 static int by_bytes(const void *a, const void *b) { return str_cmp(((const Value *)a)->s, ((const Value *)b)->s); }
@@ -925,11 +1136,15 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     }
     case B_TRIM: {
-        /* The same whitespace the lexer skips: space, tab, newline, carriage return */
-        if (!want(index, a, STRING)) return false;
+        /* trim($s, $chars = null): the bytes of $chars off both ends, or without them the same
+           whitespace the lexer skips: space, tab, newline, carriage return */
+        Value chars = argc > 1 ? b : v_null();
+        if (!want(index, a, STRING) || !want(index, chars, STRING | M(T_NULL))) return false;
+        const char *set = chars.type == T_STRING ? chars.s->data : " \t\n\r";
+        size_t set_len = chars.type == T_STRING ? chars.s->len : 4;
         size_t from = 0, to = a.s->len;
-        while (from < to && strchr(" \t\n\r", a.s->data[from]) && a.s->data[from]) from++;
-        while (to > from && strchr(" \t\n\r", a.s->data[to - 1]) && a.s->data[to - 1]) to--;
+        while (from < to && memchr(set, a.s->data[from], set_len)) from++;
+        while (to > from && memchr(set, a.s->data[to - 1], set_len)) to--;
         *out = v_string(a.s->data + from, to - from);
         return true;
     }
@@ -1334,7 +1549,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, STRING)) return false;
         int err = 0;
         struct stat st;
-        if (memchr(a.s->data, '\0', a.s->len)) err = ENOENT;
+        Value parents = index == B_MAKE_DIR && argc > 1 ? b : v_bool(false);
+        if (!want(index, parents, M(T_BOOL))) return false;
+        if (memchr(a.s->data, '\0', a.s->len) || (parents.b && a.s->len == 0)) err = ENOENT;
+        else if (parents.b) err = make_dirs(a.s);
         else if (index == B_MAKE_DIR) err = mkdir(a.s->data, 0777) == 0 ? 0 : errno;
         else if (index == B_DELETE_DIR) err = rmdir(a.s->data) == 0 ? 0 : errno;
         else if (lstat(a.s->data, &st) == 0 && S_ISDIR(st.st_mode)) err = EISDIR;
@@ -1579,9 +1797,35 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         db_close(a.db);
         *out = v_null();
         return true;
-    case B_FILE_OPEN:
-        if (!want(index, a, STRING)) return false;
-        return open_file(a.s, out);
+    case B_FILE_OPEN: {
+        Value mode = argc > 1 ? b : v_null();
+        if (!want(index, a, STRING) || (argc > 1 && !want(index, mode, STRING))) return false;
+        static Str *read_mode;
+        if (!read_mode) read_mode = str_intern("r", 1);
+        return open_file(a.s, argc > 1 ? mode.s : read_mode, out);
+    }
+    case B_FILE_READ:
+        if (!want(index, a, M(T_FILE)) || !want(index, b, INT)) return false;
+        return read_file_bytes(a.file, b.i, out);
+    case B_FILE_WRITE:
+        if (!want(index, a, M(T_FILE)) || !want(index, b, STRING)) return false;
+        *out = v_null();
+        return write_file_bytes(a.file, b.s);
+    case B_FILE_SEEK: {
+        if (!want(index, a, M(T_FILE)) || !want(index, b, INT) || (argc > 2 && !want(index, c, STRING))) return false;
+        static Str *from_start;
+        if (!from_start) from_start = str_intern("start", 5);
+        return seek_file(a.file, b.i, argc > 2 ? c.s : from_start, out);
+    }
+    case B_FILE_INFO: {
+        Value follow = argc > 1 ? b : v_bool(true);
+        if (!want(index, a, STRING) || !want(index, follow, M(T_BOOL))) return false;
+        return file_info(a.s, follow.b, out);
+    }
+    case B_RENAME_FILE:
+        if (!want(index, a, STRING) || !want(index, b, STRING)) return false;
+        *out = v_null();
+        return rename_path(a.s, b.s);
     case B_FILE_READ_LINE:
         if (!want(index, a, M(T_FILE))) return false;
         return read_file_line(a.file, out);
@@ -1595,9 +1839,8 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return utf8_characters(index, a.s, out);
     case B_FILE_CLOSE:
         if (!want(index, a, M(T_FILE))) return false;
-        file_close(a.file);
         *out = v_null();
-        return true;
+        return close_file(a.file);
     case B_TERM_RAW:
         if (!want(index, a, M(T_BOOL))) return false;
         if (!term_raw(a.b)) return false;

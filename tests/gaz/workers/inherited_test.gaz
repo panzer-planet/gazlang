@@ -1,4 +1,5 @@
 import "std/test.gaz" use expect, throws;
+import "std/crypto.gaz";
 import "std/db.gaz";
 
 /*
@@ -12,6 +13,9 @@ const INHERITED = "was opened before workers(), and workers can't share one: ope
 $db = db::open("sqlite::memory:");
 $raw = db_open("sqlite::memory:");
 $file = file_open("tests/corpora/cli/lines.txt");
+$scratch = (getenv("TMPDIR") ?? "/tmp") .. "/gaz-inherited-" .. crypto::hex(random_bytes(8));
+$writer = file_open($scratch, "w");
+file_write($writer, "the master's");
 $listener = socket_listen("127.0.0.1", 0);
 $client = socket_open("127.0.0.1", socket_port($listener));
 $accepted = socket_accept($listener);
@@ -24,6 +28,10 @@ expect("the first worker is 1", workers(1), 1);
 throws("a db", () -> db_run($raw, "select 1"), "db_run(): this db " .. INHERITED);
 throws("through lib/db.gaz", () -> $db.value(db::sql"select 1"), "db_run(): this db " .. INHERITED);
 throws("a file", () -> file_read_line($file), "file_read_line(): this file " .. INHERITED);
+throws("a file's bytes", () -> file_read($file, 1), "file_read(): this file " .. INHERITED);
+throws("seeking a file", () -> file_seek($file, 0), "file_seek(): this file " .. INHERITED);
+throws("writing a file", () -> file_write($writer, "x"), "file_write(): this file " .. INHERITED);
+throws("seeking a file being written", () -> file_seek($writer, 0, "end"), "file_seek(): this file " .. INHERITED);
 throws("reading a connection", () -> socket_read($client), "socket_read(): this socket " .. INHERITED);
 throws("writing to a connection", () -> socket_write($client, "x"), "socket_write(): this socket " .. INHERITED);
 throws("a connection's port", () -> socket_port($client), "socket_port(): this socket " .. INHERITED);
@@ -56,3 +64,7 @@ socket_close($client);
 $db = null;
 throws("closed, it is closed", () -> db_run($raw, "select 1"), "db_run() on a closed database");
 expect("closed, a file is closed", type_of($file) .. " " .. $file, "file file (closed)");
+expect("closing a file being written is no error", file_close($writer), null);
+// The master's write was written out before workers() forked, so no worker can write it again
+expect("what the master wrote is there", read_file($scratch), "the master's");
+delete_file($scratch);

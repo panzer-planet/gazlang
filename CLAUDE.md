@@ -495,7 +495,7 @@ that must find nothing to do.
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
     `run`, `exit`, `workers`, `worker_recycle`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
-    `read_line`, `sleep`, `getenv`, a directory builtin, a `term_` builtin, a `file_` builtin
+    `read_line`, `sleep`, `getenv`, a directory builtin, `rename_file`, a `term_` builtin, a `file_` builtin
     (`/dev/stdin` waits and `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv`
     since what it gives isn't the seed's; `worker_recycle` since it ends the process by an unhandled
     signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a
@@ -1163,7 +1163,8 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
 `type_of()` names.
 
 - Strings: `len`, `slice($x, $start, $length)` (strings and lists, PHP's rules including
-  negatives), `lower`, `upper`, `trim` (the lexer's whitespace only), `split` (empty separator:
+  negatives), `lower`, `upper`, `trim($s, $chars = null)` (the lexer's whitespace, or the bytes of
+  `$chars`: bytes, not UTF-8 characters, so a multi-byte character can't be named), `split` (empty separator:
   bytes, one string each; a third argument, an int of 1 or more or null, caps the parts, the last holding the
   rest), `join` (elements converted like echo), `replace` (every occurrence; empty search
   is an error), `contains`, `ends_with`, `starts_with($s, $prefix, $offset = 0)` (whether the
@@ -1214,18 +1215,58 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   gaz options or `--`; the CLI rejects options it doesn't know, since `getopt` would drop
   them silently), `cwd()`, `real_path()` (as `realpath(3)`; `""`, a NUL byte, `file/` and
   `file/..` are nothing, where platforms disagree), `file_exists()`.
-- `file_open($path)`, `file_read_line($file)`, `file_close($file)`: a file read a line at a time, so
-  a large file or a log needn't be in memory whole. A `file` is a handle like a `socket` or a `db`
-  (`T_FILE`, refcounted, closed when the last reference goes, closing twice fine), and the line rule
-  is `read_line()`'s (`"\n"` or `"\r\n"` stripped, a last line needing neither, `null` at the end). **Three
-  builtins, not `read_line($f)`**: an optional handle would make `read_line`'s meaning depend on an
-  argument's type, and a handle that could later take a mode (`"w"`, `"a"`) has room. Only a
-  directory is refused (`EISDIR`, written out as `delete_file` does): a pipe or `/dev/stdin` is
-  what streaming is for, where `read_file()` insists on a regular file. Close-on-exec, as a socket is; one opened before `workers()` can't be
-  read in a worker (see "Serving HTTP"). `ponytail:` read only, no
-  seek, no bytes; a file being appended to stops at the first `null` (C's end-of-file flag sticks); a `foreach` can't be lazy, so a program loops on `file_read_line()`.
+- **File handles**: `file_open($path, $mode = "r")`, `file_read_line($file)`, `file_read($file,
+  $length)`, `file_write($file, $data)`, `file_seek($file, $offset, $from = "start")`,
+  `file_close($file)`. A `file` is a handle like a `socket` or a `db` (`T_FILE`, refcounted, closed
+  when the last reference goes, closing twice fine), holding its path for messages (`Cannot write
+  "out.txt": ...`). **Modes are one argument, not more names**: `"r"`, `"w"` (create or truncate),
+  `"a"` (create or append) and `"r+"` (read and write an existing file), anything else an error
+  naming the four; a new file is 0666 less the umask, as `fopen()` makes it. Reading a writer or
+  writing a reader is an error naming the mode. The line rule is `read_line()`'s (`"\n"` or
+  `"\r\n"` stripped, a last line needing neither, `null` at the end); `file_read` is up to
+  `$length` bytes (1 to 16 MiB, `FILE_READ_MAX`, so a mistake can't ask for all the memory there is;
+  read into the heap, never `call_builtin()`'s frame), fewer only at the end, `""` there, as
+  `socket_read()` gives the end. `file_seek` gives the new position, so `file_seek($f, 0,
+  "current")` is the position and there is no `file_tell`; a pipe is `Illegal seek`.
+  - **The end is where the file ends now**: C's end-of-file flag sticks (a stream that has it
+    gives nothing more), so every short read clears it (`finish_read()`), and a file still being
+    appended to is read further on the next call, which is how a log is followed. Tested with two
+    handles on one file. `ponytail:` a line read while it is half written comes back as two lines
+    (getline can't tell a last line from one still arriving); a reader that cares reads bytes.
+  - **stdio wants a flush or a seek between a write and a read** on an `"r+"` handle, so each
+    handle remembers what it did last (`File.last`) and seeks to where it is when that changes
+    (`usable_file()`).
+  - **`file_close()` reports a failed write** (`fflush` and `fclose`'s errors, the full disk or
+    `EFBIG` a test provokes with `ulimit -f` and SIGXFSZ ignored), since writes wait in stdio's
+    buffer and only the close learns. **Releasing the last reference can't raise** (it happens in
+    `decref`), so a file written and dropped without `file_close()` loses such an error: the docs
+    say to close what you wrote, and `fs::write_atomic` does. `ponytail:` a `finally`-shaped
+    release that could raise would lift it.
+  - **Three builtins, not `read_line($f)`**: an optional handle would make `read_line`'s meaning
+    depend on an argument's type. Only a directory is refused, in every mode (`EISDIR`, written
+    out as `delete_file` does, after an `fstat()` of what `fopen()` opened, since it opens one for
+    reading): a pipe or `/dev/stdin` is what streaming is for, where `read_file()` insists on a
+    regular file. Close-on-exec, as a socket is; one opened before `workers()` can't be used in a
+    worker (see "Serving HTTP"), and **`workers()` calls `fflush(NULL)` before it forks**, so a
+    writer's buffer isn't copied into every worker to be written again by a worker that ends with
+    `exit()` (stdio's flush at exit; the abandon covers the other ways out). Tested by
+    `tests/gaz/workers/inherited_writer_test.gaz`, which ends a worker every way there is and reads
+    the file once the master has ended. `ponytail:` a `foreach` can't be lazy, so a program loops on
+    `file_read_line()`.
+- `file_info($path, $follow = true)`: `{"kind", "size", "mtime", "mode"}` or null when nothing is
+  there (`ENOENT`, `ENOTDIR`, a NUL byte), any other failure an error. `"kind"` is `"file"`,
+  `"dir"`, `"link"` (only with `$follow` false: `lstat`, so a walk can refuse to follow) or
+  `"other"`; `"mtime"` whole seconds, an int, so it compares with `time()` (nanoseconds wait for a
+  program that needs them); `"mode"` the permission bits (`st_mode & 07777`). **One builtin and a
+  map, not `file_size`/`file_mtime`/`is_link`**: one name, one system call, and room for a field.
+- `rename_file($from, $to)`: `rename(2)`, atomic, replacing a file at `$to`; `Cannot rename "a" to
+  "b": strerror`, except between file systems, written out (`they are on different file systems`)
+  since `EXDEV`'s words differ between Linux and macOS. No copy-and-delete fallback: a move that
+  can't be atomic shouldn't pretend to be.
 - Directories: `list_dir()` (sorted with `str_cmp`, byte by byte, since `readdir()`'s order is
-  the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir()` (one level),
+  the file system's), `is_dir()` (through symlinks, as `file_exists`), `make_dir($path, $parents = false)` (one
+  level, or with `true` every missing level and an existing directory fine, a file in the way
+  `ENOTDIR`: `make_dirs()`, on a heap copy of the path it cuts up),
   `delete_dir()` (empty only), `delete_file()` (not a directory: its reason is written out as
   `EISDIR`, since `unlink()` says EPERM on macOS). A failure is `Cannot VERB "path": strerror`,
   the path quoted so a NUL byte shows; a NUL byte in a path is `ENOENT`, as no name holds one.

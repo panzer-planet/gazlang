@@ -1,0 +1,31 @@
+import "std/test.gaz" use expect;
+import "std/crypto.gaz";
+
+/*
+ * A file open for writing before workers(), with what was written still in its buffer: the
+ * worker's copy of the buffer must go nowhere, however the worker ends, so the file holds what
+ * was written exactly once. Each case is a program of its own, run with run(), since the file
+ * can only be read once the master has ended too.
+ */
+fn scratch_file(): string {
+    return (getenv("TMPDIR") ?? "/tmp") .. "/gaz-inherited-writer-" .. crypto::hex(random_bytes(8));
+}
+
+// A string as a GazLang literal, to put into a program
+fn text_literal(string $s): string {
+    return slice(to_string([$s]), 1, -1);
+}
+
+fn written_once(string $label, string $worker_ends): null {
+    $path = scratch_file();
+    $program = '$f = file_open(PATH, "w"); file_write($f, "once\n"); workers(1); ' .. $worker_ends;
+    run([program_path(), "-e", replace($program, "PATH", text_literal($path))]);
+    expect($label, read_file($path), "once\n");
+    delete_file($path);
+}
+
+written_once("a worker that ends by exit()", "exit(0);");
+written_once("a worker that ends at the end of the program", "");
+written_once("a worker that lets go of the file", '$f = null;');
+written_once("a worker that closes it", 'file_close($f);');
+written_once("a worker that ends with an error", 'throw "stop";');

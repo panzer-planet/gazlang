@@ -1052,6 +1052,8 @@ tests/gaz/compiler/lexer_test.gaz
 tests/gaz/compiler/parser_test.gaz
 tests/gaz/errors/trace_test.gaz
 tests/gaz/errors/try_catch_test.gaz
+tests/gaz/files/handle_test.gaz
+tests/gaz/files/info_test.gaz
 tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/functions/shared_test.gaz
 tests/gaz/lib/chars_test.gaz
@@ -1115,6 +1117,7 @@ tests/gaz/templates/templates_test.gaz
 tests/gaz/templates/views/shop.gaz
 tests/gaz/templates/web_html_test.gaz
 tests/gaz/workers/inherited_test.gaz
+tests/gaz/workers/inherited_writer_test.gaz
 tests/programs/cat_facts.gaz
 tests/programs/csv_report.gaz
 tests/programs/errors.gaz
