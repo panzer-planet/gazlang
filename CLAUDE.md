@@ -374,7 +374,8 @@ that must find nothing to do.
 - **A language server** (`lsp/server.gaz`, `bin/gaz lsp/server.gaz`), so an editor gets errors and
   eventually more without a stranger installing anything but gaz. Diagnostics
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and
-  `publishDiagnostics` the first syntax error), hover (a builtin's arity from `builtins()`, or a
+  `publishDiagnostics` the first syntax error; one in an included file is shown at the
+  document's include of it, or its first line when reached through another file), hover (a builtin's arity from `builtins()`, or a
   declared function's parameters found by scanning the document's own text for `fn name(...)`),
   go-to-definition (the same textual search, followed across the document's own `include`
   chain — resolved the way the real compiler resolves them, from the document's own directory,

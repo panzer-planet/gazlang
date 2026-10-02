@@ -107,6 +107,23 @@ class LspTest extends GazLangTestCase
         $this->assertSame([], $messages[0]['params']['diagnostics']);
     }
 
+    public function test_an_error_in_an_included_file_is_shown_at_the_include_that_leads_to_it()
+    {
+        // broken.gaz's error is on its line 4, which in the document is a blank line
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/broken_includer.gaz');
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path, 'text' => file_get_contents($path)],
+            ]],
+        ]);
+
+        $diagnostics = $messages[0]['params']['diagnostics'];
+        $this->assertCount(1, $diagnostics);
+        $this->assertSame(2, $diagnostics[0]['range']['start']['line']); // 0-based: the include
+        $this->assertStringStartsWith('in ', $diagnostics[0]['message']);
+        $this->assertStringContainsString("broken.gaz:4: Expected ';'", $diagnostics[0]['message']);
+    }
+
     public function test_a_change_is_diagnosed_from_its_last_content_change_the_whole_new_text()
     {
         $messages = $this->session([

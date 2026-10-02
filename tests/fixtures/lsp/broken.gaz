@@ -1,0 +1,4 @@
+// Included by broken_includer.gaz: the ; after the return is missing, an error on line 4
+fn broken() {
+    return 1
+}

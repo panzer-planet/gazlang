@@ -74,17 +74,24 @@ fn whole_line($lines, $at) {
  * error would give more.
  */
 fn diagnostics($text, $uri) {
+    $path = path_from_uri($uri);
     try {
-        Parser(Lexer($text), path_from_uri($uri)).parse();
+        Parser(Lexer($text), $path).parse();
         return [];
     } catch (ParseError $e) {
         $lines = split($text, "\n");
-        $at = max(0, min($e.source_line - 1, len($lines) - 1));
+        if ($e.source_file == $path) {
+            $at = max(0, min($e.source_line - 1, len($lines) - 1));
+            $message = $e.reason;
+        } else {
+            $at = include_line($lines, $path, $e.source_file);
+            $message = "in {$e.source_file}:{$e.source_line}: {$e.reason}";
+        }
         return [{
             "range" => whole_line($lines, $at),
             "severity" => 1, // Error
             "source" => "gazlang",
-            "message" => $e.reason,
+            "message" => $message,
         }];
     } catch (Error $e) {
         /* Running out of call depth on deeply nested source, say: not a syntax error with a
@@ -220,6 +227,23 @@ fn included_paths($path, $text) {
         }
     }
     return $paths;
+}
+
+/*
+ * The zero-based line of the document's include of $file, where an error in that file is shown;
+ * the first line when the document reaches it only through another file (or is unsaved)
+ */
+fn include_line($lines, $path, $file) {
+    if ($path == null || $file == null) {
+        return 0;
+    }
+    $target = real_path($file);
+    foreach ($lines as $i => $line) {
+        if (in_array($target, included_paths($path, $line))) {
+            return $i;
+        }
+    }
+    return 0;
 }
 
 // Every name declared with fn in $text, in the order they appear
