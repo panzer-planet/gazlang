@@ -15,6 +15,9 @@ fn making(string $dir): null {
     symlink($dir .. "/target.txt", $dir .. "/absolute");
     expect("an absolute target", readlink($dir .. "/absolute"), $dir .. "/target.txt");
     expect("reads through", read_file($dir .. "/absolute"), "target");
+    symlink(".", $dir .. "/dot");
+    expect("a target that names something from here is still the text", readlink($dir .. "/dot"), ".");
+    expect("and is read from the link's directory", real_path($dir .. "/dot"), real_path($dir));
     symlink("./sub/../target.txt", $dir .. "/winding");
     expect("the text isn't tidied", readlink($dir .. "/winding"), "./sub/../target.txt");
     symlink("no such file", $dir .. "/dangling");

@@ -4,6 +4,8 @@ ok its text is what it was given
 ok a relative target is read from the link's directory
 ok an absolute target
 ok reads through
+ok a target that names something from here is still the text
+ok and is read from the link's directory
 ok the text isn't tidied
 ok a target needn't exist
 ok and the link leads nowhere
