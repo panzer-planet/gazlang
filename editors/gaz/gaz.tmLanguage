@@ -190,7 +190,13 @@
 					<key>name</key>
 					<string>keyword.control.gaz</string>
 					<key>match</key>
-					<string>\b(echo|if|else|while|for|foreach|as|break|continue|return|match|default|delete|try|catch|finally|throw|import|include|use)\b</string>
+					<string>\b(echo|if|else|while|for|foreach|as|break|continue|return|match|default|delete|try|catch|finally|throw|import|use)\b</string>
+				</dict>
+				<dict>
+					<key>name</key>
+					<string>invalid.deprecated.removed.gaz</string>
+					<key>match</key>
+					<string>\b(include)\b</string>
 				</dict>
 				<dict>
 					<key>name</key>

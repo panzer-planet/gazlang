@@ -284,11 +284,102 @@ fn declared_functions($path, $text, $visited, $root) {
 }
 
 /*
+ * The document's imports as links an editor can follow: for each import "path"; line, the range
+ * of the path inside its quotes and the file it names. A path with no file to open (std/, which is
+ * built in) or none on disk is left out.
+ */
+fn document_links($uri) {
+    $text = @documents[$uri] ?? null;
+    $path = path_from_uri($uri);
+    if ($text == null || $path == null) {
+        return [];
+    }
+    $directory = directory_of($path);
+    $root = root_of($path);
+    $links = [];
+    foreach (split($text, "\n") as $number => $line) {
+        $found = regex::groups($line, '^[ \t]*import[ \t]+"([^"]*)"');
+        if ($found == null) {
+            continue;
+        }
+        $target = import_target($found[1], $directory, $root);
+        if ($target.path == null || !file_exists($target.path) || is_dir($target.path)) {
+            continue;
+        }
+        $start = index_of($line, '"') + 1;
+        $links[] = {
+            "range" => {
+                "start" => {"line" => $number, "character" => $start},
+                "end" => {"line" => $number, "character" => $start + len($found[1])},
+            },
+            "target" => uri_from_path(real_path($target.path)),
+        };
+    }
+    return $links;
+}
+
+// The path typed so far inside an import's string, up to the cursor, or null anywhere else
+fn import_prefix($text, $position) {
+    $before = slice(text_line($text, $position["line"]), 0, $position["character"]);
+    $found = regex::groups($before, '^[ \t]*import[ \t]+"([^"]*)$');
+    return $found == null ? null : $found[1];
+}
+
+/*
+ * What can follow an import path typed so far: the .gaz and .gazml files and the folders of the
+ * directory it names, from the file's own directory after ./ and from its project root
+ * otherwise, and ./ and std/ to begin with. std/ has no directory to list, since it is built in.
+ */
+fn import_completions($path, $prefix) {
+    $steps = split($prefix, "/");
+    $folders = slice($steps, 0, -1);
+    $here = root_of($path);
+    if ($folders != [] && $folders[0] == ".") {
+        $here = directory_of($path);
+        $folders = slice($folders, 1);
+    }
+    if ($folders == [] && !contains($prefix, "/")) {
+        $items = [{"label" => "./", "kind" => 19}, {"label" => "std/", "kind" => 19}]; // Folder
+    } else {
+        $items = [];
+    }
+    if ($folders != [] && $folders[0] == "std") {
+        return $items;
+    }
+    foreach ($folders as $folder) {
+        $here = join_path($here, $folder);
+    }
+    if (!is_dir($here)) {
+        return $items;
+    }
+    foreach (list_dir($here) as $name) {
+        if (starts_with($name, ".")) {
+            continue;
+        }
+        if (is_dir(join_path($here, $name))) {
+            $items[] = {"label" => $name .. "/", "kind" => 19};
+        } else if (ends_with($name, ".gaz") || ends_with($name, ".gazml")) {
+            $items[] = {"label" => $name, "kind" => 17}; // File
+        }
+    }
+    return $items;
+}
+
+/*
  * Completions: the language's keywords, every builtin with its arity, and every function this
  * document can reach by name (itself and what it imports, directly or not). No filtering by
- * what is typed so far: editors filter a completion list against the prefix themselves.
+ * what is typed so far: editors filter a completion list against the prefix themselves. Inside
+ * the string of an import, the files it could name instead.
  */
-fn completions($uri) {
+fn completions($uri, $position = null) {
+    $document = @documents[$uri] ?? null;
+    $path = path_from_uri($uri);
+    if ($document != null && $position != null) {
+        $prefix = import_prefix($document, $position);
+        if ($prefix != null) {
+            return $path == null ? [] : import_completions($path, $prefix);
+        }
+    }
     $items = map(keywords(), $word -> ({"label" => $word, "kind" => 14})); // Keyword
     foreach (builtins() as $name => $arity) {
         $items[] = {"label" => $name, "kind" => 3, "detail" => describe_arity($arity)}; // Function
@@ -379,6 +470,7 @@ while (true) {
                     "hoverProvider" => true,
                     "definitionProvider" => true,
                     "completionProvider" => {},
+                    "documentLinkProvider" => {},
                 },
             }),
             "shutdown" => respond($connection, $message["id"], null),
@@ -391,7 +483,8 @@ while (true) {
             ),
             "textDocument/hover" => respond($connection, $message["id"], hover($params["textDocument"]["uri"], $params["position"])),
             "textDocument/definition" => respond($connection, $message["id"], definition($params["textDocument"]["uri"], $params["position"])),
-            "textDocument/completion" => respond($connection, $message["id"], completions($params["textDocument"]["uri"])),
+            "textDocument/completion" => respond($connection, $message["id"], completions($params["textDocument"]["uri"], $params["position"] ?? null)),
+            "textDocument/documentLink" => respond($connection, $message["id"], document_links($params["textDocument"]["uri"])),
             default => has_key($message, "id")
                 ? $connection.write({
                     "jsonrpc" => "2.0",

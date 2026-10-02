@@ -40,6 +40,29 @@
 		</dict>
 		<dict>
 			<key>name</key>
+			<string>meta.import.gazml</string>
+			<key>begin</key>
+			<string>^\s*(?=import\b)</string>
+			<key>end</key>
+			<string>;|$</string>
+			<key>endCaptures</key>
+			<dict>
+				<key>0</key>
+				<dict>
+					<key>name</key>
+					<string>punctuation.terminator.gazml</string>
+				</dict>
+			</dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>include</key>
+					<string>source.gaz</string>
+				</dict>
+			</array>
+		</dict>
+		<dict>
+			<key>name</key>
 			<string>meta.directive.template.gazml</string>
 			<key>begin</key>
 			<string>^\s*(@template)\b(?:\s+(pub)\b)?</string>

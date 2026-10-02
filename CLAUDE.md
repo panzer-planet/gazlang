@@ -122,8 +122,9 @@ composer ci                         # what CI runs, cold: phpstan with no result
   (`docs/design/modules.md`).
 - `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source, `gzb/gzb.tmLanguage` for
   bytecode and `gazml/gazml.tmLanguage` for templates (HTML with GazLang embedded: `{{ }}`,
-  `{!! !!}` and the directive lines, also inside tags and attribute values; VS Code, Sublime and
-  most editors read them). `EditorGrammarTest` fails when the
+  `{!! !!}`, the directive lines and the `import` lines before them, also inside tags and attribute
+  values; VS Code, Sublime and most editors read them). The source grammar marks `include`, a
+  removed word the lexer still knows, as invalid and not as a keyword. `EditorGrammarTest` fails when the
   first misses a builtin or keyword, the template grammar's directives differ from `directive()`'s in
   `compiler/template.gaz`, or the second doesn't name exactly `INFO`'s instructions in
   `vm/load.c`, so a new instruction needs a word in the grammar; the bytecode grammar marks what
@@ -389,7 +390,11 @@ that must find nothing to do.
   the lexer's table; every builtin with its arity; every function the
   document can reach by name, itself and what it imports, directly or not (further than the
   compiler lets it see, so a completion can nudge toward an import), each once even if declared reachably
-  more than once; no filtering by what is typed, which editors do themselves) are done; textual,
+  more than once; no filtering by what is typed, which editors do themselves; inside the string
+  of an `import`, the `.gaz` and `.gazml` files and folders it could name instead, from the file's own
+  directory after `./` and from its project root otherwise, `std/` having no directory to list) and
+  document links (each `import` path links to the file it names, `std/` and missing files left out)
+  are done; textual,
   not from the parsed tree, since the tree doesn't exist while the document has an unrelated
   syntax error, which is the common case mid-edit. Nothing else is planned yet; add what a real
   session of using it shows is missing. It is `namespace gazlang`, not its own, reusing the

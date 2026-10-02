@@ -43,6 +43,16 @@ class EditorGrammarTest extends GazLangTestCase
         $this->assertSame([], array_values(array_diff($keywords[1], $highlighted)));
     }
 
+    public function test_it_marks_include_as_removed_not_as_a_keyword()
+    {
+        $grammar = (string) file_get_contents(self::GRAMMAR);
+        $this->assertSame(1, preg_match('#<string>invalid\\.deprecated\\.removed\\.gaz</string>\\s*<key>match</key>\\s*<string>\\\\b\\(include\\)\\\\b</string>#', $grammar), 'a rule marking include invalid');
+        // And no keyword rule colours it as one
+        preg_match('#<string>keyword\\.control\\.gaz</string>\\s*<key>match</key>\\s*<string>([^<]+)</string>#', $grammar, $keywords);
+        $this->assertStringNotContainsString('include', $keywords[1]);
+        $this->assertStringContainsString('import', $keywords[1]);
+    }
+
     public function test_it_highlights_every_operator_as_one()
     {
         $grammar = (string) file_get_contents(self::GRAMMAR);
@@ -77,5 +87,7 @@ class EditorGrammarTest extends GazLangTestCase
         $this->assertSame([], array_values(array_diff($words[1], $named)), 'directives the grammar is missing');
         $this->assertSame([], array_values(array_diff($named, $words[1])), 'names the grammar highlights that are not directives');
         $this->assertStringContainsString('(@template)', $grammar);
+        // A template may import before its @template line, as any file may before its declarations
+        $this->assertStringContainsString('<string>^\\s*(?=import\\b)</string>', $grammar);
     }
 }

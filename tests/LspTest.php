@@ -59,6 +59,7 @@ class LspTest extends GazLangTestCase
         $this->assertSame(
             ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => [
                 'textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true, 'completionProvider' => [],
+                'documentLinkProvider' => [],
             ]]],
             $messages[0]
         );
@@ -122,6 +123,55 @@ class LspTest extends GazLangTestCase
         $this->assertSame(2, $diagnostics[0]['range']['start']['line']); // 0-based: the import
         $this->assertStringStartsWith('in ', $diagnostics[0]['message']);
         $this->assertStringContainsString("broken.gaz:4: Expected ';'", $diagnostics[0]['message']);
+    }
+
+    /** An import's path is a link to the file it names; std/ has no file to open */
+    public function test_an_import_path_is_a_link_to_its_file()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        $helper = realpath(self::ROOT.'/tests/fixtures/lsp/helper.gaz');
+        $text = "import \"std/text.gaz\";\n  import \"./helper.gaz\";\nimport \"./missing.gaz\";\n";
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path, 'text' => $text],
+            ]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/documentLink', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path],
+            ]],
+        ]);
+
+        $this->assertSame([[
+            'range' => ['start' => ['line' => 1, 'character' => 10], 'end' => ['line' => 1, 'character' => 22]],
+            'target' => 'file://'.$helper,
+        ]], $messages[1]['result']);
+    }
+
+    /** Inside an import's string, completion offers the files it could name, and the keywords nowhere near it */
+    public function test_completion_inside_an_import_string_offers_files()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        $ask = fn (string $line, int $character) => $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path, 'text' => $line],
+            ]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/completion', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$path], 'position' => ['line' => 0, 'character' => $character],
+            ]],
+        ])[1]['result'];
+        $labels = fn (array $items) => array_column($items, 'label');
+
+        $beside = $labels($ask('import "./', 10));
+        $this->assertContains('helper.gaz', $beside);
+        $this->assertNotContains('echo', $beside);
+
+        $begun = $labels($ask('import "', 8));
+        $this->assertContains('./', $begun);
+        $this->assertContains('std/', $begun);
+
+        // std/ is built in: there is no directory of it to list
+        $this->assertSame([], $labels($ask('import "std/', 12)));
+
+        $this->assertContains('echo', $labels($ask('import "./helper.gaz"; ', 24)));
     }
 
     /** A comment that says an import is not the import: the error is shown at the real one */
