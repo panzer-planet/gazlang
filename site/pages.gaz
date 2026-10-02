@@ -3,17 +3,17 @@
  * and entries, and the navigation lists, with the templates that write them. No top level code,
  * so a test can render a template with what it likes (tests/gaz/site/pages_test.gaz).
  */
-include "highlight.gaz";
-include "markdown.gaz";
-include "library.gaz";
-include "documents.gaz" use Link, NavItem, Repository, root_of;
-include "templates/layout.gazml";
-include "templates/nav_list.gazml";
-include "templates/downloads.gazml";
-include "templates/section_list.gazml";
-include "templates/library_index.gazml";
-include "templates/library_page.gazml";
-include "templates/entry.gazml";
+import "./highlight.gaz";
+import "./markdown.gaz";
+import "./library.gaz";
+import "./documents.gaz" use Link, NavItem, Repository, root_of;
+import "./templates/layout.gazml";
+import "./templates/nav_list.gazml";
+import "./templates/downloads.gazml";
+import "./templates/section_list.gazml";
+import "./templates/library_index.gazml";
+import "./templates/library_page.gazml";
+import "./templates/entry.gazml";
 
 // The parts of the site the navigation bar links to: [section, title, page]
 const SITE_SECTIONS = [
@@ -117,9 +117,9 @@ kind LibraryView {
         #summary = Html($renderer.render_inline(library::summary($library.comment)));
     }
 
-    // How a program includes it, highlighted
-    pub fn include_line(): Html {
-        return Html(highlight::to_html("gaz", "include \"std/{#name}.gaz\";"));
+    // How a program imports it, highlighted
+    pub fn import_line(): Html {
+        return Html(highlight::to_html("gaz", "import \"std/{#name}.gaz\";"));
     }
 
     pub fn comment(): Html {

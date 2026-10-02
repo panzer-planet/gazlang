@@ -1,0 +1,4 @@
+// lib/chain/b.gaz imports c.gaz, whose namespace this file doesn't reach
+import "./lib/chain/b.gaz";
+
+echo b::b() .. c::c();

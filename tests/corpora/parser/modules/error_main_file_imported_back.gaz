@@ -1,0 +1,4 @@
+// lib/error_imports_the_main_file.gaz imports this file back, which runs code
+import "./lib/error_imports_the_main_file.gaz";
+
+echo 1;

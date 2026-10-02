@@ -71,8 +71,8 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * Piped source has no file: its locations are line numbers only, and its includes are
-     * relative to the working directory, so an include that works from a file fails piped
+     * Piped source has no file: its locations are line numbers only, and its imports are from
+     * the working directory and its project, so a ./ import that works from a file fails piped
      */
     #[DataProvider('corpus')]
     public function test_self_hosted_parser_prints_the_expected_tree_on_piped_input(string $file)
@@ -82,7 +82,7 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * Where a file is, and where it is parsed from, changes how its includes are shown and not
+     * Where a file is, and where it is parsed from, changes how its imports are shown and not
      * what they are: run from elsewhere, or given by a path the corpus can't spell. Each case is
      * [working directory, file, the name its expected files have in PLACES]; the directories are
      * in the checkout, so what is printed is the same on every machine.
@@ -99,15 +99,15 @@ class SelfHostedParserTest extends GazLangTestCase
      */
     public static function places(): array
     {
-        $include = self::ROOT.'/tests/corpora/parser/include';
+        $modules = self::ROOT.'/tests/corpora/parser/modules';
         $elsewhere = self::ROOT.'/vm/build/elsewhere';
         CVM::makeDirectory($elsewhere);
 
         return [
-            'main file given by its absolute path' => [self::ROOT, "{$include}/main.gaz", 'absolute_main'],
-            'includes that climb out of the working directory' => ["{$include}/lib/deep", 'uses_parent_dir.gaz', 'climbing_includes'],
-            'working directory below the main file' => ["{$include}/lib", '../main.gaz', 'below_the_main_file'],
-            'working directory elsewhere' => [$elsewhere, "{$include}/symlink_is_the_file_it_points_to.gaz", 'elsewhere'],
+            'main file given by its absolute path' => [self::ROOT, "{$modules}/main.gaz", 'absolute_main'],
+            'imports from the project root, run from below it' => ["{$modules}/lib/deep", 'from_the_root.gaz', 'imports_from_the_root'],
+            'working directory below the main file' => ["{$modules}/lib", '../main.gaz', 'below_the_main_file'],
+            'working directory elsewhere' => [$elsewhere, "{$modules}/symlink_is_the_file_it_points_to.gaz", 'elsewhere'],
         ];
     }
 
@@ -118,7 +118,7 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * Piped, only the working directory matters, which includes are relative to
+     * Piped, only the working directory matters, which imports are from
      */
     #[DataProvider('placesToParseFrom')]
     public function test_self_hosted_parser_prints_the_expected_tree_on_piped_input_from_anywhere(string $cwd, string $file, string $name)
@@ -127,24 +127,29 @@ class SelfHostedParserTest extends GazLangTestCase
     }
 
     /**
-     * One file included by a relative and by an absolute path is included once. The absolute
-     * path is this machine's, so the program is written where it runs.
+     * One file imported from its importer's directory and from the project root is one module,
+     * in a project reached through a symlinked path (the temporary directory is one on macOS),
+     * so its root is found however the file was named, from its directory and from elsewhere
      */
-    public function test_a_file_included_by_a_relative_and_an_absolute_path_is_included_once()
+    public function test_a_file_imported_by_two_spellings_through_a_symlinked_path_is_read_once()
     {
-        $dir = sys_get_temp_dir().'/gazlang_include_'.getmypid();
-        mkdir("{$dir}/lib", 0777, true);
-        file_put_contents("{$dir}/lib/helper.gaz", "fn helper() { return 1; }\n");
-        file_put_contents("{$dir}/main.gaz", "include \"lib/helper.gaz\";\ninclude \"{$dir}/lib/helper.gaz\";\necho helper();\n");
+        $dir = sys_get_temp_dir().'/gazlang_import_'.getmypid();
+        mkdir("{$dir}/app/lib", 0777, true);
+        file_put_contents("{$dir}/app/gaz.json", "{\"name\": \"app\"}\n");
+        file_put_contents("{$dir}/app/lib/helper.gaz", "fn helper() { return 1; }\n");
+        file_put_contents("{$dir}/app/lib/user.gaz", "import \"lib/helper.gaz\";\n\nfn user() { return helper(); }\n");
+        file_put_contents("{$dir}/app/main.gaz", "import \"./lib/helper.gaz\";\nimport \"lib/user.gaz\";\n\necho helper() + user();\n");
 
         try {
-            [$output, $exit_code] = CVM::driver('ast', ['main.gaz'], false, $dir)['main.gaz'];
-            $this->assertSame(0, $exit_code, $output);
-            $this->assertSame(1, substr_count($output, 'FunctionDeclaration'), $output);
+            foreach ([[$dir, 'app/main.gaz'], ["{$dir}/app/lib", "{$dir}/app/main.gaz"], [self::ROOT, "{$dir}/app/main.gaz"]] as [$cwd, $file]) {
+                [$output, $exit_code] = CVM::driver('ast', [$file], false, $cwd)[$file];
+                $this->assertSame(0, $exit_code, $output);
+                $this->assertSame(2, substr_count($output, 'FunctionDeclaration'), $output);
+            }
         } finally {
-            unlink("{$dir}/lib/helper.gaz");
-            unlink("{$dir}/main.gaz");
-            rmdir("{$dir}/lib");
+            array_map('unlink', ["{$dir}/app/lib/helper.gaz", "{$dir}/app/lib/user.gaz", "{$dir}/app/main.gaz", "{$dir}/app/gaz.json"]);
+            rmdir("{$dir}/app/lib");
+            rmdir("{$dir}/app");
             rmdir($dir);
         }
     }

@@ -1,0 +1,3 @@
+import "./apply.gaz";
+
+fn twice($x) { return $x * 2; }

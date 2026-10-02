@@ -1,2 +1,0 @@
-include "lib/shapes.gaz";
-echo area(1, 2);

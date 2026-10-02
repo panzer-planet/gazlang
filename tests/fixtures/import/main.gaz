@@ -1,0 +1,6 @@
+// The main file: the one file that runs statements. lib/math.gaz is imported twice and read once.
+import "./lib/math.gaz";
+import "./lib/math.gaz";
+
+echo square(3);
+echo cube(2);

@@ -1,1 +1,1 @@
-Error: Cannot include file: include/private_kind.gaz on line 2
+Error: Cannot import "./modules/private_kind.gaz": there is no such file on line 2

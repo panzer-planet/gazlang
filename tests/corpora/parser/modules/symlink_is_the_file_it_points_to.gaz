@@ -1,0 +1,6 @@
+// lib/link.gaz is a symlink to lib/deep/helper.gaz: one file, so it is read once, and shown
+// by where it really is
+import "./lib/link.gaz";
+import "./lib/deep/helper.gaz";
+
+echo helper();

@@ -1,1 +1,1 @@
-include "templates/mismatched.gazml";
+import "./templates/mismatched.gazml";

@@ -1,0 +1,4 @@
+// A module with a syntax error
+fn f() {
+    return 1 +;
+}

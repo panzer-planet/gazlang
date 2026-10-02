@@ -50,7 +50,7 @@ class CsvTest extends GazLangTestCase
             $numbers[] = round(mt_rand(-10000000, 10000000) / 1000, 3);
         }
 
-        $code = 'include "std/format.gaz"; foreach ('
+        $code = 'import "std/format.gaz"; foreach ('
             .'['.implode(', ', array_map(fn ($n) => var_export($n, true), $numbers)).']'
             .' as $n) { echo format::number($n) .. " " .. format::number($n, 1) .. " " .. format::number($n, 0); }';
         $expected = implode('', array_map(fn ($n) => number_format($n, 2).' '.number_format($n, 1).' '.number_format($n, 0)."\n", $numbers));

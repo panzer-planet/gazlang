@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect, throws;
-include "std/db.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/db.gaz";
 
 // What a failing call raises, or null
 fn failure($f) {

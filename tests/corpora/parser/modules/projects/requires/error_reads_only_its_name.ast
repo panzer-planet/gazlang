@@ -1,0 +1,1 @@
+Error: tests/corpora/parser/modules/projects/requires/gaz.json: "requires" isn't read yet: packages aren't built, and a gaz.json holds only its "name" at tests/corpora/parser/modules/projects/requires/gaz.json:1

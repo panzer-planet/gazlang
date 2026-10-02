@@ -1,0 +1,3 @@
+import "./helper.gaz";
+
+echo helper();

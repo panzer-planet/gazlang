@@ -1,0 +1,2 @@
+import "./lib/mid.gaz";
+echo json::decode("x");

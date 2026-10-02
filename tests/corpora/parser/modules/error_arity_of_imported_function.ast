@@ -1,0 +1,1 @@
+Error: Function area expects 1 argument, 2 given at tests/corpora/parser/modules/error_arity_of_imported_function.gaz:2

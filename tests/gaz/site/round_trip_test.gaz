@@ -4,9 +4,9 @@
  * README and docs/, and on every file of lib/ and examples/, which must also all lex (a file
  * shown plain would pass the round trip while highlighting nothing).
  */
-include "../../../site/highlight.gaz";
-include "../../../site/markdown.gaz";
-include "std/test.gaz" use expect;
+import "site/highlight.gaz";
+import "site/markdown.gaz";
+import "std/test.gaz" use expect;
 
 const DOCUMENTS = ["README.md", "docs/language.md", "docs/bytecode.md", "docs/internals.md"];
 const DIRECTORIES = ["lib", "examples"];

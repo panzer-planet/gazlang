@@ -1,2 +1,0 @@
-include "lib/fails.gaz";
-echo fails(1);

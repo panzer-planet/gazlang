@@ -1,0 +1,1 @@
+Error: import must come before the file's declarations and statements at tests/corpora/parser/modules/error_import_after_statement.gaz:2

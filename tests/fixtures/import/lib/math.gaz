@@ -1,0 +1,10 @@
+// Imports lib/numbers.gaz, which imports this file back: a cycle of modules is read once each
+import "./numbers.gaz";
+
+fn square($x) {
+    return times($x, $x);
+}
+
+fn cube($x) {
+    return times(square($x), $x);
+}

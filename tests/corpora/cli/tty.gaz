@@ -1,6 +1,6 @@
 /* A screen for gaz --tty to drive: a menu, the keys pressed last, and a beat that counts time */
-include "std/term.gaz";
-include "std/tui.gaz";
+import "std/term.gaz";
+import "std/tui.gaz";
 
 kind Demo {
     #menu = tui::Menu(["Apples", "Pears", "Plums"], "Fruit");

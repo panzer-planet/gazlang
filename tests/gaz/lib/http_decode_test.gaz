@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect;
-include "std/http.gaz";
+import "std/test.gaz" use expect;
+import "std/http.gaz";
 
 /* url_decode(): percent-escapes only, as RFC 3986 has them */
 expect("an escape is its byte", http::url_decode("a%20b%41%2f"), "a bA/");

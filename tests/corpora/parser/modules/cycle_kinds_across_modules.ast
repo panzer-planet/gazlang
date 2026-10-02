@@ -1,0 +1,114 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/cycle/derived.gaz"
+    0: KindDeclaration 3
+      name: "Derived"
+      parent: "Base"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"name" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        name: FunctionDeclaration 4
+          name: "name"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 4
+                expr: String 4
+                  token: 4 STRING "derived"
+                  value: "derived"
+          arity: 0
+          kind: "Derived"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"other" => "Base", "name" => "Derived"}
+      abstract_methods: []
+      slots: []
+      method_table: [["other", "Base", "pub", "Base"], ["name", "Derived", "pub", "Base"]]
+      owner_vis: {"other" => "pub", "name" => "pub"}
+      declared_at: {"other" => "Base", "name" => "Base"}
+      hidden: []
+      hidden_fields: []
+@ "tests/corpora/parser/modules/lib/cycle/base.gaz"
+    1: KindDeclaration 3
+      name: "Base"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"other" => "pub", "name" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        other: FunctionDeclaration 4
+          name: "other"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 4
+                expr: FunctionCall 4
+                  name: "Derived"
+                  args: []
+          arity: 0
+          kind: "Base"
+          abstract: false
+        name: FunctionDeclaration 5
+          name: "name"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 5
+                expr: String 5
+                  token: 5 STRING "base"
+                  value: "base"
+          arity: 0
+          kind: "Base"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"other" => "Base", "name" => "Base"}
+      abstract_methods: []
+      slots: []
+      method_table: [["other", "Base", "pub", "Base"], ["name", "Base", "pub", "Base"]]
+      owner_vis: {"other" => "pub", "name" => "pub"}
+      declared_at: {"other" => "Base", "name" => "Base"}
+      hidden: []
+      hidden_fields: []
+@ "tests/corpora/parser/modules/cycle_kinds_across_modules.gaz"
+    2: EchoStatement 5
+      expr: MethodCall 5
+        property: Property 5
+          target: MethodCall 5
+            property: Property 5
+              target: FunctionCall 5
+                name: "Base"
+                args: []
+              name: "other"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+            args: []
+          name: "name"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []

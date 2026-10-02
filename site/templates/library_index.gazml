@@ -1,6 +1,6 @@
 @template library_index(list $libraries)
 <h1>The standard library</h1>
-<p>Written in GazLang and built into <code>gaz</code>, so a program anywhere includes a file of it by name, <code>include "std/json.gaz";</code>, and reaches what it offers through its namespace: <code>json::decode</code>. Only what a file marks <code>pub</code> escapes it, and that is what these pages list, from the source.</p>
+<p>Written in GazLang and built into <code>gaz</code>, so a program anywhere imports a file of it by name, <code>import "std/json.gaz";</code>, and reaches what it offers through its namespace: <code>json::decode</code>. Only what a file marks <code>pub</code> escapes it, and that is what these pages list, from the source.</p>
 <div class="table"><table>
 <thead><tr><th>File</th><th>What it is for</th></tr></thead>
 <tbody>

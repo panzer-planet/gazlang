@@ -1620,7 +1620,7 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_TERM_IS_VIRTUAL:
         return term_is_virtual(out);
     case B_STD_SOURCE: {
-        /* The text of a standard library file, or null: what `include "std/name.gaz"` reads. GAZLIB, a
+        /* The text of a standard library file, or null: what `import "std/name.gaz"` reads. GAZLIB, a
            directory, is read instead of the built-in copy, so the library can be edited without a
            rebuild. A name is one file's, never a path. */
         if (!want(index, a, STRING)) return false;

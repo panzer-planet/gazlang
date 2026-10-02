@@ -5,7 +5,7 @@
  */
 namespace todo;
 
-include "std/db.gaz";
+import "std/db.gaz";
 
 kind User {
     fn _(pub int #id, pub string #email, pub string #password_hash, pub string #created_at) {}

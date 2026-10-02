@@ -1,0 +1,1 @@
+Error: Cannot import "./lib/notes.txt": only a .gaz or .gazml file can be imported on line 1

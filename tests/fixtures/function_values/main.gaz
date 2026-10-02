@@ -1,5 +1,5 @@
-include "apply.gaz";
+import "./twice.gaz";
+import "./apply.gaz";
 
-fn twice($x) { return $x * 2; }
 echo apply(twice, 4);
 echo doubler()(5);

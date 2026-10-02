@@ -281,7 +281,7 @@ class ConstTest extends GazLangTestCase
         $this->assertStringNotContainsString('ARRAY_PUSH', $code);
     }
 
-    public function test_included_files_share_constants()
+    public function test_imported_files_share_constants_across_a_cycle()
     {
         [$output] = $this->runProgram('tests/fixtures/const/main.gaz');
 

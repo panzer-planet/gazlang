@@ -60,14 +60,14 @@ class HttpTest extends GazLangTestCase
     }
 
     /**
-     * What GazLang code printed, with std/http.gaz and std/json.gaz included and $url the plain
+     * What GazLang code printed, with std/http.gaz and std/json.gaz imported and $url the plain
      * server's URL
      *
      * @param  array<string, string>  $env
      */
     private function gaz(string $code, array $env = []): string
     {
-        return self::succeed([], 'include "std/http.gaz"; include "std/json.gaz"; $url = '.self::quote(self::$url)."; {$code}", $env);
+        return self::succeed([], 'import "std/http.gaz"; import "std/json.gaz"; $url = '.self::quote(self::$url)."; {$code}", $env);
     }
 
     /**
@@ -313,6 +313,6 @@ class HttpTest extends GazLangTestCase
     public function test_what_can_be_checked_before_connecting_is(string $call, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->executeCode('include "std/http.gaz"; '.$call);
+        $this->executeCode('import "std/http.gaz"; '.$call);
     }
 }

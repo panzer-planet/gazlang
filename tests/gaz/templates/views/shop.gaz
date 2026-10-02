@@ -1,0 +1,7 @@
+// The kind shop_card.gazml names: a kind a template names lives in a module, since the test that
+// uses it runs statements and so can't be imported
+namespace shop;
+
+kind Product {
+    fn _(pub string #name, pub int #price) {}
+}

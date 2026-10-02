@@ -1,0 +1,2 @@
+// nested/ has a gaz.json of its own: it is another project, and this one can't import its files
+import "./nested/inside.gaz";

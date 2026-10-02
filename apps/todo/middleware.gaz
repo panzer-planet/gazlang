@@ -6,8 +6,8 @@
  */
 namespace todo;
 
-include "std/http.gaz";
-include "users.gaz";
+import "std/http.gaz";
+import "users.gaz";
 
 fn authentication(Users $users) {
     return ($request, $next) -> {

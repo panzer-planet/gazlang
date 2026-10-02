@@ -5,13 +5,10 @@
  */
 namespace shop;
 
-include "std/test.gaz" use expect, throws;
-include "views/shop_card.gazml";
-include "views/shop_badge.gazml";
-
-kind Product {
-    fn _(pub string #name, pub int #price) {}
-}
+import "std/test.gaz" use expect, throws;
+import "./views/shop.gaz";
+import "./views/shop_card.gazml";
+import "./views/shop_badge.gazml";
 
 $lamp = Product("lamp", 150);
 $pen = Product("pen", 2);

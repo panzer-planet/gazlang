@@ -3,11 +3,11 @@ globals
 
 top
 locals
-@ "include.gaz" 2
+@ "imports.gaz" 2
 CALL show_args 0
 POP
-@ "include.gaz" 3
-PUSH "included"
+@ "imports.gaz" 3
+PUSH "imported"
 PRINT
 
 fn show_args 0 0

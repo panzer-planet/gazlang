@@ -1,1 +1,1 @@
-Error: Cannot include file: templates/unclosed_expression.gazml on line 1
+Error: Cannot import "./templates/unclosed_expression.gazml": there is no such file on line 1

@@ -1,0 +1,12 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/directory.gaz/inside.gaz"
+    0: FunctionDeclaration 2
+      name: "inside"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: null
+      abstract: false

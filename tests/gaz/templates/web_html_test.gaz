@@ -5,9 +5,9 @@
  */
 namespace shop;
 
-include "std/test.gaz" use expect;
-include "std/web.gaz" use html;
-include "views/card.gazml";
+import "std/test.gaz" use expect;
+import "std/web.gaz" use html;
+import "./views/card.gazml";
 
 $name = "Tom & Jerry";
 $title = html"<em>{$name}</em>";

@@ -1,0 +1,10 @@
+// Each module is read once however its path is spelt, and only the main file runs statements
+import "./lib/shapes.gaz";
+import "./lib/shapes.gaz";
+import "tests/corpora/parser/modules/lib/shapes.gaz";
+import "./lib/deep/helper.gaz";
+import "./lib/deep/from_the_root.gaz";
+
+echo "before";
+echo area(Square(2));
+echo helper() .. deep() .. "after";

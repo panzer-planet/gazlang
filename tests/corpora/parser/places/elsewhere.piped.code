@@ -1,1 +1,1 @@
-Error: Cannot include file: lib/link.gaz on line 3
+Error: Cannot import "./lib/link.gaz": there is no such file on line 3

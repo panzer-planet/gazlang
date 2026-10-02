@@ -18,8 +18,8 @@
  */
 namespace tui;
 
-include "term.gaz";
-include "text.gaz" use quote;
+import "./term.gaz";
+import "./text.gaz" use quote;
 
 /* Corners top left, top right, bottom left, bottom right, then across and down */
 const BORDERS = {

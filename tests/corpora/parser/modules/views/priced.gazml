@@ -1,0 +1,4 @@
+import "std/format.gaz";
+import "./label.gazml";
+@template priced(string $name, float $price)
+<p>{{ label($name) }} {{ format::number($price, 2) }}</p>

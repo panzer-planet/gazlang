@@ -2,11 +2,11 @@
  * The game's state: a new game, moving time on, and what the inbox says. What the inbox says about
  * a match is checked against the match itself, not against a recorded run.
  */
-include "std/test.gaz" use expect, throws;
-include "../game.gaz" use Game, ordinal, ai_mentality;
-include "../engine/matches.gaz" use Substitution;
-include "../engine/money.gaz";
-include "std/date.gaz";
+import "std/test.gaz" use expect, throws;
+import "game.gaz" use Game, ordinal, ai_mentality;
+import "engine/matches.gaz" use Substitution;
+import "engine/money.gaz";
+import "std/date.gaz";
 
 /* How many of $list satisfy $test */
 fn count_where($list, $test) {

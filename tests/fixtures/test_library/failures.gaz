@@ -2,7 +2,7 @@
  * Deliberately failing, for tests/gaz/lib/test_test.gaz: every way a check of std/test.gaz can
  * fail, once, between checks that pass, and done() at the end, which must exit 1
  */
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 kind NotFound extends Error {
     fn _($key) { ##_("Not found: {$key}"); }

@@ -2,7 +2,7 @@
  * HTML built in code, safely: `web::html"..."` is an `Html`, as a template's result is, with its
  * text taken as markup and each value written for the place in the markup it lands.
  *
- *   include "std/web.gaz";
+ *   import "std/web.gaz";
  *
  *   $items = map(["Tom & Jerry", "<script>"], $name -> web::html"<li>{$name}</li>");
  *   $list = web::html"<ul class=\"names\">{$items}</ul>";
@@ -30,7 +30,7 @@
  */
 namespace web;
 
-include "chars.gaz" use char_at, is_alnum, is_alpha;
+import "./chars.gaz" use char_at, is_alnum, is_alpha;
 
 // Where a value lands, which is how it is written
 const MARKUP = "markup";

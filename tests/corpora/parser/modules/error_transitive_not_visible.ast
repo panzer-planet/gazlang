@@ -1,0 +1,1 @@
+Error: Undefined function: plain_c (plain_c is declared in tests/corpora/parser/modules/lib/chain/plain_c.gaz, which this file doesn't import: add import "./lib/chain/plain_c.gaz";) at tests/corpora/parser/modules/error_transitive_not_visible.gaz:4

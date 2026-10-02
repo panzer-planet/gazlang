@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 // An expression: arms are tried in order and compared with ==, several to an arm
 expect("the first arm", match (1) { 1 => "one", 2 => "two", default => "many" }, "one");

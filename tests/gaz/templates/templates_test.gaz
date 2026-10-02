@@ -1,10 +1,10 @@
-include "std/test.gaz" use expect;
-include "views/layout.gazml";
-include "views/posts.gazml";
-include "views/shown.gazml";
-include "views/literal.gazml";
-include "views/broken.gazml";
-include "views/typed.gazml";
+import "std/test.gaz" use expect;
+import "./views/layout.gazml";
+import "./views/posts.gazml";
+import "./views/shown.gazml";
+import "./views/literal.gazml";
+import "./views/broken.gazml";
+import "./views/typed.gazml";
 
 /* A template is a function giving Html, the text it wrote */
 $page = posts({"name" => "Ann"}, ["first", "second"]);

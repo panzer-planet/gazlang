@@ -1,0 +1,1 @@
+Error: Cannot import "./lib/deep/../shapes.gaz": a path can't climb: write it from the project root, or ./ below this file on line 1

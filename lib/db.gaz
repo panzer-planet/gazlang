@@ -26,7 +26,7 @@
  */
 namespace db;
 
-include "chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
+import "./chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
 
 pub kind Db {
     #handle;

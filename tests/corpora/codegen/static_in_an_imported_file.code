@@ -1,0 +1,18 @@
+GAZLANG BYTECODE 3
+globals
+statics Counter::count
+
+top
+locals
+@ "statics/counter.gaz" 5
+PUSH 10
+STORE_STATIC 0
+@ "static_in_an_imported_file.gaz" 3
+LOAD_STATIC 0
+PRINT
+
+kind Counter
+locals
+@ "statics/counter.gaz" 2
+LOAD_THIS
+RET

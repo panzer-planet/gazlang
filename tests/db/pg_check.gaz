@@ -2,8 +2,8 @@
  * Run by DbPgTest against a real server, whose URL is the argument. Temporary tables only, which
  * go with the connection, so nothing is left behind.
  */
-include "std/test.gaz" use expect, throws;
-include "std/db.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/db.gaz";
 
 fn failure($f) {
     try {

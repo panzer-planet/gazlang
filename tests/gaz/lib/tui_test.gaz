@@ -1,6 +1,6 @@
-include "std/test.gaz" use expect, throws;
-include "std/term.gaz";
-include "std/tui.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/term.gaz";
+import "std/tui.gaz";
 
 /* $line without the spaces at its end */
 fn trim_end_of($line) {

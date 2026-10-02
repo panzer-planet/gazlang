@@ -110,7 +110,7 @@ else
 endif
 # The self-hosted compiler's bytecode, checked in, built into the VM so it can run source
 COMPILER = build/compiler.c
-# The standard library, lib/*.gaz, built in the same way: `include "std/tui.gaz"` reads it
+# The standard library, lib/*.gaz, built in the same way: `import "std/tui.gaz"` reads it
 STD = build/std.c
 STD_FILES = $(wildcard ../lib/*.gaz)
 GAZ = ../bin/gaz

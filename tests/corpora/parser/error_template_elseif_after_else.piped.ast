@@ -1,1 +1,1 @@
-Error: Cannot include file: templates/elseif_after_else.gazml on line 1
+Error: Cannot import "./templates/elseif_after_else.gazml": there is no such file on line 1

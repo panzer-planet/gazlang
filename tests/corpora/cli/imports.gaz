@@ -1,0 +1,3 @@
+import "./show_args.gaz";
+show_args();
+echo "imported";

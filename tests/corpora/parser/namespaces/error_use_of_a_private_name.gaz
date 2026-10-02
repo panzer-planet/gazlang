@@ -1,1 +1,1 @@
-include "lib/json.gaz" use scan;
+import "./lib/json.gaz" use scan;

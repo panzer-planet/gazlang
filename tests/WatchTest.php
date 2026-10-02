@@ -112,22 +112,22 @@ class WatchTest extends GazLangTestCase
         return array_values(array_filter($lines, fn ($line) => str_contains($line, $this->dir)));
     }
 
-    public function test_a_change_to_an_included_file_runs_the_program_again()
+    public function test_a_change_to_an_imported_file_runs_the_program_again()
     {
-        $this->write('main.gaz', "include \"part.gaz\";\necho \"run \" .. part();\nsleep(60);\n");
+        $this->write('main.gaz', "import \"./part.gaz\";\necho \"run \" .. part();\nsleep(60);\n");
         $this->write('part.gaz', "fn part() { return 1; }\n");
         $this->watch();
-        $this->waitFor('stderr', "gaz: watching main.gaz and 1 file it includes\n");
+        $this->waitFor('stderr', "gaz: watching main.gaz and 1 file it imports\n");
         $this->waitFor('stdout', "run 1\n");
 
         $this->write('part.gaz', "fn part() { return 2; }\n");
         $this->waitFor('stderr', "gaz: part.gaz changed, restarting\n");
         $this->waitFor('stdout', "run 2\n");
 
-        // A new include is watched from the run it first appears in
-        $this->write('main.gaz', "include \"part.gaz\";\ninclude \"more.gaz\";\necho \"run \" .. part() .. more();\nsleep(60);\n");
+        // A new import is watched from the run it first appears in
+        $this->write('main.gaz', "import \"./part.gaz\";\nimport \"./more.gaz\";\necho \"run \" .. part() .. more();\nsleep(60);\n");
         $this->write('more.gaz', "fn more() { return \"a\"; }\n");
-        $this->waitFor('stderr', "gaz: watching main.gaz and 2 files it includes\n");
+        $this->waitFor('stderr', "gaz: watching main.gaz and 2 files it imports\n");
         $this->waitFor('stdout', "run 2a\n");
         $this->write('more.gaz', "fn more() { return \"b\"; }\n");
         $this->waitFor('stderr', "gaz: more.gaz changed, restarting\n");
@@ -136,7 +136,7 @@ class WatchTest extends GazLangTestCase
 
     public function test_a_compile_error_waits_for_the_fix_and_a_program_that_ends_for_the_next_change()
     {
-        $this->write('main.gaz', "include \"part.gaz\";\necho \"run \" .. part();\n");
+        $this->write('main.gaz', "import \"./part.gaz\";\necho \"run \" .. part();\n");
         $this->write('part.gaz', "fn part() { return 1; }\n");
         $this->watch();
         $this->waitFor('stdout', "run 1\n");

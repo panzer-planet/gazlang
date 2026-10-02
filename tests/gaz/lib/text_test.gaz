@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect, throws;
-include "std/text.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/text.gaz";
 
 expect("lines split on newlines", text::lines("a\nb\nc"), ["a", "b", "c"]);
 expect("a last line needs no end", text::lines("a\nb"), text::lines("a\nb\n"));

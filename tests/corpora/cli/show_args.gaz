@@ -1,4 +1,4 @@
-// What include.gaz includes: an included file only declares, and its includer calls
+// What imports.gaz imports: an imported file only declares, and its importer calls
 fn show_args() {
     echo args();
 }

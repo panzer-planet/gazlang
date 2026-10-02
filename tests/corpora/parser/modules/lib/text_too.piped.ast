@@ -1,0 +1,12 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 3
+      name: "text::more"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: null
+      abstract: false

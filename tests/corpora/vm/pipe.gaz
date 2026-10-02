@@ -1,6 +1,6 @@
 /* |>: the value on the left becomes the first argument of the call on the right, and runs when
  * it would in the call written out: before the other arguments, after a called value */
-include "std/json.gaz";
+import "std/json.gaz";
 
 fn add($a, $b) { return $a + $b; }
 fn loud($s) { echo "evaluated $s"; return $s; }

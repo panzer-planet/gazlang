@@ -1,0 +1,1 @@
+Error: Namespace c is not imported here: a file only sees what it imports (c::c is declared in tests/corpora/parser/modules/lib/chain/c.gaz, which this file doesn't import: add import "./lib/chain/c.gaz";) at tests/corpora/parser/modules/error_qualified_not_imported.gaz:4

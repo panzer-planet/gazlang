@@ -62,8 +62,8 @@ class SelfHostedCompilerTest extends GazLangTestCase
     }
 
     /**
-     * Piped source has no file: its locations are `@ line` records, and its includes are
-     * relative to the working directory
+     * Piped source has no file: its locations are `@ line` records, and its imports are from
+     * the working directory and its project
      */
     #[DataProvider('corpus')]
     public function test_self_hosted_compiler_prints_the_expected_bytecode_on_piped_input(string $file)
@@ -88,7 +88,7 @@ class SelfHostedCompilerTest extends GazLangTestCase
     }
 
     /**
-     * Piped, only the working directory matters, which includes are relative to
+     * Piped, only the working directory matters, which imports are from
      */
     #[DataProvider('placesToCompileFrom')]
     public function test_self_hosted_compiler_prints_the_expected_bytecode_on_piped_input_from_anywhere(string $cwd, string $file, string $name)

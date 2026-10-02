@@ -1,6 +1,0 @@
-// Includes back up the tree; cycle.gaz includes this file again, which is skipped
-include "../cycle.gaz";
-@loaded = "math";
-fn square($x) {
-    return $x * $x;
-}

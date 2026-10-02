@@ -1,6 +1,6 @@
 // site/highlight.gaz: the class each piece of source is shown in, and HTML that escapes it all
-include "../../../site/highlight.gaz";
-include "std/test.gaz" use expect;
+import "site/highlight.gaz";
+import "std/test.gaz" use expect;
 
 // The pieces of some GazLang as "class:text" strings, whitespace left out, for comparing
 fn shown(string $language, string $source): list {

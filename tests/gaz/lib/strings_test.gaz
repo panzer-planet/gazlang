@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 expect("upper", upper("abC1_z"), "ABC1_Z");
 expect("lower", lower("AbC1_Z"), "abc1_z");

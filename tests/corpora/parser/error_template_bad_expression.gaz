@@ -1,1 +1,1 @@
-include "templates/bad_expression.gazml";
+import "./templates/bad_expression.gazml";

@@ -1,8 +1,8 @@
 /*
- * Testing GazLang code: a test file includes this and checks values, and `gaz test` runs every
+ * Testing GazLang code: a test file imports this and checks values, and `gaz test` runs every
  * test file it finds.
  *
- *   include "std/test.gaz" use expect, throws;
+ *   import "std/test.gaz" use expect, throws;
  *   expect("two plus two", 2 + 2, 4);
  *   throws("past the end", () -> [1, 2][5], "Index out of range: 5");
  *   test::snapshot("the report", build_report());
@@ -26,8 +26,8 @@
  *   test file run on its own tells a script whether it passed.
  *
  * `gaz test [path...] [--update] [-v]` finds every `*_test.gaz` file under each path (the current
- * directory by default), recursively, and runs each as a `gaz` process of its own: `include`
- * takes only a string literal, so a runner can't include a path it finds while running, and a
+ * directory by default), recursively, and runs each as a `gaz` process of its own: `import`
+ * takes only a string literal, so a runner can't import a path it finds while running, and a
  * process per file means one file's crash or endless loop can't touch another's run. For each
  * file it prints the FAIL lines, what the file wrote to standard error, and a line counting its
  * checks; `-v` prints everything the file printed instead of only the FAIL lines. A file fails
@@ -404,9 +404,9 @@ fn snapshot_path($label) {
 
 // $value as the literal that reads back as it: quote() has no builtin yet, so a value wrapped in
 // a one-element list prints itself as a literal, and slicing off the brackets is the inverse of
-// reading one (the same trick the self-hosted front end uses; see CLAUDE.md). It is text::quote(),
-// which this file doesn't include: every test includes this one, and one that loads a library file by
-// path would then find text.gaz declared twice, by path and as std/text.gaz.
+// reading one (the same trick the self-hosted front end uses; see CLAUDE.md). It is text::quote().
+// ponytail: importing ./text.gaz for it would add text.gaz to every test program's bytecode; do it
+// with the compiler's own move to text::quote, when one change can re-record them all.
 fn literal($value) {
     return slice(to_string([$value]), 1, -1);
 }

@@ -1,6 +1,6 @@
-include "std/test.gaz" use expect, throws;
-include "std/http.gaz";
-include "std/crypto.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/http.gaz";
+import "std/crypto.gaz";
 
 /*
  * The middleware for a web app, driven with request maps and a handler that records what it saw:

@@ -1,0 +1,7 @@
+// A path without ./ is from the project root, wherever the importing file is and whatever the
+// working directory; a cycle back to a module being read gives nothing again
+import "tests/corpora/parser/modules/lib/shapes.gaz";
+import "./helper.gaz";
+import "./from_the_root.gaz";
+
+fn deep() { return area(Square(1)) + helper(); }

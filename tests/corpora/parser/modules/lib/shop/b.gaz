@@ -1,0 +1,6 @@
+// Of the same namespace as a.gaz, so it sees a's private names, once it imports it
+namespace shop;
+
+import "./a.gaz";
+
+fn b() { return a() .. "b"; }

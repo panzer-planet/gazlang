@@ -2,7 +2,7 @@
 
 A terminal football manager game in GazLang, on the standard library's `std/tui.gaz`. It lives in this repository so that the
 language can be improved as the game asks for it: a change to `lib/` or the VM goes in the same commit
-as the game code that needed it. Its only outward dependency is the built-in standard library (`include "std/..."`),
+as the game code that needed it. Its only outward dependency is the built-in standard library (`import "std/..."`),
 so moving it to a repository of its own needs nothing but a `gaz` binary.
 
 ## Run it

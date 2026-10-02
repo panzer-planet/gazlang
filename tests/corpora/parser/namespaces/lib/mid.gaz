@@ -1,7 +1,7 @@
-// Its own namespace, over one it includes itself
+// Its own namespace, over one it imports itself
 namespace mid;
 
-include "json.gaz";
+import "./json.gaz";
 
 pub fn go() {
     return json::decode("m");

@@ -71,7 +71,7 @@ class HttpServerTest extends GazLangTestCase
      */
     private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})'): array
     {
-        $code = 'include "std/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
+        $code = 'import "std/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
             ."workers({$workers}); http::serve(\$l, {$handler}, {$options});";
         $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
         if ($server === false) {
@@ -836,12 +836,12 @@ class HttpServerTest extends GazLangTestCase
             'no timeout' => ['socket_accept(socket_listen("127.0.0.1", 0), 0);', 'socket_accept() expects a timeout above 0 seconds'],
             'no workers' => ['workers(0);', 'workers() expects 1 to 1024 workers, got 0'],
             'too many workers' => ['workers(1025);', 'workers() expects 1 to 1024 workers, got 1025'],
-            'options not a map' => ['include "std/http.gaz"; http::serve(null, null, []);', 'http::serve() expects a map of options, got list'],
-            'an option there is not' => ['include "std/http.gaz"; http::serve(null, null, {"port" => 1});', 'http::serve() has no option "port": only timeout, request_timeout, max_body'],
-            'no idle timeout' => ['include "std/http.gaz"; http::serve(null, null, {"idle_timeout" => 0});', 'http::serve() expects an idle_timeout above 0 seconds, got 0'],
-            'an idle timeout not a number' => ['include "std/http.gaz"; http::serve(null, null, {"idle_timeout" => "5"});', 'http::serve() expects an idle_timeout above 0 seconds, got "5"'],
-            'no requests on a connection' => ['include "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 0});', 'http::serve() expects a requests_per_connection of 1 or more, got 0'],
-            'a fraction of a request' => ['include "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 1.5});', 'http::serve() expects a requests_per_connection of 1 or more, got 1.5'],
+            'options not a map' => ['import "std/http.gaz"; http::serve(null, null, []);', 'http::serve() expects a map of options, got list'],
+            'an option there is not' => ['import "std/http.gaz"; http::serve(null, null, {"port" => 1});', 'http::serve() has no option "port": only timeout, request_timeout, max_body'],
+            'no idle timeout' => ['import "std/http.gaz"; http::serve(null, null, {"idle_timeout" => 0});', 'http::serve() expects an idle_timeout above 0 seconds, got 0'],
+            'an idle timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"idle_timeout" => "5"});', 'http::serve() expects an idle_timeout above 0 seconds, got "5"'],
+            'no requests on a connection' => ['import "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 0});', 'http::serve() expects a requests_per_connection of 1 or more, got 0'],
+            'a fraction of a request' => ['import "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 1.5});', 'http::serve() expects a requests_per_connection of 1 or more, got 1.5'],
         ];
     }
 

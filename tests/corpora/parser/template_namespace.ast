@@ -413,141 +413,8 @@ Compound
       arity: 1
       kind: "Html"
       abstract: false
-@ "tests/corpora/parser/templates/namespaced.gazml"
-    2: FunctionDeclaration 2
-      name: "shop::product_card"
-      params: ["\$product", "\$note"]
-      defaults:
-        0: null
-        1: String 2
-          token: 2 STRING ""
-          value: ""
-      body: Compound
-        statements:
-          0: Statement 2
-            expr: Assign 2
-              left: Variable 2
-                token: 2 VAR_IDENTIFIER $#html
-                value: "$#html"
-              token: 2 ASSIGN =
-              right: String 2
-                token: 2 STRING ""
-                value: ""
-          1: Statement 3
-            expr: Assign 3
-              left: Variable 3
-                token: 3 VAR_IDENTIFIER $#html
-                value: "$#html"
-              token: 3 CONCAT_ASSIGN ..=
-              right: String 3
-                token: 3 STRING "<div class=\"card\">\n"
-                value: "<div class=\"card\">\n"
-          2: Statement 4
-            expr: Assign 4
-              left: Variable 4
-                token: 4 VAR_IDENTIFIER $#html
-                value: "$#html"
-              token: 4 CONCAT_ASSIGN ..=
-              right: String 4
-                token: 4 STRING "<b>"
-                value: "<b>"
-          3: Statement 4
-            expr: Assign 4
-              left: Variable 4
-                token: 4 VAR_IDENTIFIER $#html
-                value: "$#html"
-              token: 4 CONCAT_ASSIGN ..=
-              right: FunctionCall 4
-                name: "Html::escape"
-                args:
-                  0: Property 4
-                    target: Variable 4
-                      token: 4 VAR_IDENTIFIER $product
-                      value: "\$product"
-                    name: "name"
-                    field: false
-                    constant: false
-                    value: null
-                    static_name: null
-          4: Statement 4
-            expr: Assign 4
-              left: Variable 4
-                token: 4 VAR_IDENTIFIER $#html
-                value: "$#html"
-              token: 4 CONCAT_ASSIGN ..=
-              right: String 4
-                token: 4 STRING "</b>\n"
-                value: "</b>\n"
-          5: IfStatement 5
-            condition: BinOp 5
-              left: Variable 5
-                token: 5 VAR_IDENTIFIER $note
-                value: "\$note"
-              token: 5 NOT_EQUALS !=
-              op: 5 NOT_EQUALS !=
-              right: String 5
-                token: 5 STRING ""
-                value: ""
-            if_body: Compound
-              statements:
-                0: Statement 6
-                  expr: Assign 6
-                    left: Variable 6
-                      token: 6 VAR_IDENTIFIER $#html
-                      value: "$#html"
-                    token: 6 CONCAT_ASSIGN ..=
-                    right: String 6
-                      token: 6 STRING "<p>"
-                      value: "<p>"
-                1: Statement 6
-                  expr: Assign 6
-                    left: Variable 6
-                      token: 6 VAR_IDENTIFIER $#html
-                      value: "$#html"
-                    token: 6 CONCAT_ASSIGN ..=
-                    right: FunctionCall 6
-                      name: "Html::escape"
-                      args:
-                        0: Variable 6
-                          token: 6 VAR_IDENTIFIER $note
-                          value: "\$note"
-                2: Statement 6
-                  expr: Assign 6
-                    left: Variable 6
-                      token: 6 VAR_IDENTIFIER $#html
-                      value: "$#html"
-                    token: 6 CONCAT_ASSIGN ..=
-                    right: String 6
-                      token: 6 STRING "</p>\n"
-                      value: "</p>\n"
-            else_if: null
-            else_body: null
-          6: Statement 8
-            expr: Assign 8
-              left: Variable 8
-                token: 8 VAR_IDENTIFIER $#html
-                value: "$#html"
-              token: 8 CONCAT_ASSIGN ..=
-              right: String 8
-                token: 8 STRING "</div>\n"
-                value: "</div>\n"
-          7: ReturnStatement 9
-            expr: FunctionCall 9
-              name: "Html"
-              args:
-                0: Variable 9
-                  token: 9 VAR_IDENTIFIER $#html
-                  value: "$#html"
-      arity: [1, 2]
-      param_types:
-        0: Type 2
-          names: ["shop::Product", "null"]
-        1: Type 2
-          names: ["string"]
-      kind: null
-      abstract: false
-@ "tests/corpora/parser/template_namespace.gaz"
-    3: KindDeclaration 5
+@ "tests/corpora/parser/templates/product.gaz"
+    2: KindDeclaration 4
       name: "shop::Product"
       parent: null
       abstract: false
@@ -559,32 +426,32 @@ Compound
       vis: {"name" => "pub", "_" => "pub"}
       fields: {"name" => null}
       field_types:
-        name: Type 6
+        name: Type 5
           names: ["string"]
-      field_lines: {"name" => 6}
+      field_lines: {"name" => 5}
       methods:
-        _: FunctionDeclaration 6
+        _: FunctionDeclaration 5
           name: "_"
           params: ["\$name"]
           defaults: [null]
           body: Compound
             statements:
-              0: Statement 6
-                expr: Assign 6
-                  left: Property 6
-                    target: This 6
+              0: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
                     name: "name"
                     field: true
                     constant: false
                     value: null
                     static_name: null
-                  token: 6 ASSIGN =
-                  right: Variable 6
-                    token: 6 VAR_IDENTIFIER $name
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $name
                     value: "\$name"
           arity: 1
           param_types:
-            0: Type 6
+            0: Type 5
               names: ["string"]
           kind: "shop::Product"
           abstract: false
@@ -600,21 +467,155 @@ Compound
       declared_at: {"_" => "shop::Product"}
       hidden: []
       hidden_fields: []
-    4: Statement 9
-      expr: Assign 9
-        left: Variable 9
-          token: 9 VAR_IDENTIFIER $html
+@ "tests/corpora/parser/templates/namespaced.gazml"
+    3: FunctionDeclaration 3
+      name: "shop::product_card"
+      params: ["\$product", "\$note"]
+      defaults:
+        0: null
+        1: String 3
+          token: 3 STRING ""
+          value: ""
+      body: Compound
+        statements:
+          0: Statement 3
+            expr: Assign 3
+              left: Variable 3
+                token: 3 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 3 ASSIGN =
+              right: String 3
+                token: 3 STRING ""
+                value: ""
+          1: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: String 4
+                token: 4 STRING "<div class=\"card\">\n"
+                value: "<div class=\"card\">\n"
+          2: Statement 5
+            expr: Assign 5
+              left: Variable 5
+                token: 5 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 5 CONCAT_ASSIGN ..=
+              right: String 5
+                token: 5 STRING "<b>"
+                value: "<b>"
+          3: Statement 5
+            expr: Assign 5
+              left: Variable 5
+                token: 5 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 5 CONCAT_ASSIGN ..=
+              right: FunctionCall 5
+                name: "Html::escape"
+                args:
+                  0: Property 5
+                    target: Variable 5
+                      token: 5 VAR_IDENTIFIER $product
+                      value: "\$product"
+                    name: "name"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+          4: Statement 5
+            expr: Assign 5
+              left: Variable 5
+                token: 5 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 5 CONCAT_ASSIGN ..=
+              right: String 5
+                token: 5 STRING "</b>\n"
+                value: "</b>\n"
+          5: IfStatement 6
+            condition: BinOp 6
+              left: Variable 6
+                token: 6 VAR_IDENTIFIER $note
+                value: "\$note"
+              token: 6 NOT_EQUALS !=
+              op: 6 NOT_EQUALS !=
+              right: String 6
+                token: 6 STRING ""
+                value: ""
+            if_body: Compound
+              statements:
+                0: Statement 7
+                  expr: Assign 7
+                    left: Variable 7
+                      token: 7 VAR_IDENTIFIER $#html
+                      value: "$#html"
+                    token: 7 CONCAT_ASSIGN ..=
+                    right: String 7
+                      token: 7 STRING "<p>"
+                      value: "<p>"
+                1: Statement 7
+                  expr: Assign 7
+                    left: Variable 7
+                      token: 7 VAR_IDENTIFIER $#html
+                      value: "$#html"
+                    token: 7 CONCAT_ASSIGN ..=
+                    right: FunctionCall 7
+                      name: "Html::escape"
+                      args:
+                        0: Variable 7
+                          token: 7 VAR_IDENTIFIER $note
+                          value: "\$note"
+                2: Statement 7
+                  expr: Assign 7
+                    left: Variable 7
+                      token: 7 VAR_IDENTIFIER $#html
+                      value: "$#html"
+                    token: 7 CONCAT_ASSIGN ..=
+                    right: String 7
+                      token: 7 STRING "</p>\n"
+                      value: "</p>\n"
+            else_if: null
+            else_body: null
+          6: Statement 9
+            expr: Assign 9
+              left: Variable 9
+                token: 9 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 9 CONCAT_ASSIGN ..=
+              right: String 9
+                token: 9 STRING "</div>\n"
+                value: "</div>\n"
+          7: ReturnStatement 10
+            expr: FunctionCall 10
+              name: "Html"
+              args:
+                0: Variable 10
+                  token: 10 VAR_IDENTIFIER $#html
+                  value: "$#html"
+      arity: [1, 2]
+      param_types:
+        0: Type 3
+          names: ["shop::Product", "null"]
+        1: Type 3
+          names: ["string"]
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/template_namespace.gaz"
+    4: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $html
           value: "\$html"
-        token: 9 ASSIGN =
-        right: FunctionCall 9
+        token: 6 ASSIGN =
+        right: FunctionCall 6
           name: "shop::product_card"
           args:
-            0: FunctionCall 9
+            0: FunctionCall 6
               name: "shop::Product"
               args:
-                0: String 9
-                  token: 9 STRING "Lamp"
+                0: String 6
+                  token: 6 STRING "Lamp"
                   value: "Lamp"
-            1: String 9
-              token: 9 STRING "on sale"
+            1: String 6
+              token: 6 STRING "on sale"
               value: "on sale"

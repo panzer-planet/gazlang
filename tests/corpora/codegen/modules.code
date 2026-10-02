@@ -1,0 +1,97 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ "modules.gaz" 7
+CALL helper 0
+PUSH 1
+NEW Square 1
+CALL area 1
+CONCAT
+NEW Derived 0
+GET_METHOD name
+CALL_METHOD 0 name
+CONCAT
+PRINT
+
+fn helper 0 0
+locals
+@ "../parser/modules/lib/deep/helper.gaz" 1
+PUSH 1
+RET
+PUSH null
+RET
+
+fn area 1 1
+locals $square
+@ "../parser/modules/lib/shapes.gaz" 8
+LOAD 0
+GET_PROPERTY side
+LOAD 0
+GET_PROPERTY side
+MUL
+CALL helper 0
+ADD
+RET
+PUSH null
+RET
+
+kind Square
+field side Square pub
+method _ Square pub
+locals $#argument_0
+@ "../parser/modules/lib/shapes.gaz" 4
+CALL_CONSTRUCTOR Square
+POP
+LOAD_THIS
+RET
+
+fn Square._ 1 1
+locals $side
+@ "../parser/modules/lib/shapes.gaz" 6
+LOAD 0
+SET_FIELD side
+POP
+PUSH null
+RET
+
+kind Base
+method other Base pub
+method name Base pub
+locals
+@ "../parser/modules/lib/cycle/base.gaz" 3
+LOAD_THIS
+RET
+
+fn Base.other 0 0
+locals
+@ "../parser/modules/lib/cycle/base.gaz" 4
+NEW Derived 0
+RET
+PUSH null
+RET
+
+fn Base.name 0 0
+locals
+@ "../parser/modules/lib/cycle/base.gaz" 5
+PUSH "base"
+RET
+PUSH null
+RET
+
+kind Derived extends Base
+method other Base pub
+method name Derived pub Base
+locals
+@ "../parser/modules/lib/cycle/derived.gaz" 3
+LOAD_THIS
+RET
+
+fn Derived.name 0 0
+locals
+@ "../parser/modules/lib/cycle/derived.gaz" 4
+PUSH "derived"
+RET
+PUSH null
+RET

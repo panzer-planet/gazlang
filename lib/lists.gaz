@@ -1,8 +1,8 @@
 // Helpers for lists, in GazLang rather than as builtins, so they take no name from any program
-// that doesn't include this file
+// that doesn't import this file
 namespace lists;
 
-include "text.gaz" use quote;
+import "./text.gaz" use quote;
 
 // The elements of a list of lists, in order, one level deep: [[1, 2], [], [3]] is [1, 2, 3]
 pub fn flatten($lists) {

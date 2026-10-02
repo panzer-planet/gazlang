@@ -2,8 +2,8 @@
 // is SelfHostedLexerTest's job, against the PHP lexer on every .gaz file in the repository.
 namespace gazlang;
 
-include "../../../compiler/lexer.gaz";
-include "std/test.gaz" use expect;
+import "compiler/lexer.gaz";
+import "std/test.gaz" use expect;
 
 // The parser makes tokens of its own (the .. of an interpolated string), which have no line
 expect("a token made by hand prints", to_string(Token("CONCAT", "..")), " CONCAT ..");
@@ -20,7 +20,7 @@ try {
     expect("the message, as --tokens prints it", $e.message, "Unexpected character '`' on line 2");
 }
 
-// Two lexers at once, which is what include needs of the parser
+// Two lexers at once, which is what import needs of the parser
 $outer = Lexer("a b");
 $outer.get_next_token();
 $inner = Lexer('"x {$y} z"');

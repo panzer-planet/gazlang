@@ -14,13 +14,17 @@
  * The download links name --release, a tag that has been published; without one the home page
  * points to the releases page instead, so it never links to a build that doesn't exist yet.
  */
-include "std/cli.gaz";
-include "pages.gaz";
-include "highlight.gaz";
-include "markdown.gaz";
-include "library.gaz";
-include "verify.gaz";
-include "documents.gaz" use Link, NavItem, Repository, Section, Linker, root_of, relative;
+import "std/cli.gaz";
+import "./pages.gaz";
+import "./highlight.gaz";
+import "./markdown.gaz";
+import "./library.gaz";
+import "./verify.gaz";
+import "./documents.gaz" use Link, NavItem, Repository, Section, Linker, root_of, relative;
+import "./templates/section_list.gazml";
+import "./templates/library_index.gazml";
+import "./templates/library_page.gazml";
+import "./templates/downloads.gazml";
 
 const OUTPUT = "site/dist";
 // Where a build that failed its checks writes its pages instead, after the output's name

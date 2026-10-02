@@ -1,0 +1,2 @@
+// In a directory whose name ends in .gaz, which can't be imported
+fn inside() {}

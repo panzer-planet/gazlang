@@ -1,0 +1,7 @@
+// Paths in @ lines are relative to the main file's directory, climbing out of it here; the
+// blocks follow the order modules are read in, each one's imports before its own declarations
+import "tests/corpora/parser/modules/lib/shapes.gaz";
+import "tests/corpora/parser/modules/lib/deep/helper.gaz";
+import "tests/corpora/parser/modules/lib/cycle/derived.gaz";
+
+echo helper() .. area(Square(1)) .. Derived().name();

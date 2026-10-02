@@ -1,0 +1,1 @@
+Error: ./lib/shop/b.gaz doesn't declare a: shop::a is declared in tests/corpora/parser/modules/lib/shop/a.gaz at tests/corpora/parser/modules/error_use_from_wrong_module.gaz:2

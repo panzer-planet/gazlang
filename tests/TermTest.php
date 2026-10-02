@@ -123,7 +123,7 @@ class TermTest extends GazLangTestCase
 
     public function test_input_waits_for_a_lone_escape_and_for_no_key_at_all()
     {
-        $program = 'include "std/term.gaz"; term_raw(true); $input = term::Input();'
+        $program = 'import "std/term.gaz"; term_raw(true); $input = term::Input();'
             .' echo to_string([$input.read(0.1)]); echo term::name($input.read()); echo term::name($input.read());';
 
         // "escape" comes after the wait for more of a sequence; "up" is one whole read
@@ -140,14 +140,14 @@ class TermTest extends GazLangTestCase
         $back = "\e[?1049l";
 
         // it waits for a key inside, so the terminal can be looked at while it is in use
-        $ran = $this->onTerminal('include "std/term.gaz"; echo term::fullscreen(() -> { term_read(); return 7; });', '71');
+        $ran = $this->onTerminal('import "std/term.gaz"; echo term::fullscreen(() -> { term_read(); return 7; });', '71');
         $this->assertSame(0, $ran['code']);
         $this->assertStringContainsString("{$screen}\e[?25l", $ran['out']);
         $this->assertStringEndsWith("\e[0m\e[?25h{$back}7\r\n", $ran['out']);
         $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['during']);
         $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
 
-        $ran = $this->onTerminal('include "std/term.gaz"; term::fullscreen(() -> { throw "boom"; });');
+        $ran = $this->onTerminal('import "std/term.gaz"; term::fullscreen(() -> { throw "boom"; });');
         $this->assertSame(1, $ran['code']);
         // the screen is left before the error is printed on the terminal's own
         $this->assertLessThan(strpos($ran['out'], 'Error: boom'), strpos($ran['out'], $back));
@@ -156,7 +156,7 @@ class TermTest extends GazLangTestCase
 
     public function test_choose_draws_a_menu_and_gives_the_index_picked()
     {
-        $program = 'include "std/tui.gaz"; echo to_string([tui::choose(["red", "green", "blue"], "Colour")]);';
+        $program = 'import "std/tui.gaz"; echo to_string([tui::choose(["red", "green", "blue"], "Colour")]);';
 
         // down, then enter
         $ran = $this->onTerminal($program, '1b5b420d');
@@ -175,7 +175,7 @@ class TermTest extends GazLangTestCase
 
     public function test_keys_typed_ahead_between_two_screens_are_kept_when_they_share_an_input()
     {
-        $program = 'include "std/term.gaz"; include "std/tui.gaz"; $in = term::Input();'
+        $program = 'import "std/term.gaz"; import "std/tui.gaz"; $in = term::Input();'
             .' $n = tui::choose(["a", "b", "c"], "", $in); $name = tui::ask("Name?", "", $in);'
             .' echo to_string([$n, $name]);';
 
@@ -185,7 +185,7 @@ class TermTest extends GazLangTestCase
         $this->assertStringEndsWith("[1, \"hi\"]\r\n", $ran['out']);
 
         // each screen making its own Input loses them: the second sees nothing and waits for a key
-        $alone = 'include "std/term.gaz"; include "std/tui.gaz";'
+        $alone = 'import "std/term.gaz"; import "std/tui.gaz";'
             .' $n = tui::choose(["a", "b", "c"]); $name = tui::ask("Name?");'
             .' echo to_string([$n, $name]);';
         $ran = $this->onTerminal($alone, '1b5b42'.'0d'.bin2hex('hi').'0d');
@@ -194,7 +194,7 @@ class TermTest extends GazLangTestCase
 
     public function test_ask_edits_a_line_and_gives_it_on_enter()
     {
-        $program = 'include "std/tui.gaz"; echo to_string([tui::ask("Name?", "Wer")]);';
+        $program = 'import "std/tui.gaz"; echo to_string([tui::ask("Name?", "Wer")]);';
 
         // "ner" typed after "Wer", a backspace, then enter
         $ran = $this->onTerminal($program, bin2hex('ner').'7f0d');

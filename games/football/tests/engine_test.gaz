@@ -4,17 +4,17 @@
  * seeded match prints, since the ratings and the odds are meant to change; tests/programs/football.gaz
  * is the frozen simulator that does that.
  */
-include "std/test.gaz" use expect, throws;
-include "../engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
-include "std/date.gaz";
-include "../engine/calendar.gaz";
-include "../engine/money.gaz";
-include "../engine/teams.gaz" use Team, Formation, Scout, InvalidLineup, TransferRefused;
-include "../engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
-include "../engine/league.gaz" use League;
-include "../engine/cup.gaz" use Cup;
-include "../engine/board.gaz" use Board;
-include "std/json.gaz";
+import "std/test.gaz" use expect, throws;
+import "engine/players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
+import "std/date.gaz";
+import "engine/calendar.gaz";
+import "engine/money.gaz";
+import "engine/teams.gaz" use Team, Formation, Scout, InvalidLineup, TransferRefused;
+import "engine/matches.gaz" use Fixture, Goal, Booking, Whistle, Injury, Substitution, Shot;
+import "engine/league.gaz" use League;
+import "engine/cup.gaz" use Cup;
+import "engine/board.gaz" use Board;
+import "std/json.gaz";
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 

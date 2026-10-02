@@ -4,6 +4,8 @@ Status: design, for the owner's decisions. Everything said here about today's co
 against the repository at `dccbd87`, and every claim about behaviour was reproduced with `bin/gaz`
 in `/tmp/modules-design/`.
 
+Implemented: `import` replaced `include` in one cut (the language, the tooling and every file of the repository).
+
 ## Decisions
 
 Accepted as recommended in section 13: Q1 namespaces stay declared and are seen through imports, one project per namespace (D); Q2 `gaz.json` is validated, `name` the only key; Q3 cycles are allowed; Q4 `site/text.gaz`'s functions move into `std/text.gaz`; Q5 the cut is one commit; Q6 no "program directory" builtin yet; Q7 `./forms.gaz` and `forms.gaz` both allowed at the root; Q8 imports at the top of a file only; Q9 a root-relative import into another project's tree is refused; Q10 the `include` error is permanent. Implemented on the branch `import-modules`.

@@ -1,0 +1,4 @@
+import "./lib/math.gaz";
+import "./lib/needs_math.gaz";
+
+echo nine();

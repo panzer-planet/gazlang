@@ -1,0 +1,5 @@
+// Two modules that import each other, whose kinds extend and construct each other's
+import "./lib/cycle/base.gaz";
+import "./lib/cycle/derived.gaz";
+
+echo Base().other().name();

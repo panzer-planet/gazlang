@@ -16,7 +16,7 @@ Options:
       --ast      Print the parser's tree instead of running it
   -f, --file     The file to run, as giving it first does
   -e, --eval     The code to run, in place of a file; given more than once, the pieces are lines
-      --watch    Run the file, and run it again whenever it or a file it includes changes
+      --watch    Run the file, and run it again whenever it or a file it imports changes
       --tty[=COLSxROWS]
                  Run the file on a pretend terminal (120x40 unless given), to drive a program
                  made with std/tui without one: standard input is its keys, and each screen is

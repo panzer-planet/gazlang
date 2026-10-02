@@ -1,1 +1,1 @@
-include "templates/namespace_alone.gazml";
+import "./templates/namespace_alone.gazml";

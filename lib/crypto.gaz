@@ -11,7 +11,7 @@
  */
 namespace crypto;
 
-include "text.gaz" use quote;
+import "./text.gaz" use quote;
 
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;

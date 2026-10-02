@@ -3,7 +3,7 @@ globals
 
 top
 locals
-@ "symlink_is_the_file_it_points_to.gaz" 5
+@ "symlink_is_the_file_it_points_to.gaz" 6
 CALL helper 0
 PRINT
 

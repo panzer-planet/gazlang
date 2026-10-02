@@ -57,8 +57,8 @@ parameter, `web::html"..."` reads the markup around each value and writes it for
 enough), and a plain string where a query is expected is an error.
 
 ```gaz
-include "std/db.gaz";
-include "std/web.gaz";
+import "std/db.gaz";
+import "std/web.gaz";
 
 $db = db::open("sqlite::memory:");
 $db.run(db::sql"create table notes (id integer primary key, body text)");
@@ -100,7 +100,7 @@ file or a request can't take your server down. This is the textbook one, on the 
 a backtracking engine run for longer than you'll wait:
 
 ```gaz
-include "std/regex.gaz";
+import "std/regex.gaz";
 
 $input = repeat("a", 5000) .. "!";
 echo regex::matches($input, "(a+)+$");
@@ -191,6 +191,20 @@ gaz hello.gaz
 A script can run as a command of its own: start the file with `#!/usr/bin/env gaz` and
 `chmod +x` it.
 
+A program of more than one file is a project: a `gaz.json` at its root, and files that import
+each other by their path from it.
+
+```
+hello/
+  gaz.json          {"name": "hello"}
+  main.gaz          import "greet.gaz";  echo greet::hello("world");
+  greet.gaz         namespace greet;  pub fn hello($who) { return "Hello, {$who}!"; }
+```
+
+`gaz hello/main.gaz` runs it from anywhere, as does `cd hello && gaz main.gaz`. A file sees what
+it imports and no more, and a file that is imported only declares, so importing one never runs
+anything: see [Modules](docs/language.md#modules). A single file needs no `gaz.json`.
+
 No program to write for a static site: `gaz -S localhost:8000` serves the current directory. And for a
 one-liner, `gaz -e` runs the code you give it and leaves standard input as its data:
 `ls | gaz -e 'while (($name = read_line()) != null) { echo upper($name); }'`.
@@ -211,8 +225,8 @@ GazLang is meant for web servers and CLI tools. Here's a small JSON API, routing
 params included, ready to run:
 
 ```gaz
-include "std/http.gaz";
-include "std/json.gaz";
+import "std/http.gaz";
+import "std/json.gaz";
 
 $books = {"1" => "Dune", "2" => "Foundation"};
 
@@ -284,7 +298,7 @@ upstream connection gaz has just closed hasn't been checked.) All of it is in
 The standard library is built into `gaz`, so any program anywhere reaches it by name:
 
 ```gaz
-include "std/json.gaz";
+import "std/json.gaz";
 echo json::encode({"ok" => true});
 ```
 

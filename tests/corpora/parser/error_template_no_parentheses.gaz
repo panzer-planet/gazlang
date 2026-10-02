@@ -1,1 +1,1 @@
-include "templates/no_parentheses.gazml";
+import "./templates/no_parentheses.gazml";

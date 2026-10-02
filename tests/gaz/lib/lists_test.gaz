@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect, throws;
-include "std/lists.gaz" use flatten, max_by, min_by;
+import "std/test.gaz" use expect, throws;
+import "std/lists.gaz" use flatten, max_by, min_by;
 
 expect("flatten joins the lists in order", flatten([[1, 2], [], [3]]), [1, 2, 3]);
 expect("flatten goes one level deep", flatten([[[1]], [2, [3]]]), [[1], 2, [3]]);

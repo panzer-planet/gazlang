@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 fn greet($name, $greeting = "Hello", $end = "!") {
     return "$greeting, $name$end";

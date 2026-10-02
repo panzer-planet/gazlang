@@ -5,10 +5,12 @@
  */
 namespace todo;
 
-include "std/http.gaz";
-include "std/regex.gaz";
-include "std/db.gaz";
-include "../app.gaz";
+import "std/http.gaz";
+import "std/regex.gaz";
+import "std/db.gaz";
+import "app.gaz";
+import "database.gaz";
+import "config.gaz";
 
 const TEST_DATABASE = "postgres:///gaz_todo_test";
 const CHEAP_PASSWORDS = {"m" => 64, "t" => 1, "p" => 1};

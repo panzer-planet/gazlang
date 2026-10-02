@@ -1,0 +1,101 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/deep/helper.gaz"
+    0: FunctionDeclaration 1
+      name: "helper"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      arity: 0
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/lib/shapes.gaz"
+    1: KindDeclaration 4
+      name: "Square"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"side" => "pub", "_" => "pub"}
+      fields: {"side" => null}
+      field_lines: {"side" => 5}
+      methods:
+        _: FunctionDeclaration 6
+          name: "_"
+          params: ["\$side"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: Property 6
+                    target: This 6
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $side
+                    value: "\$side"
+          arity: 1
+          kind: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"_" => "Square"}
+      abstract_methods: []
+      slots: [["side", "Square", "pub"]]
+      method_table: [["_", "Square", "pub", "Square"]]
+      owner_vis: {"side" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Square"}
+      hidden: []
+      hidden_fields: []
+    2: FunctionDeclaration 8
+      name: "area"
+      params: ["\$square"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 8
+            expr: BinOp 8
+              left: BinOp 8
+                left: Property 8
+                  target: Variable 8
+                    token: 8 VAR_IDENTIFIER $square
+                    value: "\$square"
+                  name: "side"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: null
+                token: 8 MULTIPLY *
+                op: 8 MULTIPLY *
+                right: Property 8
+                  target: Variable 8
+                    token: 8 VAR_IDENTIFIER $square
+                    value: "\$square"
+                  name: "side"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: null
+              token: 8 PLUS +
+              op: 8 PLUS +
+              right: FunctionCall 8
+                name: "helper"
+                args: []
+      arity: 1
+      kind: null
+      abstract: false

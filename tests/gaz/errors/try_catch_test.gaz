@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect;
-include "std/json.gaz";
+import "std/test.gaz" use expect;
+import "std/json.gaz";
 
 // The caught error is an Error object with #message, #file and #line
 try {

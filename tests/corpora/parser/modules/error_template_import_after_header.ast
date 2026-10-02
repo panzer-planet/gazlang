@@ -1,0 +1,1 @@
+Error: An import comes before @template, after the namespace line if there is one at tests/corpora/parser/modules/views/late_import.gazml:2

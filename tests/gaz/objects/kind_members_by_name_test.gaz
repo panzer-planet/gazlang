@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect;
+import "std/test.gaz" use expect;
 
 /*
  * Kind::name reaches a constant or static where it escapes to, as .name and #name do: a pub

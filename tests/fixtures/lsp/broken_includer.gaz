@@ -1,5 +1,0 @@
-// Its own text is fine; the file it includes isn't
-
-include "broken.gaz";
-
-echo broken();

@@ -1,1 +1,1 @@
-include "templates/headless.gazml";
+import "./templates/headless.gazml";

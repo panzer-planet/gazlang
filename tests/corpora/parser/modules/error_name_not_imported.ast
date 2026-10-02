@@ -1,0 +1,1 @@
+Error: Undefined function: a (shop::a is declared in tests/corpora/parser/modules/lib/shop/a.gaz, which this file doesn't import: add import "./lib/shop/a.gaz";) at tests/corpora/parser/modules/error_name_not_imported.gaz:7

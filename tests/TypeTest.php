@@ -134,7 +134,7 @@ class TypeTest extends GazLangTestCase
     public function test_a_template_header_takes_types()
     {
         $this->assertSame("<p>Ann</p>\n", $this->executeCode(<<<'CODE'
-            include "tests/gaz/templates/views/typed.gazml";
+            import "tests/gaz/templates/views/typed.gazml";
             print(typed({"name" => "Ann"}, 2));
             CODE));
     }
@@ -143,7 +143,7 @@ class TypeTest extends GazLangTestCase
     {
         $this->expectExceptionMessage('typed() expects $times to be int, got string at tests/gaz/templates/views/typed.gazml:1');
         $this->executeCode(<<<'CODE'
-            include "tests/gaz/templates/views/typed.gazml";
+            import "tests/gaz/templates/views/typed.gazml";
             echo typed({"name" => "Ann"}, "2");
             CODE);
     }

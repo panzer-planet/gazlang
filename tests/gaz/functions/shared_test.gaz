@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 /* ---- A closure changes what the outside sees ---- */
 shared $events = [];

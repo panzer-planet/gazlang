@@ -1,2 +1,2 @@
-include "lib/json.gaz";
+import "./lib/json.gaz";
 echo json::scan("x");

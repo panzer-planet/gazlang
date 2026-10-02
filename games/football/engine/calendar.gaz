@@ -7,7 +7,7 @@
  */
 namespace calendar;
 
-include "std/date.gaz";
+import "std/date.gaz";
 
 /* The day a season starts, and the day its review is held after the last match */
 pub fn season_start($year) { return date::days($year, 7, 1); }

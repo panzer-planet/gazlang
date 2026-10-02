@@ -1,8 +1,8 @@
 // A knockout cup: every club in one draw, extra time and penalties when a tie is level
 namespace cup;
 
-include "std/random.gaz";
-include "matches.gaz" use Fixture;
+import "std/random.gaz";
+import "./matches.gaz" use Fixture;
 
 // How a tie in a round went: the match, and whether it needed extra time or penalties
 pub kind Tie {

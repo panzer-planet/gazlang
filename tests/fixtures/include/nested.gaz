@@ -1,3 +1,0 @@
-if (true) {
-    include "lib/math.gaz";
-}

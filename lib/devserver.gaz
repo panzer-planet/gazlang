@@ -4,16 +4,16 @@
  *
  *   gaz -S localhost:8000 [--docroot DIR]
  *
- * There is no router script argument: `include` takes a string
+ * There is no router script argument: `import` takes a string
  * literal, resolved at parse time, so a document naming a file to run at the command line isn't
  * possible here, on purpose (the same reason there is no type-tag deserialization). A program
  * that wants more writes its own few lines on `http::serve_static()`.
  */
 namespace devserver;
 
-include "http.gaz";
-include "cli.gaz";
-include "text.gaz" use quote;
+import "./http.gaz";
+import "./cli.gaz";
+import "./text.gaz" use quote;
 
 pub fn main() {
     $cli = cli::Command("gaz -S", "Serve static files from a directory over HTTP");

@@ -1,0 +1,1 @@
+Error: Namespace json is not imported here: a file only sees what it imports (json::decode is declared in tests/corpora/parser/namespaces/lib/json.gaz, which this file doesn't import: add import "./lib/json.gaz";) at tests/corpora/parser/namespaces/error_namespace_not_imported.gaz:2

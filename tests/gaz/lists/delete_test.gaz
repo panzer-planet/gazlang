@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 // A list's later elements move down, so its indexes stay 0 to len - 1
 $list = [1, 2, 3];

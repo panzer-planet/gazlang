@@ -1,0 +1,1 @@
+Error: namespace must come before everything else in its file at tests/corpora/parser/modules/error_namespace_after_import.gaz:2

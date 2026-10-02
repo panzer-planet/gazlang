@@ -53,7 +53,7 @@ class JsonTest extends GazLangTestCase
     public function test_error_messages_say_what_and_where(string $json, string $message)
     {
         $this->expectExceptionMessage($message);
-        $this->executeCode('include "std/json.gaz"; json::decode('.self::quote($json).');');
+        $this->executeCode('import "std/json.gaz"; json::decode('.self::quote($json).');');
     }
 
     public static function errorMessages(): array

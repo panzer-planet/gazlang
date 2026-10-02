@@ -1,0 +1,3 @@
+// import is a keyword; include stays one, so that using it can say what replaced it
+import "std/json.gaz" use decode as read;
+include Import IMPORT importer

@@ -201,7 +201,7 @@ nothing**: several first versions of a harness or corpus passed everything and c
   largest program there is.
 - **GazLang code is tested with GazLang programs**: every `tests/gaz/**/*_test.gaz` must print
   exactly its `*_test.expected` (`GazProgramTest`) and pass under `bin/gaz test tests/gaz games`
-  (CI runs it). They include `std/test.gaz` `use expect, throws`: `expect($label, $actual,
+  (CI runs it). They import `std/test.gaz` `use expect, throws`: `expect($label, $actual,
   $expected)` prints `ok <label>` or a FAIL line, and `throws($label, $thunk, [$kind,] $message)`
   checks an error rather than a `try` block written out, except where the test is of `try` and
   `catch` themselves, or of more than the message (`#line`, `#trace`, state after the error).
@@ -220,15 +220,16 @@ nothing**: several first versions of a harness or corpus passed everything and c
   are there because CI and these docs use them as inputs.
 - **A game is neither a test subject nor an example**: `games/NAME/` is a program being built on
   the language. It is in this repository so that a change to `lib/` or the VM goes in the same
-  commit as the game code that needed it: there is no module search path (an `include` is relative
-  to the file), so a game in a repository of its own would need a checkout of gazlang at a known
-  path, and every language change would be two commits. Its tests are GazLang programs in
+  commit as the game code that needed it: there is no package manager yet, so a game in a
+  repository of its own would need a checkout of gazlang at a known path, and every language
+  change would be two commits. It is a project of its own (`games/NAME/gaz.json`), so its imports
+  are from its own root (`import "engine/teams.gaz";`) and moving it out needs no rewrite. Its tests are GazLang programs in
   `games/NAME/tests/`, run by their own PHPUnit suite (`--testsuite games`; `--testsuite core` for
   the language alone; a plain run does both), and they assert what stays true however the game is
   tuned (a season plays every match, a table adds up), not what a seeded run prints: the odds are
   meant to change, and recordings would be re-recorded with every tweak. What stays byte-exact is
   `tests/programs/football.gaz`, the frozen simulator the game started from, the VM's biggest test
-  program and the benchmark workload; it is not tuned for the game. The duplication will drift, on purpose. A game reaches the standard library by `include "std/..."`,
+  program and the benchmark workload; it is not tuned for the game. The duplication will drift, on purpose. A game reaches the standard library by `import "std/..."`,
   which the VM carries, so its only outward dependency is a `gaz` binary and moving it to a
   repository of its own later is cheap.
 - **The README's examples are tests**: `ReadmeTest` runs every ```` ```gaz ```` block followed
@@ -284,7 +285,8 @@ that must find nothing to do.
   (Windows, a registry and a playground wait for someone to ask).
 - **The roadmap**, in build order (optional types, `gaz --watch`, the pipe, cryptography, cookies
   and signed sessions, `gaz test`, the list helpers in `lib/lists.gaz` and tagged literals, with
-  `db::sql"..."` and `web::html"..."` on them, are done and described below):
+  `db::sql"..."` and `web::html"..."` on them, and modules (`import`, replacing `include`) are
+  done and described below):
   1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
   2. **HTTP keep-alive** in `http::serve` is done (see "Serving HTTP"); server-side TLS and HTTP/2,
      which it was the prerequisite for, remain open.
@@ -344,7 +346,7 @@ that must find nothing to do.
     `Error` is compared with the expected one as `expect` compares.
   - **`done()`'s count is a static field** (`Tally::failures` in the namespace, so no global a
     test could collide with), raised by every failing check.
-  - **A subprocess per file, not `include`-by-computed-path**: `include` only ever takes a
+  - **A subprocess per file, not `import`-by-computed-path**: `import` only ever takes a
     string literal, resolved at parse time, on purpose, so a runner has no dynamic way to splice
     a discovered path into one program. Running each as `gaz <file> <file> [--update]` needs no
     such thing and gives free isolation, one file's crash or infinite loop can't corrupt
@@ -359,7 +361,7 @@ that must find nothing to do.
   - **`gaz test` is a bareword subcommand**, dispatched in `vm.c`'s `main()` before any of the
     usual `-`-prefixed option parsing, since `test` names a shape (`cargo test`, `go test`), not a
     flag; a file literally named `test` needs `-f test` to run instead, an accepted, negligible
-    edge case. It runs a small fixed bootstrap program (`include "std/test.gaz"; test::main();`)
+    edge case. It runs a small fixed bootstrap program (`import "std/test.gaz"; test::main();`)
     with everything after `test` as that program's own `args()`.
   - **A test file learns its own path as its first argument**, not through a builtin: `args()`
     is only what follows the file on the command line, and `program_path()` names the
@@ -374,22 +376,24 @@ that must find nothing to do.
 - **A language server** (`lsp/server.gaz`, `bin/gaz lsp/server.gaz`), so an editor gets errors and
   eventually more without a stranger installing anything but gaz. Diagnostics
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and
-  `publishDiagnostics` the first syntax error; one in an included file is shown at the
-  document's include of it, or its first line when reached through another file), hover (a builtin's arity from `builtins()`, or a
+  `publishDiagnostics` the first error, the document taken as the main file, so a module opened
+  alone is checked by its own imports as the compiler checks it; one in an imported file is shown
+  at the document's import of it, or its first line when reached through another file), hover (a builtin's arity from `builtins()`, or a
   declared function's parameters found by scanning the document's own text for `fn name(...)`),
-  go-to-definition (the same textual search, followed across the document's own `include`
-  chain — resolved the way the real compiler resolves them, from the document's own directory,
-  and only into files that exist on disk, so a `std/` include isn't chased — cycles ended by a
+  go-to-definition (the same textual search, followed across the document's own `import`
+  lines — resolved by the compiler's own rules, `import_target()` and `project_root()` in
+  `parser.gaz`, and only into files that exist on disk, so a `std/` import isn't chased — cycles ended by a
   set of real paths already visited on that branch), and completion (every keyword worth
   completing: `Lexer::KEYWORDS` in its order, skipping the ones the parser only refuses,
-  `Parser::RESERVED`, so a new keyword is offered by itself, which `LspTest` checks against
+  `Parser::RESERVED` and `Parser::REMOVED` (`include`), so a new keyword is offered by itself, which `LspTest` checks against
   the lexer's table; every builtin with its arity; every function the
-  document can reach by name, itself and what it includes, each once even if declared reachably
+  document can reach by name, itself and what it imports, directly or not (further than the
+  compiler lets it see, so a completion can nudge toward an import), each once even if declared reachably
   more than once; no filtering by what is typed, which editors do themselves) are done; textual,
   not from the parsed tree, since the tree doesn't exist while the document has an unrelated
   syntax error, which is the common case mid-edit. Nothing else is planned yet; add what a real
   session of using it shows is missing. It is `namespace gazlang`, not its own, reusing the
-  compiler's own `Lexer` and `Parser` as a test of the internals does (see "Namespaces" and
+  compiler's own `Lexer` and `Parser` as a test of the internals does (see "Modules and namespaces" and
   `tests/LspTest.php`), rather than making them `pub` for one caller. Framing a message needs an
   exact byte count (`Content-Length`), which needed a builtin of its own: `read_stdin_bytes($n)`,
   since `read_stdin()` reads to the end and blocks a server that stays open between messages. A
@@ -490,8 +494,13 @@ that must find nothing to do.
     (`/dev/stdin` waits and `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv`
     since what it gives isn't the seed's; `worker_recycle` since it ends the process by an unhandled
     signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a
-    bug — found the hard way, by CI actually failing on it, the day it was added), an included
+    bug — found the hard way, by CI actually failing on it, the day it was added), an imported
     file's text included, which is sound because a builtin is reached only by its name.
+  - **A mutant runs next to the program it came from** (`.fuzz-<pid>-<name>.gaz`, gitignored,
+    deleted in a `finally`), so its `./` and root imports find what the original's did; a failure
+    is saved with a `.dir` file naming that directory, where `--shrink` runs it again. What a
+    mutant imports is the files its bytecode's `@` lines name (as `gaz --watch` finds them, from
+    an unsanitized `gaz -c`), not a regex following import lines.
 - **Known limits**:
   - The self-hosted parser runs out of call depth on source nested past about 9000 levels
     (recursive descent is about eleven calls a level), as an internal error. Its tree walks use
@@ -499,7 +508,7 @@ that must find nothing to do.
   - A `make compiler` stage's own runtime errors name `vm/build/bootstrap/` as the source
     directory, since bytecode paths resolve against the bytecode file; the lines are right.
   - A main file given by an absolute path through a symlinked directory (macOS's `/var`) gives
-    include locations that climb to the root and back through the real path.
+    import locations that climb to the root and back through the real path.
   - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
   - Naming a private INSTANCE method through a kind's name (`Tally::m()`, where `m` is a method
     of `Counter` and not a static one) says `Counter::m is not pub`, when the real mistake is that
@@ -526,8 +535,8 @@ that must find nothing to do.
     `starts_with($s, $prefix, $offset)` asks what is at a position without a slice. The
     self-hosted lexer still spells out comparisons and walks local indexes; measure on the C VM
     whether that still pays.
-  - Including a file also runs its top level code. `Error`'s members are reserved across its
-    children, so a domain error can't declare its own `#line` or `#message`.
+  - `Error`'s members are reserved across its children, so a domain error can't declare its
+    own `#line` or `#message`.
   - No copy-with-change for objects, no `catch (A | B $e)`.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
   - No enum (roadmap item 8); the lexer's token types stay strings on purpose, being the
@@ -729,7 +738,7 @@ that must find nothing to do.
     inside it; Content-Type comes from a small extension table, `application/octet-stream`
     otherwise. `gaz -S host:port [--docroot DIR]` (`std/devserver.gaz`, run by `vm.c`'s `-S`)
     is a zero-config preview server built on it, `php -S`'s equivalent: no router script
-    argument the way `php -S` can take one, since `include` takes a string literal resolved at
+    argument the way `php -S` can take one, since `import` takes a string literal resolved at
     parse time, never a runtime-named file (the same reason there is no type-tag
     deserialization); a program that wants routing or anything dynamic writes its own few lines
     on `serve_static()` instead. Tested by `tests/gaz/lib/http_serve_static_test.gaz` and,
@@ -800,35 +809,83 @@ that must find nothing to do.
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
 - **Decided, not built** (roadmap item 7): `interface`/`implements` (a parse-time check
   that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
-- **Namespaces** are resolved by the parser, so the VM never learns the word and bytecode only
-  sees longer names: functions and kinds carry `::`, while a method block stays
-  `Kind.method`, which is what lets the loader tell the two apart. Resolution is one pass
-  before anything else is checked, so nothing below it knows namespaces exist.
+- **Modules and namespaces** are resolved by the parser, so the VM never learns either word and
+  bytecode only sees longer names: functions and kinds carry `::`, while a method block stays
+  `Kind.method`, which is what lets the loader tell the two apart. A program is still compiled
+  whole into one bytecode file; resolution is one pass before anything else is checked, so
+  nothing below it knows modules or namespaces exist. `docs/design/modules.md` is the design.
+  - **A file is a module, and sees what it declares and what it imports, and no further**:
+    `import "path" [use a, b as c];`, only at the top of a file after its `namespace` line (so a
+    file's first lines say what it depends on, for a reader, the language server and the fuzzer).
+    Not transitive: what B imports isn't seen by what imports B, so a file can't lean on a name a
+    sibling happened to bring in, and a module checked alone gives the answer it gives in every
+    program that contains it. Each scope (`Module` in `parser.gaz`) keeps the keys of the
+    modules it imports; `resolve()` filters on them, and a declared name that isn't seen is an
+    error naming the import to add (`import_hint()`), spelt as the file would write it.
+  - **Paths**: `std/NAME.gaz` the standard library; `./` this file's directory and below; any
+    other from the module's **project root**, the nearest `gaz.json` at or above the module's own
+    real path (not the main file's, which is what lets a package resolve its own imports later),
+    or the main file's root when there is none (so a program with no `gaz.json` is one project
+    wherever its files sit); piped source, `gaz -e` and the `gaz test`/`-S` bootstraps take
+    `cwd()`'s. Refused: a `..` step (a path can't climb: one spelling per file, and no reaching
+    out of a project), an absolute path, an empty or `.` step, a file not ending `.gaz`/`.gazml`,
+    `pkg/` (reserved for packages), and a file inside another project (one with its own
+    `gaz.json`: that is a package, not a file of this project). `import_target()`,
+    `path_refusal()` and `project_root()` are top level functions of `parser.gaz`, which the
+    language server uses too.
+  - **Identity** is the real path, or `<std>/name.gaz`; under `GAZLIB` a file inside that
+    directory is the standard library's module (`lib/text.gaz` *is* `std/text.gaz`), and without
+    it the two are different files, so a duplicate is the ownership error rather than `already
+    declared`. Each module is read once, which also makes a cycle of imports harmless: a module
+    only declares, and everything resolves once the whole program is read, so there is no
+    initialisation order for a cycle to break (the compiler's own `parser.gaz` and
+    `template.gaz` import each other).
+  - **An imported file only declares** (`namespace`, `import`, `fn`, `kind`, `const`): a
+    statement in one is an error where it is written, and the main file imported back by a
+    cycle is refused at its first statement. So importing never runs anything, a plugin
+    registers itself by a `pub fn register()` its main file calls, and a kind a template names
+    lives in a module.
+  - **`gaz.json`** marks a root: a JSON object whose only key is `"name"`, a string, checked
+    when the root is first found (the compiler imports `std/json.gaz` for it); any other key is an
+    error until packages read it, so nothing written today can mean something else later.
+  - **`include` is gone, for good**: it stays the `INCLUDE` token, in `Parser::REMOVED` (next to
+    `RESERVED`, which is for features to come; the language server's completion skips both), and
+    `top_level()` and `statement()` answer it with `include is gone: write import "..."; ...`.
   - `namespace json;` first in a file, at most one, optional: a file without one declares its
-    names globally, as every file did before, and a program never needs one.
+    names with no namespace, seen by its importers like any others, and a program never needs one.
   - **A name is private to its namespace unless `pub`**: a file is implementation, and only
     what it says is public escapes it. Privacy is per namespace, not per file, so `compiler/`'s
-    files declare `namespace gazlang;` and go on seeing each other's everything, and a
-    test of the internals joins the namespace rather than making them public. A kind's members
-    work the same way, so `pub` means one thing everywhere.
-  - **`include "chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
-    unqualified. Including a file always makes its namespace reachable qualified
-    (`chars::is_digit`); the clause only adds aliases, and names in it are bare, since the
-    string already said which file. A file already spliced in gives no statements again but
-    still answers its `use` clause. There is no standalone `use`, so a file can only name
-    what it includes itself, and no `use ns::*`, which is how the flat namespace came back.
-  - **Resolution** is the current namespace, then this file's aliases, then global and
-    builtins. No fallback into another namespace, which is PHP's wart. Only a name's first
-    part is resolved, since a namespace holds no namespace: in `namespace gazlang`,
-    `Token::EOF` is `gazlang::Token::EOF` and `json::decode` is already what it means.
+    files declare `namespace gazlang;` and see each other's everything they import, and a test
+    of the internals joins the namespace rather than making them public. A kind's members work
+    the same way, so `pub` means one thing everywhere.
+  - **A namespace belongs to one project**: every module of a namespace has the same root (the
+    standard library counting as one), so a program can't declare `namespace http` and call its
+    private functions (`Namespace text is std/text.gaz's: lib/text.gaz can't declare it too`).
+  - **`import "./chars.gaz" use is_digit, char_at as at;`** is the only way to bring a name in
+    unqualified. Importing a file always makes its namespace reachable qualified
+    (`chars::is_digit`); the clause only adds aliases, its names bare, since the string already
+    said which file, and each must be declared in that very file, not a sibling of its namespace.
+    A module already read gives no statements again but still answers its `use` clause. There is
+    no standalone `use`, so a file can only name what it imports itself, and no `use ns::*`,
+    which is how the flat namespace came back.
+  - **Resolution** is the current namespace (declared in this module or one it imports), then
+    this file's aliases, then a qualified name of a namespace it imports, then a name an imported
+    module declares with no namespace, then the builtins and the builtin kinds. No fallback into
+    another namespace, which is PHP's wart. Only a name's first part is resolved, since a
+    namespace holds no namespace: in `namespace gazlang`, `Token::EOF` is `gazlang::Token::EOF`
+    and `json::decode` is already what it means. `ponytail:` a bare name whose namespace's
+    declaration isn't imported falls to a builtin of that name rather than being an error, as
+    the order says; the migration's bytecode comparison (a `CALL` turned `CALL_BUILTIN`) is what
+    checked no program meant otherwise.
   - **A namespace's own name wins over a builtin of that name inside it**, which is what the
     order means: `pub fn values()` in `namespace sorting` makes a bare `values($x)` in that file
     `sorting::values($x)`. The alternative, builtins first, would mean a new builtin could take a
     name a namespace already used.
   - Errors are the parser's: a `use` on a file that declares no namespace, a name that isn't
-    `pub`, a name in a `use` clause that is qualified, an alias already taken, a namespace
-    only reached through another file's include.
-  - `namespace`, `use`, `pub`, `kin` and `shared` are reserved, so `fn use()` no longer parses.
+    `pub`, a name in a `use` clause that is qualified or declared in another file, an alias
+    already taken, a namespace or name the file doesn't import.
+  - `namespace`, `use`, `pub`, `kin`, `shared` and `import` are keywords, so `fn use()` doesn't
+    parse.
 - **Static members** are reached by name as constants are: `Counter::next()`, `Counter::COUNT`,
   `Counter::count`. Not through a value: `$obj::next()` puts a value on the left of the
   parse-time operator, which is the one place PHP's `::` means something else, and `$obj.count`
@@ -1089,9 +1146,10 @@ Names are ASCII.
   sanitized one, where every local of `call_builtin()`'s `switch` gets a slot of its own. So **no
   stack buffer belongs in `call_builtin()`**: a big one goes in a `noinline` function (`read_stream()`),
   and `-Wframe-larger-than=4096` on a sanitized build names any that crept back.
-- `include "path.gaz";` is top level only, takes a string literal relative to the including
-  file (the working directory for piped source), and is resolved at parse time by splicing the
-  file's statements in; each file is included once (the main file counts), by real path, which also breaks cycles.
+- `import "path.gaz";` comes only at the top of a file, takes a string literal (`std/`, `./` or
+  from the project root), and is resolved at parse time: the imported module's declarations are
+  read into the one program, once per module however it is spelt (the main file counts), which
+  also ends cycles. See "Modules and namespaces".
 
 ## Builtins and the standard library
 
@@ -1370,11 +1428,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   naming a builtin it lacks.
 - **The standard library is built into the VM** (`vm/build/std.c`, made from `lib/*.gaz` by the
   Makefile with `od`, as the compiler's bytecode is), so a program in another repository reaches it
-  by name and needs no path to this one: `include "std/json.gaz";`. The parser resolves it (a path
-  starting with `std/`, or a plain name inside a library file, whose "directory" is `<std>`) through
-  the `std_source($name)` builtin, which gives a file's text or null; a name is one file's, never a
-  path. The VM, the bytecode and the collector learn nothing: the file is spliced in as any other, its
-  location is `<std>/json.gaz`, and a name in angle brackets is what bytecode never rewrites, so
+  by name and needs no path to this one: `import "std/json.gaz";`. The parser resolves it (a path
+  starting with `std/`, or a `./` or root path inside a library file, whose directory and root are
+  `<std>`) through the `std_source($name)` builtin, which gives a file's text or null; a name is one
+  file's, never a path. The VM, the bytecode and the collector learn nothing: the module is read as any
+  other, its location is `<std>/json.gaz`, and a name in angle brackets is what bytecode never rewrites, so
   bytecode runs from anywhere. **Embedding, not a search path** (Python's `sys.path`, Lua's
   `package.path`): one file, `bin/gaz`, works from any directory with no install layout to get
   wrong and no skew between a binary and the library it runs; the cost, a rebuild after editing `lib/`
@@ -1383,8 +1441,9 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   component; `./std/x.gaz` is a directory of your own. Everything in the repository loads the
   library by `std/`, as any other program would: the tests (`tests/gaz/lib` tests the built-in copy,
   which the tests build from `lib/`), the games, the website, the language server and `compiler/`,
-  whose `std/chars.gaz` is the built-in copy of the `bin/gaz` that compiles it. Loading a library
-  file by path as well would declare its names twice. `StdLibraryTest` checks that what is built in
+  whose `std/chars.gaz` is the built-in copy of the `bin/gaz` that compiles it. A library file
+  imported by path as well is another module of the standard library's namespace, the ownership
+  error, unless `GAZLIB` names its directory, which makes it the same module. `StdLibraryTest` checks that what is built in
   equals `lib/`.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
@@ -1401,7 +1460,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `first` (an error on empty, mirroring `last()`), `find` (`null` on no match, since not-found is an ordinary
   outcome, not a bug) and `contains_by` (`in_array`'s predicate-based sibling). A list helper goes here
   rather than into the builtins, since a builtin takes its name from every program and a namespace only
-  from those that include it),
+  from those that import it),
   `text.gaz` (`text::quote`: a value as a literal for a message; `text::lines`: what `read_line()` reads, as a list, so `text::lines(read_stdin())` is a
   `gaz -e` one-liner's input: `split($s, "\n")` leaves a trailing `""` after a final newline, and "\r\n" is
   stripped only where a "\n" follows, as `read_line()` and `file_read_line()` do; `text::indentation`
@@ -1671,7 +1730,7 @@ turns a mistake into a message and an exit.
 {!! $trusted !!}                               // as it is, whatever it is
 ```
 
-- **A `.gazml` file is compiled by the compiler when it is included**, into a function returning
+- **A `.gazml` file is compiled by the compiler when it is imported**, into a function returning
   `Html`, so any GazLang expression works in it, a mistake is an error when the program is read,
   and nothing is parsed at run time. `compiler/template.gaz` translates it into GazLang source,
   **one line of source for each line of the template**, which is then lexed and parsed like any
@@ -1680,18 +1739,16 @@ turns a mistake into a message and an exit.
   so a library could only offer logic-less templates.
 - **The first line declares it**: `@template name($params)`, so a template has real parameters
   (defaults included), a wrong call is caught when the program is read, and its file name is free.
-  - **A template may start with `namespace name;`** (`is_namespace_line()` in `template.gaz`), passed on
-    as the first line of the generated source so the parser checks the name and the rest of the
-    file is read in that namespace: the function is `name::template`, its parameters' types resolve
-    there, and it is private to it unless written `@template pub name(...)`. A template can't
-    `include`, so before this it could name no kind of a namespaced program (`?User $user` was
-    `Undefined type`, and `?todo::User` was `Namespace todo is not included here`) and every template
-    was a global function; both were found by `apps/todo`. Still one line of source per line of
-    template, the namespace line included. `ponytail:` a template still can't `include` or `use`, so it
-    names no other namespace (`format::number` in one is `Namespace format is not included here`, even
-    if the program includes it): a function of its own namespace that calls the library is the way
-    round, and an `@include` directive the lift. Tested by `tests/gaz/templates/namespaced_test.gaz` and the
-    `template_namespace` and `error_template_*` corpora.
+  - **A template is a module of template functions**: before the `@template` line it may have
+    `namespace name;` (`is_namespace_line()` in `template.gaz`) and then `import` lines
+    (`is_import_line()`), each passed on as a line of the generated source, so the parser checks
+    them and an error in one is at the template's own line. The function is `name::template`,
+    private to the namespace unless written `@template pub name(...)`; its parameters' types, the
+    templates it calls and the libraries it uses (`format::number`) are what it imports, as for
+    any module. A kind a template names lives in a module, since the main file has statements and
+    can't be imported (`tests/gaz/templates/views/shop.gaz`). An `import` line after the header is
+    an error, not text. Tested by `tests/gaz/templates/namespaced_test.gaz` and the
+    `template_namespace`, `modules/template_imports` and `error_template_*` corpora.
 - **Blade's syntax**: `{{ }}` escapes, `{!! !!}` doesn't, `@if`/`@elseif`/`@else`/`@endif` and
   `@foreach`/`@endforeach` alone on their lines (a line holding one writes nothing, and a line
   holding only a `{{-- comment --}}` nothing either), `@{{` for a literal `{{`. Another `@word`
@@ -1699,9 +1756,9 @@ turns a mistake into a message and an exit.
   blocks nest, so a mismatch is a sentence about the template, not a parse error in source the
   user never wrote.
 - **A template's result is safe HTML, the builtin kind `Html`**, and `{{ }}` leaves an `Html` as
-  it is (`Html::escape()`), so one template includes another (`{{ header($title) }}`, a layout
+  it is (`Html::escape()`), so one template calls another (`{{ header($title) }}`, a layout
   given a page) with no marker. `{!! !!}` is then rare, which is the point: each one stands out
-  in review, where if every include needed one, a `{!! $comment !!}` would hide among them. It is
+  in review, where if every such call needed one, a `{!! $comment !!}` would hide among them. It is
   how Rails, Django and Jinja stay safe. `Html($text)` marks text as trusted; `http::serve` takes
   an `Html` body, as `text/html; charset=utf-8` unless a Content-Type is given.
 - **Concatenating an `Html` is an error** (`Cannot concatenate Html: build it with
@@ -1781,7 +1838,7 @@ turns a mistake into a message and an exit.
     split across a value (`</scr{$x}ipt>` in a part that a browser would read as one tag) is
     only refused where a value could finish it; `<noscript>` is read as markup.
 - **`Html` is a builtin kind in `BUILTIN_SOURCE`**, like `Error` and `Shared`, compiled into a
-  program that includes a template or names `Html` itself (not because its own code does). It is
+  program that imports a template or names `Html` itself (not because its own code does). It is
   the first builtin kind with a static method, which `program()` places itself, since only
   `top_level()` puts a kind's static methods after it.
 - **The output is gathered in `$#html`**, a name no program can write: the lexer reads it only in
@@ -1790,7 +1847,7 @@ turns a mistake into a message and an exit.
   lines; escaping is for HTML text and quoted attributes, not JavaScript or URLs inside a page.
 - **Templates are frozen for now**: no new template features until a real web app has used them
   (the repository's own use is the website's seven, about 130 lines, and `.gazml` costs
-  `compiler/template.gaz`, include handling, a docs section and some thirty corpus files). They are
+  `compiler/template.gaz`, import handling, a docs section and some thirty corpus files). They are
   the right shape for whole pages, with loops, conditions and layouts that `web::html` would make
   nested `map` calls, and their errors are at the template's own line, so they stay; but they don't
   read the markup around a value, so **a URL in one isn't checked** (`web::html` does). If the app
@@ -1989,7 +2046,7 @@ try {
 ```
 
 - **Catchable**: every runtime error (including running out of call depth) and anything thrown
-  with `throw`. Syntax and include errors happen before the program runs. `return`, `break`,
+  with `throw`. Syntax and import errors happen before the program runs. `return`, `break`,
   `continue` and `exit()` are not errors.
 - **`Error` is a builtin kind** written in GazLang (`BUILTIN_SOURCE` in `parser.gaz`, located
   as `<builtin>`): `#message`, `#file` (null for piped input), `#line`, `#trace`, `_($message)`,
@@ -2110,7 +2167,7 @@ try {
 
 ## The self-hosted front end
 
-- **Its shape, and why**: the lexer's scanner is an object, because `include` needs two lexers
+- **Its shape, and why**: the lexer's scanner is an object, because `import` needs two lexers
   alive at once; its operators are one table matched longest first. The parser's twelve binary
   levels are one table and a loop (precedence climbing) rather than a method each, 28% faster.
   `lambda_head` is one field, since nothing is read between marking a `(` and asking. A member
@@ -2126,8 +2183,9 @@ try {
   that are derived or the code generator's (the driver's `SKIPPED`). On an error there is no
   partial tree, since the whole-program checks write into nodes parsed long before; nothing
   catches a `ParseError` and carries on, so the parser restores no state.
-- **Files with no top level code** (`lexer.gaz`, `parser.gaz`, `codegen.gaz`), since including a
-  file runs it; the driver is separate.
+- **Files that only declare** (`lexer.gaz`, `parser.gaz`, `nodes.gaz`, `template.gaz`,
+  `codegen.gaz`), as the compiler requires of any file that is imported; the driver, the main
+  file, is separate. Each imports what it names, `parser.gaz` and `template.gaz` each other.
 - **The driver raises `LexError` and `ParseError` messages again from the top level**
   (`throw $e.message`), so `--tokens` and `--ast` print only the message; a bug in a port is a
   different error and still arrives with its trace. `LexError` carries `#reason` and
@@ -2138,7 +2196,7 @@ try {
   literal (a string quoted, which is the inverse of reading one), `..` on a float formats it,
   `to_int($text, null)` is the overflow check.
 - **Paths** resolve with `cwd()`, `real_path()` and `file_exists()`; the parser harness also
-  runs from other working directories and with an absolute include.
+  runs from other working directories, below the main file and through a symlinked path.
 
 ## The C VM
 
@@ -2159,11 +2217,11 @@ try {
     `read_line()` find the data that was piped in. Nothing in `compiler/` knows about it. Every
     argument left after the options is the program's `args()` (never a file), refused with a file,
     `-`-as-file (`-f`), `--watch`, `-S` and `--tty`, and `-e` with no code. Errors are "on line N",
-    as piped source's are, not a made-up file name, which would break resolving includes from the
-    working directory. **Plain program semantics, on purpose**: no implicit `echo` of a last
+    as piped source's are, not a made-up file name, which would break resolving imports from the
+    working directory and its project. **Plain program semantics, on purpose**: no implicit `echo` of a last
     expression (a rule that changes what a statement does by where it sits), no `-n`/`-p` line loop
     (C would wrap the text, shifting line numbers and inventing `$line`), and no prelude of
-    libraries (implicit, and about 70ms a run): `include "std/lists.gaz";` is the price, and a
+    libraries (implicit, and about 70ms a run): `import "std/lists.gaz";` is the price, and a
     `lists::x` without it says so (`library_hint()` in `parser.gaz`). `ponytail:` code shows in
     `ps`; no columns in an error.
 - **`gaz --watch app.gaz ARGS`** (`watch.c`) runs the program and runs it again whenever a file it
@@ -2176,7 +2234,7 @@ try {
     the distinct paths of the `@` lines of a `gaz -c` of it (`source_files()` in `load.c`,
     resolved and shown as the loader shows them, `<builtin>` and `<std>` left out), so templates
     are watched and the built-in library isn't. Worked out again before each start, so a new
-    include is watched from its first run; a compile that fails keeps the last list. Compiling
+    import is watched from its first run; a compile that fails keeps the last list. Compiling
     twice costs the restart one compile, but needs no change to the front end. `ponytail:` a file
     that leaves no instruction (only constants) isn't watched.
   - **Polled every 0.25s**, modification time (nanoseconds too), size and inode, portable where
@@ -2184,7 +2242,7 @@ try {
     group (graceful for `workers()`), SIGKILL after 1s, where production's grace is 10s, so a
     save feels instant. A compile error (the child prints it) or a program that ends by itself
     waits for the next change.
-  - **Messages on stderr**: `gaz: watching app.gaz and 6 files it includes` (again whenever the
+  - **Messages on stderr**: `gaz: watching app.gaz and 6 files it imports` (again whenever the
     list changes), `gaz: views/page.gazml changed, restarting`, `gaz: waiting for a change`.
   - **SIGINT, SIGTERM, SIGHUP stop the group the same way, then end the supervisor as the signal
     would**; one it was started ignoring stays ignored (so `sh -c '... &'` background jobs, which
@@ -2234,9 +2292,13 @@ try {
   promise), a git repository with version tags. A project has `gaz.json` (its name and
   `"requires": {"router": "github.com/someone/gaz-router@1.2.0"}`), `gaz.lock` (the exact commit
   of every package, direct or not) and `packages/` inside it, never a global install, for the
-  reason the standard library is embedded. `include "pkg/router/router.gaz"` reserves `pkg/` as
-  `std/` is, found by walking up from the including file to the nearest `gaz.json`. One version
-  of a package per project, since namespaces are program-wide; versions by minimal version
+  reason the standard library is embedded. `import "pkg/router/router.gaz"` (reserved now, refused
+  as "packages aren't built yet") would map to `<root>/packages/router/router.gaz`, whose own
+  imports resolve against its own `gaz.json`, since a module's root is the nearest one above it,
+  not the main file's; a namespace belongs to one project, so a package can't join the app's.
+  `gaz.json` holds only `"name"` today and refuses any other key, so `"requires"` can't mean
+  something else before this is built. One version of a package per project, since namespaces
+  are program-wide; versions by minimal version
   selection (Go's: the highest of the minimums asked for, deterministic, no solver). **Git URLs,
   not a registry**: nothing to run, names unique by construction, the commit hash as integrity; a
   registry can come later as an index of git repositories (Packagist's shape) without changing a

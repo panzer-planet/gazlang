@@ -3,14 +3,14 @@
  * after a game starts, after keys are pressed, and after time moves on. Where the text says
  * something about the game (a score, a place in the table) it is checked against the game.
  */
-include "std/test.gaz" use expect;
-include "std/term.gaz";
-include "std/tui.gaz";
-include "../engine/matches.gaz" use Goal, Booking;
-include "../game.gaz" use Game;
-include "std/date.gaz";
-include "../engine/money.gaz";
-include "../ui.gaz" use Shell;
+import "std/test.gaz" use expect;
+import "std/term.gaz";
+import "std/tui.gaz";
+import "engine/matches.gaz" use Goal, Booking;
+import "game.gaz" use Game;
+import "std/date.gaz";
+import "engine/money.gaz";
+import "ui.gaz" use Shell;
 
 /* How many of $list satisfy $test */
 fn count_where($list, $test) {

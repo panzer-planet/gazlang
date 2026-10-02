@@ -1,0 +1,4 @@
+// The root of this project is nested/, so a path from the root is from here
+import "helper.gaz";
+
+fn inside() { return helper(); }

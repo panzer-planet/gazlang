@@ -1,0 +1,1 @@
+Error: Cannot import "pkg/router/router.gaz": packages aren't built yet at tests/corpora/parser/modules/error_import_pkg.gaz:1

@@ -3,7 +3,7 @@ globals
 
 top
 locals $html
-@ "template_namespace.gaz" 9
+@ "template_namespace.gaz" 6
 PUSH "Lamp"
 NEW shop::Product 1
 PUSH "on sale"
@@ -88,7 +88,7 @@ RET
 
 fn shop::product_card 1 2
 locals $product $note $#html
-@ "templates/namespaced.gazml" 2
+@ "templates/namespaced.gazml" 3
 ARGC
 PUSH 1
 GT
@@ -103,11 +103,11 @@ PUSH ""
 STORE 2
 LOAD 2
 POP
-@ "templates/namespaced.gazml" 3
+@ "templates/namespaced.gazml" 4
 PUSH "<div class=\"card\">\n"
 CONCAT_ASSIGN 2
 POP
-@ "templates/namespaced.gazml" 4
+@ "templates/namespaced.gazml" 5
 PUSH "<b>"
 CONCAT_ASSIGN 2
 POP
@@ -119,12 +119,12 @@ POP
 PUSH "</b>\n"
 CONCAT_ASSIGN 2
 POP
-@ "templates/namespaced.gazml" 5
+@ "templates/namespaced.gazml" 6
 LOAD 1
 PUSH ""
 NOT_EQUALS
 JZ ELSE_1
-@ "templates/namespaced.gazml" 6
+@ "templates/namespaced.gazml" 7
 PUSH "<p>"
 CONCAT_ASSIGN 2
 POP
@@ -135,19 +135,19 @@ POP
 PUSH "</p>\n"
 CONCAT_ASSIGN 2
 POP
-@ "templates/namespaced.gazml" 5
+@ "templates/namespaced.gazml" 6
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "templates/namespaced.gazml" 8
+@ "templates/namespaced.gazml" 9
 PUSH "</div>\n"
 CONCAT_ASSIGN 2
 POP
-@ "templates/namespaced.gazml" 9
+@ "templates/namespaced.gazml" 10
 LOAD 2
 NEW Html 1
 RET
-@ "templates/namespaced.gazml" 2
+@ "templates/namespaced.gazml" 3
 PUSH null
 RET
 
@@ -184,7 +184,7 @@ kind shop::Product
 field name shop::Product pub string
 method _ shop::Product pub
 locals $#argument_0
-@ "template_namespace.gaz" 5
+@ "templates/product.gaz" 4
 CALL_CONSTRUCTOR shop::Product
 POP
 LOAD_THIS
@@ -192,7 +192,7 @@ RET
 
 fn shop::Product._ 1 1
 locals $name
-@ "template_namespace.gaz" 6
+@ "templates/product.gaz" 5
 CHECK_PARAM 0 string
 LOAD 0
 SET_FIELD name

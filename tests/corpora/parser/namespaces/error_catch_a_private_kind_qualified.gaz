@@ -1,4 +1,4 @@
-include "lib/problems.gaz";
+import "./lib/problems.gaz";
 
 try {
     echo 1;

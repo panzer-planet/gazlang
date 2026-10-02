@@ -1,0 +1,3 @@
+Error: Cannot use + on null at tests/fixtures/import/lib/fails.gaz:2
+  fails at tests/fixtures/import/lib/fails.gaz:2
+  top level at tests/fixtures/import/runtime.gaz:3

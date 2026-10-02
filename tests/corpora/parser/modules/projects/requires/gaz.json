@@ -1,0 +1,1 @@
+{"name": "app", "requires": {"router": "github.com/someone/router@1.2.0"}}

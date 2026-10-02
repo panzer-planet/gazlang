@@ -1,6 +1,6 @@
-include "std/test.gaz" use expect, throws;
-include "std/http.gaz";
-include "std/crypto.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/http.gaz";
+import "std/crypto.gaz";
 
 /* cookies(): the Cookie header as a map, url_decode()d */
 expect("no Cookie header", http::cookies({"headers" => {}}), {});

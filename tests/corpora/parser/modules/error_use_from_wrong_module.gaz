@@ -1,0 +1,2 @@
+// shop::a is declared in lib/shop/a.gaz, not in b.gaz, which is of the same namespace
+import "./lib/shop/b.gaz" use a;

@@ -1,0 +1,5 @@
+namespace b;
+
+import "./c.gaz";
+
+pub fn b() { return c::c(); }

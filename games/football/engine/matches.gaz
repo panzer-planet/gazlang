@@ -1,10 +1,10 @@
 // What happens in a match
 namespace matches;
 
-include "std/format.gaz" use pad_left;
-include "std/random.gaz";
-include "players.gaz";
-include "std/lists.gaz" use max_by;
+import "std/format.gaz" use pad_left;
+import "std/random.gaz";
+import "./players.gaz";
+import "std/lists.gaz" use max_by;
 
 // How much more of the ball the home side gets, before the square root
 const HOME_ADVANTAGE = 1.25;

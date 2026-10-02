@@ -1,0 +1,9 @@
+import "./math.gaz";
+
+fn times($a, $b) {
+    return $a * $b;
+}
+
+fn ninth() {
+    return square(3);
+}

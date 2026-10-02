@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 /*
  * A parent's private member is the parent's own: a child may declare a method, constant or

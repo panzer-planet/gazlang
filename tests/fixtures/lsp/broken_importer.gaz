@@ -1,0 +1,5 @@
+// Its own text is fine; the file it imports isn't
+
+import "./broken.gaz";
+
+echo broken();

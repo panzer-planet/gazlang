@@ -1,0 +1,4076 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 12
+      name: "Html"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods:
+        escape: FunctionDeclaration 20
+          name: "Html::escape"
+          params: ["\$value"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: IfStatement 21
+                condition: BinOp 21
+                  left: BinOp 21
+                    left: FunctionCall 21
+                      name: "type_of"
+                      args:
+                        0: Variable 21
+                          token: 21 VAR_IDENTIFIER $value
+                          value: "\$value"
+                    token: 21 EQUALS ==
+                    op: 21 EQUALS ==
+                    right: String 21
+                      token: 21 STRING "object"
+                      value: "object"
+                  token: 21 AND &&
+                  op: 21 AND &&
+                  right: FunctionCall 21
+                    name: "is_a"
+                    args:
+                      0: Variable 21
+                        token: 21 VAR_IDENTIFIER $value
+                        value: "\$value"
+                      1: FunctionRef 21
+                        name: "Html"
+                        constant: false
+                        value: null
+                        static_name: null
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 22
+                      expr: Property 22
+                        target: Variable 22
+                          token: 22 VAR_IDENTIFIER $value
+                          value: "\$value"
+                        name: "text"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                else_if: null
+                else_body: null
+              1: Statement 24
+                expr: Assign 24
+                  left: Variable 24
+                    token: 24 VAR_IDENTIFIER $text
+                    value: "\$text"
+                  token: 24 ASSIGN =
+                  right: FunctionCall 24
+                    name: "to_string"
+                    args:
+                      0: Variable 24
+                        token: 24 VAR_IDENTIFIER $value
+                        value: "\$value"
+              2: ForeachStatement 25
+                iterable: ArrayLiteral 25
+                  entries:
+                    0:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&"
+                              value: "&"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&amp;"
+                              value: "&amp;"
+                        map: false
+                    1:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "<"
+                              value: "<"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&lt;"
+                              value: "&lt;"
+                        map: false
+                    2:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING ">"
+                              value: ">"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&gt;"
+                              value: "&gt;"
+                        map: false
+                    3:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "\""
+                              value: "\""
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&quot;"
+                              value: "&quot;"
+                        map: false
+                    4:
+                      0: null
+                      1: ArrayLiteral 25
+                        entries:
+                          0:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "'"
+                              value: "'"
+                          1:
+                            0: null
+                            1: String 25
+                              token: 25 STRING "&#39;"
+                              value: "&#39;"
+                        map: false
+                  map: false
+                key: null
+                value: ListPattern 25
+                  targets:
+                    0: Variable 25
+                      token: 25 VAR_IDENTIFIER $from
+                      value: "\$from"
+                    1: Variable 25
+                      token: 25 VAR_IDENTIFIER $to
+                      value: "\$to"
+                body: Compound
+                  statements:
+                    0: Statement 26
+                      expr: Assign 26
+                        left: Variable 26
+                          token: 26 VAR_IDENTIFIER $text
+                          value: "\$text"
+                        token: 26 ASSIGN =
+                        right: FunctionCall 26
+                          name: "replace"
+                          args:
+                            0: Variable 26
+                              token: 26 VAR_IDENTIFIER $text
+                              value: "\$text"
+                            1: Variable 26
+                              token: 26 VAR_IDENTIFIER $from
+                              value: "\$from"
+                            2: Variable 26
+                              token: 26 VAR_IDENTIFIER $to
+                              value: "\$to"
+              3: ReturnStatement 29
+                expr: Variable 29
+                  token: 29 VAR_IDENTIFIER $text
+                  value: "\$text"
+          arity: 1
+          kind: "Html"
+          abstract: false
+      static_owners: {"escape" => "Html"}
+      static_is_method: {"escape" => true}
+      vis: {"text" => "pub", "_" => "pub", "to_string" => "pub", "escape" => "pub"}
+      fields: {"text" => null}
+      field_lines: {"text" => 13}
+      methods:
+        _: FunctionDeclaration 13
+          name: "_"
+          params: ["\$text"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: Property 13
+                    target: This 13
+                    name: "text"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 13 ASSIGN =
+                  right: Variable 13
+                    token: 13 VAR_IDENTIFIER $text
+                    value: "\$text"
+          arity: 1
+          kind: "Html"
+          abstract: false
+        to_string: FunctionDeclaration 15
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 16
+                expr: Property 16
+                  target: This 16
+                  name: "text"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 0
+          kind: "Html"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"text" => "Html"}
+      members: {"_" => "Html", "to_string" => "Html"}
+      abstract_methods: []
+      slots: [["text", "Html", "pub"]]
+      method_table: [["_", "Html", "pub", "Html"], ["to_string", "Html", "pub", "Html"]]
+      owner_vis: {"escape" => "pub", "text" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Html", "to_string" => "Html"}
+      hidden: []
+      hidden_fields: []
+    1: FunctionDeclaration 20
+      name: "Html::escape"
+      params: ["\$value"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: IfStatement 21
+            condition: BinOp 21
+              left: BinOp 21
+                left: FunctionCall 21
+                  name: "type_of"
+                  args:
+                    0: Variable 21
+                      token: 21 VAR_IDENTIFIER $value
+                      value: "\$value"
+                token: 21 EQUALS ==
+                op: 21 EQUALS ==
+                right: String 21
+                  token: 21 STRING "object"
+                  value: "object"
+              token: 21 AND &&
+              op: 21 AND &&
+              right: FunctionCall 21
+                name: "is_a"
+                args:
+                  0: Variable 21
+                    token: 21 VAR_IDENTIFIER $value
+                    value: "\$value"
+                  1: FunctionRef 21
+                    name: "Html"
+                    constant: false
+                    value: null
+                    static_name: null
+            if_body: Compound
+              statements:
+                0: ReturnStatement 22
+                  expr: Property 22
+                    target: Variable 22
+                      token: 22 VAR_IDENTIFIER $value
+                      value: "\$value"
+                    name: "text"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+            else_if: null
+            else_body: null
+          1: Statement 24
+            expr: Assign 24
+              left: Variable 24
+                token: 24 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 24 ASSIGN =
+              right: FunctionCall 24
+                name: "to_string"
+                args:
+                  0: Variable 24
+                    token: 24 VAR_IDENTIFIER $value
+                    value: "\$value"
+          2: ForeachStatement 25
+            iterable: ArrayLiteral 25
+              entries:
+                0:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&"
+                          value: "&"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&amp;"
+                          value: "&amp;"
+                    map: false
+                1:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "<"
+                          value: "<"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&lt;"
+                          value: "&lt;"
+                    map: false
+                2:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING ">"
+                          value: ">"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&gt;"
+                          value: "&gt;"
+                    map: false
+                3:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "\""
+                          value: "\""
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&quot;"
+                          value: "&quot;"
+                    map: false
+                4:
+                  0: null
+                  1: ArrayLiteral 25
+                    entries:
+                      0:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "'"
+                          value: "'"
+                      1:
+                        0: null
+                        1: String 25
+                          token: 25 STRING "&#39;"
+                          value: "&#39;"
+                    map: false
+              map: false
+            key: null
+            value: ListPattern 25
+              targets:
+                0: Variable 25
+                  token: 25 VAR_IDENTIFIER $from
+                  value: "\$from"
+                1: Variable 25
+                  token: 25 VAR_IDENTIFIER $to
+                  value: "\$to"
+            body: Compound
+              statements:
+                0: Statement 26
+                  expr: Assign 26
+                    left: Variable 26
+                      token: 26 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    token: 26 ASSIGN =
+                    right: FunctionCall 26
+                      name: "replace"
+                      args:
+                        0: Variable 26
+                          token: 26 VAR_IDENTIFIER $text
+                          value: "\$text"
+                        1: Variable 26
+                          token: 26 VAR_IDENTIFIER $from
+                          value: "\$from"
+                        2: Variable 26
+                          token: 26 VAR_IDENTIFIER $to
+                          value: "\$to"
+          3: ReturnStatement 29
+            expr: Variable 29
+              token: 29 VAR_IDENTIFIER $text
+              value: "\$text"
+      arity: 1
+      kind: "Html"
+      abstract: false
+@ "<std>/text.gaz"
+    2: FunctionDeclaration 15
+      name: "text::lines"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: IfStatement 16
+            condition: BinOp 16
+              left: FunctionCall 16
+                name: "type_of"
+                args:
+                  0: Variable 16
+                    token: 16 VAR_IDENTIFIER $text
+                    value: "\$text"
+              token: 16 NOT_EQUALS !=
+              op: 16 NOT_EQUALS !=
+              right: String 16
+                token: 16 STRING "string"
+                value: "string"
+            if_body: Compound
+              statements:
+                0: Statement 17
+                  expr: Throw 17
+                    expr: BinOp 17
+                      left: String 17
+                        token: 17 STRING "text::lines() expects a string, got "
+                        value: "text::lines() expects a string, got "
+                      token: 17 CONCAT ..
+                      op: 17 CONCAT ..
+                      right: FunctionCall 17
+                        name: "type_of"
+                        args:
+                          0: Variable 17
+                            token: 17 VAR_IDENTIFIER $text
+                            value: "\$text"
+            else_if: null
+            else_body: null
+          1: Statement 19
+            expr: Assign 19
+              left: Variable 19
+                token: 19 VAR_IDENTIFIER $lines
+                value: "\$lines"
+              token: 19 ASSIGN =
+              right: FunctionCall 19
+                name: "split"
+                args:
+                  0: Variable 19
+                    token: 19 VAR_IDENTIFIER $text
+                    value: "\$text"
+                  1: String 19
+                    token: 19 STRING "\n"
+                    value: "\n"
+          2: Statement 20
+            expr: Assign 20
+              left: Variable 20
+                token: 20 VAR_IDENTIFIER $terminated
+                value: "\$terminated"
+              token: 20 ASSIGN =
+              right: BinOp 20
+                left: FunctionCall 20
+                  name: "len"
+                  args:
+                    0: Variable 20
+                      token: 20 VAR_IDENTIFIER $lines
+                      value: "\$lines"
+                token: 20 MINUS -
+                op: 20 MINUS -
+                right: Num 20
+                  token: 20 INTEGER 1
+                  value: 1
+          3: IfStatement 21
+            condition: BinOp 21
+              left: FunctionCall 21
+                name: "last"
+                args:
+                  0: Variable 21
+                    token: 21 VAR_IDENTIFIER $lines
+                    value: "\$lines"
+              token: 21 EQUALS ==
+              op: 21 EQUALS ==
+              right: String 21
+                token: 21 STRING ""
+                value: ""
+            if_body: Compound
+              statements:
+                0: DeleteStatement 22
+                  target: Index 22
+                    target: Variable 22
+                      token: 22 VAR_IDENTIFIER $lines
+                      value: "\$lines"
+                    index: Variable 22
+                      token: 22 VAR_IDENTIFIER $terminated
+                      value: "\$terminated"
+                1: Statement 23
+                  expr: Assign 23
+                    left: Variable 23
+                      token: 23 VAR_IDENTIFIER $terminated
+                      value: "\$terminated"
+                    token: 23 ASSIGN =
+                    right: FunctionCall 23
+                      name: "len"
+                      args:
+                        0: Variable 23
+                          token: 23 VAR_IDENTIFIER $lines
+                          value: "\$lines"
+            else_if: null
+            else_body: null
+          4: IfStatement 25
+            condition: UnaryOp 25
+              op: 25 NOT !
+              expr: FunctionCall 25
+                name: "contains"
+                args:
+                  0: Variable 25
+                    token: 25 VAR_IDENTIFIER $text
+                    value: "\$text"
+                  1: String 25
+                    token: 25 STRING "\r"
+                    value: "\r"
+            if_body: Compound
+              statements:
+                0: ReturnStatement 26
+                  expr: Variable 26
+                    token: 26 VAR_IDENTIFIER $lines
+                    value: "\$lines"
+            else_if: null
+            else_body: null
+          5: Compound 28
+            statements:
+              0: Statement 28
+                expr: Assign 28
+                  left: Variable 28
+                    token: 28 VAR_IDENTIFIER $i
+                    value: "\$i"
+                  token: 28 ASSIGN =
+                  right: Num 28
+                    token: 28 INTEGER 0
+                    value: 0
+              1: WhileStatement 28
+                condition: BinOp 28
+                  left: Variable 28
+                    token: 28 VAR_IDENTIFIER $i
+                    value: "\$i"
+                  token: 28 LESS_THAN <
+                  op: 28 LESS_THAN <
+                  right: Variable 28
+                    token: 28 VAR_IDENTIFIER $terminated
+                    value: "\$terminated"
+                body: Compound
+                  statements:
+                    0: IfStatement 29
+                      condition: FunctionCall 29
+                        name: "ends_with"
+                        args:
+                          0: Index 29
+                            target: Variable 29
+                              token: 29 VAR_IDENTIFIER $lines
+                              value: "\$lines"
+                            index: Variable 29
+                              token: 29 VAR_IDENTIFIER $i
+                              value: "\$i"
+                          1: String 29
+                            token: 29 STRING "\r"
+                            value: "\r"
+                      if_body: Compound
+                        statements:
+                          0: Statement 30
+                            expr: Assign 30
+                              left: Index 30
+                                target: Variable 30
+                                  token: 30 VAR_IDENTIFIER $lines
+                                  value: "\$lines"
+                                index: Variable 30
+                                  token: 30 VAR_IDENTIFIER $i
+                                  value: "\$i"
+                              token: 30 ASSIGN =
+                              right: FunctionCall 30
+                                name: "slice"
+                                args:
+                                  0: Index 30
+                                    target: Variable 30
+                                      token: 30 VAR_IDENTIFIER $lines
+                                      value: "\$lines"
+                                    index: Variable 30
+                                      token: 30 VAR_IDENTIFIER $i
+                                      value: "\$i"
+                                  1: Num 30
+                                    token: 30 INTEGER 0
+                                    value: 0
+                                  2: UnaryOp 30
+                                    op: 30 MINUS -
+                                    expr: Num 30
+                                      token: 30 INTEGER 1
+                                      value: 1
+                      else_if: null
+                      else_body: null
+                step: Statement 28
+                  expr: Increment 28
+                    target: Variable 28
+                      token: 28 VAR_IDENTIFIER $i
+                      value: "\$i"
+                    op: 28 INCREMENT ++
+                    prefix: false
+          6: ReturnStatement 34
+            expr: Variable 34
+              token: 34 VAR_IDENTIFIER $lines
+              value: "\$lines"
+      arity: 1
+      kind: null
+      abstract: false
+    3: FunctionDeclaration 38
+      name: "text::indentation"
+      params: ["\$line"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 39
+            expr: Assign 39
+              left: Variable 39
+                token: 39 VAR_IDENTIFIER $count
+                value: "\$count"
+              token: 39 ASSIGN =
+              right: Num 39
+                token: 39 INTEGER 0
+                value: 0
+          1: WhileStatement 40
+            condition: BinOp 40
+              left: BinOp 40
+                left: Variable 40
+                  token: 40 VAR_IDENTIFIER $count
+                  value: "\$count"
+                token: 40 LESS_THAN <
+                op: 40 LESS_THAN <
+                right: FunctionCall 40
+                  name: "len"
+                  args:
+                    0: Variable 40
+                      token: 40 VAR_IDENTIFIER $line
+                      value: "\$line"
+              token: 40 AND &&
+              op: 40 AND &&
+              right: BinOp 40
+                left: BinOp 40
+                  left: Index 40
+                    target: Variable 40
+                      token: 40 VAR_IDENTIFIER $line
+                      value: "\$line"
+                    index: Variable 40
+                      token: 40 VAR_IDENTIFIER $count
+                      value: "\$count"
+                  token: 40 EQUALS ==
+                  op: 40 EQUALS ==
+                  right: String 40
+                    token: 40 STRING " "
+                    value: " "
+                token: 40 OR ||
+                op: 40 OR ||
+                right: BinOp 40
+                  left: Index 40
+                    target: Variable 40
+                      token: 40 VAR_IDENTIFIER $line
+                      value: "\$line"
+                    index: Variable 40
+                      token: 40 VAR_IDENTIFIER $count
+                      value: "\$count"
+                  token: 40 EQUALS ==
+                  op: 40 EQUALS ==
+                  right: String 40
+                    token: 40 STRING "\t"
+                    value: "\t"
+            body: Compound
+              statements:
+                0: Statement 41
+                  expr: Increment 41
+                    target: Variable 41
+                      token: 41 VAR_IDENTIFIER $count
+                      value: "\$count"
+                    op: 41 INCREMENT ++
+                    prefix: false
+            step: null
+          2: ReturnStatement 44
+            expr: Variable 44
+              token: 44 VAR_IDENTIFIER $count
+              value: "\$count"
+      arity: 1
+      param_types:
+        0: Type 38
+          names: ["string"]
+      return_type: Type 38
+        names: ["int"]
+      kind: null
+      abstract: false
+    4: FunctionDeclaration 48
+      name: "text::unindented"
+      params: ["\$line"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 49
+            expr: FunctionCall 49
+              name: "slice"
+              args:
+                0: Variable 49
+                  token: 49 VAR_IDENTIFIER $line
+                  value: "\$line"
+                1: FunctionCall 49
+                  name: "text::indentation"
+                  args:
+                    0: Variable 49
+                      token: 49 VAR_IDENTIFIER $line
+                      value: "\$line"
+      arity: 1
+      param_types:
+        0: Type 48
+          names: ["string"]
+      return_type: Type 48
+        names: ["string"]
+      kind: null
+      abstract: false
+    5: FunctionDeclaration 58
+      name: "text::quote"
+      params: ["\$value"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 59
+            expr: FunctionCall 59
+              name: "slice"
+              args:
+                0: FunctionCall 59
+                  name: "to_string"
+                  args:
+                    0: ArrayLiteral 59
+                      entries:
+                        0:
+                          0: null
+                          1: Variable 59
+                            token: 59 VAR_IDENTIFIER $value
+                            value: "\$value"
+                      map: false
+                1: Num 59
+                  token: 59 INTEGER 1
+                  value: 1
+                2: UnaryOp 59
+                  op: 59 MINUS -
+                  expr: Num 59
+                    token: 59 INTEGER 1
+                    value: 1
+      arity: 1
+      kind: null
+      abstract: false
+@ "<std>/format.gaz"
+    6: FunctionDeclaration 11
+      name: "format::number"
+      params: ["\$number", "\$decimals", "\$thousands"]
+      defaults:
+        0: null
+        1: Num 11
+          token: 11 INTEGER 2
+          value: 2
+        2: String 11
+          token: 11 STRING ","
+          value: ","
+      body: Compound
+        statements:
+          0: Statement 12
+            expr: Assign 12
+              left: Variable 12
+                token: 12 VAR_IDENTIFIER $scale
+                value: "\$scale"
+              token: 12 ASSIGN =
+              right: Num 12
+                token: 12 INTEGER 1
+                value: 1
+          1: Compound 13
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: Variable 13
+                    token: 13 VAR_IDENTIFIER $i
+                    value: "\$i"
+                  token: 13 ASSIGN =
+                  right: Num 13
+                    token: 13 INTEGER 0
+                    value: 0
+              1: WhileStatement 13
+                condition: BinOp 13
+                  left: Variable 13
+                    token: 13 VAR_IDENTIFIER $i
+                    value: "\$i"
+                  token: 13 LESS_THAN <
+                  op: 13 LESS_THAN <
+                  right: Variable 13
+                    token: 13 VAR_IDENTIFIER $decimals
+                    value: "\$decimals"
+                body: Compound
+                  statements:
+                    0: Statement 14
+                      expr: Assign 14
+                        left: Variable 14
+                          token: 14 VAR_IDENTIFIER $scale
+                          value: "\$scale"
+                        token: 14 MULTIPLY_ASSIGN *=
+                        right: Num 14
+                          token: 14 INTEGER 10
+                          value: 10
+                step: Statement 13
+                  expr: Increment 13
+                    target: Variable 13
+                      token: 13 VAR_IDENTIFIER $i
+                      value: "\$i"
+                    op: 13 INCREMENT ++
+                    prefix: false
+          2: Statement 17
+            expr: Assign 17
+              left: Variable 17
+                token: 17 VAR_IDENTIFIER $scaled
+                value: "\$scaled"
+              token: 17 ASSIGN =
+              right: FunctionCall 17
+                name: "to_int"
+                args:
+                  0: FunctionCall 17
+                    name: "round"
+                    args:
+                      0: BinOp 17
+                        left: FunctionCall 17
+                          name: "round"
+                          args:
+                            0: FunctionCall 17
+                              name: "abs"
+                              args:
+                                0: Variable 17
+                                  token: 17 VAR_IDENTIFIER $number
+                                  value: "\$number"
+                            1: Variable 17
+                              token: 17 VAR_IDENTIFIER $decimals
+                              value: "\$decimals"
+                        token: 17 MULTIPLY *
+                        op: 17 MULTIPLY *
+                        right: Variable 17
+                          token: 17 VAR_IDENTIFIER $scale
+                          value: "\$scale"
+          3: Statement 19
+            expr: Assign 19
+              left: Variable 19
+                token: 19 VAR_IDENTIFIER $whole
+                value: "\$whole"
+              token: 19 ASSIGN =
+              right: FunctionCall 19
+                name: "to_string"
+                args:
+                  0: FunctionCall 19
+                    name: "intdiv"
+                    args:
+                      0: Variable 19
+                        token: 19 VAR_IDENTIFIER $scaled
+                        value: "\$scaled"
+                      1: Variable 19
+                        token: 19 VAR_IDENTIFIER $scale
+                        value: "\$scale"
+          4: Statement 20
+            expr: Assign 20
+              left: Variable 20
+                token: 20 VAR_IDENTIFIER $grouped
+                value: "\$grouped"
+              token: 20 ASSIGN =
+              right: String 20
+                token: 20 STRING ""
+                value: ""
+          5: WhileStatement 21
+            condition: BinOp 21
+              left: FunctionCall 21
+                name: "len"
+                args:
+                  0: Variable 21
+                    token: 21 VAR_IDENTIFIER $whole
+                    value: "\$whole"
+              token: 21 GREATER_THAN >
+              op: 21 GREATER_THAN >
+              right: Num 21
+                token: 21 INTEGER 3
+                value: 3
+            body: Compound
+              statements:
+                0: Statement 22
+                  expr: Assign 22
+                    left: Variable 22
+                      token: 22 VAR_IDENTIFIER $grouped
+                      value: "\$grouped"
+                    token: 22 ASSIGN =
+                    right: BinOp 22
+                      left: BinOp 22
+                        left: Variable 22
+                          token: 22 VAR_IDENTIFIER $thousands
+                          value: "\$thousands"
+                        token: 22 CONCAT ..
+                        op: 22 CONCAT ..
+                        right: FunctionCall 22
+                          name: "slice"
+                          args:
+                            0: Variable 22
+                              token: 22 VAR_IDENTIFIER $whole
+                              value: "\$whole"
+                            1: UnaryOp 22
+                              op: 22 MINUS -
+                              expr: Num 22
+                                token: 22 INTEGER 3
+                                value: 3
+                      token: 22 CONCAT ..
+                      op: 22 CONCAT ..
+                      right: Variable 22
+                        token: 22 VAR_IDENTIFIER $grouped
+                        value: "\$grouped"
+                1: Statement 23
+                  expr: Assign 23
+                    left: Variable 23
+                      token: 23 VAR_IDENTIFIER $whole
+                      value: "\$whole"
+                    token: 23 ASSIGN =
+                    right: FunctionCall 23
+                      name: "slice"
+                      args:
+                        0: Variable 23
+                          token: 23 VAR_IDENTIFIER $whole
+                          value: "\$whole"
+                        1: Num 23
+                          token: 23 INTEGER 0
+                          value: 0
+                        2: UnaryOp 23
+                          op: 23 MINUS -
+                          expr: Num 23
+                            token: 23 INTEGER 3
+                            value: 3
+            step: null
+          6: Statement 25
+            expr: Assign 25
+              left: Variable 25
+                token: 25 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 25 ASSIGN =
+              right: BinOp 25
+                left: Variable 25
+                  token: 25 VAR_IDENTIFIER $whole
+                  value: "\$whole"
+                token: 25 CONCAT ..
+                op: 25 CONCAT ..
+                right: Variable 25
+                  token: 25 VAR_IDENTIFIER $grouped
+                  value: "\$grouped"
+          7: IfStatement 27
+            condition: BinOp 27
+              left: Variable 27
+                token: 27 VAR_IDENTIFIER $decimals
+                value: "\$decimals"
+              token: 27 GREATER_THAN >
+              op: 27 GREATER_THAN >
+              right: Num 27
+                token: 27 INTEGER 0
+                value: 0
+            if_body: Compound
+              statements:
+                0: Statement 28
+                  expr: Assign 28
+                    left: Variable 28
+                      token: 28 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    token: 28 CONCAT_ASSIGN ..=
+                    right: BinOp 28
+                      left: String 28
+                        token: 28 STRING "."
+                        value: "."
+                      token: 28 CONCAT ..
+                      op: 28 CONCAT ..
+                      right: FunctionCall 28
+                        name: "format::pad_left"
+                        args:
+                          0: BinOp 28
+                            left: Variable 28
+                              token: 28 VAR_IDENTIFIER $scaled
+                              value: "\$scaled"
+                            token: 28 MODULO %
+                            op: 28 MODULO %
+                            right: Variable 28
+                              token: 28 VAR_IDENTIFIER $scale
+                              value: "\$scale"
+                          1: Variable 28
+                            token: 28 VAR_IDENTIFIER $decimals
+                            value: "\$decimals"
+                          2: String 28
+                            token: 28 STRING "0"
+                            value: "0"
+            else_if: null
+            else_body: null
+          8: IfStatement 31
+            condition: BinOp 31
+              left: BinOp 31
+                left: Variable 31
+                  token: 31 VAR_IDENTIFIER $number
+                  value: "\$number"
+                token: 31 LESS_THAN <
+                op: 31 LESS_THAN <
+                right: Num 31
+                  token: 31 INTEGER 0
+                  value: 0
+              token: 31 AND &&
+              op: 31 AND &&
+              right: BinOp 31
+                left: Variable 31
+                  token: 31 VAR_IDENTIFIER $scaled
+                  value: "\$scaled"
+                token: 31 GREATER_THAN >
+                op: 31 GREATER_THAN >
+                right: Num 31
+                  token: 31 INTEGER 0
+                  value: 0
+            if_body: Compound
+              statements:
+                0: Statement 32
+                  expr: Assign 32
+                    left: Variable 32
+                      token: 32 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    token: 32 ASSIGN =
+                    right: BinOp 32
+                      left: String 32
+                        token: 32 STRING "-"
+                        value: "-"
+                      token: 32 CONCAT ..
+                      op: 32 CONCAT ..
+                      right: Variable 32
+                        token: 32 VAR_IDENTIFIER $text
+                        value: "\$text"
+            else_if: null
+            else_body: null
+          9: ReturnStatement 34
+            expr: Variable 34
+              token: 34 VAR_IDENTIFIER $text
+              value: "\$text"
+      arity: [1, 3]
+      kind: null
+      abstract: false
+    7: FunctionDeclaration 39
+      name: "format::pad_left"
+      params: ["\$value", "\$width", "\$pad"]
+      defaults:
+        0: null
+        1: null
+        2: String 39
+          token: 39 STRING " "
+          value: " "
+      body: Compound
+        statements:
+          0: Statement 40
+            expr: Assign 40
+              left: Variable 40
+                token: 40 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 40 ASSIGN =
+              right: FunctionCall 40
+                name: "to_string"
+                args:
+                  0: Variable 40
+                    token: 40 VAR_IDENTIFIER $value
+                    value: "\$value"
+          1: Statement 41
+            expr: Assign 41
+              left: Variable 41
+                token: 41 VAR_IDENTIFIER $missing
+                value: "\$missing"
+              token: 41 ASSIGN =
+              right: BinOp 41
+                left: Variable 41
+                  token: 41 VAR_IDENTIFIER $width
+                  value: "\$width"
+                token: 41 MINUS -
+                op: 41 MINUS -
+                right: FunctionCall 41
+                  name: "len"
+                  args:
+                    0: Variable 41
+                      token: 41 VAR_IDENTIFIER $text
+                      value: "\$text"
+          2: IfStatement 42
+            condition: BinOp 42
+              left: Variable 42
+                token: 42 VAR_IDENTIFIER $missing
+                value: "\$missing"
+              token: 42 LESS_EQUALS <=
+              op: 42 LESS_EQUALS <=
+              right: Num 42
+                token: 42 INTEGER 0
+                value: 0
+            if_body: Compound
+              statements:
+                0: ReturnStatement 43
+                  expr: Variable 43
+                    token: 43 VAR_IDENTIFIER $text
+                    value: "\$text"
+            else_if: null
+            else_body: null
+          3: ReturnStatement 45
+            expr: BinOp 45
+              left: FunctionCall 45
+                name: "repeat"
+                args:
+                  0: Variable 45
+                    token: 45 VAR_IDENTIFIER $pad
+                    value: "\$pad"
+                  1: Variable 45
+                    token: 45 VAR_IDENTIFIER $missing
+                    value: "\$missing"
+              token: 45 CONCAT ..
+              op: 45 CONCAT ..
+              right: Variable 45
+                token: 45 VAR_IDENTIFIER $text
+                value: "\$text"
+      arity: [2, 3]
+      kind: null
+      abstract: false
+    8: FunctionDeclaration 49
+      name: "format::pad_right"
+      params: ["\$value", "\$width", "\$pad"]
+      defaults:
+        0: null
+        1: null
+        2: String 49
+          token: 49 STRING " "
+          value: " "
+      body: Compound
+        statements:
+          0: Statement 50
+            expr: Assign 50
+              left: Variable 50
+                token: 50 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 50 ASSIGN =
+              right: FunctionCall 50
+                name: "to_string"
+                args:
+                  0: Variable 50
+                    token: 50 VAR_IDENTIFIER $value
+                    value: "\$value"
+          1: Statement 51
+            expr: Assign 51
+              left: Variable 51
+                token: 51 VAR_IDENTIFIER $missing
+                value: "\$missing"
+              token: 51 ASSIGN =
+              right: BinOp 51
+                left: Variable 51
+                  token: 51 VAR_IDENTIFIER $width
+                  value: "\$width"
+                token: 51 MINUS -
+                op: 51 MINUS -
+                right: FunctionCall 51
+                  name: "len"
+                  args:
+                    0: Variable 51
+                      token: 51 VAR_IDENTIFIER $text
+                      value: "\$text"
+          2: IfStatement 52
+            condition: BinOp 52
+              left: Variable 52
+                token: 52 VAR_IDENTIFIER $missing
+                value: "\$missing"
+              token: 52 LESS_EQUALS <=
+              op: 52 LESS_EQUALS <=
+              right: Num 52
+                token: 52 INTEGER 0
+                value: 0
+            if_body: Compound
+              statements:
+                0: ReturnStatement 53
+                  expr: Variable 53
+                    token: 53 VAR_IDENTIFIER $text
+                    value: "\$text"
+            else_if: null
+            else_body: null
+          3: ReturnStatement 55
+            expr: BinOp 55
+              left: Variable 55
+                token: 55 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 55 CONCAT ..
+              op: 55 CONCAT ..
+              right: FunctionCall 55
+                name: "repeat"
+                args:
+                  0: Variable 55
+                    token: 55 VAR_IDENTIFIER $pad
+                    value: "\$pad"
+                  1: Variable 55
+                    token: 55 VAR_IDENTIFIER $missing
+                    value: "\$missing"
+      arity: [2, 3]
+      kind: null
+      abstract: false
+    9: FunctionDeclaration 76
+      name: "format::sprintf"
+      params: ["\$template", "\$args"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 77
+            expr: FunctionCall 77
+              name: "format::check_arguments"
+              args:
+                0: Variable 77
+                  token: 77 VAR_IDENTIFIER $template
+                  value: "\$template"
+                1: Variable 77
+                  token: 77 VAR_IDENTIFIER $args
+                  value: "\$args"
+          1: Statement 78
+            expr: Assign 78
+              left: Variable 78
+                token: 78 VAR_IDENTIFIER $pieces
+                value: "\$pieces"
+              token: 78 ASSIGN =
+              right: FunctionCall 78
+                name: "format::split_template"
+                args:
+                  0: Variable 78
+                    token: 78 VAR_IDENTIFIER $template
+                    value: "\$template"
+          2: Statement 79
+            expr: FunctionCall 79
+              name: "format::check_count"
+              args:
+                0: Variable 79
+                  token: 79 VAR_IDENTIFIER $pieces
+                  value: "\$pieces"
+                1: Variable 79
+                  token: 79 VAR_IDENTIFIER $args
+                  value: "\$args"
+          3: ReturnStatement 81
+            expr: FunctionCall 81
+              name: "format::fill"
+              args:
+                0: Variable 81
+                  token: 81 VAR_IDENTIFIER $pieces
+                  value: "\$pieces"
+                1: Variable 81
+                  token: 81 VAR_IDENTIFIER $args
+                  value: "\$args"
+      arity: 2
+      kind: null
+      abstract: false
+    10: FunctionDeclaration 84
+      name: "format::check_arguments"
+      params: ["\$template", "\$args"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: IfStatement 85
+            condition: BinOp 85
+              left: BinOp 85
+                left: FunctionCall 85
+                  name: "type_of"
+                  args:
+                    0: Variable 85
+                      token: 85 VAR_IDENTIFIER $template
+                      value: "\$template"
+                token: 85 NOT_EQUALS !=
+                op: 85 NOT_EQUALS !=
+                right: String 85
+                  token: 85 STRING "string"
+                  value: "string"
+              token: 85 OR ||
+              op: 85 OR ||
+              right: BinOp 85
+                left: FunctionCall 85
+                  name: "type_of"
+                  args:
+                    0: Variable 85
+                      token: 85 VAR_IDENTIFIER $args
+                      value: "\$args"
+                token: 85 NOT_EQUALS !=
+                op: 85 NOT_EQUALS !=
+                right: String 85
+                  token: 85 STRING "list"
+                  value: "list"
+            if_body: Compound
+              statements:
+                0: Statement 86
+                  expr: Throw 86
+                    expr: BinOp 86
+                      left: BinOp 86
+                        left: BinOp 86
+                          left: String 86
+                            token: 86 STRING "sprintf: expects a string and a list, got "
+                            value: "sprintf: expects a string and a list, got "
+                          token: 86 CONCAT ..
+                          op: 86 CONCAT ..
+                          right: FunctionCall 86
+                            name: "type_of"
+                            args:
+                              0: Variable 86
+                                token: 86 VAR_IDENTIFIER $template
+                                value: "\$template"
+                        token: 86 CONCAT ..
+                        op: 86 CONCAT ..
+                        right: String 86
+                          token: 86 STRING " and "
+                          value: " and "
+                      token: 86 CONCAT ..
+                      op: 86 CONCAT ..
+                      right: FunctionCall 86
+                        name: "type_of"
+                        args:
+                          0: Variable 86
+                            token: 86 VAR_IDENTIFIER $args
+                            value: "\$args"
+            else_if: null
+            else_body: null
+      arity: 2
+      kind: null
+      abstract: false
+    11: FunctionDeclaration 91
+      name: "format::split_template"
+      params: ["\$template"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 92
+            expr: Assign 92
+              left: Variable 92
+                token: 92 VAR_IDENTIFIER $pieces
+                value: "\$pieces"
+              token: 92 ASSIGN =
+              right: ArrayLiteral 92
+                entries: []
+                map: false
+          1: Statement 93
+            expr: Assign 93
+              left: Variable 93
+                token: 93 VAR_IDENTIFIER $at
+                value: "\$at"
+              token: 93 ASSIGN =
+              right: Num 93
+                token: 93 INTEGER 0
+                value: 0
+          2: WhileStatement 94
+            condition: Boolean 94
+              token: 94 TRUE true
+              value: true
+            body: Compound
+              statements:
+                0: Statement 95
+                  expr: Assign 95
+                    left: Variable 95
+                      token: 95 VAR_IDENTIFIER $percent
+                      value: "\$percent"
+                    token: 95 ASSIGN =
+                    right: FunctionCall 95
+                      name: "index_of"
+                      args:
+                        0: Variable 95
+                          token: 95 VAR_IDENTIFIER $template
+                          value: "\$template"
+                        1: String 95
+                          token: 95 STRING "%"
+                          value: "%"
+                        2: Variable 95
+                          token: 95 VAR_IDENTIFIER $at
+                          value: "\$at"
+                1: IfStatement 96
+                  condition: BinOp 96
+                    left: Variable 96
+                      token: 96 VAR_IDENTIFIER $percent
+                      value: "\$percent"
+                    token: 96 EQUALS ==
+                    op: 96 EQUALS ==
+                    right: Null 96
+                      token: 96 NULL null
+                      value: null
+                  if_body: Compound
+                    statements:
+                      0: Statement 97
+                        expr: Assign 97
+                          left: Index 97
+                            target: Variable 97
+                              token: 97 VAR_IDENTIFIER $pieces
+                              value: "\$pieces"
+                            index: null
+                          token: 97 ASSIGN =
+                          right: FunctionCall 97
+                            name: "slice"
+                            args:
+                              0: Variable 97
+                                token: 97 VAR_IDENTIFIER $template
+                                value: "\$template"
+                              1: Variable 97
+                                token: 97 VAR_IDENTIFIER $at
+                                value: "\$at"
+                      1: ReturnStatement 99
+                        expr: Variable 99
+                          token: 99 VAR_IDENTIFIER $pieces
+                          value: "\$pieces"
+                  else_if: null
+                  else_body: null
+                2: Statement 101
+                  expr: Assign 101
+                    left: Index 101
+                      target: Variable 101
+                        token: 101 VAR_IDENTIFIER $pieces
+                        value: "\$pieces"
+                      index: null
+                    token: 101 ASSIGN =
+                    right: FunctionCall 101
+                      name: "slice"
+                      args:
+                        0: Variable 101
+                          token: 101 VAR_IDENTIFIER $template
+                          value: "\$template"
+                        1: Variable 101
+                          token: 101 VAR_IDENTIFIER $at
+                          value: "\$at"
+                        2: BinOp 101
+                          left: Variable 101
+                            token: 101 VAR_IDENTIFIER $percent
+                            value: "\$percent"
+                          token: 101 MINUS -
+                          op: 101 MINUS -
+                          right: Variable 101
+                            token: 101 VAR_IDENTIFIER $at
+                            value: "\$at"
+                3: Statement 102
+                  expr: Assign 102
+                    left: Variable 102
+                      token: 102 VAR_IDENTIFIER $placeholder
+                      value: "\$placeholder"
+                    token: 102 ASSIGN =
+                    right: FunctionCall 102
+                      name: "format::Placeholder::read"
+                      args:
+                        0: Variable 102
+                          token: 102 VAR_IDENTIFIER $template
+                          value: "\$template"
+                        1: Variable 102
+                          token: 102 VAR_IDENTIFIER $percent
+                          value: "\$percent"
+                4: Statement 103
+                  expr: Assign 103
+                    left: Variable 103
+                      token: 103 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    token: 103 ASSIGN =
+                    right: BinOp 103
+                      left: Variable 103
+                        token: 103 VAR_IDENTIFIER $percent
+                        value: "\$percent"
+                      token: 103 PLUS +
+                      op: 103 PLUS +
+                      right: FunctionCall 103
+                        name: "len"
+                        args:
+                          0: Property 103
+                            target: Variable 103
+                              token: 103 VAR_IDENTIFIER $placeholder
+                              value: "\$placeholder"
+                            name: "text"
+                            field: false
+                            constant: false
+                            value: null
+                            static_name: null
+                5: IfStatement 104
+                  condition: MethodCall 104
+                    property: Property 104
+                      target: Variable 104
+                        token: 104 VAR_IDENTIFIER $placeholder
+                        value: "\$placeholder"
+                      name: "is_percent_sign"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+                    args: []
+                  if_body: Compound
+                    statements:
+                      0: Statement 105
+                        expr: Assign 105
+                          left: Index 105
+                            target: Variable 105
+                              token: 105 VAR_IDENTIFIER $pieces
+                              value: "\$pieces"
+                            index: null
+                          token: 105 ASSIGN =
+                          right: String 105
+                            token: 105 STRING "%"
+                            value: "%"
+                  else_if: null
+                  else_body: Compound
+                    statements:
+                      0: Statement 107
+                        expr: Assign 107
+                          left: Index 107
+                            target: Variable 107
+                              token: 107 VAR_IDENTIFIER $pieces
+                              value: "\$pieces"
+                            index: null
+                          token: 107 ASSIGN =
+                          right: Variable 107
+                            token: 107 VAR_IDENTIFIER $placeholder
+                            value: "\$placeholder"
+            step: null
+      arity: 1
+      kind: null
+      abstract: false
+    12: FunctionDeclaration 112
+      name: "format::check_count"
+      params: ["\$pieces", "\$args"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 113
+            expr: Assign 113
+              left: Variable 113
+                token: 113 VAR_IDENTIFIER $wanted
+                value: "\$wanted"
+              token: 113 ASSIGN =
+              right: FunctionCall 113
+                name: "len"
+                args:
+                  0: FunctionCall 113
+                    name: "filter"
+                    args:
+                      0: Variable 113
+                        token: 113 VAR_IDENTIFIER $pieces
+                        value: "\$pieces"
+                      1: FunctionRef 113
+                        name: "format::is_placeholder"
+                        constant: false
+                        value: null
+                        static_name: null
+          1: IfStatement 114
+            condition: BinOp 114
+              left: Variable 114
+                token: 114 VAR_IDENTIFIER $wanted
+                value: "\$wanted"
+              token: 114 NOT_EQUALS !=
+              op: 114 NOT_EQUALS !=
+              right: FunctionCall 114
+                name: "len"
+                args:
+                  0: Variable 114
+                    token: 114 VAR_IDENTIFIER $args
+                    value: "\$args"
+            if_body: Compound
+              statements:
+                0: Statement 115
+                  expr: Assign 115
+                    left: Variable 115
+                      token: 115 VAR_IDENTIFIER $noun
+                      value: "\$noun"
+                    token: 115 ASSIGN =
+                    right: Ternary 115
+                      condition: BinOp 115
+                        left: Variable 115
+                          token: 115 VAR_IDENTIFIER $wanted
+                          value: "\$wanted"
+                        token: 115 EQUALS ==
+                        op: 115 EQUALS ==
+                        right: Num 115
+                          token: 115 INTEGER 1
+                          value: 1
+                      then: String 115
+                        token: 115 STRING "argument"
+                        value: "argument"
+                      else: String 115
+                        token: 115 STRING "arguments"
+                        value: "arguments"
+                1: Statement 116
+                  expr: Throw 116
+                    expr: BinOp 116
+                      left: BinOp 116
+                        left: BinOp 116
+                          left: BinOp 116
+                            left: BinOp 116
+                              left: BinOp 116
+                                left: String 116
+                                  token: 116 STRING_START "sprintf: the template takes "
+                                  value: "sprintf: the template takes "
+                                token: 116 CONCAT ..
+                                op: 116 CONCAT ..
+                                right: Variable 116
+                                  token: 116 VAR_IDENTIFIER $wanted
+                                  value: "\$wanted"
+                              token: 116 CONCAT ..
+                              op: 116 CONCAT ..
+                              right: String 116
+                                token: 116 STRING_MIDDLE " "
+                                value: " "
+                            token: 116 CONCAT ..
+                            op: 116 CONCAT ..
+                            right: Variable 116
+                              token: 116 VAR_IDENTIFIER $noun
+                              value: "\$noun"
+                          token: 116 CONCAT ..
+                          op: 116 CONCAT ..
+                          right: String 116
+                            token: 116 STRING_END ", "
+                            value: ", "
+                        token: 116 CONCAT ..
+                        op: 116 CONCAT ..
+                        right: FunctionCall 116
+                          name: "len"
+                          args:
+                            0: Variable 116
+                              token: 116 VAR_IDENTIFIER $args
+                              value: "\$args"
+                      token: 116 CONCAT ..
+                      op: 116 CONCAT ..
+                      right: String 116
+                        token: 116 STRING " given"
+                        value: " given"
+            else_if: null
+            else_body: null
+      arity: 2
+      kind: null
+      abstract: false
+    13: FunctionDeclaration 120
+      name: "format::is_placeholder"
+      params: ["\$piece"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 121
+            expr: BinOp 121
+              left: FunctionCall 121
+                name: "type_of"
+                args:
+                  0: Variable 121
+                    token: 121 VAR_IDENTIFIER $piece
+                    value: "\$piece"
+              token: 121 EQUALS ==
+              op: 121 EQUALS ==
+              right: String 121
+                token: 121 STRING "object"
+                value: "object"
+      arity: 1
+      kind: null
+      abstract: false
+    14: FunctionDeclaration 124
+      name: "format::fill"
+      params: ["\$pieces", "\$args"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 125
+            expr: Assign 125
+              left: Variable 125
+                token: 125 VAR_IDENTIFIER $out
+                value: "\$out"
+              token: 125 ASSIGN =
+              right: String 125
+                token: 125 STRING ""
+                value: ""
+          1: Statement 126
+            expr: Assign 126
+              left: Variable 126
+                token: 126 VAR_IDENTIFIER $next
+                value: "\$next"
+              token: 126 ASSIGN =
+              right: Num 126
+                token: 126 INTEGER 0
+                value: 0
+          2: ForeachStatement 127
+            iterable: Variable 127
+              token: 127 VAR_IDENTIFIER $pieces
+              value: "\$pieces"
+            key: null
+            value: Variable 127
+              token: 127 VAR_IDENTIFIER $piece
+              value: "\$piece"
+            body: Compound
+              statements:
+                0: IfStatement 128
+                  condition: UnaryOp 128
+                    op: 128 NOT !
+                    expr: FunctionCall 128
+                      name: "format::is_placeholder"
+                      args:
+                        0: Variable 128
+                          token: 128 VAR_IDENTIFIER $piece
+                          value: "\$piece"
+                  if_body: Compound
+                    statements:
+                      0: Statement 129
+                        expr: Assign 129
+                          left: Variable 129
+                            token: 129 VAR_IDENTIFIER $out
+                            value: "\$out"
+                          token: 129 CONCAT_ASSIGN ..=
+                          right: Variable 129
+                            token: 129 VAR_IDENTIFIER $piece
+                            value: "\$piece"
+                      1: LoopControl 130
+                        token: 130 CONTINUE continue
+                  else_if: null
+                  else_body: null
+                1: Statement 132
+                  expr: Assign 132
+                    left: Variable 132
+                      token: 132 VAR_IDENTIFIER $out
+                      value: "\$out"
+                    token: 132 CONCAT_ASSIGN ..=
+                    right: MethodCall 132
+                      property: Property 132
+                        target: Variable 132
+                          token: 132 VAR_IDENTIFIER $piece
+                          value: "\$piece"
+                        name: "format"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args:
+                        0: Index 132
+                          target: Variable 132
+                            token: 132 VAR_IDENTIFIER $args
+                            value: "\$args"
+                          index: Variable 132
+                            token: 132 VAR_IDENTIFIER $next
+                            value: "\$next"
+                        1: BinOp 132
+                          left: Variable 132
+                            token: 132 VAR_IDENTIFIER $next
+                            value: "\$next"
+                          token: 132 PLUS +
+                          op: 132 PLUS +
+                          right: Num 132
+                            token: 132 INTEGER 1
+                            value: 1
+                2: Statement 133
+                  expr: Increment 133
+                    target: Variable 133
+                      token: 133 VAR_IDENTIFIER $next
+                      value: "\$next"
+                    op: 133 INCREMENT ++
+                    prefix: false
+          3: ReturnStatement 136
+            expr: Variable 136
+              token: 136 VAR_IDENTIFIER $out
+              value: "\$out"
+      arity: 2
+      kind: null
+      abstract: false
+    15: KindDeclaration 140
+      name: "format::Placeholder"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods:
+        read: FunctionDeclaration 144
+          name: "format::Placeholder::read"
+          params: ["\$template", "\$start"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: Statement 145
+                expr: Assign 145
+                  left: Variable 145
+                    token: 145 VAR_IDENTIFIER $at
+                    value: "\$at"
+                  token: 145 ASSIGN =
+                  right: BinOp 145
+                    left: Variable 145
+                      token: 145 VAR_IDENTIFIER $start
+                      value: "\$start"
+                    token: 145 PLUS +
+                    op: 145 PLUS +
+                    right: Num 145
+                      token: 145 INTEGER 1
+                      value: 1
+              1: Statement 146
+                expr: Assign 146
+                  left: Variable 146
+                    token: 146 VAR_IDENTIFIER $left
+                    value: "\$left"
+                  token: 146 ASSIGN =
+                  right: Boolean 146
+                    token: 146 FALSE false
+                    value: false
+              2: Statement 147
+                expr: Assign 147
+                  left: Variable 147
+                    token: 147 VAR_IDENTIFIER $zeros
+                    value: "\$zeros"
+                  token: 147 ASSIGN =
+                  right: Boolean 147
+                    token: 147 FALSE false
+                    value: false
+              3: WhileStatement 148
+                condition: BinOp 148
+                  left: BinOp 148
+                    left: Variable 148
+                      token: 148 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    token: 148 LESS_THAN <
+                    op: 148 LESS_THAN <
+                    right: FunctionCall 148
+                      name: "len"
+                      args:
+                        0: Variable 148
+                          token: 148 VAR_IDENTIFIER $template
+                          value: "\$template"
+                  token: 148 AND &&
+                  op: 148 AND &&
+                  right: FunctionCall 148
+                    name: "format::is_flag"
+                    args:
+                      0: Index 148
+                        target: Variable 148
+                          token: 148 VAR_IDENTIFIER $template
+                          value: "\$template"
+                        index: Variable 148
+                          token: 148 VAR_IDENTIFIER $at
+                          value: "\$at"
+                body: Compound
+                  statements:
+                    0: IfStatement 149
+                      condition: BinOp 149
+                        left: Index 149
+                          target: Variable 149
+                            token: 149 VAR_IDENTIFIER $template
+                            value: "\$template"
+                          index: Variable 149
+                            token: 149 VAR_IDENTIFIER $at
+                            value: "\$at"
+                        token: 149 EQUALS ==
+                        op: 149 EQUALS ==
+                        right: String 149
+                          token: 149 STRING "-"
+                          value: "-"
+                      if_body: Compound
+                        statements:
+                          0: Statement 150
+                            expr: Assign 150
+                              left: Variable 150
+                                token: 150 VAR_IDENTIFIER $left
+                                value: "\$left"
+                              token: 150 ASSIGN =
+                              right: Boolean 150
+                                token: 150 TRUE true
+                                value: true
+                      else_if: null
+                      else_body: Compound
+                        statements:
+                          0: Statement 152
+                            expr: Assign 152
+                              left: Variable 152
+                                token: 152 VAR_IDENTIFIER $zeros
+                                value: "\$zeros"
+                              token: 152 ASSIGN =
+                              right: Boolean 152
+                                token: 152 TRUE true
+                                value: true
+                    1: Statement 154
+                      expr: Increment 154
+                        target: Variable 154
+                          token: 154 VAR_IDENTIFIER $at
+                          value: "\$at"
+                        op: 154 INCREMENT ++
+                        prefix: false
+                step: null
+              4: Statement 157
+                expr: Assign 157
+                  left: Variable 157
+                    token: 157 VAR_IDENTIFIER $width
+                    value: "\$width"
+                  token: 157 ASSIGN =
+                  right: FunctionCall 157
+                    name: "format::digits"
+                    args:
+                      0: Variable 157
+                        token: 157 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 157
+                        token: 157 VAR_IDENTIFIER $at
+                        value: "\$at"
+              5: Statement 158
+                expr: Assign 158
+                  left: Variable 158
+                    token: 158 VAR_IDENTIFIER $at
+                    value: "\$at"
+                  token: 158 PLUS_ASSIGN +=
+                  right: FunctionCall 158
+                    name: "len"
+                    args:
+                      0: Variable 158
+                        token: 158 VAR_IDENTIFIER $width
+                        value: "\$width"
+              6: Statement 160
+                expr: Assign 160
+                  left: Variable 160
+                    token: 160 VAR_IDENTIFIER $precision
+                    value: "\$precision"
+                  token: 160 ASSIGN =
+                  right: Null 160
+                    token: 160 NULL null
+                    value: null
+              7: IfStatement 161
+                condition: BinOp 161
+                  left: BinOp 161
+                    left: Variable 161
+                      token: 161 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    token: 161 LESS_THAN <
+                    op: 161 LESS_THAN <
+                    right: FunctionCall 161
+                      name: "len"
+                      args:
+                        0: Variable 161
+                          token: 161 VAR_IDENTIFIER $template
+                          value: "\$template"
+                  token: 161 AND &&
+                  op: 161 AND &&
+                  right: BinOp 161
+                    left: Index 161
+                      target: Variable 161
+                        token: 161 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      index: Variable 161
+                        token: 161 VAR_IDENTIFIER $at
+                        value: "\$at"
+                    token: 161 EQUALS ==
+                    op: 161 EQUALS ==
+                    right: String 161
+                      token: 161 STRING "."
+                      value: "."
+                if_body: Compound
+                  statements:
+                    0: Statement 162
+                      expr: Assign 162
+                        left: Variable 162
+                          token: 162 VAR_IDENTIFIER $precision
+                          value: "\$precision"
+                        token: 162 ASSIGN =
+                        right: FunctionCall 162
+                          name: "format::digits"
+                          args:
+                            0: Variable 162
+                              token: 162 VAR_IDENTIFIER $template
+                              value: "\$template"
+                            1: BinOp 162
+                              left: Variable 162
+                                token: 162 VAR_IDENTIFIER $at
+                                value: "\$at"
+                              token: 162 PLUS +
+                              op: 162 PLUS +
+                              right: Num 162
+                                token: 162 INTEGER 1
+                                value: 1
+                    1: Statement 163
+                      expr: Assign 163
+                        left: Variable 163
+                          token: 163 VAR_IDENTIFIER $at
+                          value: "\$at"
+                        token: 163 PLUS_ASSIGN +=
+                        right: BinOp 163
+                          left: Num 163
+                            token: 163 INTEGER 1
+                            value: 1
+                          token: 163 PLUS +
+                          op: 163 PLUS +
+                          right: FunctionCall 163
+                            name: "len"
+                            args:
+                              0: Variable 163
+                                token: 163 VAR_IDENTIFIER $precision
+                                value: "\$precision"
+                    2: IfStatement 164
+                      condition: BinOp 164
+                        left: Variable 164
+                          token: 164 VAR_IDENTIFIER $precision
+                          value: "\$precision"
+                        token: 164 EQUALS ==
+                        op: 164 EQUALS ==
+                        right: String 164
+                          token: 164 STRING ""
+                          value: ""
+                      if_body: Compound
+                        statements:
+                          0: Statement 165
+                            expr: FunctionCall 165
+                              name: "format::refuse"
+                              args:
+                                0: Variable 165
+                                  token: 165 VAR_IDENTIFIER $template
+                                  value: "\$template"
+                                1: Variable 165
+                                  token: 165 VAR_IDENTIFIER $start
+                                  value: "\$start"
+                                2: Variable 165
+                                  token: 165 VAR_IDENTIFIER $at
+                                  value: "\$at"
+                                3: String 165
+                                  token: 165 STRING "a precision needs its digits"
+                                  value: "a precision needs its digits"
+                      else_if: null
+                      else_body: null
+                else_if: null
+                else_body: null
+              8: IfStatement 168
+                condition: BinOp 168
+                  left: Variable 168
+                    token: 168 VAR_IDENTIFIER $at
+                    value: "\$at"
+                  token: 168 GREATER_EQUALS >=
+                  op: 168 GREATER_EQUALS >=
+                  right: FunctionCall 168
+                    name: "len"
+                    args:
+                      0: Variable 168
+                        token: 168 VAR_IDENTIFIER $template
+                        value: "\$template"
+                if_body: Compound
+                  statements:
+                    0: Statement 169
+                      expr: FunctionCall 169
+                        name: "format::refuse"
+                        args:
+                          0: Variable 169
+                            token: 169 VAR_IDENTIFIER $template
+                            value: "\$template"
+                          1: Variable 169
+                            token: 169 VAR_IDENTIFIER $start
+                            value: "\$start"
+                          2: Variable 169
+                            token: 169 VAR_IDENTIFIER $at
+                            value: "\$at"
+                          3: String 169
+                            token: 169 STRING "the template ends in the middle of a placeholder"
+                            value: "the template ends in the middle of a placeholder"
+                else_if: null
+                else_body: null
+              9: Statement 172
+                expr: Assign 172
+                  left: Variable 172
+                    token: 172 VAR_IDENTIFIER $conversion
+                    value: "\$conversion"
+                  token: 172 ASSIGN =
+                  right: Index 172
+                    target: Variable 172
+                      token: 172 VAR_IDENTIFIER $template
+                      value: "\$template"
+                    index: Variable 172
+                      token: 172 VAR_IDENTIFIER $at
+                      value: "\$at"
+              10: Statement 173
+                expr: Assign 173
+                  left: Variable 173
+                    token: 173 VAR_IDENTIFIER $end
+                    value: "\$end"
+                  token: 173 ASSIGN =
+                  right: BinOp 173
+                    left: Variable 173
+                      token: 173 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    token: 173 PLUS +
+                    op: 173 PLUS +
+                    right: Num 173
+                      token: 173 INTEGER 1
+                      value: 1
+              11: Statement 174
+                expr: Assign 174
+                  left: Variable 174
+                    token: 174 VAR_IDENTIFIER $text
+                    value: "\$text"
+                  token: 174 ASSIGN =
+                  right: FunctionCall 174
+                    name: "slice"
+                    args:
+                      0: Variable 174
+                        token: 174 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 174
+                        token: 174 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: BinOp 174
+                        left: Variable 174
+                          token: 174 VAR_IDENTIFIER $end
+                          value: "\$end"
+                        token: 174 MINUS -
+                        op: 174 MINUS -
+                        right: Variable 174
+                          token: 174 VAR_IDENTIFIER $start
+                          value: "\$start"
+              12: Statement 175
+                expr: FunctionCall 175
+                  name: "format::check_shape"
+                  args:
+                    0: Variable 175
+                      token: 175 VAR_IDENTIFIER $template
+                      value: "\$template"
+                    1: Variable 175
+                      token: 175 VAR_IDENTIFIER $start
+                      value: "\$start"
+                    2: Variable 175
+                      token: 175 VAR_IDENTIFIER $end
+                      value: "\$end"
+                    3: Variable 175
+                      token: 175 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    4: Variable 175
+                      token: 175 VAR_IDENTIFIER $conversion
+                      value: "\$conversion"
+                    5: Variable 175
+                      token: 175 VAR_IDENTIFIER $precision
+                      value: "\$precision"
+                    6: Variable 175
+                      token: 175 VAR_IDENTIFIER $zeros
+                      value: "\$zeros"
+              13: ReturnStatement 177
+                expr: FunctionCall 177
+                  name: "format::Placeholder"
+                  args:
+                    0: Variable 177
+                      token: 177 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    1: Variable 177
+                      token: 177 VAR_IDENTIFIER $left
+                      value: "\$left"
+                    2: Variable 177
+                      token: 177 VAR_IDENTIFIER $zeros
+                      value: "\$zeros"
+                    3: FunctionCall 177
+                      name: "format::number_or"
+                      args:
+                        0: Variable 177
+                          token: 177 VAR_IDENTIFIER $width
+                          value: "\$width"
+                        1: Num 177
+                          token: 177 INTEGER 0
+                          value: 0
+                    4: FunctionCall 177
+                      name: "format::number_or"
+                      args:
+                        0: Variable 177
+                          token: 177 VAR_IDENTIFIER $precision
+                          value: "\$precision"
+                        1: FunctionRef 177
+                          name: "format::DEFAULT_PRECISION"
+                          constant: true
+                          value: 6
+                          static_name: null
+                    5: Variable 177
+                      token: 177 VAR_IDENTIFIER $conversion
+                      value: "\$conversion"
+          arity: 2
+          kind: "format::Placeholder"
+          abstract: false
+      static_owners: {"read" => "format::Placeholder"}
+      static_is_method: {"read" => true}
+      vis: {"text" => "pub", "left" => "", "zeros" => "", "width" => "", "precision" => "", "conversion" => "", "_" => "pub", "read" => "pub", "is_percent_sign" => "pub", "format" => "pub", "check_value" => "", "accepts" => "", "expected" => "", "convert" => "", "pad" => ""}
+      fields: {"text" => null, "left" => null, "zeros" => null, "width" => null, "precision" => null, "conversion" => null}
+      field_lines: {"text" => 141, "left" => 141, "zeros" => 141, "width" => 141, "precision" => 141, "conversion" => 141}
+      methods:
+        _: FunctionDeclaration 141
+          name: "_"
+          params: ["\$text", "\$left", "\$zeros", "\$width", "\$precision", "\$conversion"]
+          defaults: [null, null, null, null, null, null]
+          body: Compound
+            statements:
+              0: Statement 141
+                expr: Assign 141
+                  left: Property 141
+                    target: This 141
+                    name: "text"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 141 ASSIGN =
+                  right: Variable 141
+                    token: 141 VAR_IDENTIFIER $text
+                    value: "\$text"
+              1: Statement 141
+                expr: Assign 141
+                  left: Property 141
+                    target: This 141
+                    name: "left"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 141 ASSIGN =
+                  right: Variable 141
+                    token: 141 VAR_IDENTIFIER $left
+                    value: "\$left"
+              2: Statement 141
+                expr: Assign 141
+                  left: Property 141
+                    target: This 141
+                    name: "zeros"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 141 ASSIGN =
+                  right: Variable 141
+                    token: 141 VAR_IDENTIFIER $zeros
+                    value: "\$zeros"
+              3: Statement 141
+                expr: Assign 141
+                  left: Property 141
+                    target: This 141
+                    name: "width"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 141 ASSIGN =
+                  right: Variable 141
+                    token: 141 VAR_IDENTIFIER $width
+                    value: "\$width"
+              4: Statement 141
+                expr: Assign 141
+                  left: Property 141
+                    target: This 141
+                    name: "precision"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 141 ASSIGN =
+                  right: Variable 141
+                    token: 141 VAR_IDENTIFIER $precision
+                    value: "\$precision"
+              5: Statement 141
+                expr: Assign 141
+                  left: Property 141
+                    target: This 141
+                    name: "conversion"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 141 ASSIGN =
+                  right: Variable 141
+                    token: 141 VAR_IDENTIFIER $conversion
+                    value: "\$conversion"
+          arity: 6
+          kind: "format::Placeholder"
+          abstract: false
+        is_percent_sign: FunctionDeclaration 180
+          name: "is_percent_sign"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 181
+                expr: BinOp 181
+                  left: Property 181
+                    target: This 181
+                    name: "conversion"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 181 EQUALS ==
+                  op: 181 EQUALS ==
+                  right: String 181
+                    token: 181 STRING "%"
+                    value: "%"
+          arity: 0
+          kind: "format::Placeholder"
+          abstract: false
+        format: FunctionDeclaration 185
+          name: "format"
+          params: ["\$value", "\$position"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: Statement 186
+                expr: MethodCall 186
+                  property: Property 186
+                    target: This 186
+                    name: "check_value"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args:
+                    0: Variable 186
+                      token: 186 VAR_IDENTIFIER $value
+                      value: "\$value"
+                    1: Variable 186
+                      token: 186 VAR_IDENTIFIER $position
+                      value: "\$position"
+              1: ReturnStatement 188
+                expr: MethodCall 188
+                  property: Property 188
+                    target: This 188
+                    name: "pad"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args:
+                    0: MethodCall 188
+                      property: Property 188
+                        target: This 188
+                        name: "convert"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args:
+                        0: Variable 188
+                          token: 188 VAR_IDENTIFIER $value
+                          value: "\$value"
+          arity: 2
+          kind: "format::Placeholder"
+          abstract: false
+        check_value: FunctionDeclaration 191
+          name: "check_value"
+          params: ["\$value", "\$position"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: Statement 192
+                expr: Assign 192
+                  left: Variable 192
+                    token: 192 VAR_IDENTIFIER $type
+                    value: "\$type"
+                  token: 192 ASSIGN =
+                  right: FunctionCall 192
+                    name: "type_of"
+                    args:
+                      0: Variable 192
+                        token: 192 VAR_IDENTIFIER $value
+                        value: "\$value"
+              1: IfStatement 193
+                condition: UnaryOp 193
+                  op: 193 NOT !
+                  expr: MethodCall 193
+                    property: Property 193
+                      target: This 193
+                      name: "accepts"
+                      field: false
+                      constant: false
+                      value: null
+                      static_name: null
+                    args:
+                      0: Variable 193
+                        token: 193 VAR_IDENTIFIER $type
+                        value: "\$type"
+                if_body: Compound
+                  statements:
+                    0: Statement 194
+                      expr: Throw 194
+                        expr: BinOp 194
+                          left: BinOp 194
+                            left: BinOp 194
+                              left: BinOp 194
+                                left: String 194
+                                  token: 194 STRING_START "sprintf: "
+                                  value: "sprintf: "
+                                token: 194 CONCAT ..
+                                op: 194 CONCAT ..
+                                right: Property 194
+                                  target: This 194
+                                  name: "text"
+                                  field: true
+                                  constant: false
+                                  value: null
+                                  static_name: null
+                              token: 194 CONCAT ..
+                              op: 194 CONCAT ..
+                              right: String 194
+                                token: 194 STRING_END " expects "
+                                value: " expects "
+                            token: 194 CONCAT ..
+                            op: 194 CONCAT ..
+                            right: MethodCall 194
+                              property: Property 194
+                                target: This 194
+                                name: "expected"
+                                field: false
+                                constant: false
+                                value: null
+                                static_name: null
+                              args: []
+                          token: 194 CONCAT ..
+                          op: 194 CONCAT ..
+                          right: BinOp 194
+                            left: BinOp 194
+                              left: BinOp 194
+                                left: BinOp 194
+                                  left: String 194
+                                    token: 194 STRING_START ", got "
+                                    value: ", got "
+                                  token: 194 CONCAT ..
+                                  op: 194 CONCAT ..
+                                  right: Variable 194
+                                    token: 194 VAR_IDENTIFIER $type
+                                    value: "\$type"
+                                token: 194 CONCAT ..
+                                op: 194 CONCAT ..
+                                right: String 194
+                                  token: 194 STRING_MIDDLE " (argument "
+                                  value: " (argument "
+                              token: 194 CONCAT ..
+                              op: 194 CONCAT ..
+                              right: Variable 194
+                                token: 194 VAR_IDENTIFIER $position
+                                value: "\$position"
+                            token: 194 CONCAT ..
+                            op: 194 CONCAT ..
+                            right: String 194
+                              token: 194 STRING_END ")"
+                              value: ")"
+                else_if: null
+                else_body: null
+              2: IfStatement 196
+                condition: BinOp 196
+                  left: BinOp 196
+                    left: Property 196
+                      target: This 196
+                      name: "conversion"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    token: 196 EQUALS ==
+                    op: 196 EQUALS ==
+                    right: String 196
+                      token: 196 STRING "x"
+                      value: "x"
+                  token: 196 AND &&
+                  op: 196 AND &&
+                  right: BinOp 196
+                    left: Variable 196
+                      token: 196 VAR_IDENTIFIER $value
+                      value: "\$value"
+                    token: 196 LESS_THAN <
+                    op: 196 LESS_THAN <
+                    right: Num 196
+                      token: 196 INTEGER 0
+                      value: 0
+                if_body: Compound
+                  statements:
+                    0: Statement 197
+                      expr: Throw 197
+                        expr: BinOp 197
+                          left: BinOp 197
+                            left: BinOp 197
+                              left: BinOp 197
+                                left: BinOp 197
+                                  left: BinOp 197
+                                    left: String 197
+                                      token: 197 STRING_START "sprintf: "
+                                      value: "sprintf: "
+                                    token: 197 CONCAT ..
+                                    op: 197 CONCAT ..
+                                    right: Property 197
+                                      target: This 197
+                                      name: "text"
+                                      field: true
+                                      constant: false
+                                      value: null
+                                      static_name: null
+                                  token: 197 CONCAT ..
+                                  op: 197 CONCAT ..
+                                  right: String 197
+                                    token: 197 STRING_MIDDLE " expects an int of 0 or more, got "
+                                    value: " expects an int of 0 or more, got "
+                                token: 197 CONCAT ..
+                                op: 197 CONCAT ..
+                                right: Variable 197
+                                  token: 197 VAR_IDENTIFIER $value
+                                  value: "\$value"
+                              token: 197 CONCAT ..
+                              op: 197 CONCAT ..
+                              right: String 197
+                                token: 197 STRING_MIDDLE " (argument "
+                                value: " (argument "
+                            token: 197 CONCAT ..
+                            op: 197 CONCAT ..
+                            right: Variable 197
+                              token: 197 VAR_IDENTIFIER $position
+                              value: "\$position"
+                          token: 197 CONCAT ..
+                          op: 197 CONCAT ..
+                          right: String 197
+                            token: 197 STRING_END ")"
+                            value: ")"
+                else_if: null
+                else_body: null
+              3: IfStatement 200
+                condition: BinOp 200
+                  left: BinOp 200
+                    left: Property 200
+                      target: This 200
+                      name: "conversion"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    token: 200 EQUALS ==
+                    op: 200 EQUALS ==
+                    right: String 200
+                      token: 200 STRING "f"
+                      value: "f"
+                  token: 200 AND &&
+                  op: 200 AND &&
+                  right: BinOp 200
+                    left: FunctionCall 200
+                      name: "abs"
+                      args:
+                        0: Variable 200
+                          token: 200 VAR_IDENTIFIER $value
+                          value: "\$value"
+                    token: 200 GREATER_EQUALS >=
+                    op: 200 GREATER_EQUALS >=
+                    right: BinOp 200
+                      left: Num 200
+                        token: 200 FLOAT 9.2E+18
+                        value: 9.2E+18
+                      token: 200 DIVIDE /
+                      op: 200 DIVIDE /
+                      right: BinOp 200
+                        left: Num 200
+                          token: 200 FLOAT 10.0
+                          value: 10.0
+                        token: 200 POWER **
+                        op: 200 POWER **
+                        right: Property 200
+                          target: This 200
+                          name: "precision"
+                          field: true
+                          constant: false
+                          value: null
+                          static_name: null
+                if_body: Compound
+                  statements:
+                    0: Statement 201
+                      expr: Throw 201
+                        expr: BinOp 201
+                          left: BinOp 201
+                            left: BinOp 201
+                              left: BinOp 201
+                                left: BinOp 201
+                                  left: BinOp 201
+                                    left: String 201
+                                      token: 201 STRING_START "sprintf: "
+                                      value: "sprintf: "
+                                    token: 201 CONCAT ..
+                                    op: 201 CONCAT ..
+                                    right: Property 201
+                                      target: This 201
+                                      name: "text"
+                                      field: true
+                                      constant: false
+                                      value: null
+                                      static_name: null
+                                  token: 201 CONCAT ..
+                                  op: 201 CONCAT ..
+                                  right: String 201
+                                    token: 201 STRING_MIDDLE " can't show "
+                                    value: " can't show "
+                                token: 201 CONCAT ..
+                                op: 201 CONCAT ..
+                                right: Variable 201
+                                  token: 201 VAR_IDENTIFIER $value
+                                  value: "\$value"
+                              token: 201 CONCAT ..
+                              op: 201 CONCAT ..
+                              right: String 201
+                                token: 201 STRING_MIDDLE " (argument "
+                                value: " (argument "
+                            token: 201 CONCAT ..
+                            op: 201 CONCAT ..
+                            right: Variable 201
+                              token: 201 VAR_IDENTIFIER $position
+                              value: "\$position"
+                          token: 201 CONCAT ..
+                          op: 201 CONCAT ..
+                          right: String 201
+                            token: 201 STRING_END "): with its decimals it must fit in an int"
+                            value: "): with its decimals it must fit in an int"
+                else_if: null
+                else_body: null
+          arity: 2
+          kind: "format::Placeholder"
+          abstract: false
+        accepts: FunctionDeclaration 205
+          name: "accepts"
+          params: ["\$type"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 206
+                expr: Match 206
+                  subject: Property 206
+                    target: This 206
+                    name: "conversion"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  arms:
+                    0:
+                      0:
+                        0: String 207
+                          token: 207 STRING "d"
+                          value: "d"
+                        1: String 207
+                          token: 207 STRING "x"
+                          value: "x"
+                      1: BinOp 207
+                        left: Variable 207
+                          token: 207 VAR_IDENTIFIER $type
+                          value: "\$type"
+                        token: 207 EQUALS ==
+                        op: 207 EQUALS ==
+                        right: String 207
+                          token: 207 STRING "int"
+                          value: "int"
+                      2: false
+                    1:
+                      0:
+                        0: String 208
+                          token: 208 STRING "f"
+                          value: "f"
+                      1: BinOp 208
+                        left: BinOp 208
+                          left: Variable 208
+                            token: 208 VAR_IDENTIFIER $type
+                            value: "\$type"
+                          token: 208 EQUALS ==
+                          op: 208 EQUALS ==
+                          right: String 208
+                            token: 208 STRING "int"
+                            value: "int"
+                        token: 208 OR ||
+                        op: 208 OR ||
+                        right: BinOp 208
+                          left: Variable 208
+                            token: 208 VAR_IDENTIFIER $type
+                            value: "\$type"
+                          token: 208 EQUALS ==
+                          op: 208 EQUALS ==
+                          right: String 208
+                            token: 208 STRING "float"
+                            value: "float"
+                      2: false
+                    2:
+                      0: null
+                      1: Boolean 209
+                        token: 209 TRUE true
+                        value: true
+                      2: false
+          arity: 1
+          kind: "format::Placeholder"
+          abstract: false
+        expected: FunctionDeclaration 213
+          name: "expected"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: IfStatement 214
+                condition: BinOp 214
+                  left: Property 214
+                    target: This 214
+                    name: "conversion"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 214 EQUALS ==
+                  op: 214 EQUALS ==
+                  right: String 214
+                    token: 214 STRING "f"
+                    value: "f"
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 215
+                      expr: String 215
+                        token: 215 STRING "an int or float"
+                        value: "an int or float"
+                else_if: null
+                else_body: null
+              1: ReturnStatement 218
+                expr: String 218
+                  token: 218 STRING "an int"
+                  value: "an int"
+          arity: 0
+          kind: "format::Placeholder"
+          abstract: false
+        convert: FunctionDeclaration 221
+          name: "convert"
+          params: ["\$value"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 222
+                expr: Match 222
+                  subject: Property 222
+                    target: This 222
+                    name: "conversion"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  arms:
+                    0:
+                      0:
+                        0: String 223
+                          token: 223 STRING "s"
+                          value: "s"
+                        1: String 223
+                          token: 223 STRING "d"
+                          value: "d"
+                      1: FunctionCall 223
+                        name: "to_string"
+                        args:
+                          0: Variable 223
+                            token: 223 VAR_IDENTIFIER $value
+                            value: "\$value"
+                      2: false
+                    1:
+                      0:
+                        0: String 224
+                          token: 224 STRING "f"
+                          value: "f"
+                      1: FunctionCall 224
+                        name: "format::number"
+                        args:
+                          0: Variable 224
+                            token: 224 VAR_IDENTIFIER $value
+                            value: "\$value"
+                          1: Property 224
+                            target: This 224
+                            name: "precision"
+                            field: true
+                            constant: false
+                            value: null
+                            static_name: null
+                          2: String 224
+                            token: 224 STRING ""
+                            value: ""
+                      2: false
+                    2:
+                      0: null
+                      1: FunctionCall 225
+                        name: "format::hex"
+                        args:
+                          0: Variable 225
+                            token: 225 VAR_IDENTIFIER $value
+                            value: "\$value"
+                      2: false
+          arity: 1
+          kind: "format::Placeholder"
+          abstract: false
+        pad: FunctionDeclaration 230
+          name: "pad"
+          params: ["\$text"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 231
+                expr: Assign 231
+                  left: Variable 231
+                    token: 231 VAR_IDENTIFIER $missing
+                    value: "\$missing"
+                  token: 231 ASSIGN =
+                  right: BinOp 231
+                    left: Property 231
+                      target: This 231
+                      name: "width"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    token: 231 MINUS -
+                    op: 231 MINUS -
+                    right: FunctionCall 231
+                      name: "len"
+                      args:
+                        0: Variable 231
+                          token: 231 VAR_IDENTIFIER $text
+                          value: "\$text"
+              1: IfStatement 232
+                condition: BinOp 232
+                  left: Variable 232
+                    token: 232 VAR_IDENTIFIER $missing
+                    value: "\$missing"
+                  token: 232 LESS_EQUALS <=
+                  op: 232 LESS_EQUALS <=
+                  right: Num 232
+                    token: 232 INTEGER 0
+                    value: 0
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 233
+                      expr: Variable 233
+                        token: 233 VAR_IDENTIFIER $text
+                        value: "\$text"
+                else_if: null
+                else_body: null
+              2: IfStatement 235
+                condition: Property 235
+                  target: This 235
+                  name: "left"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 236
+                      expr: BinOp 236
+                        left: Variable 236
+                          token: 236 VAR_IDENTIFIER $text
+                          value: "\$text"
+                        token: 236 CONCAT ..
+                        op: 236 CONCAT ..
+                        right: FunctionCall 236
+                          name: "repeat"
+                          args:
+                            0: String 236
+                              token: 236 STRING " "
+                              value: " "
+                            1: Variable 236
+                              token: 236 VAR_IDENTIFIER $missing
+                              value: "\$missing"
+                else_if: null
+                else_body: null
+              3: IfStatement 238
+                condition: Property 238
+                  target: This 238
+                  name: "zeros"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+                if_body: Compound
+                  statements:
+                    0: ReturnStatement 239
+                      expr: FunctionCall 239
+                        name: "format::zero_pad"
+                        args:
+                          0: Variable 239
+                            token: 239 VAR_IDENTIFIER $text
+                            value: "\$text"
+                          1: Variable 239
+                            token: 239 VAR_IDENTIFIER $missing
+                            value: "\$missing"
+                else_if: null
+                else_body: null
+              4: ReturnStatement 242
+                expr: BinOp 242
+                  left: FunctionCall 242
+                    name: "repeat"
+                    args:
+                      0: String 242
+                        token: 242 STRING " "
+                        value: " "
+                      1: Variable 242
+                        token: 242 VAR_IDENTIFIER $missing
+                        value: "\$missing"
+                  token: 242 CONCAT ..
+                  op: 242 CONCAT ..
+                  right: Variable 242
+                    token: 242 VAR_IDENTIFIER $text
+                    value: "\$text"
+          arity: 1
+          kind: "format::Placeholder"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"text" => "format::Placeholder", "left" => "format::Placeholder", "zeros" => "format::Placeholder", "width" => "format::Placeholder", "precision" => "format::Placeholder", "conversion" => "format::Placeholder"}
+      members: {"_" => "format::Placeholder", "is_percent_sign" => "format::Placeholder", "format" => "format::Placeholder", "check_value" => "format::Placeholder", "accepts" => "format::Placeholder", "expected" => "format::Placeholder", "convert" => "format::Placeholder", "pad" => "format::Placeholder"}
+      abstract_methods: []
+      slots: [["text", "format::Placeholder", "pub"], ["left", "format::Placeholder", ""], ["zeros", "format::Placeholder", ""], ["width", "format::Placeholder", ""], ["precision", "format::Placeholder", ""], ["conversion", "format::Placeholder", ""]]
+      method_table: [["_", "format::Placeholder", "pub", "format::Placeholder"], ["is_percent_sign", "format::Placeholder", "pub", "format::Placeholder"], ["format", "format::Placeholder", "pub", "format::Placeholder"], ["check_value", "format::Placeholder", "", "format::Placeholder"], ["accepts", "format::Placeholder", "", "format::Placeholder"], ["expected", "format::Placeholder", "", "format::Placeholder"], ["convert", "format::Placeholder", "", "format::Placeholder"], ["pad", "format::Placeholder", "", "format::Placeholder"]]
+      owner_vis: {"read" => "pub", "text" => "pub", "left" => "", "zeros" => "", "width" => "", "precision" => "", "conversion" => "", "_" => "pub", "is_percent_sign" => "pub", "format" => "pub", "check_value" => "", "accepts" => "", "expected" => "", "convert" => "", "pad" => ""}
+      declared_at: {"_" => "format::Placeholder", "is_percent_sign" => "format::Placeholder", "format" => "format::Placeholder", "check_value" => "format::Placeholder", "accepts" => "format::Placeholder", "expected" => "format::Placeholder", "convert" => "format::Placeholder", "pad" => "format::Placeholder"}
+      hidden: []
+      hidden_fields: []
+    16: FunctionDeclaration 144
+      name: "format::Placeholder::read"
+      params: ["\$template", "\$start"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 145
+            expr: Assign 145
+              left: Variable 145
+                token: 145 VAR_IDENTIFIER $at
+                value: "\$at"
+              token: 145 ASSIGN =
+              right: BinOp 145
+                left: Variable 145
+                  token: 145 VAR_IDENTIFIER $start
+                  value: "\$start"
+                token: 145 PLUS +
+                op: 145 PLUS +
+                right: Num 145
+                  token: 145 INTEGER 1
+                  value: 1
+          1: Statement 146
+            expr: Assign 146
+              left: Variable 146
+                token: 146 VAR_IDENTIFIER $left
+                value: "\$left"
+              token: 146 ASSIGN =
+              right: Boolean 146
+                token: 146 FALSE false
+                value: false
+          2: Statement 147
+            expr: Assign 147
+              left: Variable 147
+                token: 147 VAR_IDENTIFIER $zeros
+                value: "\$zeros"
+              token: 147 ASSIGN =
+              right: Boolean 147
+                token: 147 FALSE false
+                value: false
+          3: WhileStatement 148
+            condition: BinOp 148
+              left: BinOp 148
+                left: Variable 148
+                  token: 148 VAR_IDENTIFIER $at
+                  value: "\$at"
+                token: 148 LESS_THAN <
+                op: 148 LESS_THAN <
+                right: FunctionCall 148
+                  name: "len"
+                  args:
+                    0: Variable 148
+                      token: 148 VAR_IDENTIFIER $template
+                      value: "\$template"
+              token: 148 AND &&
+              op: 148 AND &&
+              right: FunctionCall 148
+                name: "format::is_flag"
+                args:
+                  0: Index 148
+                    target: Variable 148
+                      token: 148 VAR_IDENTIFIER $template
+                      value: "\$template"
+                    index: Variable 148
+                      token: 148 VAR_IDENTIFIER $at
+                      value: "\$at"
+            body: Compound
+              statements:
+                0: IfStatement 149
+                  condition: BinOp 149
+                    left: Index 149
+                      target: Variable 149
+                        token: 149 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      index: Variable 149
+                        token: 149 VAR_IDENTIFIER $at
+                        value: "\$at"
+                    token: 149 EQUALS ==
+                    op: 149 EQUALS ==
+                    right: String 149
+                      token: 149 STRING "-"
+                      value: "-"
+                  if_body: Compound
+                    statements:
+                      0: Statement 150
+                        expr: Assign 150
+                          left: Variable 150
+                            token: 150 VAR_IDENTIFIER $left
+                            value: "\$left"
+                          token: 150 ASSIGN =
+                          right: Boolean 150
+                            token: 150 TRUE true
+                            value: true
+                  else_if: null
+                  else_body: Compound
+                    statements:
+                      0: Statement 152
+                        expr: Assign 152
+                          left: Variable 152
+                            token: 152 VAR_IDENTIFIER $zeros
+                            value: "\$zeros"
+                          token: 152 ASSIGN =
+                          right: Boolean 152
+                            token: 152 TRUE true
+                            value: true
+                1: Statement 154
+                  expr: Increment 154
+                    target: Variable 154
+                      token: 154 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    op: 154 INCREMENT ++
+                    prefix: false
+            step: null
+          4: Statement 157
+            expr: Assign 157
+              left: Variable 157
+                token: 157 VAR_IDENTIFIER $width
+                value: "\$width"
+              token: 157 ASSIGN =
+              right: FunctionCall 157
+                name: "format::digits"
+                args:
+                  0: Variable 157
+                    token: 157 VAR_IDENTIFIER $template
+                    value: "\$template"
+                  1: Variable 157
+                    token: 157 VAR_IDENTIFIER $at
+                    value: "\$at"
+          5: Statement 158
+            expr: Assign 158
+              left: Variable 158
+                token: 158 VAR_IDENTIFIER $at
+                value: "\$at"
+              token: 158 PLUS_ASSIGN +=
+              right: FunctionCall 158
+                name: "len"
+                args:
+                  0: Variable 158
+                    token: 158 VAR_IDENTIFIER $width
+                    value: "\$width"
+          6: Statement 160
+            expr: Assign 160
+              left: Variable 160
+                token: 160 VAR_IDENTIFIER $precision
+                value: "\$precision"
+              token: 160 ASSIGN =
+              right: Null 160
+                token: 160 NULL null
+                value: null
+          7: IfStatement 161
+            condition: BinOp 161
+              left: BinOp 161
+                left: Variable 161
+                  token: 161 VAR_IDENTIFIER $at
+                  value: "\$at"
+                token: 161 LESS_THAN <
+                op: 161 LESS_THAN <
+                right: FunctionCall 161
+                  name: "len"
+                  args:
+                    0: Variable 161
+                      token: 161 VAR_IDENTIFIER $template
+                      value: "\$template"
+              token: 161 AND &&
+              op: 161 AND &&
+              right: BinOp 161
+                left: Index 161
+                  target: Variable 161
+                    token: 161 VAR_IDENTIFIER $template
+                    value: "\$template"
+                  index: Variable 161
+                    token: 161 VAR_IDENTIFIER $at
+                    value: "\$at"
+                token: 161 EQUALS ==
+                op: 161 EQUALS ==
+                right: String 161
+                  token: 161 STRING "."
+                  value: "."
+            if_body: Compound
+              statements:
+                0: Statement 162
+                  expr: Assign 162
+                    left: Variable 162
+                      token: 162 VAR_IDENTIFIER $precision
+                      value: "\$precision"
+                    token: 162 ASSIGN =
+                    right: FunctionCall 162
+                      name: "format::digits"
+                      args:
+                        0: Variable 162
+                          token: 162 VAR_IDENTIFIER $template
+                          value: "\$template"
+                        1: BinOp 162
+                          left: Variable 162
+                            token: 162 VAR_IDENTIFIER $at
+                            value: "\$at"
+                          token: 162 PLUS +
+                          op: 162 PLUS +
+                          right: Num 162
+                            token: 162 INTEGER 1
+                            value: 1
+                1: Statement 163
+                  expr: Assign 163
+                    left: Variable 163
+                      token: 163 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    token: 163 PLUS_ASSIGN +=
+                    right: BinOp 163
+                      left: Num 163
+                        token: 163 INTEGER 1
+                        value: 1
+                      token: 163 PLUS +
+                      op: 163 PLUS +
+                      right: FunctionCall 163
+                        name: "len"
+                        args:
+                          0: Variable 163
+                            token: 163 VAR_IDENTIFIER $precision
+                            value: "\$precision"
+                2: IfStatement 164
+                  condition: BinOp 164
+                    left: Variable 164
+                      token: 164 VAR_IDENTIFIER $precision
+                      value: "\$precision"
+                    token: 164 EQUALS ==
+                    op: 164 EQUALS ==
+                    right: String 164
+                      token: 164 STRING ""
+                      value: ""
+                  if_body: Compound
+                    statements:
+                      0: Statement 165
+                        expr: FunctionCall 165
+                          name: "format::refuse"
+                          args:
+                            0: Variable 165
+                              token: 165 VAR_IDENTIFIER $template
+                              value: "\$template"
+                            1: Variable 165
+                              token: 165 VAR_IDENTIFIER $start
+                              value: "\$start"
+                            2: Variable 165
+                              token: 165 VAR_IDENTIFIER $at
+                              value: "\$at"
+                            3: String 165
+                              token: 165 STRING "a precision needs its digits"
+                              value: "a precision needs its digits"
+                  else_if: null
+                  else_body: null
+            else_if: null
+            else_body: null
+          8: IfStatement 168
+            condition: BinOp 168
+              left: Variable 168
+                token: 168 VAR_IDENTIFIER $at
+                value: "\$at"
+              token: 168 GREATER_EQUALS >=
+              op: 168 GREATER_EQUALS >=
+              right: FunctionCall 168
+                name: "len"
+                args:
+                  0: Variable 168
+                    token: 168 VAR_IDENTIFIER $template
+                    value: "\$template"
+            if_body: Compound
+              statements:
+                0: Statement 169
+                  expr: FunctionCall 169
+                    name: "format::refuse"
+                    args:
+                      0: Variable 169
+                        token: 169 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 169
+                        token: 169 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: Variable 169
+                        token: 169 VAR_IDENTIFIER $at
+                        value: "\$at"
+                      3: String 169
+                        token: 169 STRING "the template ends in the middle of a placeholder"
+                        value: "the template ends in the middle of a placeholder"
+            else_if: null
+            else_body: null
+          9: Statement 172
+            expr: Assign 172
+              left: Variable 172
+                token: 172 VAR_IDENTIFIER $conversion
+                value: "\$conversion"
+              token: 172 ASSIGN =
+              right: Index 172
+                target: Variable 172
+                  token: 172 VAR_IDENTIFIER $template
+                  value: "\$template"
+                index: Variable 172
+                  token: 172 VAR_IDENTIFIER $at
+                  value: "\$at"
+          10: Statement 173
+            expr: Assign 173
+              left: Variable 173
+                token: 173 VAR_IDENTIFIER $end
+                value: "\$end"
+              token: 173 ASSIGN =
+              right: BinOp 173
+                left: Variable 173
+                  token: 173 VAR_IDENTIFIER $at
+                  value: "\$at"
+                token: 173 PLUS +
+                op: 173 PLUS +
+                right: Num 173
+                  token: 173 INTEGER 1
+                  value: 1
+          11: Statement 174
+            expr: Assign 174
+              left: Variable 174
+                token: 174 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 174 ASSIGN =
+              right: FunctionCall 174
+                name: "slice"
+                args:
+                  0: Variable 174
+                    token: 174 VAR_IDENTIFIER $template
+                    value: "\$template"
+                  1: Variable 174
+                    token: 174 VAR_IDENTIFIER $start
+                    value: "\$start"
+                  2: BinOp 174
+                    left: Variable 174
+                      token: 174 VAR_IDENTIFIER $end
+                      value: "\$end"
+                    token: 174 MINUS -
+                    op: 174 MINUS -
+                    right: Variable 174
+                      token: 174 VAR_IDENTIFIER $start
+                      value: "\$start"
+          12: Statement 175
+            expr: FunctionCall 175
+              name: "format::check_shape"
+              args:
+                0: Variable 175
+                  token: 175 VAR_IDENTIFIER $template
+                  value: "\$template"
+                1: Variable 175
+                  token: 175 VAR_IDENTIFIER $start
+                  value: "\$start"
+                2: Variable 175
+                  token: 175 VAR_IDENTIFIER $end
+                  value: "\$end"
+                3: Variable 175
+                  token: 175 VAR_IDENTIFIER $text
+                  value: "\$text"
+                4: Variable 175
+                  token: 175 VAR_IDENTIFIER $conversion
+                  value: "\$conversion"
+                5: Variable 175
+                  token: 175 VAR_IDENTIFIER $precision
+                  value: "\$precision"
+                6: Variable 175
+                  token: 175 VAR_IDENTIFIER $zeros
+                  value: "\$zeros"
+          13: ReturnStatement 177
+            expr: FunctionCall 177
+              name: "format::Placeholder"
+              args:
+                0: Variable 177
+                  token: 177 VAR_IDENTIFIER $text
+                  value: "\$text"
+                1: Variable 177
+                  token: 177 VAR_IDENTIFIER $left
+                  value: "\$left"
+                2: Variable 177
+                  token: 177 VAR_IDENTIFIER $zeros
+                  value: "\$zeros"
+                3: FunctionCall 177
+                  name: "format::number_or"
+                  args:
+                    0: Variable 177
+                      token: 177 VAR_IDENTIFIER $width
+                      value: "\$width"
+                    1: Num 177
+                      token: 177 INTEGER 0
+                      value: 0
+                4: FunctionCall 177
+                  name: "format::number_or"
+                  args:
+                    0: Variable 177
+                      token: 177 VAR_IDENTIFIER $precision
+                      value: "\$precision"
+                    1: FunctionRef 177
+                      name: "format::DEFAULT_PRECISION"
+                      constant: true
+                      value: 6
+                      static_name: null
+                5: Variable 177
+                  token: 177 VAR_IDENTIFIER $conversion
+                  value: "\$conversion"
+      arity: 2
+      kind: "format::Placeholder"
+      abstract: false
+    17: FunctionDeclaration 247
+      name: "format::check_shape"
+      params: ["\$template", "\$start", "\$end", "\$text", "\$conversion", "\$precision", "\$zeros"]
+      defaults: [null, null, null, null, null, null, null]
+      body: Compound
+        statements:
+          0: IfStatement 248
+            condition: UnaryOp 248
+              op: 248 NOT !
+              expr: FunctionCall 248
+                name: "in_array"
+                args:
+                  0: Variable 248
+                    token: 248 VAR_IDENTIFIER $conversion
+                    value: "\$conversion"
+                  1: FunctionRef 248
+                    name: "format::CONVERSIONS"
+                    constant: true
+                    value: ["s", "d", "f", "x", "%"]
+                    static_name: null
+            if_body: Compound
+              statements:
+                0: Statement 249
+                  expr: FunctionCall 249
+                    name: "format::refuse"
+                    args:
+                      0: Variable 249
+                        token: 249 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 249
+                        token: 249 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: Variable 249
+                        token: 249 VAR_IDENTIFIER $end
+                        value: "\$end"
+                      3: BinOp 249
+                        left: String 249
+                          token: 249 STRING_START "there is no %"
+                          value: "there is no %"
+                        token: 249 CONCAT ..
+                        op: 249 CONCAT ..
+                        right: Variable 249
+                          token: 249 VAR_IDENTIFIER $conversion
+                          value: "\$conversion"
+            else_if: null
+            else_body: null
+          1: IfStatement 251
+            condition: BinOp 251
+              left: BinOp 251
+                left: Variable 251
+                  token: 251 VAR_IDENTIFIER $conversion
+                  value: "\$conversion"
+                token: 251 EQUALS ==
+                op: 251 EQUALS ==
+                right: String 251
+                  token: 251 STRING "%"
+                  value: "%"
+              token: 251 AND &&
+              op: 251 AND &&
+              right: BinOp 251
+                left: Variable 251
+                  token: 251 VAR_IDENTIFIER $text
+                  value: "\$text"
+                token: 251 NOT_EQUALS !=
+                op: 251 NOT_EQUALS !=
+                right: String 251
+                  token: 251 STRING "%%"
+                  value: "%%"
+            if_body: Compound
+              statements:
+                0: Statement 252
+                  expr: FunctionCall 252
+                    name: "format::refuse"
+                    args:
+                      0: Variable 252
+                        token: 252 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 252
+                        token: 252 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: Variable 252
+                        token: 252 VAR_IDENTIFIER $end
+                        value: "\$end"
+                      3: String 252
+                        token: 252 STRING "%% takes no flags, width or precision"
+                        value: "%% takes no flags, width or precision"
+            else_if: null
+            else_body: null
+          2: IfStatement 254
+            condition: BinOp 254
+              left: BinOp 254
+                left: Variable 254
+                  token: 254 VAR_IDENTIFIER $precision
+                  value: "\$precision"
+                token: 254 NOT_EQUALS !=
+                op: 254 NOT_EQUALS !=
+                right: Null 254
+                  token: 254 NULL null
+                  value: null
+              token: 254 AND &&
+              op: 254 AND &&
+              right: BinOp 254
+                left: Variable 254
+                  token: 254 VAR_IDENTIFIER $conversion
+                  value: "\$conversion"
+                token: 254 NOT_EQUALS !=
+                op: 254 NOT_EQUALS !=
+                right: String 254
+                  token: 254 STRING "f"
+                  value: "f"
+            if_body: Compound
+              statements:
+                0: Statement 255
+                  expr: FunctionCall 255
+                    name: "format::refuse"
+                    args:
+                      0: Variable 255
+                        token: 255 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 255
+                        token: 255 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: Variable 255
+                        token: 255 VAR_IDENTIFIER $end
+                        value: "\$end"
+                      3: String 255
+                        token: 255 STRING "only %f takes a precision"
+                        value: "only %f takes a precision"
+            else_if: null
+            else_body: null
+          3: IfStatement 257
+            condition: BinOp 257
+              left: BinOp 257
+                left: Variable 257
+                  token: 257 VAR_IDENTIFIER $precision
+                  value: "\$precision"
+                token: 257 NOT_EQUALS !=
+                op: 257 NOT_EQUALS !=
+                right: Null 257
+                  token: 257 NULL null
+                  value: null
+              token: 257 AND &&
+              op: 257 AND &&
+              right: BinOp 257
+                left: FunctionCall 257
+                  name: "to_int"
+                  args:
+                    0: Variable 257
+                      token: 257 VAR_IDENTIFIER $precision
+                      value: "\$precision"
+                token: 257 GREATER_THAN >
+                op: 257 GREATER_THAN >
+                right: FunctionRef 257
+                  name: "format::MAX_PRECISION"
+                  constant: true
+                  value: 18
+                  static_name: null
+            if_body: Compound
+              statements:
+                0: Statement 258
+                  expr: FunctionCall 258
+                    name: "format::refuse"
+                    args:
+                      0: Variable 258
+                        token: 258 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 258
+                        token: 258 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: Variable 258
+                        token: 258 VAR_IDENTIFIER $end
+                        value: "\$end"
+                      3: BinOp 258
+                        left: String 258
+                          token: 258 STRING "a precision is at most "
+                          value: "a precision is at most "
+                        token: 258 CONCAT ..
+                        op: 258 CONCAT ..
+                        right: FunctionRef 258
+                          name: "format::MAX_PRECISION"
+                          constant: true
+                          value: 18
+                          static_name: null
+            else_if: null
+            else_body: null
+          4: IfStatement 260
+            condition: BinOp 260
+              left: Variable 260
+                token: 260 VAR_IDENTIFIER $zeros
+                value: "\$zeros"
+              token: 260 AND &&
+              op: 260 AND &&
+              right: BinOp 260
+                left: Variable 260
+                  token: 260 VAR_IDENTIFIER $conversion
+                  value: "\$conversion"
+                token: 260 EQUALS ==
+                op: 260 EQUALS ==
+                right: String 260
+                  token: 260 STRING "s"
+                  value: "s"
+            if_body: Compound
+              statements:
+                0: Statement 261
+                  expr: FunctionCall 261
+                    name: "format::refuse"
+                    args:
+                      0: Variable 261
+                        token: 261 VAR_IDENTIFIER $template
+                        value: "\$template"
+                      1: Variable 261
+                        token: 261 VAR_IDENTIFIER $start
+                        value: "\$start"
+                      2: Variable 261
+                        token: 261 VAR_IDENTIFIER $end
+                        value: "\$end"
+                      3: String 261
+                        token: 261 STRING "only a number is padded with zeros"
+                        value: "only a number is padded with zeros"
+            else_if: null
+            else_body: null
+      arity: 7
+      kind: null
+      abstract: false
+    18: FunctionDeclaration 265
+      name: "format::is_flag"
+      params: ["\$c"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 266
+            expr: BinOp 266
+              left: BinOp 266
+                left: Variable 266
+                  token: 266 VAR_IDENTIFIER $c
+                  value: "\$c"
+                token: 266 EQUALS ==
+                op: 266 EQUALS ==
+                right: String 266
+                  token: 266 STRING "-"
+                  value: "-"
+              token: 266 OR ||
+              op: 266 OR ||
+              right: BinOp 266
+                left: Variable 266
+                  token: 266 VAR_IDENTIFIER $c
+                  value: "\$c"
+                token: 266 EQUALS ==
+                op: 266 EQUALS ==
+                right: String 266
+                  token: 266 STRING "0"
+                  value: "0"
+      arity: 1
+      kind: null
+      abstract: false
+    19: FunctionDeclaration 270
+      name: "format::digits"
+      params: ["\$s", "\$at"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 271
+            expr: Assign 271
+              left: Variable 271
+                token: 271 VAR_IDENTIFIER $from
+                value: "\$from"
+              token: 271 ASSIGN =
+              right: Variable 271
+                token: 271 VAR_IDENTIFIER $at
+                value: "\$at"
+          1: WhileStatement 272
+            condition: BinOp 272
+              left: BinOp 272
+                left: BinOp 272
+                  left: Variable 272
+                    token: 272 VAR_IDENTIFIER $at
+                    value: "\$at"
+                  token: 272 LESS_THAN <
+                  op: 272 LESS_THAN <
+                  right: FunctionCall 272
+                    name: "len"
+                    args:
+                      0: Variable 272
+                        token: 272 VAR_IDENTIFIER $s
+                        value: "\$s"
+                token: 272 AND &&
+                op: 272 AND &&
+                right: BinOp 272
+                  left: Index 272
+                    target: Variable 272
+                      token: 272 VAR_IDENTIFIER $s
+                      value: "\$s"
+                    index: Variable 272
+                      token: 272 VAR_IDENTIFIER $at
+                      value: "\$at"
+                  token: 272 GREATER_EQUALS >=
+                  op: 272 GREATER_EQUALS >=
+                  right: String 272
+                    token: 272 STRING "0"
+                    value: "0"
+              token: 272 AND &&
+              op: 272 AND &&
+              right: BinOp 272
+                left: Index 272
+                  target: Variable 272
+                    token: 272 VAR_IDENTIFIER $s
+                    value: "\$s"
+                  index: Variable 272
+                    token: 272 VAR_IDENTIFIER $at
+                    value: "\$at"
+                token: 272 LESS_EQUALS <=
+                op: 272 LESS_EQUALS <=
+                right: String 272
+                  token: 272 STRING "9"
+                  value: "9"
+            body: Compound
+              statements:
+                0: Statement 273
+                  expr: Increment 273
+                    target: Variable 273
+                      token: 273 VAR_IDENTIFIER $at
+                      value: "\$at"
+                    op: 273 INCREMENT ++
+                    prefix: false
+            step: null
+          2: ReturnStatement 276
+            expr: FunctionCall 276
+              name: "slice"
+              args:
+                0: Variable 276
+                  token: 276 VAR_IDENTIFIER $s
+                  value: "\$s"
+                1: Variable 276
+                  token: 276 VAR_IDENTIFIER $from
+                  value: "\$from"
+                2: BinOp 276
+                  left: Variable 276
+                    token: 276 VAR_IDENTIFIER $at
+                    value: "\$at"
+                  token: 276 MINUS -
+                  op: 276 MINUS -
+                  right: Variable 276
+                    token: 276 VAR_IDENTIFIER $from
+                    value: "\$from"
+      arity: 2
+      kind: null
+      abstract: false
+    20: FunctionDeclaration 280
+      name: "format::number_or"
+      params: ["\$digits", "\$default"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: IfStatement 281
+            condition: BinOp 281
+              left: BinOp 281
+                left: Variable 281
+                  token: 281 VAR_IDENTIFIER $digits
+                  value: "\$digits"
+                token: 281 EQUALS ==
+                op: 281 EQUALS ==
+                right: Null 281
+                  token: 281 NULL null
+                  value: null
+              token: 281 OR ||
+              op: 281 OR ||
+              right: BinOp 281
+                left: Variable 281
+                  token: 281 VAR_IDENTIFIER $digits
+                  value: "\$digits"
+                token: 281 EQUALS ==
+                op: 281 EQUALS ==
+                right: String 281
+                  token: 281 STRING ""
+                  value: ""
+            if_body: Compound
+              statements:
+                0: ReturnStatement 282
+                  expr: Variable 282
+                    token: 282 VAR_IDENTIFIER $default
+                    value: "\$default"
+            else_if: null
+            else_body: null
+          1: ReturnStatement 285
+            expr: FunctionCall 285
+              name: "to_int"
+              args:
+                0: Variable 285
+                  token: 285 VAR_IDENTIFIER $digits
+                  value: "\$digits"
+      arity: 2
+      kind: null
+      abstract: false
+    21: FunctionDeclaration 289
+      name: "format::refuse"
+      params: ["\$template", "\$from", "\$to", "\$why"]
+      defaults: [null, null, null, null]
+      body: Compound
+        statements:
+          0: Statement 290
+            expr: Assign 290
+              left: Variable 290
+                token: 290 VAR_IDENTIFIER $placeholder
+                value: "\$placeholder"
+              token: 290 ASSIGN =
+              right: FunctionCall 290
+                name: "slice"
+                args:
+                  0: Variable 290
+                    token: 290 VAR_IDENTIFIER $template
+                    value: "\$template"
+                  1: Variable 290
+                    token: 290 VAR_IDENTIFIER $from
+                    value: "\$from"
+                  2: BinOp 290
+                    left: Variable 290
+                      token: 290 VAR_IDENTIFIER $to
+                      value: "\$to"
+                    token: 290 MINUS -
+                    op: 290 MINUS -
+                    right: Variable 290
+                      token: 290 VAR_IDENTIFIER $from
+                      value: "\$from"
+          1: Statement 291
+            expr: Throw 291
+              expr: BinOp 291
+                left: BinOp 291
+                  left: BinOp 291
+                    left: String 291
+                      token: 291 STRING "sprintf: "
+                      value: "sprintf: "
+                    token: 291 CONCAT ..
+                    op: 291 CONCAT ..
+                    right: FunctionCall 291
+                      name: "text::quote"
+                      args:
+                        0: Variable 291
+                          token: 291 VAR_IDENTIFIER $placeholder
+                          value: "\$placeholder"
+                  token: 291 CONCAT ..
+                  op: 291 CONCAT ..
+                  right: String 291
+                    token: 291 STRING ": "
+                    value: ": "
+                token: 291 CONCAT ..
+                op: 291 CONCAT ..
+                right: Variable 291
+                  token: 291 VAR_IDENTIFIER $why
+                  value: "\$why"
+      arity: 4
+      kind: null
+      abstract: false
+    22: FunctionDeclaration 295
+      name: "format::zero_pad"
+      params: ["\$text", "\$missing"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 296
+            expr: Assign 296
+              left: Variable 296
+                token: 296 VAR_IDENTIFIER $sign
+                value: "\$sign"
+              token: 296 ASSIGN =
+              right: String 296
+                token: 296 STRING ""
+                value: ""
+          1: IfStatement 297
+            condition: FunctionCall 297
+              name: "starts_with"
+              args:
+                0: Variable 297
+                  token: 297 VAR_IDENTIFIER $text
+                  value: "\$text"
+                1: String 297
+                  token: 297 STRING "-"
+                  value: "-"
+            if_body: Compound
+              statements:
+                0: Statement 298
+                  expr: Assign 298
+                    left: Variable 298
+                      token: 298 VAR_IDENTIFIER $sign
+                      value: "\$sign"
+                    token: 298 ASSIGN =
+                    right: String 298
+                      token: 298 STRING "-"
+                      value: "-"
+            else_if: null
+            else_body: null
+          2: ReturnStatement 301
+            expr: BinOp 301
+              left: BinOp 301
+                left: Variable 301
+                  token: 301 VAR_IDENTIFIER $sign
+                  value: "\$sign"
+                token: 301 CONCAT ..
+                op: 301 CONCAT ..
+                right: FunctionCall 301
+                  name: "repeat"
+                  args:
+                    0: String 301
+                      token: 301 STRING "0"
+                      value: "0"
+                    1: Variable 301
+                      token: 301 VAR_IDENTIFIER $missing
+                      value: "\$missing"
+              token: 301 CONCAT ..
+              op: 301 CONCAT ..
+              right: FunctionCall 301
+                name: "slice"
+                args:
+                  0: Variable 301
+                    token: 301 VAR_IDENTIFIER $text
+                    value: "\$text"
+                  1: FunctionCall 301
+                    name: "len"
+                    args:
+                      0: Variable 301
+                        token: 301 VAR_IDENTIFIER $sign
+                        value: "\$sign"
+      arity: 2
+      kind: null
+      abstract: false
+    23: FunctionDeclaration 305
+      name: "format::hex"
+      params: ["\$n"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 306
+            expr: Assign 306
+              left: Variable 306
+                token: 306 VAR_IDENTIFIER $text
+                value: "\$text"
+              token: 306 ASSIGN =
+              right: String 306
+                token: 306 STRING ""
+                value: ""
+          1: WhileStatement 307
+            condition: BinOp 307
+              left: Variable 307
+                token: 307 VAR_IDENTIFIER $n
+                value: "\$n"
+              token: 307 GREATER_EQUALS >=
+              op: 307 GREATER_EQUALS >=
+              right: Num 307
+                token: 307 INTEGER 16
+                value: 16
+            body: Compound
+              statements:
+                0: Statement 308
+                  expr: Assign 308
+                    left: Variable 308
+                      token: 308 VAR_IDENTIFIER $text
+                      value: "\$text"
+                    token: 308 ASSIGN =
+                    right: BinOp 308
+                      left: Index 308
+                        target: FunctionRef 308
+                          name: "format::HEX_DIGITS"
+                          constant: true
+                          value: "0123456789abcdef"
+                          static_name: null
+                        index: BinOp 308
+                          left: Variable 308
+                            token: 308 VAR_IDENTIFIER $n
+                            value: "\$n"
+                          token: 308 MODULO %
+                          op: 308 MODULO %
+                          right: Num 308
+                            token: 308 INTEGER 16
+                            value: 16
+                      token: 308 CONCAT ..
+                      op: 308 CONCAT ..
+                      right: Variable 308
+                        token: 308 VAR_IDENTIFIER $text
+                        value: "\$text"
+                1: Statement 309
+                  expr: Assign 309
+                    left: Variable 309
+                      token: 309 VAR_IDENTIFIER $n
+                      value: "\$n"
+                    token: 309 ASSIGN =
+                    right: FunctionCall 309
+                      name: "intdiv"
+                      args:
+                        0: Variable 309
+                          token: 309 VAR_IDENTIFIER $n
+                          value: "\$n"
+                        1: Num 309
+                          token: 309 INTEGER 16
+                          value: 16
+            step: null
+          2: ReturnStatement 312
+            expr: BinOp 312
+              left: Index 312
+                target: FunctionRef 312
+                  name: "format::HEX_DIGITS"
+                  constant: true
+                  value: "0123456789abcdef"
+                  static_name: null
+                index: Variable 312
+                  token: 312 VAR_IDENTIFIER $n
+                  value: "\$n"
+              token: 312 CONCAT ..
+              op: 312 CONCAT ..
+              right: Variable 312
+                token: 312 VAR_IDENTIFIER $text
+                value: "\$text"
+      arity: 1
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/views/label.gazml"
+    24: FunctionDeclaration 1
+      name: "label"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 1
+            expr: Assign 1
+              left: Variable 1
+                token: 1 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 1 ASSIGN =
+              right: String 1
+                token: 1 STRING ""
+                value: ""
+          1: Statement 2
+            expr: Assign 2
+              left: Variable 2
+                token: 2 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 2 CONCAT_ASSIGN ..=
+              right: String 2
+                token: 2 STRING "<b>"
+                value: "<b>"
+          2: Statement 2
+            expr: Assign 2
+              left: Variable 2
+                token: 2 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 2 CONCAT_ASSIGN ..=
+              right: FunctionCall 2
+                name: "Html::escape"
+                args:
+                  0: Variable 2
+                    token: 2 VAR_IDENTIFIER $text
+                    value: "\$text"
+          3: Statement 2
+            expr: Assign 2
+              left: Variable 2
+                token: 2 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 2 CONCAT_ASSIGN ..=
+              right: String 2
+                token: 2 STRING "</b>\n"
+                value: "</b>\n"
+          4: ReturnStatement 3
+            expr: FunctionCall 3
+              name: "Html"
+              args:
+                0: Variable 3
+                  token: 3 VAR_IDENTIFIER $#html
+                  value: "$#html"
+      arity: 1
+      param_types:
+        0: Type 1
+          names: ["string"]
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/views/priced.gazml"
+    25: FunctionDeclaration 3
+      name: "priced"
+      params: ["\$name", "\$price"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: Statement 3
+            expr: Assign 3
+              left: Variable 3
+                token: 3 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 3 ASSIGN =
+              right: String 3
+                token: 3 STRING ""
+                value: ""
+          1: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: String 4
+                token: 4 STRING "<p>"
+                value: "<p>"
+          2: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: FunctionCall 4
+                name: "Html::escape"
+                args:
+                  0: FunctionCall 4
+                    name: "label"
+                    args:
+                      0: Variable 4
+                        token: 4 VAR_IDENTIFIER $name
+                        value: "\$name"
+          3: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: String 4
+                token: 4 STRING " "
+                value: " "
+          4: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: FunctionCall 4
+                name: "Html::escape"
+                args:
+                  0: FunctionCall 4
+                    name: "format::number"
+                    args:
+                      0: Variable 4
+                        token: 4 VAR_IDENTIFIER $price
+                        value: "\$price"
+                      1: Num 4
+                        token: 4 INTEGER 2
+                        value: 2
+          5: Statement 4
+            expr: Assign 4
+              left: Variable 4
+                token: 4 VAR_IDENTIFIER $#html
+                value: "$#html"
+              token: 4 CONCAT_ASSIGN ..=
+              right: String 4
+                token: 4 STRING "</p>\n"
+                value: "</p>\n"
+          6: ReturnStatement 5
+            expr: FunctionCall 5
+              name: "Html"
+              args:
+                0: Variable 5
+                  token: 5 VAR_IDENTIFIER $#html
+                  value: "$#html"
+      arity: 2
+      param_types:
+        0: Type 3
+          names: ["string"]
+        1: Type 3
+          names: ["float"]
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/template_imports.gaz"
+    26: EchoStatement 5
+      expr: FunctionCall 5
+        name: "priced"
+        args:
+          0: String 5
+            token: 5 STRING "Lamp"
+            value: "Lamp"
+          1: Num 5
+            token: 5 FLOAT 1234.5
+            value: 1234.5

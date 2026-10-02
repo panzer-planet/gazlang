@@ -7,7 +7,7 @@ locals
 CALL show_args 0
 POP
 @ 3
-PUSH "included"
+PUSH "imported"
 PRINT
 
 fn show_args 0 0

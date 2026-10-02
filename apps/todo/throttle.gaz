@@ -10,7 +10,7 @@
  */
 namespace todo;
 
-include "std/db.gaz";
+import "std/db.gaz";
 
 const MAX_FAILURES = 5;
 

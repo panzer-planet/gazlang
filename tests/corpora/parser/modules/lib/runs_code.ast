@@ -1,0 +1,20 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/runs_code.gaz"
+    0: FunctionDeclaration 2
+      name: "f"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 2
+            expr: Num 2
+              token: 2 INTEGER 1
+              value: 1
+      arity: 0
+      kind: null
+      abstract: false
+    1: EchoStatement 3
+      expr: String 3
+        token: 3 STRING "loaded"
+        value: "loaded"

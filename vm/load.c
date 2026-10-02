@@ -309,7 +309,7 @@ static const char *OPERATORS[][2] = {
 static const char *KEYWORDS[][2] = {
     {"echo", "ECHO"}, {"if", "IF"}, {"else", "ELSE"}, {"while", "WHILE"}, {"for", "FOR"}, {"foreach", "FOREACH"},
     {"as", "AS"}, {"break", "BREAK"}, {"continue", "CONTINUE"}, {"fn", "FN"}, {"return", "RETURN"},
-    {"delete", "DELETE"}, {"match", "MATCH"}, {"default", "DEFAULT"}, {"const", "CONST"}, {"include", "INCLUDE"},
+    {"delete", "DELETE"}, {"match", "MATCH"}, {"default", "DEFAULT"}, {"const", "CONST"}, {"include", "INCLUDE"}, {"import", "IMPORT"},
     {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"throw", "THROW"}, {"kind", "KIND"},
     {"extends", "EXTENDS"}, {"abstract", "ABSTRACT"}, {"interface", "INTERFACE"}, {"implements", "IMPLEMENTS"},
     {"final", "FINAL"}, {"namespace", "NAMESPACE"}, {"use", "USE"}, {"pub", "PUB"}, {"kin", "KIN"},

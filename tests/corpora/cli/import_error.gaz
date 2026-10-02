@@ -1,0 +1,2 @@
+// Imported from elsewhere, its error shows its path
+import "./syntax_error_module.gaz";

@@ -68,7 +68,7 @@ jobs:
           bin/gaz --version
           bin/gaz --version | grep -qx "gaz $(cat VERSION)"
           bin/gaz tests/programs/functions.gaz > /dev/null
-          echo 'include "std/json.gaz"; echo json::encode(db_run(db_open("sqlite::memory:"), "select 1 as one")["rows"]);' | bin/gaz
+          echo 'import "std/json.gaz"; echo json::encode(db_run(db_open("sqlite::memory:"), "select 1 as one")["rows"]);' | bin/gaz
 
       - name: Package
         run: |

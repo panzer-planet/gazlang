@@ -1,0 +1,21 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/deep/helper.gaz"
+    0: FunctionDeclaration 1
+      name: "helper"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      arity: 0
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/same_file_spelt_two_ways.gaz"
+    1: EchoStatement 5
+      expr: FunctionCall 5
+        name: "helper"
+        args: []

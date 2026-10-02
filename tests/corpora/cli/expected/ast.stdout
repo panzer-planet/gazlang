@@ -14,12 +14,12 @@ Compound
       arity: 0
       kind: null
       abstract: false
-@ "include.gaz"
+@ "imports.gaz"
     1: Statement 2
       expr: FunctionCall 2
         name: "show_args"
         args: []
     2: EchoStatement 3
       expr: String 3
-        token: 3 STRING "included"
-        value: "included"
+        token: 3 STRING "imported"
+        value: "imported"

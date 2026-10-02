@@ -1,6 +1,6 @@
-include "std/test.gaz" use expect, throws;
-include "views/shown.gazml";
-include "views/layout.gazml";
+import "std/test.gaz" use expect, throws;
+import "./views/shown.gazml";
+import "./views/layout.gazml";
 
 /*
  * An Html joined into a plain string would be escaped a second time by {{ }}, so .., ..=, join()

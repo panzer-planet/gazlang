@@ -1,0 +1,5 @@
+// A template imports what it uses, the standard library and other templates, on its lines
+// before @template
+import "./views/priced.gazml";
+
+echo priced("Lamp", 1234.5);

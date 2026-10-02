@@ -92,12 +92,12 @@ class LspTest extends GazLangTestCase
         $this->assertSame([], $messages[0]['params']['diagnostics']);
     }
 
-    public function test_a_relative_include_resolves_against_the_documents_own_directory()
+    public function test_a_relative_import_resolves_against_the_documents_own_directory()
     {
         // Not against the server's own working directory: a document with an
-        // `include "helper.gaz";` opened from another checkout entirely (a game, say) must
+        // `import "./helper.gaz";` opened from another checkout entirely (a game, say) must
         // still find its neighbour, as running it with bin/gaz would.
-        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
         $messages = $this->session([
             ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
                 'textDocument' => ['uri' => 'file://'.$path, 'text' => file_get_contents($path)],
@@ -107,10 +107,10 @@ class LspTest extends GazLangTestCase
         $this->assertSame([], $messages[0]['params']['diagnostics']);
     }
 
-    public function test_an_error_in_an_included_file_is_shown_at_the_include_that_leads_to_it()
+    public function test_an_error_in_an_imported_file_is_shown_at_the_import_that_leads_to_it()
     {
         // broken.gaz's error is on its line 4, which in the document is a blank line
-        $path = realpath(self::ROOT.'/tests/fixtures/lsp/broken_includer.gaz');
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/broken_importer.gaz');
         $messages = $this->session([
             ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
                 'textDocument' => ['uri' => 'file://'.$path, 'text' => file_get_contents($path)],
@@ -119,9 +119,32 @@ class LspTest extends GazLangTestCase
 
         $diagnostics = $messages[0]['params']['diagnostics'];
         $this->assertCount(1, $diagnostics);
-        $this->assertSame(2, $diagnostics[0]['range']['start']['line']); // 0-based: the include
+        $this->assertSame(2, $diagnostics[0]['range']['start']['line']); // 0-based: the import
         $this->assertStringStartsWith('in ', $diagnostics[0]['message']);
         $this->assertStringContainsString("broken.gaz:4: Expected ';'", $diagnostics[0]['message']);
+    }
+
+    /**
+     * A module is checked as the compiler checks it alone: what it names resolves through its
+     * own imports, so one opened on its own gets the answer it gets in any program
+     */
+    public function test_a_module_opened_alone_is_diagnosed_by_its_own_imports()
+    {
+        $fine = realpath(self::ROOT.'/tests/fixtures/import/lib/math.gaz');
+        $missing = realpath(self::ROOT.'/tests/fixtures/import/lib/needs_math.gaz');
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$fine, 'text' => file_get_contents($fine)],
+            ]],
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file://'.$missing, 'text' => file_get_contents($missing)],
+            ]],
+        ]);
+
+        $this->assertSame([], $messages[0]['params']['diagnostics']);
+        $this->assertCount(1, $messages[1]['params']['diagnostics']);
+        $this->assertSame(3, $messages[1]['params']['diagnostics'][0]['range']['start']['line']); // 0-based
+        $this->assertSame('Undefined function: square', $messages[1]['params']['diagnostics'][0]['message']);
     }
 
     public function test_a_change_is_diagnosed_from_its_last_content_change_the_whole_new_text()
@@ -263,9 +286,9 @@ class LspTest extends GazLangTestCase
         );
     }
 
-    public function test_go_to_definition_follows_an_include_to_another_file()
+    public function test_go_to_definition_follows_an_import_to_another_file()
     {
-        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
         $uri = 'file://'.$path;
         $messages = $this->session([
             ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
@@ -312,20 +335,24 @@ class LspTest extends GazLangTestCase
         $this->assertSame(['label' => 'fn', 'kind' => 14], $byLabel['fn']);
         $this->assertSame(['label' => 'len', 'kind' => 3, 'detail' => '1 argument'], $byLabel['len']);
         $this->assertSame(['label' => 'slice', 'kind' => 3, 'detail' => '2 to 3 arguments'], $byLabel['slice']);
-        // A word reserved for what isn't built isn't offered, nor another language's keyword
+        // A word reserved for what isn't built isn't offered, nor one that is gone, nor another
+        // language's keyword
         $this->assertArrayNotHasKey('interface', $byLabel);
+        $this->assertArrayNotHasKey('include', $byLabel);
+        $this->assertSame(['label' => 'import', 'kind' => 14], $byLabel['import']);
         $this->assertArrayNotHasKey('function', $byLabel);
     }
 
     /**
      * Every keyword the lexer knows is offered, in its order, except the ones the parser only
-     * refuses (reserved for what isn't built), so a new keyword can't be forgotten by completion
+     * refuses (reserved for what isn't built, or gone), so a new keyword can't be forgotten by
+     * completion
      */
     public function test_completion_offers_every_keyword_of_the_lexer_but_the_hints()
     {
         preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/compiler/lexer.gaz'), $table);
         preg_match_all('/"(\w+)" =>/', $table[1], $words);
-        $hints = ['interface', 'implements', 'final'];
+        $hints = ['include', 'interface', 'implements', 'final'];
         $offered = array_column(array_filter(
             $this->completionsFor('file:///a.gaz', "echo 1;\n"),
             fn ($item) => $item['kind'] === 14,
@@ -343,9 +370,9 @@ class LspTest extends GazLangTestCase
         $this->assertSame(['label' => 'total', 'kind' => 3], $byLabel['total']);
     }
 
-    public function test_completion_offers_a_function_from_an_included_file()
+    public function test_completion_offers_a_function_from_an_imported_file()
     {
-        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
         $items = $this->completionsFor('file://'.$path, file_get_contents($path));
         $byLabel = array_column($items, null, 'label');
 
@@ -354,8 +381,8 @@ class LspTest extends GazLangTestCase
 
     public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()
     {
-        $path = realpath(self::ROOT.'/tests/fixtures/lsp/includer.gaz');
-        // helper() is already declared in helper.gaz, which this includes; declaring it again
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        // helper() is already declared in helper.gaz, which this imports; declaring it again
         // here too (its own mistake, not ours to judge) must still list it once, not twice
         $items = $this->completionsFor('file://'.$path, file_get_contents($path)."\nfn helper() { return \"shadowed\"; }\n");
         $labels = array_column($items, 'label');

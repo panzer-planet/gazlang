@@ -1,0 +1,4 @@
+// Imported by lib.gaz, which it imports too: constants fold across a cycle of imports
+import "./lib.gaz";
+
+const MAIN = 10;

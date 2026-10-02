@@ -1,0 +1,3 @@
+// A static field's default is written before the program, located in the file that declares it
+import "./statics/counter.gaz";
+echo Counter::count;

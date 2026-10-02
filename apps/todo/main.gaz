@@ -9,8 +9,11 @@
  */
 namespace todo;
 
-include "std/http.gaz";
-include "app.gaz";
+import "std/http.gaz";
+import "app.gaz";
+import "config.gaz";
+import "database.gaz";
+import "throttle.gaz";
 
 const REQUEST_BODY_LIMIT = 32768;
 const REQUESTS_PER_WORKER = 5000;

@@ -1,0 +1,6 @@
+// The kind namespaced.gazml names, in a module of its own: the file that runs the template has statements, so it can't be imported
+namespace shop;
+
+kind Product {
+    fn _(pub string #name) {}
+}

@@ -5,9 +5,9 @@
  */
 namespace todo;
 
-include "std/test.gaz" use expect, throws;
-include "std/db.gaz";
-include "support.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/db.gaz";
+import "./support.gaz";
 
 $db = fresh_database();
 $config = test_config();

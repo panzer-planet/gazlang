@@ -1,0 +1,1 @@
+Error: import can only be used at the top of a file at tests/corpora/parser/modules/error_import_in_function.gaz:1

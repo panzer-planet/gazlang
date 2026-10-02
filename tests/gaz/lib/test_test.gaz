@@ -3,7 +3,7 @@
  * programs that fail on purpose and comparing what they print and their exit status, so this
  * file prints no FAIL line of its own and passes under gaz test like any other.
  */
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 kind NotFound extends Error {
     fn _($key) { ##_("Not found: {$key}"); }
@@ -64,13 +64,13 @@ expect("every way a check fails", $lines, [
 ]);
 expect("done() exits 1 after a failure", $status, 1);
 
-[$lines, $status] = ran(["-e", 'include "std/test.gaz"; test::expect("fine", 1, 1); test::done();']);
+[$lines, $status] = ran(["-e", 'import "std/test.gaz"; test::expect("fine", 1, 1); test::done();']);
 expect("done() exits 0 when nothing failed", [$lines, $status], [["ok fine"], 0]);
-[$lines, $status] = ran(["-e", 'include "std/test.gaz"; test::expect("wrong", 1, 2); test::expect("fine", 1, 1);']);
+[$lines, $status] = ran(["-e", 'import "std/test.gaz"; test::expect("wrong", 1, 2); test::expect("fine", 1, 1);']);
 expect("without done(), a failure leaves the exit status alone", $status, 0);
 
 /* A snapshot is found by the path given as the first argument, as gaz test gives it */
-$snapshots = 'include "std/test.gaz"; test::snapshot("recorded", [1, 2]); test::snapshot("stale", [1, 2]); test::snapshot("missing", 3); test::done();';
+$snapshots = 'import "std/test.gaz"; test::snapshot("recorded", [1, 2]); test::snapshot("stale", [1, 2]); test::snapshot("missing", 3); test::done();';
 [$lines, $status] = ran(["-e", $snapshots, "tests/fixtures/test_library/snapshots"]);
 expect("snapshots", [$lines, $status], [[
     "ok recorded",

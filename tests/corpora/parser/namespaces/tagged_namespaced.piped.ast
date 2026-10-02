@@ -1,1 +1,1 @@
-Error: Cannot include file: lib/tags.gaz on line 1
+Error: Cannot import "./lib/tags.gaz": there is no such file on line 1

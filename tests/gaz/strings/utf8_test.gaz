@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 /*
  * utf8_valid(), utf8_length() and utf8_chars(): strings are bytes, and these read them as UTF-8

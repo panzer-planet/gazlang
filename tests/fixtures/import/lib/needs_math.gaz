@@ -1,0 +1,5 @@
+// Calls square() without importing lib/math.gaz, which declares it: an error alone, and in
+// a program that imports both, at the same line
+fn nine() {
+    return square(3);
+}

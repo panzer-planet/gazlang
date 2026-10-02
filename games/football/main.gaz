@@ -6,10 +6,10 @@
  * SEED makes the same ten clubs again; without one they are different every time. S saves to
  * football.save (or FILE), and load carries on from a save.
  */
-include "std/term.gaz";
-include "std/tui.gaz";
-include "game.gaz" use Game;
-include "ui.gaz" use Shell;
+import "std/term.gaz";
+import "std/tui.gaz";
+import "game.gaz" use Game;
+import "ui.gaz" use Shell;
 
 $arguments = args();
 $path = "football.save";

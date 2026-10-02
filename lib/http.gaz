@@ -19,11 +19,11 @@
 
 namespace http;
 
-include "chars.gaz" use is_alnum, is_digit, is_hex_digit;
-include "date.gaz";
-include "crypto.gaz";
-include "json.gaz";
-include "text.gaz" use quote;
+import "./chars.gaz" use is_alnum, is_digit, is_hex_digit;
+import "./date.gaz";
+import "./crypto.gaz";
+import "./json.gaz";
+import "./text.gaz" use quote;
 
 const MAX_REDIRECTS = 20;
 const MAX_HEAD = 65536;      // a request's line and headers, in bytes

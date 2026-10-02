@@ -1,0 +1,36 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/shop/a.gaz"
+    0: FunctionDeclaration 3
+      name: "shop::a"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: String 3
+              token: 3 STRING "a"
+              value: "a"
+      arity: 0
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/lib/shop/b.gaz"
+    1: FunctionDeclaration 6
+      name: "shop::b"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 6
+            expr: BinOp 6
+              left: FunctionCall 6
+                name: "shop::a"
+                args: []
+              token: 6 CONCAT ..
+              op: 6 CONCAT ..
+              right: String 6
+                token: 6 STRING "b"
+                value: "b"
+      arity: 0
+      kind: null
+      abstract: false

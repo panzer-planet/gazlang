@@ -11,7 +11,7 @@
  * What is watched is the files the program is made of: the main file, and every file whose code is
  * in its bytecode, which a `gaz -c` of the main file names in its @ lines (source_files() in
  * load.c), templates included. The standard library is built in, so it has nothing to watch. The
- * list is worked out again before every start, so a new include is watched from the run it first
+ * list is worked out again before every start, so a new import is watched from the run it first
  * appears in; when the program doesn't compile, the last list is kept (the main file at least).
  *
  * The files' modification times, sizes and inodes are polled every POLL_SECONDS: portable, where
@@ -26,7 +26,7 @@
  *
  * ponytail: a file whose code leaves no instruction in the bytecode (one holding only constants,
  * which are folded into their uses) has no @ line and isn't watched; the front end reporting its
- * includes would lift that. The program can't use the terminal as its input: reading it or turning
+ * imports would lift that. The program can't use the terminal as its input: reading it or turning
  * on raw mode from a group that isn't the terminal's stops it (SIGTTIN, SIGTTOU), which the
  * supervisor reports, then ends the program. Handing the terminal to the child's group (tcsetpgrp)
  * would lift that, at the price of Ctrl-C going to the program rather than the supervisor.
@@ -164,7 +164,7 @@ static char *compile(const char *self, const char *file, size_t *len) {
 }
 
 /* The files to watch this run: the main file, then the ones its bytecode names. When it doesn't
-   compile, the last run's list stays, so an edit to an included file can fix it. */
+   compile, the last run's list stays, so an edit to an imported file can fix it. */
 static void find_files(const char *self, const char *file, FileList *list) {
     size_t len = 0;
     char *text = compile(self, file, &len);
@@ -205,7 +205,7 @@ static bool same_paths(FileList *a, FileList *b) {
 static void announce(FileList *list) {
     int included = list->count - 1;
     if (included == 0) fprintf(stderr, "gaz: watching %s\n", list->files[0].path);
-    else fprintf(stderr, "gaz: watching %s and %d file%s it includes\n", list->files[0].path, included, included == 1 ? "" : "s");
+    else fprintf(stderr, "gaz: watching %s and %d file%s it imports\n", list->files[0].path, included, included == 1 ? "" : "s");
 }
 
 /* The program as a child in a process group of its own, or -1 */

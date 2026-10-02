@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect, throws;
-include "std/date.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/date.gaz";
 
 expect("day 0 is 1 January 1970, a Thursday", [date::days(1970, 1, 1), date::weekday(0), date::format(0)], [0, 3, "Thu 1 Jan 1970"]);
 expect("known days", [date::days(2000, 1, 1), date::days(2026, 8, 8), date::days(1969, 12, 31), date::days(2038, 1, 19)], [10957, 20673, -1, 24855]);

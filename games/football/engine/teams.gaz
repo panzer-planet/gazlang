@@ -1,9 +1,9 @@
 // Teams: an eleven in a formation, and the scout who makes them up
 namespace teams;
 
-include "std/random.gaz";
-include "std/lists.gaz" use min_by;
-include "players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
+import "std/random.gaz";
+import "std/lists.gaz" use min_by;
+import "./players.gaz" use Goalkeeper, Defender, Midfielder, Forward;
 
 pub kind TransferRefused extends Error {
     fn _($problem) { ##_($problem); }

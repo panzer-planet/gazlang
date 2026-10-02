@@ -2,11 +2,17 @@
  * site/pages.gaz and its templates: every piece of text a page shows is escaped by the template,
  * whatever it holds, and the navigation lists nest as they should
  */
-include "../../../site/pages.gaz";
-include "../../../site/markdown.gaz";
-include "../../../site/library.gaz";
-include "../../../site/documents.gaz";
-include "std/test.gaz" use expect;
+import "site/pages.gaz";
+import "site/markdown.gaz";
+import "site/library.gaz";
+import "site/documents.gaz";
+import "std/test.gaz" use expect;
+import "site/templates/entry.gazml";
+import "site/templates/nav_list.gazml";
+import "site/templates/downloads.gazml";
+import "site/templates/layout.gazml";
+import "site/templates/library_index.gazml";
+import "site/templates/library_page.gazml";
 
 const HOSTILE = "<b id=\"x\">it's & \"so\"</b>";
 const ESCAPED = "&lt;b id=&quot;x&quot;&gt;it&#39;s &amp; &quot;so&quot;&lt;/b&gt;";

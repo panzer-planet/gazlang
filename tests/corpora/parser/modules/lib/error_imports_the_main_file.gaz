@@ -1,0 +1,3 @@
+import "tests/corpora/parser/modules/error_main_file_imported_back.gaz";
+
+fn back() {}

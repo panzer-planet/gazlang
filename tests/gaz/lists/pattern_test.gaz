@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect;
+import "std/test.gaz" use expect;
 
 // An empty slot in a pattern takes an element and does nothing with it
 [, $b] = [1, 2];

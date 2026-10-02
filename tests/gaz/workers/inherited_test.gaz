@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect, throws;
-include "std/db.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/db.gaz";
 
 /*
  * A db, file or socket made before workers() can't be used in a worker, since the connection or

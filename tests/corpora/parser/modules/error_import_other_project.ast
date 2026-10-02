@@ -1,0 +1,1 @@
+Error: Cannot import "./nested/inside.gaz": tests/corpora/parser/modules/nested/inside.gaz belongs to the project at tests/corpora/parser/modules/nested (it has its own gaz.json): a project can't import another's files at tests/corpora/parser/modules/error_import_other_project.gaz:2

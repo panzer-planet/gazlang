@@ -17,7 +17,7 @@ class TestCommandTest extends GazLangTestCase
 
     /** Files that fail, by name, written next to a copy of the passing fixtures */
     private const FAILING = [
-        'failing_test.gaz' => "include \"std/test.gaz\";\n\ntest::expect(\"addition\", 2 + 2, 4);\ntest::expect(\"subtraction\", 5 - 2, 2);\n",
+        'failing_test.gaz' => "import \"std/test.gaz\";\n\ntest::expect(\"addition\", 2 + 2, 4);\ntest::expect(\"subtraction\", 5 - 2, 2);\n",
         'silent_test.gaz' => "// Checks nothing, which is a failure: a test that tests nothing passes by mistake\n",
     ];
 
@@ -88,7 +88,7 @@ class TestCommandTest extends GazLangTestCase
     public function test_a_file_that_ends_in_an_error_fails_and_shows_it()
     {
         $tree = $this->failingTree();
-        file_put_contents($tree.'/broken_test.gaz', "include \"std/test.gaz\";\ntest::expect(\"first\", 1, 1);\necho [1][2];\n");
+        file_put_contents($tree.'/broken_test.gaz', "import \"std/test.gaz\";\ntest::expect(\"first\", 1, 1);\necho [1][2];\n");
         [$out, $err, $code] = $this->gazTest([$tree.'/broken_test.gaz']);
 
         $this->assertSame(1, $code, $out.$err);

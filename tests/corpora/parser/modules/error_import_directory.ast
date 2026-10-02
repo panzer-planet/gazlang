@@ -1,0 +1,1 @@
+Error: Cannot import "./lib/directory.gaz": it is a directory at tests/corpora/parser/modules/error_import_directory.gaz:1

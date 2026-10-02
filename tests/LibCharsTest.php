@@ -27,7 +27,7 @@ class LibCharsTest extends GazLangTestCase
         }
 
         // Every byte goes into a string literal as is, except the few quote() escapes
-        $code = 'include "std/chars.gaz";'
+        $code = 'import "std/chars.gaz";'
             .' $bytes = '.self::quote($all_bytes).';'
             .' for ($i = 0; $i < 256; $i = $i + 1) {'
             .'   $c = $bytes[$i]; $flags = [];'

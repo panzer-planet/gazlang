@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 // & | ^ ~ << >> are ints only and see the int as 64 bits, not as a quantity
 expect("&", 12 & 10, 8);

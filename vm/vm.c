@@ -1712,7 +1712,7 @@ static void *run(void *arg) {
    option (cargo test's and go test's shape, not getopt's); a file literally named "test" needs
    -f test or --file test to run instead, an acceptable, negligible edge case. */
 static const char *TEST_BOOTSTRAP =
-    "include \"std/test.gaz\";\n"
+    "import \"std/test.gaz\";\n"
     "test::main();\n";
 
 static int run_gaz_test(int argc, char **argv) {
@@ -1766,7 +1766,7 @@ static const char *HELP =
     "      --ast      Print the parser's tree instead of running it\n"
     "  -f, --file     The file to run, as giving it first does\n"
     "  -e, --eval     The code to run, in place of a file; given more than once, the pieces are lines\n"
-    "      --watch    Run the file, and run it again whenever it or a file it includes changes\n"
+    "      --watch    Run the file, and run it again whenever it or a file it imports changes\n"
     "      --tty[=COLSxROWS]\n"
     "                 Run the file on a pretend terminal (120x40 unless given), to drive a program\n"
     "                 made with std/tui without one: standard input is its keys, and each screen is\n"
@@ -1777,12 +1777,12 @@ static const char *HELP =
     "  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)\n";
 
 /* gaz -S host:port [args...]: std/devserver.gaz's own front door, so a zero-config static file
-   server needs no dynamic include (there is none: include takes a string literal, resolved at
+   server needs no dynamic import (there is none: import takes a string literal, resolved at
    parse time) and no router script argument the way php -S can take one. Every argument left
    after option parsing becomes the bootstrap program's own args(), which cli::Command there
    parses. */
 static const char *DEVSERVER_SOURCE =
-    "include \"std/devserver.gaz\";\n"
+    "import \"std/devserver.gaz\";\n"
     "devserver::main();\n";
 
 /* --tty's COLSxROWS into tty_cols and tty_rows: false unless both are 1 to 1000 */

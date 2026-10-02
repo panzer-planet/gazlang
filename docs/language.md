@@ -604,10 +604,10 @@ works. An unterminated block comment is an error at the line it opened on.
 ## Names
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
-default const include try catch finally throw true false kind extends abstract namespace use pub
+default const import try catch finally throw true false kind extends abstract namespace use pub
 kin static shared`. `interface`, `implements` and `final` are reserved for features decided but
-not built. Other languages' words (`function`, `class`, `public`, `private`, `protected`) are
-ordinary names.
+not built, and `include` stays a keyword so that writing it says to write `import`. Other
+languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
@@ -807,9 +807,10 @@ code, so the shell leaves the `$` of a variable alone. Given more than once, eac
 of the program, so an error names the line it is on. Everything after the options is the
 program's own `args()`, never a file (`gaz -e 'echo args();' a -x` is `["a", "-x"]`), and `--`
 ends the options as it does elsewhere. It is a complete program as any other is: statements
-end in `;`, a value is printed with `echo`, and nothing is included for you, so a library is
-`include "std/lists.gaz";` first. `-c`, `--tokens` and `--ast` work with it, to see how a
-one-liner was read. It can't be combined with a file, `--watch`, `-S` or `--tty`.
+end in `;`, a value is printed with `echo`, and nothing is imported for you, so a library is
+`import "std/lists.gaz";` first; its other imports are from the working directory and its
+project, as piped source's are. `-c`, `--tokens` and `--ast` work with it, to see how a one-liner
+was read. It can't be combined with a file, `--watch`, `-S` or `--tty`.
 
 `file_open($path)`, `file_read_line($file)` and `file_close($file)` read a file a line at a time,
 so a large one needn't be in memory whole (`read_file()` gives all of it at once). A line is read
@@ -900,7 +901,7 @@ if ($r["status"] != 0) { throw $r["stderr"]; }
 | `db_run($db, $sql, $params = [])` | Runs SQL and gives the rows and how many rows it changed |
 | `db_close($db)` | Closes the database |
 
-SQLite and PostgreSQL work through one interface, in `lib/db.gaz` (`include "std/db.gaz";`)
+SQLite and PostgreSQL work through one interface, in `lib/db.gaz` (`import "std/db.gaz";`)
 on three builtins, so a driver adds no names to a program:
 
 - `db_open($url)` — `sqlite:FILE` (made if missing), `sqlite::memory:`, or a `postgres://` URL, which
@@ -931,7 +932,7 @@ SQL is a tagged string, `db::sql"..."`, whose values are sent apart from the tex
 holds is ever read as SQL:
 
 ```gaz
-include "std/db.gaz";
+import "std/db.gaz";
 
 $db = db::open("sqlite::memory:");
 $db.exec(db::sql"create table users (id integer primary key, name text, age int)");
@@ -1159,7 +1160,7 @@ It is for measuring how long something took, or when something is due: `tui::int
 | `std_source($name)` | The text of a file of the built-in standard library, or `null` |
 
 `std_source($name)` is the text of one file of the built-in standard library
-(`"json.gaz"`), or `null`; it is what `include "std/json.gaz"` reads, and a name is a file's, never
+(`"json.gaz"`), or `null`; it is what `import "std/json.gaz"` reads, and a name is a file's, never
 a path.
 
 ### Control
@@ -1229,7 +1230,7 @@ library's `crypto::hash_password()` and `crypto::token()` rather than these.
 A key derivation's `$length` is 1 to 1048576 bytes. An argument out of range, or memory the
 system won't give, is an error that can be caught.
 
-`std/crypto.gaz` (`include "std/crypto.gaz";`) is what a web app or tool uses:
+`std/crypto.gaz` (`import "std/crypto.gaz";`) is what a web app or tool uses:
 
 - `crypto::hash_password($password, $options = {})` — a string to store, in the PHC string
   format, carrying its algorithm, parameters, a random 16-byte salt and a 32-byte hash, the last
@@ -1268,7 +1269,7 @@ system won't give, is an error that can be caught.
   bytes they encode or decode; hashing and comparing don't.
 
 ```
-include "std/crypto.gaz";
+import "std/crypto.gaz";
 
 $stored = crypto::hash_password($password);          // at sign-up, into the database
 if (crypto::verify_password($attempt, $stored)) {     // at login
@@ -1326,10 +1327,50 @@ echo Counter::count;
   value on the left of a parse-time operator, which is an error. `#next` without calling it is
   an error too; write `Counter::next` for the function.
 
-## Namespaces
+## Modules
 
-`namespace json;` first in a file, at most one, optional. A file without one declares its names
-globally, which is what a small program wants.
+A program is made of files, and each file is a **module**: it sees what it declares and what it
+imports, and nothing else. `import` brings another file in, only at the top of a file, after its
+`namespace` line if it has one:
+
+```gaz
+namespace shop;
+
+import "std/json.gaz";                              // the standard library, built in
+import "std/chars.gaz" use is_digit, char_at as at; // and two of its names, unqualified
+import "./cart.gaz";                                // this file's directory, or below
+import "models/user.gaz";                           // from the project root
+```
+
+- **Paths**: `std/NAME.gaz` is a file of the standard library. `./` and a path is this file's
+  directory and below. Any other path is from the **project root**: the directory of the nearest
+  `gaz.json` at or above the importing file, or, with none, the main file's directory (piped
+  source and `gaz -e` look from the working directory). A path can't climb (`..`), can't be
+  absolute, and must name a `.gaz` or `.gazml` file; `pkg/` is kept for packages, which aren't
+  built yet. A path can't reach into another project, a directory with a `gaz.json` of its own.
+- **Moving a file changes only the imports that point at it**: what a module is reached by is
+  its `namespace`, never its path.
+- **Each module is read once**, however its path is spelt (by its real path, so a symlink is
+  the file it points to), and two modules may import each other: a module only declares, so
+  there is no order for a cycle to break.
+- **An imported file only declares** (`namespace`, `import`, `fn`, `kind`, `const`). A
+  statement in one is an error where it is written, so importing a file can never run anything.
+  The **main file**, the one run (or given to `gaz -c`, or a test file `gaz test` runs, or piped
+  in), may run statements. A file with no statements can be either, so a module compiles on its
+  own: `gaz -c lib/forms.gaz` checks it as every program that imports it would.
+- `include` is gone, and says to write `import`.
+
+```json
+{"name": "shop"}
+```
+
+**`gaz.json`** marks a project's root. For now it holds only `"name"`, a string; any other key is
+an error until packages give it a meaning. A single file needs none.
+
+### Namespaces
+
+`namespace json;` first in a file, at most one, optional. A file without one declares names with
+no namespace, which is what a small program wants.
 
 ```gaz
 namespace json;                       // first in the file
@@ -1346,43 +1387,57 @@ fn scan($text) {                      // private: only namespace json can use it
 **A name is private to its namespace unless `pub`.** A file is implementation, and only what it
 says is public escapes it. `pub` means the same thing on a kind's member, so one keyword covers
 the whole language: this name escapes the thing it is written in, whether that thing is a file
-or a kind. Privacy is per namespace rather than per file, so several files can declare the same
-namespace and go on seeing everything of each other's.
+or a kind. Privacy is per namespace rather than per file, so several files of a project can
+declare the same namespace and see everything of each other's that they import.
 
 ```gaz
-include "std/json.gaz";                              // json:: becomes reachable
-include "std/chars.gaz" use is_digit, char_at as at; // and these two, unqualified
+import "std/json.gaz";                              // json:: becomes reachable
+import "std/chars.gaz" use is_digit, char_at as at; // and these two, unqualified
 
 echo json::decode("1");
 echo is_digit("4") .. at("abc", 0);
 echo json::scan("1");                               // Error: json::scan is not pub
 ```
 
-Including a file always makes its namespace reachable qualified. A `use` clause only adds
-aliases, and its names are bare, since the string already said which file they come from. There
-is no standalone `use` and no `use ns::*`, so a file can only name what it includes itself:
-naming a namespace that a file it includes happens to include is an error.
+**A file sees what it imports, and no further**: a module's declarations are seen by the module
+itself and by the modules that import it directly, not by what imports those. A name declared in
+the program but in a module this file doesn't import is an error that says which import to add:
 
-**Resolution** is the current namespace, then this file's aliases, then the global namespace,
-where the builtins are. There is no fallback into another namespace. Only a name's first part is
+```
+Error: Undefined type: RegistrationForm (todo::RegistrationForm is declared in forms.gaz, which this file doesn't import: add import "forms.gaz";) at auth.gaz:20
+```
+
+A `use` clause only adds aliases, its names bare, since the string already said which file they
+come from, and each must be declared in that file. There is no standalone `use` and no
+`use ns::*`, so a file can only name what it imports itself.
+
+**A namespace belongs to one project.** Every module of a namespace must be in the same project,
+the standard library counting as one, so a program can't join `http` and reach what it keeps
+private.
+
+**Resolution** is the current namespace (declared in this file or one it imports), then this
+file's aliases, then a qualified name of a namespace it imports, then a name an imported module
+declares with no namespace, then the builtins (and the builtin kinds `Error`, `Shared` and `Html`,
+which need no import). There is no fallback into another namespace. Only a name's first part is
 resolved, since a namespace holds no namespace: inside `namespace gazlang`, `Token::EOF` is
 `gazlang::Token::EOF`, while `json::decode` is already what it means.
 
 A namespace's own name wins over a builtin of that name inside it, so declaring
 `pub fn values()` in `namespace sorting` makes `values($x)` mean `sorting::values($x)` in that
-file; write `sorting.gaz`'s own calls to the builtin as they are meant, or pick another name.
+file and the files that import it; write `sorting.gaz`'s own calls to the builtin as they are
+meant, or pick another name.
 
 `::` resolves a name and `.` goes through a value, so `json::decode` and `Token::EOF` are names
 the parser works out, and `$reader.decode` is a member of whatever `$reader` holds. A `:`
 followed by a `:` is always `::`, so a ternary needs a space: `$c ? Token::EOF : $x`.
 
-Namespaces are resolved by the parser, so the VM never learns the word: bytecode only sees
-longer names.
+Modules and namespaces are resolved by the parser, so the VM never learns either word: a program
+is still compiled whole into one bytecode file, which only sees longer names.
 
 ## Templates
 
 A `.gazml` file is a template: HTML with GazLang in it, compiled into a function when it is
-included.
+imported.
 
 ```gazml
 @template user_page($user, $posts)
@@ -1399,7 +1454,7 @@ included.
 ```
 
 ```gaz
-include "views/user.gazml";
+import "views/user.gazml";
 
 $page = user_page($user, $posts);        // an Html
 http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
@@ -1408,19 +1463,25 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
 - The first line is `@template name($parameters)`: the function the template becomes, with
   parameters as a function's, defaults and types included (`@template page(User $user, list
   $posts): Html`). Its file name doesn't matter.
-- **A template can be in a namespace**: a first line of `namespace shop;`, as any file may start
-  with, puts it there, so the function is `shop::page`, and the types in its parameters (`User`
-  above) are looked up in `shop`, which a template with no namespace line can't do (a template
-  can't `include`, so it has no other way to name a kind of yours). The `@template` line is then
-  the second. A template is private to its namespace, as a function is, unless it is written
-  `@template pub page(...)`. Without a namespace line it is global, as before. Lines are counted
-  from the file's first, the namespace line included, so an error is where an editor shows it. A
-  template can't `include`, so it can call builtins and its own namespace's functions and no other
-  namespace's: to use a library (`format::number`) write a function of your own that does, and call
-  that from the template.
+- **A template is a module**: before the `@template` line it may have a `namespace shop;` line,
+  as any file may start with, and then `import` lines, as any file has at its top. The namespace
+  makes the function `shop::page`, private to `shop` unless it is written `@template pub
+  page(...)`. The imports are what it sees: the kinds its parameters name (`User` above, which
+  must be in a module, since the file that runs the program can't be imported), the other
+  templates it calls, and the standard library (`import "std/format.gaz";` for
+  `format::number`). An `import` after the `@template` line is an error. Lines are counted from
+  the file's first, so an error is where an editor shows it.
+
+  ```gazml
+  namespace shop;
+  import "std/format.gaz";
+  import "./product.gaz";
+  @template pub card(Product $product)
+  <b>{{ $product.name }}</b> {{ format::number($product.price, 2) }}
+  ```
 - `{{ expression }}` writes the value as `echo` prints it, **escaped for HTML** (`& < > " '`).
   `{!! expression !!}` writes it as it is: only for HTML you trust.
-- A template gives an `Html`, which `{{ }}` writes as it is, so templates include each other
+- A template gives an `Html`, which `{{ }}` writes as it is, so templates call each other
   without escaping twice: `{{ header($title) }}`, or a layout given a page as a parameter.
   `Html($text)` marks text you trust as HTML, and `Html::escape($value)` escapes a value as
   `{{ }}` would. `http::serve` sends an `Html` body as `text/html; charset=utf-8`.
@@ -1440,14 +1501,14 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
   URL (`href="{{ $url }}"` takes a `javascript:` URL as it is), `<script>`, `<style>` or an event
   handler such as `onclick` needs checking or building by the program.
 
-**HTML built in code** is `web::html"..."` (`include "std/web.gaz";`), a tagged string that gives
+**HTML built in code** is `web::html"..."` (`import "std/web.gaz";`), a tagged string that gives
 an `Html`: its text is markup as written, and each value is written for the place in the markup
 it lands. The tag reads the text as a browser would, so a value in text is escaped, one in a quoted
 attribute is escaped, and one in a URL is checked, which is where escaping alone is not enough. A
 list of fragments makes a list in the page:
 
 ```gaz
-include "std/web.gaz";
+import "std/web.gaz";
 
 $names = ["Tom & Jerry", "<script>"];
 $items = map($names, $name -> web::html"<li>{$name}</li>");
@@ -1504,14 +1565,12 @@ checked by the program.
 
 ## Libraries
 
-`include "path.gaz";` splices a file in at parse time, relative to the including file. Each
-file is included once, which also breaks cycles.
-
 **The standard library is built into `gaz`**, so a program anywhere reaches it by name, with
-no path to this repository: `include "std/json.gaz";`. A path that starts with `std/` is the
+no path to this repository: `import "std/json.gaz";`. A path that starts with `std/` is the
 library, not a directory (write `./std/x.gaz` for a directory of your own by that name). Every file
 in `lib/` declares a namespace, so its names are reached with `::`; everything in `lib/` is written in
-GazLang. A file of the library names its neighbours as any file does (`include "chars.gaz";`).
+GazLang. A file of the library imports its neighbours as any file does (`import "./chars.gaz";`),
+and under `GAZLIB` a file of that directory is the library's own module however it is imported.
 Errors in it are located as `<std>/json.gaz:83`. While working on the library itself, `GAZLIB=lib`
 makes `std/` read that directory instead of the built-in copy, so an edit needs no rebuild.
 
@@ -1641,7 +1700,7 @@ $cli.run(args());
 
 ```gaz
 // numbers_test.gaz
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 expect("two plus two", 2 + 2, 4);
 throws("past the end", () -> [1, 2][5], "Index out of range: 5");
 test::snapshot("a report", build_report());
@@ -1664,7 +1723,7 @@ test::done();
 - `test::done()` ends the program with status 1 if any check in it failed, and 0 otherwise, so a
   test file run on its own tells a script whether it passed.
 - `gaz test` finds every `*_test.gaz` file under each path (the current directory by default),
-  recursively, and runs each in its own `gaz` process, reinvoked with `program_path()`: `include`
+  recursively, and runs each in its own `gaz` process, reinvoked with `program_path()`: `import`
   only takes a string literal, so a runner can't splice in a path it only learns at run time, and
   a process per file keeps one file's crash or endless loop out of another's run. For each file
   it prints the FAIL lines, what the file wrote to standard error, and
@@ -1678,7 +1737,7 @@ test::done();
   it is running). `test::snapshot()` reads that argument to find where to record; a test file has
   no reason to read `args()` itself.
 
-**Routing**, with `http::Router()` (in `std/http.gaz`, so nothing extra to include):
+**Routing**, with `http::Router()` (in `std/http.gaz`, so nothing extra to import):
 
 ```gaz
 $app = http::Router();
@@ -1789,7 +1848,7 @@ $app.post("/todos", $request -> http::with_session(http::redirect("/"), http::fl
   is deciding who `"user_id"` is.
 
 ```gaz
-include "std/http.gaz";
+import "std/http.gaz";
 
 $listener = socket_listen("0.0.0.0", 8080);
 workers(4);
@@ -1802,7 +1861,7 @@ http::serve($listener, $request -> match ($request["path"]) {
 A client:
 
 ```gaz
-include "std/http.gaz";
+import "std/http.gaz";
 
 $r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
 echo $r["status"] .. " " .. $r["headers"]["content-type"];
@@ -1843,7 +1902,7 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   the rest of a sequence before it is `escape`.
 
 ```gaz
-include "std/term.gaz";
+import "std/term.gaz";
 
 term::fullscreen(() -> {
     $input = term::Input();

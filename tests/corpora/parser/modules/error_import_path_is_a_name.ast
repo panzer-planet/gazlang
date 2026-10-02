@@ -1,0 +1,1 @@
+Error: Expected a string but found 'lib' at tests/corpora/parser/modules/error_import_path_is_a_name.gaz:1

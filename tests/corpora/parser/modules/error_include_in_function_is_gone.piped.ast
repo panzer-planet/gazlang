@@ -1,0 +1,1 @@
+Error: include is gone: write import "./lib/shapes.gaz"; (a path is from the project root, or ./ for this file's directory) on line 2

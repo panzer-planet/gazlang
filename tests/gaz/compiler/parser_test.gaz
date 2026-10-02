@@ -1,9 +1,11 @@
-// The self-hosted parser as the library the code generator will include: a tree to walk, a
+// The self-hosted parser as the library the code generator imports: a tree to walk, a
 // ParseError to catch. That it builds the right tree is tests/SelfHostedParserTest.php's job.
 namespace gazlang;
 
-include "std/test.gaz" use expect;
-include "../../../compiler/parser.gaz";
+import "std/test.gaz" use expect;
+import "compiler/lexer.gaz";
+import "compiler/nodes.gaz";
+import "compiler/parser.gaz";
 
 $root = Parser(Lexer("echo 1 + 2 * \$x;")).parse();
 $echo = $root.statements[0];
@@ -71,10 +73,10 @@ $variables = VariableCollector();
 $variables.collect($chain);
 expect("the variables of a tree 6000 operators deep, in source order", keys($variables.found), ["\$a", "\$b", "\$c"]);
 
-// A path that is no file is only a name for the source, so its includes are relative to the
-// working directory, as they are without a path
-$root = Parser(Lexer("include \"lib/chars.gaz\"; echo chars::is_digit(\"1\");"), "no/such/file.gaz").parse();
-expect("includes of source named by a path that is no file", kind_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
+// A path that is no file is only a name for the source, so its imports are from the
+// working directory and its project, as they are without a path
+$root = Parser(Lexer("import \"lib/chars.gaz\"; echo chars::is_digit(\"1\");"), "no/such/file.gaz").parse();
+expect("imports of source named by a path that is no file", kind_of($root.statements[len($root.statements) - 1]) == EchoStatementAST, true);
 expect("and its nodes have the name", $root.statements[len($root.statements) - 1].file, "no/such/file.gaz");
 
 // Two parsers at once share nothing: one's functions and kinds are not the other's

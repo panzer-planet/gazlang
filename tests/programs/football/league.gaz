@@ -1,10 +1,10 @@
 // A league: everyone plays everyone home and away
 namespace league;
 
-include "std/format.gaz" use pad_left, pad_right;
-include "std/random.gaz";
-include "players.gaz" use Goalkeeper;
-include "matches.gaz" use Fixture;
+import "std/format.gaz" use pad_left, pad_right;
+import "std/random.gaz";
+import "./players.gaz" use Goalkeeper;
+import "./matches.gaz" use Fixture;
 
 kind Standing {
     #played = 0;

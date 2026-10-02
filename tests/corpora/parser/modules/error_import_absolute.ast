@@ -1,0 +1,1 @@
+Error: Cannot import "/tmp/shapes.gaz": a path is from the project root, or ./ for this file's directory, never absolute at tests/corpora/parser/modules/error_import_absolute.gaz:1

@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect;
+import "std/test.gaz" use expect;
 
 $name = "Gaz";
 $name_2 = "two";

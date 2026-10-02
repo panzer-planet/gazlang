@@ -1,1 +1,1 @@
-include "templates/namespace_bad_name.gazml";
+import "./templates/namespace_bad_name.gazml";

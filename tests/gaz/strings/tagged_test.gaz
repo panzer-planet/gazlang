@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect, throws;
-include "../../fixtures/tag_library.gaz" use bracket, bracket as angles;
+import "std/test.gaz" use expect, throws;
+import "tests/fixtures/tag_library.gaz" use bracket, bracket as angles;
 
 // What a tag is given, as it is: [text parts, values]
 fn parts($strings, $values) {

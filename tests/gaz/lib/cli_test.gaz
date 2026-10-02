@@ -1,5 +1,5 @@
-include "std/test.gaz" use expect;
-include "std/cli.gaz";
+import "std/test.gaz" use expect;
+import "std/cli.gaz";
 
 fn tool() {
     $cli = cli::Command("tool", "Does things");

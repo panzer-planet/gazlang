@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect;
+import "std/test.gaz" use expect;
 
 /*
  * function, class, public, private and protected are ordinary names: fn and kind declare, pub

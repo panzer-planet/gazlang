@@ -1,0 +1,3 @@
+import "./plain_c.gaz";
+
+fn plain_b() { return plain_c(); }

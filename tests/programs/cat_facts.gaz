@@ -11,9 +11,9 @@
  * Without a command it prints this usage and fetches nothing.
  */
 
-include "std/http.gaz";
-include "std/json.gaz";
-include "std/format.gaz";
+import "std/http.gaz";
+import "std/json.gaz";
+import "std/format.gaz";
 
 const API = "https://catfact.ninja";
 const PAGE_SIZE = 10;

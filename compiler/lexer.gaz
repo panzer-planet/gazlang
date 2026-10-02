@@ -2,11 +2,11 @@
 // tests/SelfHostedLexerTest.php checks its tokens and errors against tests/corpora/lexer.
 // Methods are named after the step they read (get_next_token(), number(), identifier()).
 //
-// This file has no top level code, so the parser can include it: $lexer = Lexer($text),
+// It only declares, as an imported file does; the parser imports it: $lexer = Lexer($text),
 // then $lexer.get_next_token() until a token's type is "EOF". Errors are LexErrors.
 namespace gazlang;
 
-include "std/chars.gaz" use char_at, is_digit, is_hex_digit;
+import "std/chars.gaz" use char_at, is_digit, is_hex_digit;
 
 // The hidden variable a template's output is gathered in (template.gaz): a name no program can
 // write, which only source translated from a template may use
@@ -105,7 +105,7 @@ pub kind Lexer {
         "echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR",
         "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
         "fn" => "FN", "return" => "RETURN", "null" => "NULL",
-        "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE",
+        "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE", "import" => "IMPORT",
         "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "throw" => "THROW", "true" => "TRUE",
         "false" => "FALSE", "kind" => "KIND", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL",

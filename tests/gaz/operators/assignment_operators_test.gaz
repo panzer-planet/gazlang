@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 // Compound assignment applies the operator and assigns the result
 $n = 10;

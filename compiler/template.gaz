@@ -1,5 +1,5 @@
 /*
- * Templates: a .gazml file that is included is translated here into GazLang source, which is
+ * Templates: a .gazml file that is imported is translated here into GazLang source, which is
  * then lexed and parsed like any file, so the rest of the compiler, the VM and the bytecode
  * learn nothing. Each line of the template becomes one line of the source, so every error in
  * it, the parser's or the running program's, is reported at the template's own line.
@@ -13,7 +13,10 @@
  *
  * - The first line may be `namespace name;`, as in any file: the template's function is then
  *   `name::user_page`, and the types in its parameters are looked up there. `@template pub
- *   user_page(...)` makes it `pub`, as for a function. Without a namespace line it is global.
+ *   user_page(...)` makes it `pub`, as for a function. Without a namespace line it has none.
+ * - `import "...";` lines may follow, before the @template line, as at the top of any file: a
+ *   template is a module, and sees what it imports (another template, a kind its parameters
+ *   name, the standard library). An import after the @template line is an error.
  * - {{ expression }} is escaped as HTML, unless it is an Html (another template's result), which
  *   goes in as it is; {!! expression !!} goes in as it is whatever it is, through to_string(),
  *   since ..= refuses an Html.
@@ -26,9 +29,10 @@
  */
 namespace gazlang;
 
-// For ParseError and, through it, the lexer's TEMPLATE_BUFFER; the parser includes this file too,
-// which an include cycle allows, each file being read once
-include "parser.gaz";
+// TEMPLATE_BUFFER, and ParseError; the parser imports this file too, which a cycle of imports
+// allows, each file being read once
+import "./lexer.gaz";
+import "./parser.gaz";
 
 // The directives that open a block, and the one that closes each
 const TEMPLATE_BLOCKS = {"if" => "endif", "foreach" => "endforeach"};
@@ -51,6 +55,11 @@ kind TemplateTranslator {
             // Passed on as it is: the parser reads it as the first line of the file, so it checks the name
             $source[] = trim(#lines[0]);
             $first = 1;
+        }
+        // The imports after it too, a line each, so an error in one is at the template's own line
+        while ($first < len(#lines) && is_import_line(#lines[$first])) {
+            $source[] = trim(#lines[$first]);
+            $first++;
         }
         $source[] = #header(#lines[$first] ?? "", $first + 1);
         $last = len(#lines) - 1;
@@ -89,6 +98,9 @@ kind TemplateTranslator {
 
     // One line of the template as a line of source: a directive, or text with what it holds
     fn line($text, $number, $newline) {
+        if (is_import_line($text)) {
+            #fail("An import comes before @template, after the namespace line if there is one", $number);
+        }
         $directive = #directive($text, $number);
         if ($directive != null) {
             return $directive;
@@ -307,6 +319,12 @@ kind TemplateLine {
     fn fail($message) {
         throw ParseError($message, #file, #number);
     }
+}
+
+// Whether a line is an import (import "..."), which a template may have before its @template
+// line, as any file has at its top
+fn is_import_line($text) {
+    return starts_with(trim($text), "import \"");
 }
 
 // A line holding one {{-- comment --}} and nothing else, which writes nothing, not even its line end

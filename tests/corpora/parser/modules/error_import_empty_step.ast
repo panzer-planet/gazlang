@@ -1,0 +1,1 @@
+Error: Cannot import "./lib//shapes.gaz": a path's steps are names, with no empty or . step at tests/corpora/parser/modules/error_import_empty_step.gaz:1

@@ -1,4 +1,5 @@
 namespace shop;
+import "./product.gaz";
 @template pub product_card(?Product $product, string $note = "")
 <div class="card">
 <b>{{ $product.name }}</b>

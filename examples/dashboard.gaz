@@ -6,8 +6,8 @@
  * names say what they do, named layout numbers, and drawing and key handling kept apart from the
  * state they show and change.
  */
-include "std/term.gaz";
-include "std/tui.gaz";
+import "std/term.gaz";
+import "std/tui.gaz";
 
 const MAX_WIDTH = 64;
 const MARGIN = 3;          // columns from the box's left edge to the text

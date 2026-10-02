@@ -9,7 +9,7 @@
 
 namespace csv;
 
-include "chars.gaz" use char_at;
+import "./chars.gaz" use char_at;
 
 pub fn parse($text) {
     $rows = [];

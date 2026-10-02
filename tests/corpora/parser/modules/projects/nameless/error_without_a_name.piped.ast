@@ -1,0 +1,7 @@
+Compound
+  statements:
+@ null
+    0: EchoStatement 1
+      expr: Num 1
+        token: 1 INTEGER 1
+        value: 1

@@ -1,1 +1,1 @@
-include "templates/unclosed.gazml";
+import "./templates/unclosed.gazml";

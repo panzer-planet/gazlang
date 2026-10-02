@@ -1,1 +1,1 @@
-Error: Cannot include file: lib/plain.gaz on line 1
+Error: Cannot import "./lib/plain.gaz": there is no such file on line 1

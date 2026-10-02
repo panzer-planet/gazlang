@@ -1,5 +1,5 @@
 // A kind from another namespace, extended and caught by its qualified name
-include "lib/problems.gaz";
+import "./lib/problems.gaz";
 
 kind Square extends problems::Shape {
     fn _(#side) {}

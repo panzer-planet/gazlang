@@ -1,4 +1,0 @@
-include "lib/deep/helper.gaz";
-include "lib/deep/../deep/./helper.gaz";
-include "lib//deep/helper.gaz";
-echo helper();

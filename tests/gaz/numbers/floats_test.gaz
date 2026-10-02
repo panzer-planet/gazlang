@@ -1,4 +1,4 @@
-include "std/test.gaz" use expect;
+import "std/test.gaz" use expect;
 
 // Literals, and printing that reads back as the same float
 expect("literal", 1.5, 3 / 2);

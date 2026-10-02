@@ -1,6 +1,8 @@
+import "site/pages.gaz";
+import "./entry.gazml";
 @template library_page(LibraryView $library)
 <h1>std/{{ $library.name }}.gaz</h1>
-<pre><code class="language-gaz">{{ $library.include_line() }}</code></pre>
+<pre><code class="language-gaz">{{ $library.import_line() }}</code></pre>
 {{ $library.comment() }}
 @foreach ($library.entries() as $entry)
 {{ entry($entry) }}

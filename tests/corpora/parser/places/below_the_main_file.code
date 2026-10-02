@@ -3,22 +3,18 @@ globals
 
 top
 locals
-@ "main.gaz" 2
+@ "main.gaz" 8
 PUSH "before"
 PRINT
-@ "lib/shapes.gaz" 8
-PUSH "shapes loaded"
-PRINT
-@ "main.gaz" 4
+@ "main.gaz" 9
 PUSH 2
 NEW Square 1
 CALL area 1
 PRINT
-@ "lib/deep/uses_parent_dir.gaz" 5
-PUSH "deep"
-PRINT
-@ "main.gaz" 9
+@ "main.gaz" 10
 CALL helper 0
+CALL deep 0
+CONCAT
 PUSH "after"
 CONCAT
 PRINT
@@ -33,7 +29,7 @@ RET
 
 fn area 1 1
 locals $square
-@ "lib/shapes.gaz" 7
+@ "lib/shapes.gaz" 8
 LOAD 0
 GET_PROPERTY side
 LOAD 0
@@ -45,11 +41,23 @@ RET
 PUSH null
 RET
 
+fn deep 0 0
+locals
+@ "lib/deep/from_the_root.gaz" 7
+PUSH 1
+NEW Square 1
+CALL area 1
+CALL helper 0
+ADD
+RET
+PUSH null
+RET
+
 kind Square
 field side Square pub
 method _ Square pub
 locals $#argument_0
-@ "lib/shapes.gaz" 3
+@ "lib/shapes.gaz" 4
 CALL_CONSTRUCTOR Square
 POP
 LOAD_THIS
@@ -57,7 +65,7 @@ RET
 
 fn Square._ 1 1
 locals $side
-@ "lib/shapes.gaz" 5
+@ "lib/shapes.gaz" 6
 LOAD 0
 SET_FIELD side
 POP

@@ -5,7 +5,7 @@
  */
 namespace todo;
 
-include "std/db.gaz";
+import "std/db.gaz";
 
 const MIGRATIONS_TABLE = "schema_migrations";
 

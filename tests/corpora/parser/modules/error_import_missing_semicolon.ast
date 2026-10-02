@@ -1,0 +1,1 @@
+Error: Expected ';' but found 'echo' at tests/corpora/parser/modules/error_import_missing_semicolon.gaz:2

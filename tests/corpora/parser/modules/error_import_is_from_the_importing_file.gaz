@@ -1,0 +1,2 @@
+// ./ in an imported file is from that file's directory: lib/deep/helper.gaz is found, nowhere.gaz isn't
+import "./lib/deep/error_missing_neighbour.gaz";

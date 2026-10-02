@@ -31,7 +31,9 @@ handlers can't see it yet). Open: the rate limit in 5, 6, 7, 8, 9, and the rest 
 - **The app built and ran at the first attempt**, and the live run through the forking server (a
   connection per worker, a graceful stop on SIGTERM) passed the whole flow. The one slip the unit
   tests found was a missing `include "todos.gaz"` in `forms.gaz`, which `app.gaz` had been hiding by
-  including both: a file naming what it doesn't include only fails when it is run alone.
+  including both: a file naming what it doesn't include only failed when it was run alone. (Since
+  `import`, a file sees only what it imports, so that mistake fails in the app too, naming the
+  import to add.)
 - **Breaking the tests on purpose caught every planted bug**: an unscoped query, no CSRF check, no
   Origin check, a missing UTF-8 check, a login that keeps the old session.
 
@@ -56,7 +58,7 @@ is never written back. That is the kind of detail that is each app's own to get 
   `login_session()`, the new session a login builds with a fresh token, which is the session-fixation
   defence. `middleware.gaz` went from 98 lines to 23.
 
-## 2. Templates can't be part of a namespaced program  (resolved: a `namespace` line in a template)
+## 2. Templates can't be part of a namespaced program  (resolved: a `namespace` line and `import` lines in a template)
 
 A `.gazml` file was read as a file with no namespace and no way to `include`. So:
 (a) its function (`layout`, `login_page`) was **global**, not `todo::layout`, however the app was
@@ -69,15 +71,10 @@ chosen not to collide.
   `pub`), so the functions are `todo::layout` and the parameters are typed with `User`,
   `RegistrationForm`, `LoginForm` and `TodoForm`. The app's five templates use it; its tests pass
   unchanged.
-- **Left**: a template still can't `include` or `use` anything, and "a file can only name what it
-  includes itself", so it can name no *other* namespace at all, whoever includes the library:
-  `{{ format::number($x, 2) }}` is `Namespace format is not included here`. It can call builtins
-  and its own namespace's functions, so the way round is a function of your own that calls the
-  library (`{{ money($x) }}`, `fn money` in a file that includes `std/format.gaz`; the app does not
-  need one yet).
-- **Options for that**: an `@include "std/format.gaz" use number;` directive in the template, which
-  is the same rule as for any file; or accept the wrapper. It is the next thing a real page hits
-  (`format::`, `text::`, `web::html"..."` inside a template).
+- **Done, with `import`**: a template is a module, and imports what it uses on the lines before its
+  `@template` line, as any file does at its top: the kinds its parameters name (`import
+  "forms.gaz";`), other templates, and the library (`import "std/format.gaz";` for
+  `{{ format::number($x, 2) }}`).
 
 ## 3. A database connection must not cross `workers()`, and nothing says so  (resolved)
 
@@ -152,13 +149,13 @@ route, so a group of routes with a requirement has no home.
 
 ## 8. Files are found from the working directory, and a program can't ask where it is
 
-`include` is relative to the including file, but `read_file()`, `list_dir()` and `serve_static()` are
+An `import` is from the file's own directory or project root, but `read_file()`, `list_dir()` and `serve_static()` are
 relative to where the program was started, and nothing says where the main file is
 (`program_path()` is the interpreter). The app must be run from `apps/todo` (`migrations`,
 `public`), and `main.gaz` says so.
 
 - **Today**: a comment, and `MIGRATIONS` as an override.
-- **Options**: `script_dir()`; or `include`-style resolution for a relative path given to those
+- **Options**: `script_dir()`; or import-style resolution for a relative path given to those
   builtins; or accept it, since a deployed app has a working directory it chose.
 
 ## 9. The request is a plain map, so each helper parses it again

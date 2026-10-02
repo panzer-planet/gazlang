@@ -63,7 +63,7 @@ class FunctionValueTest extends GazLangTestCase
         ));
     }
 
-    public function test_a_reference_in_an_included_file_can_name_a_function_declared_by_the_includer()
+    public function test_a_reference_in_an_imported_file_can_name_a_function_of_a_file_it_imports_back()
     {
         $expected = ["8\n10\n", 0];
         $this->assertSame($expected, $this->runProgram('tests/fixtures/function_values/main.gaz'));

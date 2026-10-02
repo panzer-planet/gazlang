@@ -3,7 +3,7 @@
 namespace GazLang\Tests;
 
 /**
- * The standard library built into the VM: `include "std/name.gaz"` reads a copy of lib/ that
+ * The standard library built into the VM: `import "std/name.gaz"` reads a copy of lib/ that
  * bin/gaz carries, so a program anywhere can use it with no path to this repository.
  */
 class StdLibraryTest extends GazLangTestCase
@@ -41,12 +41,12 @@ class StdLibraryTest extends GazLangTestCase
 
     public function test_a_program_elsewhere_uses_the_library_by_name()
     {
-        [$out, $err, $code] = $this->runElsewhere("include \"std/json.gaz\";\ninclude \"std/format.gaz\" use pad_left;\necho json::encode({\"a\" => [1, 2]});\necho pad_left(42, 6);\n");
+        [$out, $err, $code] = $this->runElsewhere("import \"std/json.gaz\";\nimport \"std/format.gaz\" use pad_left;\necho json::encode({\"a\" => [1, 2]});\necho pad_left(42, 6);\n");
 
         $this->assertSame(['{"a":[1,2]}'."\n".'    42'."\n", '', 0], [$out, $err, $code]);
     }
 
-    public function test_every_file_of_lib_can_be_included_and_is_a_copy_of_it()
+    public function test_every_file_of_lib_can_be_imported_and_is_a_copy_of_it()
     {
         $names = array_map('basename', glob(self::ROOT.'/lib/*.gaz') ?: []);
         $this->assertNotEmpty($names);
@@ -57,7 +57,7 @@ class StdLibraryTest extends GazLangTestCase
         $this->assertSame(implode('', array_map(fn ($n) => "{$n} same\n", $names)), $out);
 
         foreach ($names as $name) {
-            [, $err, $code] = $this->runElsewhere("include \"std/{$name}\";\n");
+            [, $err, $code] = $this->runElsewhere("import \"std/{$name}\";\n");
             $this->assertSame([0, ''], [$code, $err], "std/{$name}");
         }
     }
@@ -70,20 +70,20 @@ class StdLibraryTest extends GazLangTestCase
 
     public function test_a_missing_file_is_named_and_located()
     {
-        [, $err, $code] = $this->runElsewhere("\ninclude \"std/nothing.gaz\";\n");
-        $this->assertSame([1, "Error: Cannot include file: std/nothing.gaz at app.gaz:2\n"], [$code, $err]);
+        [, $err, $code] = $this->runElsewhere("\nimport \"std/nothing.gaz\";\n");
+        $this->assertSame([1, "Error: Cannot import \"std/nothing.gaz\": the standard library has no nothing.gaz at app.gaz:2\n"], [$code, $err]);
     }
 
-    public function test_the_library_includes_its_own_neighbours_and_each_file_once()
+    public function test_the_library_imports_its_own_neighbours_and_each_file_once()
     {
-        // csv.gaz and http.gaz include others of lib/ by their plain names; naming one twice is one copy
-        [$out, $err, $code] = $this->runElsewhere("include \"std/chars.gaz\";\ninclude \"std/csv.gaz\";\ninclude \"std/chars.gaz\" use is_digit;\necho is_digit(\"7\") ? \"digit\" : \"no\";\necho chars::is_digit(\"x\") ? \"digit\" : \"no\";\n");
+        // csv.gaz and http.gaz import others of lib/ by ./ paths; naming one twice is one module
+        [$out, $err, $code] = $this->runElsewhere("import \"std/chars.gaz\";\nimport \"std/csv.gaz\";\nimport \"std/chars.gaz\" use is_digit;\necho is_digit(\"7\") ? \"digit\" : \"no\";\necho chars::is_digit(\"x\") ? \"digit\" : \"no\";\n");
         $this->assertSame(['digit'."\n".'no'."\n", '', 0], [$out, $err, $code]);
     }
 
     public function test_an_error_in_the_library_is_located_in_the_library()
     {
-        [, $err, $code] = $this->runElsewhere("include \"std/json.gaz\";\njson::decode(\"[1,\");\n");
+        [, $err, $code] = $this->runElsewhere("import \"std/json.gaz\";\njson::decode(\"[1,\");\n");
         $this->assertSame(1, $code);
         $this->assertStringContainsString("Error: Invalid JSON: unexpected end of input at position 3\n", $err);
         $this->assertStringContainsString('at <std>/json.gaz:', $err);
@@ -93,7 +93,7 @@ class StdLibraryTest extends GazLangTestCase
     public function test_bytecode_names_library_files_as_they_are_not_paths_and_runs_anywhere()
     {
         self::binary();
-        file_put_contents("{$this->dir}/app.gaz", "include \"std/format.gaz\";\necho format::pad_left(7, 3);\n");
+        file_put_contents("{$this->dir}/app.gaz", "import \"std/format.gaz\";\necho format::pad_left(7, 3);\n");
         [$bytecode, , $code] = self::gazlang(['-c', '-f', "{$this->dir}/app.gaz"]);
         $this->assertSame(0, $code);
         $this->assertStringContainsString('@ "<std>/format.gaz" ', $bytecode);
@@ -111,15 +111,15 @@ class StdLibraryTest extends GazLangTestCase
     {
         mkdir("{$this->dir}/mylib");
         file_put_contents("{$this->dir}/mylib/greet.gaz", "namespace greet;\npub fn hello() { return \"hello from a directory\"; }\n");
-        [$out, $err, $code] = $this->runElsewhere("include \"std/greet.gaz\";\necho greet::hello();\n", ['GAZLIB' => "{$this->dir}/mylib"]);
+        [$out, $err, $code] = $this->runElsewhere("import \"std/greet.gaz\";\necho greet::hello();\n", ['GAZLIB' => "{$this->dir}/mylib"]);
         $this->assertSame(["hello from a directory\n", '', 0], [$out, $err, $code]);
 
         // Without it there is no such file
-        [, $err, $code] = $this->runElsewhere("include \"std/greet.gaz\";\n");
-        $this->assertSame([1, "Error: Cannot include file: std/greet.gaz at app.gaz:1\n"], [$code, $err]);
+        [, $err, $code] = $this->runElsewhere("import \"std/greet.gaz\";\n");
+        $this->assertSame([1, "Error: Cannot import \"std/greet.gaz\": the standard library has no greet.gaz at app.gaz:1\n"], [$code, $err]);
 
         // and a file it lacks is not found in the built-in copy either: the directory replaces it
-        [, $err, $code] = $this->runElsewhere("include \"std/json.gaz\";\n", ['GAZLIB' => "{$this->dir}/mylib"]);
+        [, $err, $code] = $this->runElsewhere("import \"std/json.gaz\";\n", ['GAZLIB' => "{$this->dir}/mylib"]);
         $this->assertSame(1, $code);
     }
 
@@ -138,7 +138,7 @@ class StdLibraryTest extends GazLangTestCase
         // only a path that starts with std/ is: ./std/ is the directory
         mkdir("{$this->dir}/std");
         file_put_contents("{$this->dir}/std/mine.gaz", "fn mine() { return \"mine\"; }\n");
-        [$out, $err, $code] = $this->runElsewhere("include \"./std/mine.gaz\";\necho mine();\n");
+        [$out, $err, $code] = $this->runElsewhere("import \"./std/mine.gaz\";\necho mine();\n");
         $this->assertSame(["mine\n", '', 0], [$out, $err, $code]);
     }
 }

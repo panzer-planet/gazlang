@@ -28,7 +28,7 @@ class CryptoTest extends GazLangTestCase
      * The generator in GazLang, and a program's start: noise($n) is $n bytes
      */
     private const NOISE = <<<'GAZ'
-        include "std/crypto.gaz";
+        import "std/crypto.gaz";
         @state = 1;
         fn noise($n) {
             $s = "";
@@ -157,7 +157,7 @@ class CryptoTest extends GazLangTestCase
         // Salted at random each run, so not recorded: run as it is
         foreach ([[1024, 1, 1], [2048, 2, 2], [1500, 3, 3]] as [$memory, $passes, $lanes]) {
             $theirs = password_hash('correct horse', PASSWORD_ARGON2ID, ['memory_cost' => $memory, 'time_cost' => $passes, 'threads' => $lanes]);
-            $code = 'include "std/crypto.gaz"; $theirs = '.self::quote($theirs).';'
+            $code = 'import "std/crypto.gaz"; $theirs = '.self::quote($theirs).';'
                 .' echo [crypto::verify_password("correct horse", $theirs), crypto::verify_password("correct horsE", $theirs)];'
                 ." print(crypto::hash_password(\"correct horse\", {\"m\" => {$memory}, \"t\" => {$passes}, \"p\" => {$lanes}}));";
             [$verdicts, $ours] = explode("\n", self::succeed([], $code));
@@ -172,7 +172,7 @@ class CryptoTest extends GazLangTestCase
     {
         // Salted at random each run, so not recorded: each parameter away from its default, so a
         // hash made without one no longer matches what its stored string says
-        $code = 'include "std/crypto.gaz";'
+        $code = 'import "std/crypto.gaz";'
             .' print(crypto::hash_password("correct horse", {"algorithm" => "scrypt", "ln" => 5, "r" => 3, "p" => 2}) .. "\\n");'
             .' print(crypto::hash_password("correct horse", {"algorithm" => "scrypt", "ln" => 3, "r" => 1, "p" => 3}) .. "\\n");'
             .' print(crypto::hash_password("correct horse", {"algorithm" => "pbkdf2-sha256", "i" => 1234}) .. "\\n");'
@@ -204,7 +204,7 @@ class CryptoTest extends GazLangTestCase
 
     public function test_hash_password_defaults_to_argon2id_with_rfc_9106_s_second_recommendation()
     {
-        $stored = self::succeed([], 'include "std/crypto.gaz"; $s = crypto::hash_password("pw"); echo crypto::verify_password("pw", $s); print($s);');
+        $stored = self::succeed([], 'import "std/crypto.gaz"; $s = crypto::hash_password("pw"); echo crypto::verify_password("pw", $s); print($s);');
         $this->assertMatchesRegularExpression('#^true\n\$argon2id\$v=19\$m=65536,t=3,p=4\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$#', $stored);
         $this->assertTrue(password_verify('pw', substr($stored, 5)));
     }
@@ -214,7 +214,7 @@ class CryptoTest extends GazLangTestCase
         // 1 GiB of memory, too much for the sanitized build: run as it is, not recorded
         $this->assertSame(
             "2101cb9b6a511aaeaddbbe09cf70f881ec568d574a2ffd4dabe5ee9820adaa478e56fd8f4ba5d09ffa1c6d927c40f4c337304049e8a952fbcbf45c6fa77a41a4\n",
-            self::succeed([], 'include "std/crypto.gaz"; echo crypto::hex(scrypt("pleaseletmein", "SodiumChloride", 1048576, 8, 1, 64));')
+            self::succeed([], 'import "std/crypto.gaz"; echo crypto::hex(scrypt("pleaseletmein", "SodiumChloride", 1048576, 8, 1, 64));')
         );
     }
 

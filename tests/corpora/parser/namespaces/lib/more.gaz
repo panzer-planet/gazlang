@@ -2,7 +2,7 @@
 // sees json.gaz's private names
 namespace json;
 
-include "json.gaz";
+import "./json.gaz";
 
 pub fn twice($text) {
     return scan($text) .. scan($text);

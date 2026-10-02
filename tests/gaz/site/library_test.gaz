@@ -1,13 +1,13 @@
 // site/library.gaz: what a file of the standard library offers, read from its source
-include "../../../site/library.gaz";
-include "std/test.gaz" use expect;
+import "site/library.gaz";
+import "std/test.gaz" use expect;
 
 const SOURCE = '// Shapes, for the test.
 //
 // A second paragraph.
 namespace shapes;
 
-include "chars.gaz";
+import "./chars.gaz";
 
 const PRIVATE = 1;
 

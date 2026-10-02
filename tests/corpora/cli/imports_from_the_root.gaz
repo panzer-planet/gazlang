@@ -1,0 +1,3 @@
+// Piped, a path from the project root is from the working directory's project
+import "tests/corpora/cli/show_args.gaz";
+show_args();

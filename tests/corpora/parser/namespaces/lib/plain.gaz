@@ -1,4 +1,4 @@
-// No namespace, so its names are global, as every file's were before namespaces
+// No namespace, so its names are unqualified, and seen by the files that import it
 fn plain() {
     return "plain";
 }

@@ -1,3 +1,4 @@
-include "lib.gaz";
-const MAIN = 10;
+import "./values.gaz";
+import "./lib.gaz";
+
 echo MAIN .. " " .. DOUBLE .. " " .. Lib::NAME;

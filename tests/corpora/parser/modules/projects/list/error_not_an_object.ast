@@ -1,0 +1,1 @@
+Error: tests/corpora/parser/modules/projects/list/gaz.json must be a JSON object, like {"name": "app"} at tests/corpora/parser/modules/projects/list/gaz.json:1

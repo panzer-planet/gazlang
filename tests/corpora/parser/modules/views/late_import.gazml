@@ -1,0 +1,3 @@
+@template late()
+import "std/format.gaz";
+<p></p>

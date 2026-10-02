@@ -1,0 +1,1 @@
+Error: tests/corpora/parser/modules/projects/nameless/gaz.json needs a "name", a string, like {"name": "app"} at tests/corpora/parser/modules/projects/nameless/gaz.json:1

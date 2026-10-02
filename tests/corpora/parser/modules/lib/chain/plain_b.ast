@@ -1,0 +1,30 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/lib/chain/plain_c.gaz"
+    0: FunctionDeclaration 1
+      name: "plain_c"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: String 1
+              token: 1 STRING "c"
+              value: "c"
+      arity: 0
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/lib/chain/plain_b.gaz"
+    1: FunctionDeclaration 3
+      name: "plain_b"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 3
+            expr: FunctionCall 3
+              name: "plain_c"
+              args: []
+      arity: 0
+      kind: null
+      abstract: false

@@ -1,3 +1,6 @@
-// A bare name here refers to a function declared in the file that includes this one
+// A bare name here refers to a function declared in a file that imports this one, and that
+// this one imports back
+import "./twice.gaz";
+
 fn apply($f, $x) { return $f($x); }
 fn doubler() { return twice; }

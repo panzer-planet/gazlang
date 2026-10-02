@@ -369,9 +369,8 @@ class KindTest extends GazLangTestCase
     {
         // Namespace included, as echo shows it: the bare name is the last part after ::, and
         // there would be no way back from it. An object's is its kind's.
-        $this->assertEquals("Unit Shape Error string\ntui::Rect Rect\n", $this->executeCode(self::SHAPES.<<<'CODE'
+        $this->assertEquals("Unit Shape Error string\ntui::Rect Rect\n", $this->executeCode("import \"std/tui.gaz\";\n".self::SHAPES.<<<'CODE'
             echo kind_name(Unit(1)) .. " " .. kind_name(Shape) .. " " .. kind_name(Error) .. " " .. type_of(kind_name(Unit));
-            include "std/tui.gaz";
             echo kind_name(tui::Rect) .. " " .. last(split(kind_name(tui::Rect), "::"));
             CODE));
     }

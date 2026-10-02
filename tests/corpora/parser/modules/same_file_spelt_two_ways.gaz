@@ -1,0 +1,5 @@
+// One file, imported from this directory and from the project root, is one module
+import "./lib/deep/helper.gaz";
+import "tests/corpora/parser/modules/lib/deep/helper.gaz";
+
+echo helper();

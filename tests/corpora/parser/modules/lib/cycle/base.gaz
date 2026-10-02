@@ -1,0 +1,6 @@
+import "./derived.gaz";
+
+kind Base {
+    pub fn other() { return Derived(); }
+    pub fn name() { return "base"; }
+}

@@ -1,1 +1,0 @@
-Error: Undefined kind: lists (the standard library has lists.gaz: write include "std/lists.gaz";) on line 2

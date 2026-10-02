@@ -27,7 +27,7 @@ class ErrorTest extends GazLangTestCase
             'undefined function, at the call' => ["fn f() {}\n\nmissing();", 'Undefined function: missing on line 3'],
             'interpolation not closed by }' => ['echo "a {$x $y} b";', "Expected '}' but found '\$y' on line 1"],
             'empty interpolation' => ['echo "a {$}";', 'Invalid variable name: $ on line 1'],
-            'include with interpolation' => ["\$f = 1;\ninclude \"lib/{\$f}.gaz\";", 'include paths cannot use interpolation on line 2'],
+            'import with interpolation' => ["\n\nimport \"lib/{@f}.gaz\";", 'import paths cannot use interpolation on line 3'],
             'duplicate parameter' => ["fn f(\$a,\n \$a) {}", 'Duplicate parameter $a in function f on line 2'],
         ];
     }
@@ -92,13 +92,13 @@ class ErrorTest extends GazLangTestCase
 
     public function test_cli_shows_the_file_and_line()
     {
-        [$output, $exit_code] = self::cli(['-f', 'tests/fixtures/include/runtime.gaz']);
+        [$output, $exit_code] = self::cli(['-f', 'tests/fixtures/import/runtime.gaz']);
 
-        // The trace names the call in the included file and where it was called from
+        // The trace names the call in the imported file and where it was called from
         $this->assertSame([
-            'Error: Cannot use + on null at tests/fixtures/include/lib/fails.gaz:2',
-            '  fails at tests/fixtures/include/lib/fails.gaz:2',
-            '  top level at tests/fixtures/include/runtime.gaz:2',
+            'Error: Cannot use + on null at tests/fixtures/import/lib/fails.gaz:2',
+            '  fails at tests/fixtures/import/lib/fails.gaz:2',
+            '  top level at tests/fixtures/import/runtime.gaz:3',
         ], $output);
         $this->assertSame(1, $exit_code);
     }

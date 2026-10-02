@@ -6,7 +6,7 @@
 // lambda uses. A field the parser leaves empty is set to null, since fields() leaves out one
 // that was never set.
 //
-// This file has no top level code, so it can be included.
+// It only declares, as an imported file does.
 
 namespace gazlang;
 

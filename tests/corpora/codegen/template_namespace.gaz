@@ -1,9 +1,6 @@
 namespace shop;
 
-include "templates/namespaced.gazml";
-
-kind Product {
-    fn _(pub string #name) {}
-}
+import "./templates/product.gaz";
+import "./templates/namespaced.gazml";
 
 $html = product_card(Product("Lamp"), "on sale");

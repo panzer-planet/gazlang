@@ -10,8 +10,8 @@
  */
 namespace library;
 
-include "highlight.gaz";
-include "std/text.gaz";
+import "./highlight.gaz";
+import "std/text.gaz";
 
 // What a declaration is, for the page to say
 const FUNCTION = "function";

@@ -1,0 +1,2 @@
+@template label(string $text)
+<b>{{ $text }}</b>

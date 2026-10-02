@@ -3,10 +3,12 @@
 // instructions, one block per function; the writer at the end turns the blocks into the
 // file's text, deterministically, so the same source always gives the same bytes.
 //
-// This file has no top level code, so it can be included.
+// It only declares, as an imported file does.
 namespace gazlang;
 
-include "parser.gaz";
+import "./lexer.gaz";
+import "./nodes.gaz";
+import "./parser.gaz";
 
 kind CodeGenerator {
     // Opcode emitted for each binary operator token (&& and || are jumps, see logical_op)
@@ -1304,7 +1306,7 @@ kind Program {
     }
 
     // A path made absolute and normalised without asking the file system, since it need not
-    // exist: textual on purpose, unlike the parser's includes
+    // exist: textual on purpose, unlike the parser's imports
     fn absolute($path) {
         $parts = [];
         foreach (#segments(starts_with($path, "/") ? $path : cwd() .. "/" .. $path) as $part) {

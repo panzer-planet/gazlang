@@ -1,0 +1,4 @@
+// plain_b.gaz imports plain_c.gaz, but what it imports isn't seen by what imports it
+import "./lib/chain/plain_b.gaz";
+
+echo plain_b() .. plain_c();

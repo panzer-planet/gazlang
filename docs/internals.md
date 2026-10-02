@@ -40,7 +40,7 @@ itself needs neither.
 | --- | --- |
 | `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
 | `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
-| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and included as `std/json.gaz` |
+| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and imported as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
 | `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager: two divisions, tactics, transfers, saving) |
 | `apps/` | web apps built to find what hurts (`apps/todo/`: registration, login and todos on PostgreSQL, with `FRICTION.md`, what the library and language lack); their tests need a database, so CI doesn't run them |
@@ -129,7 +129,7 @@ php vm/bench.php                                    # gaz against PHP and Python
   `--tokens` and `-c`; `runProgram()` and `cli()` run files and command lines.
 - **`tests/gaz/**/*_test.gaz`** are GazLang programs that must print exactly their
   `*_test.expected` file (`GazProgramTest`), and pass under `bin/gaz test tests/gaz games`, which
-  CI runs too. They include `std/test.gaz` `use expect, throws`: `expect($label, $actual,
+  CI runs too. They import `std/test.gaz` `use expect, throws`: `expect($label, $actual,
   $expected)` prints `ok <label>` or a FAIL line with both values, and `throws($label, $thunk,
   $message)` (or with a kind before the message) one for an error the thunk must throw. A test of
   the language's own `try`/`catch` writes its blocks out instead. This is how GazLang code gets
@@ -137,7 +137,7 @@ php vm/bench.php                                    # gaz against PHP and Python
 - **`bin/gaz test`** (`TestCommandTest`, fixtures in `tests/fixtures/gaz_test`) is the same idea
   for a program's own tests, without PHP: it finds every `*_test.gaz` under a path, recursively,
   and runs each as its own `gaz` process, reinvoked with `program_path()` (the interpreter's own
-  invocation path, added for exactly this), since `include` only takes a string literal and
+  invocation path, added for exactly this), since `import` only takes a string literal and
   can't splice in a path a runner only learns at run time. `test::snapshot` compares a value
   against a file recorded next to the calling test, and `--update` (re)writes it. A file fails the
   run if its stdout has a FAIL line, it exits non-zero, or it prints no check at all; the runner

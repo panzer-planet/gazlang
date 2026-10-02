@@ -1,0 +1,16 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 1
+      name: "plain_c"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: String 1
+              token: 1 STRING "c"
+              value: "c"
+      arity: 0
+      kind: null
+      abstract: false

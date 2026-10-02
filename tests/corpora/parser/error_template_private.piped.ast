@@ -1,1 +1,1 @@
-Error: Cannot include file: templates/namespace_private.gazml on line 1
+Error: Cannot import "./templates/namespace_private.gazml": there is no such file on line 1

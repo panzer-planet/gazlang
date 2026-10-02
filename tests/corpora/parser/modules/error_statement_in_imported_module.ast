@@ -1,0 +1,1 @@
+Error: An imported file only declares (fn, kind, const): move this statement into a function, or into the program's main file at tests/corpora/parser/modules/lib/runs_code.gaz:3

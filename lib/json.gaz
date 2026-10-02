@@ -28,7 +28,7 @@
 
 namespace json;
 
-include "chars.gaz" use char_at, is_digit, is_hex_digit, is_space;
+import "./chars.gaz" use char_at, is_digit, is_hex_digit, is_space;
 
 const MAXIMUM_CHARACTER_BYTES = 4;
 

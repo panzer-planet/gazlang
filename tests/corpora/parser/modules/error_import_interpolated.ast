@@ -1,0 +1,1 @@
+Error: import paths cannot use interpolation at tests/corpora/parser/modules/error_import_interpolated.gaz:1

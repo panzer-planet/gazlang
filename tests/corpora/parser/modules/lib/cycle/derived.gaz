@@ -1,0 +1,5 @@
+import "./base.gaz";
+
+kind Derived extends Base {
+    pub fn name() { return "derived"; }
+}

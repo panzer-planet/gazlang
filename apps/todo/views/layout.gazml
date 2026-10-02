@@ -1,4 +1,5 @@
 namespace todo;
+import "users.gaz";
 @template layout(string $title, ?string $flash, ?User $user, string $csrf, Html $body)
 <!doctype html>
 <html lang="en">

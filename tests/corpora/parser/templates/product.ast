@@ -1,0 +1,56 @@
+Compound
+  statements:
+@ "tests/corpora/parser/templates/product.gaz"
+    0: KindDeclaration 4
+      name: "shop::Product"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"name" => "pub", "_" => "pub"}
+      fields: {"name" => null}
+      field_types:
+        name: Type 5
+          names: ["string"]
+      field_lines: {"name" => 5}
+      methods:
+        _: FunctionDeclaration 5
+          name: "_"
+          params: ["\$name"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $name
+                    value: "\$name"
+          arity: 1
+          param_types:
+            0: Type 5
+              names: ["string"]
+          kind: "shop::Product"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "shop::Product"}
+      members: {"_" => "shop::Product"}
+      abstract_methods: []
+      slots: [["name", "shop::Product", "pub"]]
+      method_table: [["_", "shop::Product", "pub", "shop::Product"]]
+      owner_vis: {"name" => "pub", "_" => "pub"}
+      declared_at: {"_" => "shop::Product"}
+      hidden: []
+      hidden_fields: []

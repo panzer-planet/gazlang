@@ -1,8 +1,8 @@
 /* What the forms accept and say, without a request in the way */
 namespace todo;
 
-include "std/test.gaz" use expect;
-include "../forms.gaz";
+import "std/test.gaz" use expect;
+import "forms.gaz";
 
 fn form_request($body) {
     return {"method" => "POST", "path" => "/", "query" => "", "headers" => {"content-type" => "application/x-www-form-urlencoded"}, "body" => $body};

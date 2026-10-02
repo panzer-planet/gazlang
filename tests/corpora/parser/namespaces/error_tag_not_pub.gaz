@@ -1,4 +1,4 @@
-include "lib/tags.gaz";
+import "./lib/tags.gaz";
 
 echo 1;
 echo tags::hidden"x";

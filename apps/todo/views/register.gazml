@@ -1,4 +1,5 @@
 namespace todo;
+import "forms.gaz";
 @template register_page(string $csrf, RegistrationForm $form, map $errors)
 <h1>Create an account</h1>
 

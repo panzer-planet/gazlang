@@ -7,23 +7,23 @@
  */
 namespace todo;
 
-include "std/http.gaz";
-include "std/web.gaz";
-include "std/crypto.gaz";
-include "config.gaz";
-include "database.gaz";
-include "users.gaz";
-include "todos.gaz";
-include "forms.gaz";
-include "auth.gaz";
-include "throttle.gaz";
-include "responses.gaz";
-include "middleware.gaz";
-include "views/layout.gazml";
-include "views/register.gazml";
-include "views/login.gazml";
-include "views/todos.gazml";
-include "views/edit.gazml";
+import "std/http.gaz";
+import "std/web.gaz";
+import "std/crypto.gaz";
+import "config.gaz";
+import "database.gaz";
+import "users.gaz";
+import "todos.gaz";
+import "forms.gaz";
+import "auth.gaz";
+import "throttle.gaz";
+import "responses.gaz";
+import "middleware.gaz";
+import "views/layout.gazml";
+import "views/register.gazml";
+import "views/login.gazml";
+import "views/todos.gazml";
+import "views/edit.gazml";
 
 // A page inside the layout
 fn render(map $request, string $title, Html $body, int $status = 200): map {

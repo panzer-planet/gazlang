@@ -2,7 +2,7 @@
 // format::pad_right() and format::sprintf().
 namespace format;
 
-include "text.gaz" use quote;
+import "./text.gaz" use quote;
 
 // $number with $decimals digits after the point and thousands separated:
 // format::number(1234.5) is "1,234.50", format::number(-0.004) is "0.00".

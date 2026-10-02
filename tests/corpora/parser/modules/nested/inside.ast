@@ -1,0 +1,30 @@
+Compound
+  statements:
+@ "tests/corpora/parser/modules/nested/helper.gaz"
+    0: FunctionDeclaration 1
+      name: "helper"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 1
+            expr: Num 1
+              token: 1 INTEGER 1
+              value: 1
+      arity: 0
+      kind: null
+      abstract: false
+@ "tests/corpora/parser/modules/nested/inside.gaz"
+    1: FunctionDeclaration 4
+      name: "inside"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 4
+            expr: FunctionCall 4
+              name: "helper"
+              args: []
+      arity: 0
+      kind: null
+      abstract: false

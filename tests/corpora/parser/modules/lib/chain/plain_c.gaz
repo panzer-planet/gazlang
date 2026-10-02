@@ -1,0 +1,1 @@
+fn plain_c() { return "c"; }

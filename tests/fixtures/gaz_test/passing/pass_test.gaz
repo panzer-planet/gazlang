@@ -1,4 +1,4 @@
 // Deliberately passing, for TestCommandTest: a directory scoped to this one must exit 0
-include "std/test.gaz";
+import "std/test.gaz";
 
 test::expect("multiplication", 3 * 4, 12);

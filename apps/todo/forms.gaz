@@ -5,9 +5,9 @@
  */
 namespace todo;
 
-include "std/http.gaz";
-include "std/regex.gaz";
-include "todos.gaz";
+import "std/http.gaz";
+import "std/regex.gaz";
+import "todos.gaz";
 
 const MINIMUM_PASSWORD_LENGTH = 10;
 const MAXIMUM_PASSWORD_LENGTH = 256;

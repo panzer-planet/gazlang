@@ -2,8 +2,8 @@
  * site/verify.gaz: a site's pages must link to its files and their anchors, give each id once,
  * close every tag in order, and leave no Markdown unread in their text
  */
-include "../../../site/verify.gaz";
-include "std/test.gaz" use expect;
+import "site/verify.gaz";
+import "std/test.gaz" use expect;
 
 // A list item from the page a Markdown bug once wrote: its code spans read wrong
 const MANGLED = "<li><strong>`tests/gaz/</strong>/<em>_test.gaz<code>** are programs </code></em>_test.expected<code> x</code> file (<code>y</code>GazProgramTest<code>). </code>tests/gaz/check.gaz<code>z</code>gives<code>w</code>check(\$label, \$actual, \$expected)<code>, v</code>, which prints <code>u</code>ok &lt;label&gt;` or a FAIL line</li>";

@@ -12,7 +12,7 @@
  */
 namespace term;
 
-include "text.gaz" use quote;
+import "./text.gaz" use quote;
 
 const ESC = "\e";
 const CSI = "\e[";

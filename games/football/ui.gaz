@@ -10,13 +10,13 @@
  */
 namespace ui;
 
-include "std/term.gaz";
-include "std/tui.gaz";
-include "std/format.gaz" use pad_left, pad_right;
-include "std/date.gaz";
-include "engine/money.gaz";
-include "engine/teams.gaz" use Team;
-include "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
+import "std/term.gaz";
+import "std/tui.gaz";
+import "std/format.gaz" use pad_left, pad_right;
+import "std/date.gaz";
+import "engine/money.gaz";
+import "engine/teams.gaz" use Team;
+import "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
 
 /* What the shell needs of a section */
 pub abstract kind View {

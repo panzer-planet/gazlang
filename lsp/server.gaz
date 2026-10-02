@@ -7,18 +7,21 @@
  */
 namespace gazlang;
 
-include "../compiler/parser.gaz";
-include "std/json.gaz" use decode, encode;
-include "std/chars.gaz" use char_at, is_alnum, span;
-include "std/regex.gaz";
-include "std/http.gaz";
+import "compiler/lexer.gaz";
+import "compiler/parser.gaz";
+import "std/json.gaz" use decode, encode;
+import "std/chars.gaz" use char_at, is_alnum, span;
+import "std/regex.gaz";
+import "std/http.gaz";
 
 /*
  * The lexer's own keywords (Lexer::KEYWORDS), in its order, minus the ones the parser only
- * refuses (Parser::RESERVED): completing one of those would just teach an error
+ * refuses (Parser::RESERVED, and Parser::REMOVED, which are gone): completing one of those
+ * would just teach an error
  */
 fn keywords() {
-    return filter(keys(Lexer::KEYWORDS), $word -> !in_array(Lexer::KEYWORDS[$word], Parser::RESERVED));
+    $refused = [...Parser::RESERVED, ...Parser::REMOVED];
+    return filter(keys(Lexer::KEYWORDS), $word -> !in_array(Lexer::KEYWORDS[$word], $refused));
 }
 
 /* A message framed with a Content-Length header, as every LSP transport uses, read and
@@ -53,9 +56,9 @@ kind Connection {
     }
 }
 
-// A file:// URI to the real path it names, for the parser to resolve its relative includes
-// against, or null (piped-source rules: includes relative to the server's own working
-// directory) for anything else, an unsaved document included
+// A file:// URI to the real path it names, for the parser to resolve its imports from, or null
+// (piped-source rules: imports from the server's own working directory and its project) for
+// anything else, an unsaved document included
 fn path_from_uri($uri) {
     if (!starts_with($uri, "file://")) {
         return null;
@@ -84,7 +87,7 @@ fn diagnostics($text, $uri) {
             $at = max(0, min($e.source_line - 1, len($lines) - 1));
             $message = $e.reason;
         } else {
-            $at = include_line($lines, $path, $e.source_file);
+            $at = import_line($lines, $path, $e.source_file);
             $message = "in {$e.source_file}:{$e.source_line}: {$e.reason}";
         }
         return [{
@@ -181,14 +184,6 @@ fn uri_from_path($path) {
     return "file://" .. join(map(split($path, "/"), http::url_encode), "/");
 }
 
-// The directory a real path is in: "/a/b/c.gaz" is "/a/b". $path is always absolute here
-// (real_path()'s or the document's own), so this never needs "." for a bare name.
-fn dirname($path) {
-    $parts = split($path, "/");
-    delete $parts[len($parts) - 1];
-    return join($parts, "/");
-}
-
 // The zero-based line $byte is on, in $text
 fn line_at($text, $byte) {
     return len(split(slice($text, 0, $byte), "\n")) - 1;
@@ -213,33 +208,40 @@ fn all_matches($text, $pattern) {
 }
 
 /*
- * The real paths $text's own include "..."; statements name, relative to $path's directory,
- * for those that exist on disk (a std/ library include doesn't, and is skipped: only a
- * program's own files can be followed this way).
+ * The real paths $text's own import "..."; lines name, resolved as the compiler resolves them
+ * from $path (import_target() in compiler/parser.gaz: ./ from its directory, anything else from
+ * its project root, $root when no gaz.json is above it), for those that exist on disk. A std/
+ * import isn't a file, and is skipped: only a program's own files can be followed this way.
  */
-fn included_paths($path, $text) {
-    $dir = dirname($path);
+fn imported_paths($path, $text, $root) {
+    $directory = directory_of($path);
     $paths = [];
-    foreach (all_matches($text, 'include "([^"]*)"') as $match) {
-        $candidate = $dir .. "/" .. $match[1];
-        if (file_exists($candidate)) {
-            $paths[] = real_path($candidate);
+    foreach (all_matches($text, 'import "([^"]*)"') as $match) {
+        $target = import_target($match[1], $directory, project_root($directory) ?? $root);
+        if ($target.path != null && file_exists($target.path) && !is_dir($target.path)) {
+            $paths[] = real_path($target.path);
         }
     }
     return $paths;
 }
 
+// The project root the document's imports are from: its own, or its directory without one
+fn root_of($path) {
+    $directory = directory_of($path);
+    return project_root($directory) ?? $directory;
+}
+
 /*
- * The zero-based line of the document's include of $file, where an error in that file is shown;
+ * The zero-based line of the document's import of $file, where an error in that file is shown;
  * the first line when the document reaches it only through another file (or is unsaved)
  */
-fn include_line($lines, $path, $file) {
+fn import_line($lines, $path, $file) {
     if ($path == null || $file == null) {
         return 0;
     }
     $target = real_path($file);
     foreach ($lines as $i => $line) {
-        if (in_array($target, included_paths($path, $line))) {
+        if (in_array($target, imported_paths($path, $line, root_of($path)))) {
             return $i;
         }
     }
@@ -252,18 +254,20 @@ fn function_names($text) {
 }
 
 /*
- * Every function fn declares, in $text and every file it includes, directly or not (the same
+ * Every function fn declares, in $text and every file it imports, directly or not (the same
  * reach find_definition() searches), each name once even if declared more than once reachably.
+ * Further than the compiler lets a file see, which only its own imports: a completion of a name
+ * the file must still import is a nudge, not a mistake.
  */
-fn declared_functions($path, $text, $visited) {
+fn declared_functions($path, $text, $visited, $root) {
     $names = function_names($text);
     if ($path != null) {
-        foreach (included_paths($path, $text) as $included) {
-            if (in_array($included, $visited)) {
+        foreach (imported_paths($path, $text, $root) as $imported) {
+            if (in_array($imported, $visited)) {
                 continue;
             }
-            $visited[] = $included;
-            $names = [...$names, ...declared_functions($included, read_file($included), $visited)];
+            $visited[] = $imported;
+            $names = [...$names, ...declared_functions($imported, read_file($imported), $visited, $root)];
         }
     }
     $unique = [];
@@ -277,7 +281,7 @@ fn declared_functions($path, $text, $visited) {
 
 /*
  * Completions: the language's keywords, every builtin with its arity, and every function this
- * document can reach by name (itself and what it includes, directly or not). No filtering by
+ * document can reach by name (itself and what it imports, directly or not). No filtering by
  * what is typed so far: editors filter a completion list against the prefix themselves.
  */
 fn completions($uri) {
@@ -288,7 +292,8 @@ fn completions($uri) {
     $text = @documents[$uri] ?? null;
     if ($text != null) {
         $path = path_from_uri($uri);
-        foreach (declared_functions($path, $text, [$path]) as $name) {
+        $root = $path == null ? null : root_of($path);
+        foreach (declared_functions($path, $text, [$path], $root) as $name) {
             $items[] = {"label" => $name, "kind" => 3};
         }
     }
@@ -297,22 +302,22 @@ fn completions($uri) {
 
 /*
  * Where $name is declared with fn: in $text (which is $path's, but the caller's own copy,
- * possibly unsaved), or the first place it turns up in a file $path includes, followed
+ * possibly unsaved), or the first place it turns up in a file $path imports, followed
  * breadth-first-ish by recursion; $visited holds every real path followed so far on this
- * branch, so a cycle of includes ends the search rather than looping. null when nothing
+ * branch, so a cycle of imports ends the search rather than looping. null when nothing
  * declares it within reach.
  */
-fn find_definition($path, $text, $name, $visited) {
+fn find_definition($path, $text, $name, $visited, $root) {
     $at = regex::find($text, "fn " .. $name .. "\\(");
     if ($at != null) {
         return {"uri" => uri_from_path($path), "range" => whole_line(split($text, "\n"), line_at($text, $at))};
     }
-    foreach (included_paths($path, $text) as $included) {
-        if (in_array($included, $visited)) {
+    foreach (imported_paths($path, $text, $root) as $imported) {
+        if (in_array($imported, $visited)) {
             continue;
         }
-        $visited[] = $included;
-        $found = find_definition($included, read_file($included), $name, $visited);
+        $visited[] = $imported;
+        $found = find_definition($imported, read_file($imported), $name, $visited, $root);
         if ($found != null) {
             return $found;
         }
@@ -321,7 +326,7 @@ fn find_definition($path, $text, $name, $visited) {
 }
 
 /*
- * Where the word under the cursor is declared with fn, in this document or a file it includes
+ * Where the word under the cursor is declared with fn, in this document or a file it imports
  * (directly or not). ponytail: functions only, as hover is; a builtin has no source to jump to
  * and gives no result.
  */
@@ -335,7 +340,7 @@ fn definition($uri, $position) {
     if ($word == null) {
         return null;
     }
-    return find_definition($path, $text, $word, [$path]);
+    return find_definition($path, $text, $word, [$path], root_of($path));
 }
 
 // The line at $at of $text, or "" past its end

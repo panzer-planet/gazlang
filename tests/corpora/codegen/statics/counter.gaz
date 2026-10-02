@@ -1,4 +1,4 @@
-// A static field declared in an included file, its default on a line of its own
+// A static field declared in an imported file, its default on a line of its own
 kind Counter {
 
 

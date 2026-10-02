@@ -1,3 +1,0 @@
-include "show_args.gaz";
-show_args();
-echo "included";

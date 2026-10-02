@@ -12,9 +12,11 @@
 // (php vm/progress.php --update). Programs never open sockets, start programs or workers, exit,
 // sleep, read the environment, touch files or directories or read standard input, draw random
 // bytes (what it prints wouldn't follow from the seed) or hash a password (whose cost is its
-// arguments, so a slow one is what was asked for, not a bug): any whose text (or an included
+// arguments, so a slow one is what was asked for, not a bug): any whose text (or an imported
 // file's) names those builtins is skipped, which is sound because a builtin can only be reached
-// by its name. --jobs sets how many sanitized processes run at once (default 24, or
+// by its name; a mutant runs next to the program it came from, as .fuzz-<pid>-<name>.gaz, so
+// its ./ and root imports find the same files, and an imported file is one its bytecode's @ lines
+// name. --jobs sets how many sanitized processes run at once (default 24, or
 // GAZLANG_JOBS): raise it on a bigger machine to get through more programs in the same time.
 
 require __DIR__.'/../vendor/autoload.php';
@@ -43,11 +45,17 @@ if (isset($options['shrink'])) {
     @mkdir(CVM::ROOT.'/'.$work, 0777, true);
     $file = $options['shrink'];
     $ext = pathinfo($file, PATHINFO_EXTENSION);
-    $entry = "{$work}/replay.{$ext}";
+    // A mutant ran next to the program it came from, which save() wrote down beside it
+    $dir = is_file("{$file}.dir") ? trim((string) file_get_contents("{$file}.dir")) : $work;
+    $entry = placed($dir, 'replay', $ext);
     copy($file, CVM::ROOT.'/'.$entry);
-    $c = CVM::runC([$entry])[$entry];
+    try {
+        $c = CVM::runC([$entry])[$entry];
+    } finally {
+        @unlink(CVM::ROOT.'/'.$entry);
+    }
     $verdict = verdict($entry, $c) ?? exit("{$file}: nothing wrong\n");
-    echo "{$file}: ".signature($verdict, $c)."\n".rtrim(shrink((string) file_get_contents($file), $ext, signature($verdict, $c), PHP_INT_MAX))."\n";
+    echo "{$file}: ".signature($verdict, $c)."\n".rtrim(shrink((string) file_get_contents($file), $ext, signature($verdict, $c), $dir, PHP_INT_MAX))."\n";
     exit(1);
 }
 $seed = (int) ($options['seed'] ?? random_int(1, PHP_INT_MAX));
@@ -75,40 +83,59 @@ while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
     $batch = [];
     // Worked out once: $count grows in the loop, so as a condition it would end the batch early
     $size = $runs === null ? $batchSize : min($batchSize, $runs - $count);
+    // A mutant of a corpus program sits next to the program it came from, so its ./ and root
+    // imports find what the original's did, and goes when the batch has run
+    $placed = [];
     for ($i = 0; $i < $size; $i++) {
         $n = $count++;
         $roll = $rng->getInt(0, 9);
         // Named g (generated) or m (a mutant), since only a generated program is sure to end
-        [$text, $name] = match (true) {
-            $roll < 4 => [keep($generator->program()), "g{$n}.gaz"],
-            $roll < 8 => [mutateSource($rng, $seeds), "m{$n}.gaz"],
-            default => [mutateBytecode($rng, $gzbSeeds), "m{$n}.gzb"],
+        [$text, $entry] = match (true) {
+            $roll < 4 => [keep($generator->program()), "{$work}/g{$n}.gaz"],
+            $roll < 8 => mutantNextToItsOriginal($rng, $seeds, $n),
+            default => [mutateBytecode($rng, $gzbSeeds), "{$work}/m{$n}.gzb"],
         };
         if ($text === null) {
             continue;
         }
-        $entry = "{$work}/{$name}";
         file_put_contents(CVM::ROOT.'/'.$entry, $text);
         $batch[$entry] = $n;
+        if (! str_starts_with($entry, $work.'/')) {
+            $placed[] = $entry;
+        }
     }
-    foreach (CVM::runC(array_keys($batch)) as $entry => $c) {
+    try {
+        foreach (importsForbidden($placed) as $entry) {
+            unset($batch[$entry]);
+        }
+        $results = CVM::runC(array_keys($batch));
+        // Saved before the mutants go, each failure with the directory it ran in
+        $saved = [];
+        foreach ($results as $entry => $c) {
+            if (verdict($entry, $c) !== null) {
+                $saved[$entry] = save($entry, WORK."/fail-{$seed}-{$batch[$entry]}");
+            }
+        }
+    } finally {
+        array_map(fn ($entry) => @unlink(CVM::ROOT.'/'.$entry), $placed);
+    }
+    foreach ($results as $entry => $c) {
         $verdict = verdict($entry, $c);
         if ($verdict === null) {
             continue;
         }
         $signature = signature($verdict, $c);
         $ext = pathinfo($entry, PATHINFO_EXTENSION);
-        $saved = WORK."/fail-{$seed}-{$batch[$entry]}.{$ext}";
-        copy(CVM::ROOT.'/'.$entry, CVM::ROOT.'/'.$saved);
+        [$saved_as, $dir] = $saved[$entry];
         // Nothing tells a mutant that loops by itself from one that hangs the VM, so it is
         // saved and counted but doesn't fail the run: a generated program's time-out does
-        if ($verdict === 'time-out' && str_contains($entry, '/m')) {
-            echo "time-out of a mutant, which may just loop: {$saved}\n";
+        if ($verdict === 'time-out' && ! str_starts_with(basename($entry), 'g')) {
+            echo "time-out of a mutant, which may just loop: {$saved_as}\n";
             $timeouts++;
 
             continue;
         }
-        echo "FAIL {$verdict} ({$signature}): {$saved}\n";
+        echo "FAIL {$verdict} ({$signature}): {$saved_as}\n";
         if (isset($failed[$signature])) {
             continue;
         }
@@ -116,7 +143,7 @@ while ($runs === null ? microtime(true) - $start < $seconds : $count < $runs) {
         echo '  '.implode("\n  ", array_slice(explode("\n", trim($c[1])), 0, 12))."\n";
         // ponytail: a time-out isn't shrunk, since each try would take the whole time limit
         if ($verdict !== 'time-out') {
-            $small = shrink((string) file_get_contents(CVM::ROOT.'/'.$saved), $ext, $signature);
+            $small = shrink((string) file_get_contents(CVM::ROOT.'/'.$saved_as), $ext, $signature, $dir);
             $min = WORK."/fail-{$seed}-{$batch[$entry]}.min.{$ext}";
             file_put_contents(CVM::ROOT.'/'.$min, $small);
             echo "  shrunk to {$min}:\n    ".str_replace("\n", "\n    ", rtrim($small))."\n";
@@ -186,19 +213,19 @@ function signature(string $verdict, array $c): string
  * none can go. Each try is a sanitized run, about 0.1s even run CVM::$jobs at once, so it stops
  * after $seconds with what it has.
  */
-function shrink(string $text, string $ext, string $signature, int $seconds = 60): string
+function shrink(string $text, string $ext, string $signature, string $dir, int $seconds = 60): string
 {
     $deadline = microtime(true) + min($seconds, 1e9);
     // Again while that finds more, since a removal can free what an earlier pass had to keep
     for ($before = null; $before !== $text && microtime(true) < $deadline;) {
         $before = $text;
-        $text = shrinkOnce($text, $ext, $signature, $deadline);
+        $text = shrinkOnce($text, $ext, $signature, $dir, $deadline);
     }
 
     return $text;
 }
 
-function shrinkOnce(string $text, string $ext, string $signature, float $deadline): string
+function shrinkOnce(string $text, string $ext, string $signature, string $dir, float $deadline): string
 {
     foreach ($ext === 'gaz' ? ['blocks', 'lines', 'tokens'] : ['lines'] as $unit) {
         $parts = $unit === 'tokens' ? tokens($text) : explode("\n", $text);
@@ -215,7 +242,7 @@ function shrinkOnce(string $text, string $ext, string $signature, float $deadlin
                         $tries[$next] = [...array_slice($parts, 0, $next), ...array_slice($parts, $next + $length)];
                     }
                 }
-                $found = firstFailing(array_map(fn ($try) => implode($glue, $try), $tries), $ext, $signature);
+                $found = firstFailing(array_map(fn ($try) => implode($glue, $try), $tries), $ext, $signature, $dir);
                 if ($found === null) {
                     $at = $next;
                 } else {
@@ -250,18 +277,23 @@ function blockLength(array $lines, int $at): int
 }
 
 /**
- * The key of the first of these programs, in order, to fail with the signature, or null
+ * The key of the first of these programs, in order, to fail with the signature, or null. Each
+ * runs in $dir, where the failure did, so its imports find the same files.
  *
  * @param  array<int, string>  $texts
  */
-function firstFailing(array $texts, string $ext, string $signature): ?int
+function firstFailing(array $texts, string $ext, string $signature, string $dir): ?int
 {
     $entries = [];
-    foreach ($texts as $i => $text) {
-        $entries[$i] = work()."/shrink{$i}.{$ext}";
-        file_put_contents(CVM::ROOT.'/'.$entries[$i], $text);
+    try {
+        foreach ($texts as $i => $text) {
+            $entries[$i] = placed($dir, "shrink{$i}", $ext);
+            file_put_contents(CVM::ROOT.'/'.$entries[$i], $text);
+        }
+        $results = CVM::runC(array_values($entries));
+    } finally {
+        array_map(fn ($entry) => @unlink(CVM::ROOT.'/'.$entry), $entries);
     }
-    $results = CVM::runC(array_values($entries));
     foreach ($entries as $i => $entry) {
         $verdict = verdict($entry, $results[$entry]);
         if ($verdict !== null && signature($verdict, $results[$entry]) === $signature) {
@@ -286,36 +318,39 @@ function tokens(string $text): array
 }
 
 /**
- * The programs to mutate: every GazLang file under tests/, and the snippets, each
- * with the directory its includes resolve against, sorted so a seed picks the same ones
+ * The programs to mutate: every GazLang file under tests/, and the snippets, each with the
+ * directory it runs in (relative to the checkout; a snippet is piped in from its root) and its
+ * file, if it has one, sorted so a seed picks the same ones
  *
- * @return list<array{0: string, 1: string}> The text and its directory
+ * @return list<array{0: string, 1: string, 2: string|null}> The text, its directory and its file
  */
 function seeds(): array
 {
     $files = [];
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(CVM::ROOT.'/tests', FilesystemIterator::SKIP_DOTS));
     foreach ($it as $path) {
-        if (str_ends_with((string) $path, '.gaz')) {
-            $files[] = (string) $path;
+        // A mutant a run left behind isn't a program of the corpus
+        if (str_ends_with((string) $path, '.gaz') && ! str_starts_with(basename((string) $path), '.fuzz-')) {
+            $files[] = substr((string) $path, strlen(CVM::ROOT) + 1);
         }
     }
     sort($files);
     $seeds = [];
     foreach ($files as $file) {
-        $seeds[] = [(string) file_get_contents($file), dirname($file)];
+        $seeds[] = [(string) file_get_contents(CVM::ROOT.'/'.$file), dirname($file), $file];
     }
     foreach (CVM::snippets() as $text) {
-        $seeds[] = [$text, CVM::ROOT];
+        $seeds[] = [$text, '.', null];
     }
 
     return array_values(array_filter($seeds, fn ($s) => ! preg_match(FORBIDDEN, $s[0])));
 }
 
 /**
- * The bytecode to mutate: tests/corpora/bytecode, and some of the programs compiled
+ * The bytecode to mutate: tests/corpora/bytecode, and some of the programs compiled where they
+ * are (a snippet in this run's directory, under the checkout's gaz.json as its root is)
  *
- * @param  list<array{0: string, 1: string}>  $seeds
+ * @param  list<array{0: string, 1: string, 2: string|null}>  $seeds
  * @return list<string>
  */
 function gzbSeeds(array $seeds, Randomizer $rng): array
@@ -323,12 +358,11 @@ function gzbSeeds(array $seeds, Randomizer $rng): array
     $gzb = array_map(file_get_contents(...), glob(CVM::ROOT.'/tests/corpora/bytecode/*.gzb') ?: []);
     $commands = [];
     foreach ($rng->pickArrayKeys($seeds, min(60, count($seeds))) as $i) {
-        $text = absoluteIncludes($seeds[$i][0], $seeds[$i][1]);
-        if ($text === null) {
-            continue;
+        [$text, , $file] = $seeds[$i];
+        if ($file === null) {
+            $file = work()."/compile{$i}.gaz";
+            file_put_contents(CVM::ROOT.'/'.$file, $text);
         }
-        $file = work()."/compile{$i}.gaz";
-        file_put_contents(CVM::ROOT.'/'.$file, $text);
         $commands[$i] = [CVM::ROOT.'/bin/gaz', '-c', '-f', $file];
     }
     foreach (CVM::processes($commands) as $result) {
@@ -337,6 +371,7 @@ function gzbSeeds(array $seeds, Randomizer $rng): array
         }
     }
 
+    // A program's imports are in its bytecode, so a builtin they name is there by name too
     return array_values(array_filter($gzb, fn ($g) => ! preg_match(FORBIDDEN, (string) $g)));
 }
 
@@ -362,56 +397,92 @@ function builtins(): array
 }
 
 /**
- * A program's includes made absolute, since the mutant runs from vm/build/fuzz/work, or null when
- * it includes a file that names a forbidden builtin (or includes one that does)
+ * Where a program of this process runs in $dir: a hidden name (.fuzz-<pid>-<name>.<ext>, which
+ * .gitignore leaves out), relative to the checkout, since the harness runs entries from there
  */
-function absoluteIncludes(string $text, string $dir): ?string
+function placed(string $dir, string $name, string $ext): string
 {
-    $bad = false;
-    $text = preg_replace_callback('/\binclude\s*"([^"\\\\]*)"/', function ($m) use ($dir, &$bad) {
-        $path = realpath(str_starts_with($m[1], '/') ? $m[1] : "{$dir}/{$m[1]}");
-        if ($path === false || is_dir($path)) {
-            return $m[0];
-        }
-        $bad = $bad || includesForbidden($path);
+    $file = '.fuzz-'.getmypid()."-{$name}.{$ext}";
 
-        return 'include "'.$path.'"';
-    }, $text);
-
-    return $bad ? null : $text;
+    return $dir === '.' ? $file : "{$dir}/{$file}";
 }
 
 /**
- * Whether a file, or one it includes, names a forbidden builtin
- */
-function includesForbidden(string $path, array &$seen = []): bool
-{
-    static $cache = [];
-    if (isset($cache[$path]) || isset($seen[$path])) {
-        return $cache[$path] ?? false;
-    }
-    $seen[$path] = true;
-    $text = (string) file_get_contents($path);
-    $bad = (bool) preg_match(FORBIDDEN, $text);
-    preg_match_all('/\binclude\s*"([^"\\\\]*)"/', $text, $m);
-    foreach ($m[1] as $include) {
-        $inner = realpath(dirname($path).'/'.$include);
-        $bad = $bad || ($inner !== false && includesForbidden($inner, $seen));
-    }
-
-    return $cache[$path] = $bad;
-}
-
-/**
- * A corpus program with one to four mutations: tokens deleted, duplicated, replaced by another
- * program's or by an interesting value, and spans of lines spliced in from another program
+ * A corpus program with one to four mutations, as [text, the entry it is written to], the entry
+ * next to the program it came from so that its imports find the same files; [null, ''] when the
+ * mutant names a forbidden builtin
  *
- * @param  list<array{0: string, 1: string}>  $seeds
+ * @param  list<array{0: string, 1: string, 2: string|null}>  $seeds
+ * @return array{0: string|null, 1: string}
  */
-function mutateSource(Randomizer $rng, array $seeds): ?string
+function mutantNextToItsOriginal(Randomizer $rng, array $seeds, int $n): array
 {
-    [$text, $dir] = $seeds[$rng->getInt(0, count($seeds) - 1)];
-    $tokens = tokens($text);
+    $at = $rng->getInt(0, count($seeds) - 1);
+
+    return [mutateSource($rng, $seeds, $at), placed($seeds[$at][1], "m{$n}", 'gaz')];
+}
+
+/**
+ * The mutants among $entries that reach a forbidden builtin through what they import: the
+ * modules a program is made of are the files its bytecode's @ lines name (as gaz --watch finds
+ * them), so each is compiled (unsanitized, which is quick) and those files read. A mutant that
+ * doesn't compile runs nothing, and stays.
+ *
+ * @param  list<string>  $entries
+ * @return list<string>
+ */
+function importsForbidden(array $entries): array
+{
+    static $files = [];
+    $commands = array_combine($entries, array_map(fn ($entry) => [CVM::ROOT.'/bin/gaz', '-c', '-f', $entry], $entries));
+    $bad = [];
+    foreach (CVM::processes($commands) as $entry => [$bytecode, , $code]) {
+        if ($code !== 0) {
+            continue;
+        }
+        preg_match_all('/^@ "([^"]+)" \d+$/m', $bytecode, $m);
+        foreach (array_unique($m[1]) as $path) {
+            $file = match (true) {
+                str_starts_with($path, '<std>/') => CVM::ROOT.'/lib/'.substr($path, 6),
+                str_starts_with($path, '<') => null,
+                default => CVM::ROOT.'/'.dirname($entry).'/'.$path,
+            };
+            if ($file !== null && ($files[$file] ??= (bool) preg_match(FORBIDDEN, (string) @file_get_contents($file)))) {
+                $bad[] = $entry;
+                break;
+            }
+        }
+    }
+
+    return $bad;
+}
+
+/**
+ * Save a failing entry under $base (and its extension), with the directory it ran in beside
+ * it, for --shrink to run it there again; gives [the saved file, that directory]
+ *
+ * @return array{0: string, 1: string}
+ */
+function save(string $entry, string $base): array
+{
+    $saved = $base.'.'.pathinfo($entry, PATHINFO_EXTENSION);
+    copy(CVM::ROOT.'/'.$entry, CVM::ROOT.'/'.$saved);
+    $dir = dirname($entry);
+    file_put_contents(CVM::ROOT.'/'.$saved.'.dir', $dir."\n");
+
+    return [$saved, $dir];
+}
+
+/**
+ * The program at $which in $seeds with one to four mutations: tokens deleted, duplicated, replaced
+ * by another program's or by an interesting value, and spans of lines spliced in from another
+ * program; null when it names a forbidden builtin
+ *
+ * @param  list<array{0: string, 1: string, 2: string|null}>  $seeds
+ */
+function mutateSource(Randomizer $rng, array $seeds, int $which): ?string
+{
+    $tokens = tokens($seeds[$which][0]);
     for ($n = $rng->getInt(1, 4); $n > 0 && $tokens !== []; $n--) {
         $at = $rng->getInt(0, count($tokens) - 1);
         [$other] = $seeds[$rng->getInt(0, count($seeds) - 1)];
@@ -427,7 +498,7 @@ function mutateSource(Randomizer $rng, array $seeds): ?string
         };
     }
 
-    return keep(absoluteIncludes(implode('', $tokens), $dir));
+    return keep(implode('', $tokens));
 }
 
 /**
@@ -662,10 +733,35 @@ function keep(?string $text): ?string
         return null;
     }
     if (str_contains($text, 'rand_') && ! str_starts_with($text, 'GAZLANG BYTECODE')) {
-        $text = 'rand_seed(1); '.$text;
+        $text = seeded($text);
     }
 
     return $text;
+}
+
+/**
+ * The program with rand_seed(1) run first: at the end of its namespace and import lines, which
+ * must come before any statement, or else on its first line
+ */
+function seeded(string $text): string
+{
+    $lines = explode("\n", $text);
+    $last = null;
+    foreach ($lines as $i => $line) {
+        $trimmed = trim($line);
+        if (str_starts_with($trimmed, 'import "') || str_starts_with($trimmed, 'namespace ')) {
+            $last = $i;
+        } elseif ($trimmed !== '' && ! preg_match('#^(//|/\*|\*)#', $trimmed)) {
+            // Past the comments at the top (roughly: a wrong guess only makes a mutant fail)
+            break;
+        }
+    }
+    if ($last === null) {
+        return 'rand_seed(1); '.$text;
+    }
+    $lines[$last] .= ' rand_seed(1);';
+
+    return implode("\n", $lines);
 }
 
 /**

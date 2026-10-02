@@ -183,7 +183,7 @@ class HtmlContextTest extends GazLangTestCase
             return self::$pages;
         }
         $values = [...self::HOSTILE, 'x'];
-        $program = "include \"std/web.gaz\";\ninclude \"std/json.gaz\";\n"
+        $program = "import \"std/web.gaz\";\nimport \"std/json.gaz\";\n"
             ."fn attempt(\$make) {\n    try {\n        return \$make().text;\n    } catch (\$e) {\n        return null;\n    }\n}\n"
             .'$values = ['.implode(', ', array_map(self::literal(...), $values))."];\n\$pages = {};\n";
         $templates = [...array_map(fn ($t) => $t[0], self::SAFE), ...self::REFUSED];
@@ -389,7 +389,7 @@ class HtmlContextTest extends GazLangTestCase
         }
 
         $values = [...self::TRIED, 'x'];
-        $program = "include \"std/web.gaz\";\ninclude \"std/json.gaz\";\n"
+        $program = "import \"std/web.gaz\";\nimport \"std/json.gaz\";\n"
             ."fn attempt(\$make) {\n    try {\n        return \$make().text;\n    } catch (\$e) {\n        return null;\n    }\n}\n"
             .'$values = ['.implode(', ', array_map(self::literal(...), $values))."];\n\$pages = [];\n";
         foreach ($templates as $template) {
@@ -454,7 +454,7 @@ class HtmlContextTest extends GazLangTestCase
     public function test_two_values_cannot_make_a_script_url_between_them()
     {
         $pieces = self::SCHEME_PIECES;
-        $program = "include \"std/web.gaz\";\ninclude \"std/json.gaz\";\n"
+        $program = "import \"std/web.gaz\";\nimport \"std/json.gaz\";\n"
             ."fn attempt(\$make) {\n    try {\n        return \$make().text;\n    } catch (\$e) {\n        return null;\n    }\n}\n"
             .'$pieces = ['.implode(', ', array_map(self::literal(...), $pieces))."];\n\$pages = [];\n";
         foreach (self::TWO_VALUES as $template) {

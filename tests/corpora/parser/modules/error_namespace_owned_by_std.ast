@@ -1,0 +1,1 @@
+Error: Namespace text is std/text.gaz's: tests/corpora/parser/modules/lib/text_too.gaz can't declare it too (a namespace belongs to one project) at tests/corpora/parser/modules/lib/text_too.gaz:1

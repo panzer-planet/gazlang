@@ -1,9 +1,10 @@
 /* Migrations: applied in order, once each, and a broken one leaves nothing behind */
 namespace todo;
 
-include "std/test.gaz" use expect, throws;
-include "std/db.gaz";
-include "support.gaz";
+import "std/test.gaz" use expect, throws;
+import "std/db.gaz";
+import "./support.gaz";
+import "database.gaz";
 
 $db = connect(getenv("TODO_TEST_DATABASE_URL") ?? TEST_DATABASE);
 $db.exec(db::raw("drop table if exists users, todos, login_failures, schema_migrations cascade"));

@@ -3,8 +3,8 @@
  * answers what was written to it before it ran, in order, and the bytes it sends back are compared
  * whole, with the Date line taken out (a 500 closes too: HttpServerTest, since it writes to stderr)
  */
-include "std/test.gaz" use expect;
-include "std/http.gaz";
+import "std/test.gaz" use expect;
+import "std/http.gaz";
 
 const IDLE = 0.2;        // seconds http::handle() waits for another request here
 

@@ -1,3 +1,5 @@
-// Uses a constant the file that includes it declares, after the include
+// Uses a constant a file it imports declares, which imports this one back
+import "./values.gaz";
+
 const DOUBLE = MAIN * 2;
 kind Lib { pub const NAME = "lib"; }

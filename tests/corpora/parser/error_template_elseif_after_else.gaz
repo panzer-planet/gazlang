@@ -1,1 +1,1 @@
-include "templates/elseif_after_else.gazml";
+import "./templates/elseif_after_else.gazml";

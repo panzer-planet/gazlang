@@ -1,5 +1,5 @@
 /* socket_peer(): who is at the other end of a connection, from either end, and what it refuses */
-include "std/test.gaz" use expect, throws;
+import "std/test.gaz" use expect, throws;
 
 $listener = socket_listen("127.0.0.1", 0);
 $port = socket_port($listener);

@@ -1,0 +1,7 @@
+// lib/shop/b.gaz imports a.gaz, which declares a() in the same namespace: this file sees only
+// what it imports itself
+namespace shop;
+
+import "./lib/shop/b.gaz";
+
+echo b() .. a();
