@@ -5,12 +5,13 @@
  *   gaz examples/backup.gaz ~/notes /backups/notes
  *   gaz examples/backup.gaz --keep 3 ~/notes /backups/notes
  *
- * Each backup is DESTINATION/2026-10-02T143005; the manifest, MANIFEST.txt inside it, is written
- * last and atomically, so a backup without one was interrupted.
+ * Each backup is DESTINATION/2026-10-02T143005, files with their modes and symbolic links as
+ * links; the manifest, MANIFEST.txt inside it, is written last, atomically and synced to the
+ * disk, so a backup without one was interrupted, even by a power cut.
  *
- * What it shows: fs::copy_tree() (which leaves symbolic links out and says which), fs::walk(),
- * fs::write_atomic() for a file that is all there or not at all, fs::remove_tree() for the old
- * backups, and make_dir() with its parents.
+ * What it shows: fs::copy_tree() (which keeps modes and links, and says what it left out: a pipe
+ * or a socket), fs::walk(), readlink(), fs::write_atomic() for a file that is all there or not at
+ * all, fs::remove_tree() for the old backups, and make_dir() with its parents.
  */
 import "std/cli.gaz";
 import "std/crypto.gaz";
@@ -37,6 +38,10 @@ kind Manifest {
         #files++;
         #bytes += len($data);
         #lines[] = crypto::hex(sha256($data)) .. "  " .. len($data) .. "  " .. $path;
+    }
+
+    pub fn add_link(string $path, string $target): null {
+        #lines[] = "link  " .. $path .. " -> " .. $target;
     }
 
     pub fn skip(string $path): null {
@@ -73,8 +78,12 @@ fn back_up(string $source, string $target): Manifest {
         $manifest.skip($left_out);
     }
     foreach (fs::walk($target) as $path) {
-        if (file_info($target .. "/" .. $path, false)["kind"] == "file") {
-            $manifest.add_file($path, $target .. "/" .. $path);
+        $full_path = $target .. "/" .. $path;
+        $kind = file_info($full_path, false)["kind"];
+        if ($kind == "file") {
+            $manifest.add_file($path, $full_path);
+        } else if ($kind == "link") {
+            $manifest.add_link($path, readlink($full_path));
         }
     }
 
@@ -124,6 +133,6 @@ $manifest = back_up($source, $target);
 fs::write_atomic($target .. "/" .. MANIFEST, $manifest.text());
 echo "backed up {$manifest.files} files, " .. format::number($manifest.bytes, 0) .. " bytes, to {$target}";
 foreach ($manifest.skipped as $skipped) {
-    echo "left out {$skipped}, which is a link or not a file";
+    echo "left out {$skipped}, which is not a file, directory or link";
 }
 rotate($root, $keep);

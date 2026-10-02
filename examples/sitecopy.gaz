@@ -1,6 +1,7 @@
 /*
  * sitecopy: copy the files of a tree that match a pattern into another tree, making folders as
- * needed, and skip each file whose copy is already as new as it is. What a static site's deploy
+ * needed, and skip each file whose copy is up to date. A copy keeps its source's mode and
+ * modification time, so up to date means the same time and size. What a static site's deploy
  * step does.
  *
  *   gaz examples/sitecopy.gaz site public/'**' /var/www/site
@@ -11,7 +12,7 @@
  * pattern name that starts with one.
  *
  * What it shows: fs::glob(), file_info()'s modification times compared, make_dir() with its
- * parents and fs::copy(). (The first example quotes its pattern oddly because a block comment
+ * parents and fs::copy() keeping the time. (The first example quotes its pattern oddly because a block comment
  * nests, and a slash right before a star would open another one.)
  */
 import "std/cli.gaz";
@@ -38,23 +39,24 @@ fn matching(string $from, list $patterns): list {
 }
 
 /*
- * Whether $target is missing or older than $source. A copy is newer than its source, being
- * written after it was.
- * ponytail: times are whole seconds, so a source changed in the same second as its last copy
- * looks copied; file_info() with nanoseconds would lift it.
+ * Whether $target is missing or differs from $source in modification time or size. A copy is
+ * given its source's time, so any change to the source, even to an older version, shows.
+ * ponytail: times are whole seconds, so a source changed to the same size within the second its
+ * last copy was taken looks copied; nanoseconds in file_info() and set_mtime() would lift it.
  */
 fn needs_copy(string $source, string $target): bool {
     $copy = file_info($target);
     if ($copy == null) {
         return true;
     }
+    $original = file_info($source);
 
-    return file_info($source)["mtime"] > $copy["mtime"];
+    return $original["mtime"] != $copy["mtime"] || $original["size"] != $copy["size"];
 }
 
 fn copy_file(string $source, string $target): null {
     make_dir(fs::parent($target), true);
-    fs::copy($source, $target);
+    fs::copy($source, $target, true);
 }
 
 fn plan_and_copy(string $from, list $patterns, string $to, bool $dry_run): Plan {
