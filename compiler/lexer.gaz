@@ -196,27 +196,21 @@ pub kind Lexer {
         #advance();
     }
 
-    // From /* to the matching */, nesting. One left open is reported where the outermost opened
+    // From the opener of a block comment to the first closer after it. They don't nest, as in C: an
+    // opener inside one is text. One left open is reported where it opened.
     fn skip_block_comment() {
         $start_line = #line;
-        $depth = 0;
 
-        $i = #pos;
+        // Past the opener, so /*/ is not a whole comment
+        $i = #pos + 2;
         $last = #length - 1;
         while ($i < #length) {
             $c = #text[$i];
             if ($c == "\n") {
                 #line++;
-            } else if ($c == "/" && $i < $last && #text[$i + 1] == "*") {
-                $depth++;
-                $i++;
             } else if ($c == "*" && $i < $last && #text[$i + 1] == "/") {
-                $depth--;
-                $i++;
-                if ($depth == 0) {
-                    #skip($i + 1 - #pos);
-                    return;
-                }
+                #skip($i + 2 - #pos);
+                return;
             }
             $i++;
         }

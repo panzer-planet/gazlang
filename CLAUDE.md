@@ -1585,10 +1585,7 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   examples didn't notice next to what the walk costs. **No `fs::mode_string`** (`rwxr-xr-x`): no
   example lists modes, and `format::sprintf("%o", $mode)` shows one. `ponytail:` a copy onto a
   read-only file is an error (`fopen` can't write it) where `cp -f` would remove it first.
-  **A glob in a block comment nests**: `/*` inside a `/* */` opens another comment (they nest, on
-  purpose), so a doc comment can't write a path ending in a `**` name followed by a slash: the
-  library's comments describe such patterns by their names instead. Tested by
-  `tests/gaz/lib/fs_test.gaz` on a tree it plants with links in it.
+  Tested by `tests/gaz/lib/fs_test.gaz` on a tree it plants with links in it.
   `format.gaz` (`format::number`, `format::pad_left`/`pad_right`
   convert like echo: display helpers take any value, string functions stay strict;
   `format::sprintf($template, $args)`, a list since there are no variadic calls: `%s` echo's
@@ -2215,10 +2212,12 @@ try {
 
 ## Comments and names
 
-- `//` and `/* */`, skipped by the lexer. **Block comments nest** (as in Rust and Swift), so a
-  region already holding a comment can be commented out; an unterminated one is an error at
-  the line the outermost opened on. `editors/gaz/gaz.tmLanguage` nests them too
-  (`EditorGrammarTest` fails when it misses a builtin or keyword).
+- `//` and `/* */`, skipped by the lexer. **Block comments don't nest** (as in C): the first `*/`
+  ends one and a `/*` inside is text, so a doc comment can hold a glob like `src/*.gaz`, though a `*/` still ends one, which a glob of `**`
+  followed by a slash is. They
+  did once, so a region holding a comment could be commented out, and in 900 block comments
+  nothing used it while globs and paths in doc comments kept tripping it; commenting code out is
+  `//` on each line. An unterminated one is an error at the line it opened on.
 - **Keywords are lowercase and exact**, so `kind If`, `fn Return()` and `kind Match` are
   ordinary names, which a self-hosted AST wants. PHP matches keywords *and* names
   case-insensitively; matching only keywords that way was its wart without its rule. A

@@ -189,8 +189,8 @@ fn is_keyword($token): bool {
 }
 
 /*
- * The text between two tokens, which the lexer skipped: whitespace, // and nested /* */
- * comments, and a #! line at the start of a script
+ * The text between two tokens, which the lexer skipped: whitespace, line and block comments,
+ * and a #! line at the start of a script
  */
 fn between(string $text): list {
     $pieces = [];
@@ -219,26 +219,9 @@ fn line_end(string $text, int $i): int {
     return index_of($text, "\n", $i) ?? len($text);
 }
 
-// Where the block comment starting at $i ends, past the */ matching its /*
+// Where the block comment starting at $i ends: past the first closer after its opener (they don't nest)
 fn block_comment_end(string $text, int $i): int {
-    $depth = 0;
-    $length = len($text);
-    while ($i < $length) {
-        if (starts_with($text, "/*", $i)) {
-            $depth++;
-            $i += 2;
-        } else if (starts_with($text, "*/", $i)) {
-            $depth--;
-            $i += 2;
-            if ($depth == 0) {
-                return $i;
-            }
-        } else {
-            $i++;
-        }
-    }
-
-    return $length;
+    return (index_of($text, "*/", $i + 2) ?? len($text) - 2) + 2;
 }
 
 // Where the run of whitespace at $i ends; anything else the lexer skipped is one character

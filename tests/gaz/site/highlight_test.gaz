@@ -28,7 +28,7 @@ expect("every keyword the lexer knows", shown("gaz", "pub kin static abstract ki
 
 // Comments and whitespace, which the lexer drops, are cut from the source
 expect("a line comment", shown("gaz", "1; // one\n2;"), ["num:1", ":;", "com:// one", "num:2", ":;"]);
-expect("a nested block comment is one piece", shown("gaz", "/* a /* b */ c */ 1"), ["com:/* a /* b */ c */", "num:1"]);
+expect("an opener inside a block comment is text, and the first closer ends it", shown("gaz", "/* a /* b */ 1"), ["com:/* a /* b */", "num:1"]);
 expect("a comment at the end", shown("gaz", "1 /* x */"), ["num:1", "com:/* x */"]);
 expect("a script's first line", shown("gaz", "#!/usr/bin/env gaz\necho 1;"), ["com:#!/usr/bin/env gaz", "kw:echo", "num:1", ":;"]);
 

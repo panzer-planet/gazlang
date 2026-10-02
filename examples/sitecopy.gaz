@@ -4,11 +4,11 @@
  * modification time, so up to date means the same time and size. What a static site's deploy
  * step does.
  *
- *   gaz examples/sitecopy.gaz site public/'**' /var/www/site
- *   gaz examples/sitecopy.gaz --dry-run docs '**' '*.md' /tmp/docs
+ *   gaz examples/sitecopy.gaz site 'public/**' /var/www/site
+ *   gaz examples/sitecopy.gaz --dry-run docs 'guide/*.md' /tmp/docs
  *
  * Patterns are relative to the source: * and ? match within one name, [abc] one of a set, and
- * "**" as a whole name any number of folders. A name starting with a dot is matched only by a
+ * ** as a whole name any number of folders. A name starting with a dot is matched only by a
  * pattern name that starts with one.
  *
  * What it shows: fs::glob(), file_info()'s modification times compared, make_dir() with its

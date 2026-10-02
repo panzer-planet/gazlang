@@ -111,11 +111,12 @@ pub fn walk(string $dir): list {
  * The paths matching $pattern, sorted byte by byte. A pattern is names separated by "/",
  * relative to the working directory or, starting with "/", absolute, and gives paths written the
  * same way. In a name, * matches any bytes and ? any one byte, [abc] one of a set, [a-z] one of
- * a range and [!abc] one not in it. "**" as a whole name matches any number of directories, none
- * included, so the names "src", "**" and "*.gaz" find every .gaz file under src; as the last
- * name it is everything below. A name starting with a dot is matched only by a pattern name that
- * starts with one, so * and "**" leave hidden files and directories alone. "**" never follows a
- * symbolic link, so it can't loop. Nothing matching is [].
+ * a range and [!abc] one not in it. ** as a whole name matches any number of directories, none
+ * included, so the names src, ** and *.gaz, joined by slashes, find every .gaz file under src (not
+ * written out, since the slash after the stars would end this comment); as the last name it is
+ * everything below. A name starting with a dot is matched only by a pattern name that starts with one, so *
+ * and ** leave hidden files and directories alone. ** never follows a symbolic link, so it
+ * can't loop. Nothing matching is [].
  * ponytail: no escape for a literal *, ? or [, and no {a,b}; add them when a program needs one.
  */
 pub fn glob(string $pattern): list {

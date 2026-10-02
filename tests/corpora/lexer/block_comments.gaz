@@ -1,9 +1,8 @@
 /* a whole line */
 echo 1;
 echo /* between tokens */ 2;
-/* nesting: /* an inner one */ the outer is still open */ echo 3;
-/* deeper: /* /* three */ two */ one */
-echo 4;
+/* they don't nest: /* an inner opener is text */ echo 3;
+/* and the first closer ends it, however many openers came before: /* /* /* */ echo 4;
 /*
    over
    several lines

@@ -5,7 +5,7 @@ ok a kind called is still a kind
 ok a type name called is a call
 ok every keyword the lexer knows
 ok a line comment
-ok a nested block comment is one piece
+ok an opener inside a block comment is text, and the first closer ends it
 ok a comment at the end
 ok a script's first line
 ok escapes stay as written

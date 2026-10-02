@@ -269,12 +269,14 @@ class LexerTest extends GazLangTestCase
    two */ echo /* here */ 1;'));
     }
 
-    public function test_block_comments_nest()
+    public function test_block_comments_do_not_nest()
     {
-        // The first */ closes only the inner one, so commenting out a commented region works
-        $this->assertSame([['INTEGER', 1]], $this->pairs('/* a /* b */ c */ 1'));
-        $this->assertSame([['INTEGER', 1]], $this->pairs('/* /* /* */ */ */ 1'));
+        // The first */ closes one, whatever was opened inside it
+        $this->assertSame([['INTEGER', 1]], $this->pairs('/* a /* b */ 1'));
+        $this->assertSame([['INTEGER', 1]], $this->pairs('/* /* /* */ 1'));
         $this->assertSame([['INTEGER', 1]], $this->pairs('/**/ 1'));
+        // so what follows the first closer is code, here the stray one
+        $this->assertSame([['INTEGER', 1], ['MULTIPLY', '*'], ['DIVIDE', '/'], ['INTEGER', 2]], $this->pairs('/* a /* b */ 1 */ 2'));
     }
 
     public function test_a_slash_is_only_an_opener_before_a_star()
@@ -291,7 +293,7 @@ class LexerTest extends GazLangTestCase
         $this->expectExceptionMessage('Unterminated block comment on line 2');
         $this->pairs('echo 1;
 /* opened here
-/* and here */
+/* and an opener inside is only text
 ');
     }
 

@@ -601,9 +601,11 @@ try {
 
 ## Comments
 
-`// to the end of the line`, and `/* ... */`, which **nest** — an inner `/*` opens another one
-and the first `*/` closes only that, so commenting out a region that already holds a comment
-works. An unterminated block comment is an error at the line it opened on.
+`// to the end of the line`, and `/* ... */`, which **don't nest**: the first `*/` ends one, and a
+`/*` inside it is only text, so a comment can hold a path like `src/*.gaz`. A `*/` anywhere ends
+it, though, so a glob such as `**` followed by a slash can't be written in one. To comment out
+code that has a block comment in it, put `//` on each line. An unterminated block comment is an error
+at the line it opened on.
 
 ## Names
 
