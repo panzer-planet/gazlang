@@ -14,7 +14,8 @@ $program = '
     $listener = socket_listen("127.0.0.1", 0);
     workers(1);
     if (!file_exists(MARK)) {
-        write_file(MARK, "");
+        // Its process id, for the replacement to wait for it to be gone (the parent of a shell it starts)
+        write_file(MARK, trim(run(["sh", "-c", "echo \$PPID"])["stdout"]));
         worker_retire();
         sleep(30);
         print("never relieved\n");
@@ -22,8 +23,14 @@ $program = '
     // Waiting for a connection is what makes it ready to take over: this one has one at once
     $client = socket_open("127.0.0.1", socket_port($listener));
     socket_accept($listener);
-    // Outlives the grace, so the master is still watching when the retiring one is killed
-    sleep(12);
+    // Stays until the retiring one is gone, killed by the master after the grace, so the master is
+    // still watching when that happens, however long the machine takes; the cap is only for a
+    // master that never does
+    $retired = read_file(MARK);
+    $until = monotonic_time() + 60;
+    while (run(["kill", "-0", $retired])["status"] == 0 && monotonic_time() < $until) {
+        sleep(0.1);
+    }
     print("replacement done\n");
 ';
 $program = replace($program, "MARK", text::quote($mark));

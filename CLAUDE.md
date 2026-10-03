@@ -622,27 +622,32 @@ that must find nothing to do.
     its pid table, and sends the retiring one the stop's SIGTERM once the replacement has set
     `listening` (on entering `socket_accept()`), or once the number has ended for good. Leaving
     first would leave the pool short for as long as the program takes to start after `workers()` (a
-    database connection, an app built: `apps/todo`'s Argon2 dummy hash is most of its 0.2s), and
-    empty when every worker retires at once, which an evenly spread load makes them do, since each
-    answers the same share (under `wrk`, the whole pool for 0.2s every couple of seconds, which was
-    the 99th percentile). A builtin of its own because the retiring worker must go on running
-    GazLang (the handler) while it waits, so `worker_recycle()`, which never returns, can't do it,
-    and nothing else can reach the master. After asking, the worker writes nothing more in its slot
-    (`slot = NULL`), which is the replacement's from the fork on; a second call gives `false`, as
-    one outside a worker does, which `http::serve` takes as "recycle at once". The retiring one is
-    reaped, never replaced, however it ends (an end other than `worker_recycle()`'s or a clean exit
-    is a line, `worker N exited with code 3 while retiring`); a second hand-over of one number
-    waits until the first one's leaver has gone. For that moment two processes have one number. One
-    still there `STOP_GRACE` after it was asked (stuck in a handler, or SIGTERM ignored since the
-    program started) is killed, as a stop kills one. Tested by `tests/gaz/workers/retire_test.gaz`
-    (the order, the lines, a slow replacement), `retire_grace_test.gaz` (the kill) and
-    `HttpServerTest` (a worker slow to start and `max_requests` 1: no request waits for a start).
-    **The master polls every 5ms while a hand-over is under way** (`handing_over()`), 50ms
-    otherwise: the retiring worker serves a connection a request meanwhile, a reconnect a request,
-    and with only the 50ms poll a server recycling every 0.4s lost a sixth of its throughput to
-    that, which the quicker relief won back; an idle master still wakes 20 times a second.
+    database connection, an app built), and empty when every worker retires at once, which an
+    evenly spread load makes them do, since each answers the same share. A builtin of its own
+    because the retiring worker must go on running GazLang (the handler) while it waits, so
+    `worker_recycle()`, which never returns, can't do it, and nothing else can reach the master.
+    After asking, the worker writes nothing more in its slot (`slot = NULL`), which is the
+    replacement's from the fork on; a second call gives `false`, as one outside a worker does,
+    which `http::serve` takes as "recycle at once". The retiring one is reaped, never replaced,
+    however it ends (an end other than `worker_recycle()`'s or a clean exit is a line, `worker N
+    exited with code 3 while retiring`); a second hand-over of one number waits until the first
+    one's leaver has gone. For that moment two processes have one number. One still there
+    `STOP_GRACE` after it was asked (stuck in a handler, or SIGTERM ignored since the program
+    started) is killed, as a stop kills one. Tested by `tests/gaz/workers/retire_test.gaz` (the
+    order, the lines, a slow replacement), `retire_grace_test.gaz` (the kill) and `HttpServerTest`
+    (a worker slow to start and `max_requests` 1: no request waits for a start). **The master polls
+    every 5ms while a hand-over is under way** (`handing_over()`), 50ms otherwise, because the
+    retiring worker serves a request per connection until relieved and every reconnect costs; an
+    idle master still wakes 20 times a second.
     `ponytail:` noticing the hand-over still waits for a 50ms poll, since the master can't be woken
-    (see the program's own thread below).
+    (see the program's own thread below). A replacement that never reaches `socket_accept()` (a
+    start-up that hangs) leaves the retiring worker serving a request per connection with nothing
+    bounding it, so `max_requests` stops limiting its life; a deadline after which the master
+    relieves it anyway would lift that. A replacement that dies within a second of starting without
+    accepting stops the whole pool, as a recycled worker's always did, though the retiring worker
+    is healthy; keeping it and retrying would lift that. `Slot.listening` is set on entering any
+    `socket_accept()`, so a worker that waits on a second listener (an admin port) before the
+    shared one relieves the retiring worker early.
   - **Stopping is graceful**: the master sends SIGTERM, which a worker catches (not `SA_RESTART`,
     so a waiting `accept()` wakes) and turns into `null` from its next `socket_accept()`, so
     `http::serve()` returns after the request in hand; the master kills what is left after 10
@@ -705,37 +710,36 @@ that must find nothing to do.
       returns to `socket_accept()`; one gone means a free worker took it,
       and it waits out the rest of its idle time (a deadline, not a fresh wait each time round).
       The grace is drawn by each worker because idle workers that look again together all see the
-      client still queued and all give up their connections (with four idle workers and one new
-      client, 2.4 on average did, where one is enough; with the draw 1.25). Free capacity makes
-      keep-alive cost nothing; without it the worst case is a connection per request plus up to
-      20ms.
+      client still queued and all give up their connections, where one is enough. Free capacity
+      makes keep-alive cost nothing; without it the worst case is a connection per request plus up
+      to 20ms.
       `http::handle()` has no listener and waits on its socket alone.
     - **A connection is handed over at a response where it can be** (`Turns` in `http.gaz`, one per
       worker), since closing an idle one races with a request its client sends at that moment, which
       then meets the end or a reset and no response (a browser resends; `wrk` counts a read error, a
       proxy may not resend a POST), and HTTP/1.1 has no way to tell an idle client not to send,
-      while a response saying `Connection: close` races with nothing. Idle closes alone lost 1
-      request in 25 for a harness of 16 clients pausing 0 to 20ms between requests on 4 workers. So,
-      with a client waiting on the listener, a connection that has had its worker for a `TURN`
-      (50ms) closes after its next response, a turn each among busy clients
-      (`requests_per_connection` alone lets a slow handler's 100 requests keep a waiting client out
-      for seconds); and for `CROWDED` (5s) after a worker has had to close an idle connection, it
-      closes every connection after its response, waiting client or not, since its clients pause and
-      a pause is when the next idle close would come. A client that asks again within `HOT_GAP`
-      (5ms) of a response is exempt from the second rule and gets a `TURN` of patience when idle
-      instead of the grace: a connection per request costs such clients a third of their throughput
-      (`wrk`), and one that is late is late, not gone. With these the harness lost none of 77,000
-      requests (the minimal server and `apps/todo`) and 3 of 77,000 on a machine kept busy, against
-      some 1 in 25 before, at the same throughput and tail under `wrk` (4 and 16 connections);
-      with a 1s spell instead of 5 it lost 5 of 88,000 on a quiet machine, the spells ending often
-      enough for idle closes to come back. The last look at the client is just before the close,
-            which halved what the idle closes lost. Tested by `http_turns_test.gaz` (the rules) and
-      `HttpServerTest` (two clients taking turns on one worker see one idle close in twenty turns; a
-      busy connection on a 30ms handler gives way within a second). `ponytail:` the first idle close
-      of each crowded spell still races, as the `idle_timeout` close always does; nothing short of
-      the client saying when it will send next would remove it. A proxy avoids both by keeping no
-      more idle upstream connections than there are workers and closing them before
-      `idle_timeout` (the README says so).
+      while a response saying `Connection: close` races with nothing. So, with a client waiting on
+      the listener, a connection that has had its worker for a `TURN` (50ms) closes after its next
+      response, a turn each among busy clients (`requests_per_connection` alone lets a slow
+      handler's 100 requests keep a waiting client out for seconds); and for `CROWDED` (5s) after a
+      worker has had to close an idle connection, it closes every connection after its response,
+      waiting client or not, since its clients pause and a pause is when the next idle close would
+      come. A client that asks again within `HOT_GAP` (5ms) of a response is exempt from the second
+      rule and gets a `TURN` of patience when idle instead of the grace: a connection per request
+      costs such clients a good part of their throughput, and one that is late is late, not gone.
+      The last look at the client is just before the close, which cuts what the idle closes lose.
+      Tested by `http_turns_test.gaz` (the rules) and `HttpServerTest` (two clients taking turns on
+      one worker see one idle close in twenty turns; a busy connection on a 30ms handler gives way
+      within a second). `ponytail:` the first idle close of each crowded spell still races, as the
+      `idle_timeout` close always does; nothing short of the client saying when it will send next
+      would remove it. A proxy avoids both by keeping no more idle upstream connections than there
+      are workers and closing them before `idle_timeout` (the README says so). Whether a client is
+      waiting is a readable listener, which also holds for the instants before an idle sibling
+      accepts it, so a connection past its `TURN` can be closed for a client no worker lacked;
+      that costs one reconnect. A connection is closed after its `Connection: close` response
+      without draining, so a client that pipelined behind it gets a reset, not an orderly end; a
+      lingering close (a half-close and a short read) would lift that, and needs a builtin to
+      half-close.
     - **Up to four empty lines before a request line are skipped** (`MAX_EMPTY_LINES`), as RFC 9112
       asks of a server, bounded so a client can't hold a worker with them; a fifth is a 400.
     - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,
@@ -749,9 +753,8 @@ that must find nothing to do.
     on `php-fpm-ng`, an unrelated third-party reimplementation, not upstream FPM). In gaz they do
     retire together (an evenly spread load gives each worker the same count), but the hand-over
     (`worker_retire()`) means that no longer leaves the pool short; what is left is their start-up
-    work landing at once, which only matters to an app whose start-up is heavy (a staggered
-    hand-over, one replacement starting at a time, was tried: no better on the todo app's tail and
-    worse on a fast-recycling server's throughput). If it is ever wanted, it is library code: let
+    work landing at once, which only matters to an app whose start-up is heavy. If it is ever
+    wanted, it is library code: let
     `"max_requests"` take `[$min, $max]` and have each worker draw `rand_int($min, $max)` once; each
     worker is already reseeded from OS entropy by `fork_worker()`, so the draws differ.
   - **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)**,
