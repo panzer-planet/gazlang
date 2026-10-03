@@ -492,6 +492,9 @@ const SERVER_OPTIONS = {
 };
 const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
 const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
+const TURN = 0.05;           // seconds a connection keeps its worker from a waiting client, at least
+const HOT_GAP = 0.005;       // a client that asks again within this of a response is kept on
+const CROWDED = 5;           // seconds a worker hands over at responses after giving way while idle
 const OWN_CLIENT = 0;        // socket_wait()'s answer for an idle connection's own socket
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -529,10 +532,11 @@ kind Refusal extends Error {
  * - A connection is kept open for the next request (HTTP/1.1's keep-alive) unless the request is
  *   HTTP/1.0 or says Connection: close, it was refused or the handler failed (the bytes after it
  *   can't be trusted to start a request), the handler asked to close, or it was the connection's
- *   "requests_per_connection"th, the worker's last before "max_requests", or one while it retires
- *   (see serve()). Up to four empty lines before a request line are skipped. A connection that
- *   sends nothing, before its first request or between two, is closed without a word once its wait
- *   is over, or sooner when a new client is waiting for a worker (see another_request()).
+ *   "requests_per_connection"th, the worker's last before "max_requests", one while it retires
+ *   (see serve()), or one handed over to a client waiting for a worker (see Turns). Up to four
+ *   empty lines before a request line are skipped. A connection that sends nothing, before its
+ *   first request or between two, is closed without a word once its wait is over, or sooner when a
+ *   new client is waiting for a worker (see another_request()).
  * - Options: "timeout", seconds each read and write may wait, and a connection's first request
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
  *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
@@ -561,13 +565,14 @@ pub fn serve($listener, $handler, $options = {}) {
      * to, and it recycles at once.
      */
     $retiring = false;
+    $turns = Turns($listener);
     // Null once a worker is asked to stop: the request in hand has been answered
     while (($socket = socket_accept($listener, $options["timeout"])) != null) {
         $left = $max_requests == null ? null : $max_requests - $served;
         if ($retiring) {
             $left = 1;
         }
-        $served += connection($socket, $listener, $handler, $options, $left);
+        $served += connection($socket, $turns, $handler, $options, $left);
         if (!$retiring && $max_requests != null && $served >= $max_requests) {
             $retiring = true;
             if (!worker_retire()) {
@@ -584,29 +589,31 @@ pub fn serve($listener, $handler, $options = {}) {
  * One connection: its requests read and answered, and the connection closed, whatever happens
  */
 pub fn handle($socket, $handler, $options = {}) {
-    connection($socket, null, $handler, server_options($options), null);
+    connection($socket, Turns(null), $handler, server_options($options), null);
 }
 
 /*
  * Answer the requests on a connection, then close it, whatever happens; gives how many were
- * answered. $left is how many more this worker may answer (null: no limit), and $listener the
- * one it accepted from (null for handle()), which an idle connection will yield to.
+ * answered. $left is how many more this worker may answer (null: no limit), and $turns how the
+ * worker shares itself with the clients waiting on its listener (see Turns).
  */
-fn connection($socket, $listener, $handler, $options, $left) {
+fn connection($socket, $turns, $handler, $options, $left) {
     $most = $options["requests_per_connection"];
     if ($left != null) {
         $most = min($most, $left);
     }
     $answered = 0;
+    $accepted = monotonic_time();
     try {
         $reader = Reader($socket);
         $address = remote_address($socket);
         $keep = true;
         while ($keep) {
-            if ($answered > 0 && !another_request($reader, $socket, $listener, $options)) {
+            if ($answered > 0 && !another_request($reader, $socket, $turns, $options)) {
                 break;
             }
-            $answer = answer($reader, $socket, $handler, $address, $options, $answered + 1 == $most);
+            $last = $answered + 1 == $most || $turns.hands_over($accepted);
+            $answer = answer($reader, $socket, $handler, $address, $options, $last);
             if ($answer == null) {
                 break;
             }
@@ -629,45 +636,118 @@ fn connection($socket, $listener, $handler, $options, $left) {
  *
  * An idle connection would hold a whole worker, so the worker watches its listener too, and gives
  * the connection up when a new client is waiting there that no free worker takes: it gives its own
- * client YIELD_GRACE to say something first, then looks again, and a client still waiting means
- * none is free. The grace is between one and two times YIELD_GRACE, drawn by each worker (the
- * generator is seeded again in each), since idle workers that all looked again at the same moment
- * would all see the client still waiting and all give up their connections: with four idle workers
- * and one new client, two or three did, where one is enough. While a worker is free keep-alive
- * costs nothing, and when none is, a new client waits up to twice YIELD_GRACE more than it would
- * with a connection per request.
+ * client a grace to say something first, then looks again, and a client still waiting means none
+ * is free. The grace is between one and two times YIELD_GRACE, drawn by each worker (the generator
+ * is seeded again in each), since idle workers that all looked again at the same moment would all
+ * see the client still waiting and all give up their connections: with four idle workers and one
+ * new client, two or three did, where one is enough. A worker whose clients ask again at once
+ * (Turns.patience()) waits until the connection has been idle for a TURN, since such a client is
+ * likelier to be late than gone.
+ *
+ * Closing an idle connection races with a request its client sends at that moment, which then
+ * meets the end, or a reset, and no response: HTTP/1.1 has no way to say "don't" to an idle
+ * client. So the worker looks at its own client once more just before closing, which halves how
+ * often that happens, and closes at once; and having given way it hands over at responses instead
+ * for a while (Turns.hands_over()), where a Connection: close leaves nothing to race.
  *
  * ponytail: a request pipelined before a stop is still answered (bounded by
  * "requests_per_connection" and the master's grace), and a response written after a stop doesn't
  * say Connection: close; a worker_stopping() builtin would let it.
  */
-fn another_request($reader, $socket, $listener, $options) {
+fn another_request($reader, $socket, $turns, $options) {
     // The empty line some clients send after a body is not a request coming
     $reader.drop_empty_lines(MAX_EMPTY_LINES);
     if ($reader.pending()) {
         return true;
     }
-    $deadline = monotonic_time() + $options["idle_timeout"];
+    $idle = monotonic_time();
+    $deadline = $idle + $options["idle_timeout"];
+    $listener = $turns.listener;
     // OWN_CLIENT is this socket's place in the list
     $watched = $listener == null ? [$socket] : [$socket, $listener];
     while (true) {
         $left = $deadline - monotonic_time();
         if ($left <= 0) {
+            $turns.went_quiet();
             return false;
         }
         $ready = socket_wait($watched, $left);
         if ($ready == null) {
+            $turns.went_quiet();
             return false;
         }
         if ($ready == OWN_CLIENT) {
+            $turns.heard_after(monotonic_time() - $idle);
             return true;
         }
-        if (socket_wait([$socket], YIELD_GRACE * (1 + rand_float())) != null) {
+        $grace = max(YIELD_GRACE * (1 + rand_float()), $idle + $turns.patience() - monotonic_time());
+        if (socket_wait([$socket], $grace) != null) {
+            $turns.heard_after(monotonic_time() - $idle);
             return true;
         }
         if (socket_wait([$listener], 0) != null) {
+            // The last look, and the close right after it, to leave as little time as there can be
+            if (socket_wait([$socket], 0) != null) {
+                $turns.heard_after(monotonic_time() - $idle);
+                return true;
+            }
+            socket_close($socket);
+            $turns.gave_way();
             return false;
         }
+    }
+}
+
+/*
+ * How a worker shares itself between the connection it keeps open and the clients waiting on its
+ * listener for a worker (none for handle(), which has no listener). A worker answers one connection
+ * at a time, so a kept-open connection keeps every waiting client out until it closes, and the
+ * only moment to close it that races with nothing is a response, which can say Connection: close.
+ * So that is where it is given up (hands_over()) when a client is waiting and it has had a TURN,
+ * which is a turn each among busy clients, and when the worker has had to give an idle connection
+ * up lately (CROWDED) and its clients pause before asking again, which is when an idle connection
+ * would otherwise be given up while idle, in the race another_request() describes. A client that
+ * asks again within HOT_GAP keeps its connection: a connection per request would cost such
+ * clients a third of their throughput (measured with wrk), and they are the ones least likely to
+ * be idle when a worker is needed.
+ */
+kind Turns {
+    // Whether this worker's last kept-open client asked again within HOT_GAP
+    #hot = true;
+    // When this worker last gave an idle connection up to a waiting client
+    #gave_way_at = null;
+
+    fn _(pub #listener) {
+    }
+
+    // Whether the response about to be written on a connection accepted at $accepted closes it
+    pub fn hands_over($accepted) {
+        if (#listener == null) {
+            return false;
+        }
+        $now = monotonic_time();
+        if (!#hot && #gave_way_at != null && $now - #gave_way_at < CROWDED) {
+            return true;
+        }
+        return $now - $accepted >= TURN && socket_wait([#listener], 0) != null;
+    }
+
+    // How long an idle connection is kept from a waiting client, at least
+    pub fn patience() {
+        return #hot ? TURN : 0;
+    }
+
+    pub fn heard_after($seconds) {
+        #hot = $seconds < HOT_GAP;
+    }
+
+    pub fn went_quiet() {
+        #hot = false;
+    }
+
+    pub fn gave_way() {
+        #hot = false;
+        #gave_way_at = monotonic_time();
     }
 }
 

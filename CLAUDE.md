@@ -699,20 +699,43 @@ that must find nothing to do.
       default in a prefork pool, where each idle connection would otherwise hold a whole worker for
       `idle_timeout` (a browser opens up to six). Between requests (never before a connection's
       first) a worker waits on its socket and its listener together; when the listener is ready it
-      gives its own client between one and two times `YIELD_GRACE` (10ms), then looks at the
-      listener again: a client still queued means no worker is free, so it closes the idle
-      connection quietly and returns to `socket_accept()`; one gone means a free worker took it,
+      gives its own client between one and two times `YIELD_GRACE` (10ms; at least a `TURN` from
+      the response if its clients ask again at once, see below), then looks at the listener again:
+      a client still queued means no worker is free, so it closes the idle connection quietly and
+      returns to `socket_accept()`; one gone means a free worker took it,
       and it waits out the rest of its idle time (a deadline, not a fresh wait each time round).
       The grace is drawn by each worker because idle workers that look again together all see the
       client still queued and all give up their connections (with four idle workers and one new
       client, 2.4 on average did, where one is enough; with the draw 1.25). Free capacity makes
       keep-alive cost nothing; without it the worst case is a connection per request plus up to
       20ms.
-      `http::handle()` has no listener and waits on its socket alone. `ponytail:` closing an idle
-      connection races with a request its client sends at that moment, which then sees a reset (a
-      browser retries it; `wrk` counts a read error): rare, more often when the machine is so busy
-      that a client takes over `YIELD_GRACE` to send its next request, as when replacements start
-      during a hand-over under a saturating benchmark.
+      `http::handle()` has no listener and waits on its socket alone.
+    - **A connection is handed over at a response where it can be** (`Turns` in `http.gaz`, one per
+      worker), since closing an idle one races with a request its client sends at that moment, which
+      then meets the end or a reset and no response (a browser resends; `wrk` counts a read error, a
+      proxy may not resend a POST), and HTTP/1.1 has no way to tell an idle client not to send,
+      while a response saying `Connection: close` races with nothing. Idle closes alone lost 1
+      request in 25 for a harness of 16 clients pausing 0 to 20ms between requests on 4 workers. So,
+      with a client waiting on the listener, a connection that has had its worker for a `TURN`
+      (50ms) closes after its next response, a turn each among busy clients
+      (`requests_per_connection` alone lets a slow handler's 100 requests keep a waiting client out
+      for seconds); and for `CROWDED` (5s) after a worker has had to close an idle connection, it
+      closes every connection after its response, waiting client or not, since its clients pause and
+      a pause is when the next idle close would come. A client that asks again within `HOT_GAP`
+      (5ms) of a response is exempt from the second rule and gets a `TURN` of patience when idle
+      instead of the grace: a connection per request costs such clients a third of their throughput
+      (`wrk`), and one that is late is late, not gone. With these the harness lost none of 77,000
+      requests (the minimal server and `apps/todo`) and 3 of 77,000 on a machine kept busy, against
+      some 1 in 25 before, at the same throughput and tail under `wrk` (4 and 16 connections);
+      with a 1s spell instead of 5 it lost 5 of 88,000 on a quiet machine, the spells ending often
+      enough for idle closes to come back. The last look at the client is just before the close,
+            which halved what the idle closes lost. Tested by `http_turns_test.gaz` (the rules) and
+      `HttpServerTest` (two clients taking turns on one worker see one idle close in twenty turns; a
+      busy connection on a 30ms handler gives way within a second). `ponytail:` the first idle close
+      of each crowded spell still races, as the `idle_timeout` close always does; nothing short of
+      the client saying when it will send next would remove it. A proxy avoids both by keeping no
+      more idle upstream connections than there are workers and closing them before
+      `idle_timeout` (the README says so).
     - **Up to four empty lines before a request line are skipped** (`MAX_EMPTY_LINES`), as RFC 9112
       asks of a server, bounded so a client can't hold a worker with them; a fifth is a 400.
     - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,

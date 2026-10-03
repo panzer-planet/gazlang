@@ -282,8 +282,9 @@ answering one request at a time.
 What it is not, today: there are no threads inside a worker (Puma's other half) and no event loop
 (Node's), so the pool's size is how many requests run at once, and the pool is a fixed size
 rather than growing under load (FPM's `pm = dynamic`). A connection is kept open for the client's
-next request (HTTP/1.1's keep-alive), up to 5 seconds idle, and given up at once when a new client
-would otherwise wait for a worker. There's no TLS on the server side, so
+next request (HTTP/1.1's keep-alive), up to 5 seconds idle, and given up when a new client would
+otherwise wait for a worker, after a response that says so where it can, so that no request is
+caught by the close. There's no TLS on the server side, so
 put nginx or Caddy in front for HTTPS, as you would in front of FPM. The same proxy is your
 protection against slow clients: one that opens a connection and trickles bytes holds a worker
 until the request's 30 second deadline, so a proxy that buffers whole requests before passing them

@@ -1080,6 +1080,7 @@ tests/gaz/lib/http_remote_address_test.gaz
 tests/gaz/lib/http_serve_static_test.gaz
 tests/gaz/lib/http_session_test.gaz
 tests/gaz/lib/http_sessions_test.gaz
+tests/gaz/lib/http_turns_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/lists_test.gaz
 tests/gaz/lib/random_test.gaz

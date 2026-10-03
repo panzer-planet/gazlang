@@ -1,0 +1,44 @@
+/*
+ * When a worker gives a kept-open connection up at a response (http::Turns): a connection that has
+ * had its TURN while a client waits, or any connection of a pausing client's for a while after the
+ * worker had to give an idle one up. The whole server is HttpServerTest's; these are the rules.
+ */
+namespace http;
+
+import "lib/http.gaz";
+import "std/test.gaz" use expect;
+
+$listener = socket_listen("127.0.0.1", 0);
+$long_ago = monotonic_time() - 2 * TURN;
+
+$none = Turns(null);
+expect("without a listener nothing is handed over", $none.hands_over($long_ago), false);
+$none.gave_way();
+expect("not even after giving way", $none.hands_over($long_ago), false);
+
+$turns = Turns($listener);
+expect("a fresh worker is patient with an idle connection for a TURN", $turns.patience(), TURN);
+expect("with nobody waiting a connection is kept, however long it has had", $turns.hands_over($long_ago), false);
+
+// A client waiting for a worker: connected, not accepted
+$waiting = socket_open("127.0.0.1", socket_port($listener));
+expect("with a client waiting a connection that has had its turn is handed over", $turns.hands_over($long_ago), true);
+expect("one that hasn't is kept", $turns.hands_over(monotonic_time()), false);
+socket_close(socket_accept($listener));
+socket_close($waiting);
+
+$turns.gave_way();
+expect("having given way, a worker hands over at once, with nobody waiting", $turns.hands_over(monotonic_time()), true);
+expect("and is not patient with an idle connection", $turns.patience(), 0);
+$turns.heard_after(HOT_GAP / 2);
+expect("unless its client asked again at once", $turns.hands_over(monotonic_time()), false);
+expect("which it is patient with again", $turns.patience(), TURN);
+$turns.heard_after(HOT_GAP);
+expect("a client that paused is handed over again", $turns.hands_over(monotonic_time()), true);
+
+$quiet = Turns($listener);
+$quiet.went_quiet();
+expect("a connection that went quiet makes a worker impatient", $quiet.patience(), 0);
+expect("but hands nothing over while it hasn't had to give way", $quiet.hands_over(monotonic_time()), false);
+
+socket_close($listener);

@@ -1,0 +1,13 @@
+ok without a listener nothing is handed over
+ok not even after giving way
+ok a fresh worker is patient with an idle connection for a TURN
+ok with nobody waiting a connection is kept, however long it has had
+ok with a client waiting a connection that has had its turn is handed over
+ok one that hasn't is kept
+ok having given way, a worker hands over at once, with nobody waiting
+ok and is not patient with an idle connection
+ok unless its client asked again at once
+ok which it is patient with again
+ok a client that paused is handed over again
+ok a connection that went quiet makes a worker impatient
+ok but hands nothing over while it hasn't had to give way

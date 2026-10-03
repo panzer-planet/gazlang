@@ -1798,14 +1798,20 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   order when several come at once. It closes after a response that says `Connection: close`, which
   is one to an HTTP/1.0 request or to one that says `Connection: close`, one the server refused or
   a handler failed (the bytes after it can't be trusted to start a request), one whose handler
-  asked, the connection's `requests_per_connection`th, the worker's last before `max_requests`, and
-  any while it retires.
+  asked, the connection's `requests_per_connection`th, the worker's last before `max_requests`, any
+  while it retires, and one handed over to a client waiting for a worker (below).
   It also closes, without a word, when the client sends nothing for `idle_timeout` seconds, or
   `timeout` before its first request, or the worker is asked to stop. Up to four empty lines before
   a request line are skipped.
-- While a connection is idle its worker watches the listener too: when a new client is waiting and
-  no other worker takes it within 10 milliseconds, the idle connection is closed and the new client
-  answered, so open connections never keep a small pool of workers from serving.
+- Open connections never keep a small pool of workers from serving. When a new client is waiting
+  for a worker, a connection that has had its worker for 50 milliseconds closes after its next
+  response, and an idle one is closed, without a word, once no other worker has taken the new
+  client within 10 to 20 milliseconds (50 if its client had been asking again at once). Closing an
+  idle connection can meet a request its client sends at that very moment, which then gets no
+  response (a browser sends it again; a benchmark counts an error), while a response that says
+  `Connection: close` meets nothing; so for 5 seconds after a worker has had to close an idle
+  connection, it closes each connection after its response instead, unless the client asked again
+  at once.
 - A request that isn't well formed never reaches the handler: 400 (a bad request line or header
   line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
   408 (the request took longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other

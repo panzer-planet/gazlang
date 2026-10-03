@@ -750,6 +750,87 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
+    /**
+     * Whether the server has closed a connection its client isn't using, as a browser looks before
+     * sending on one it kept
+     *
+     * @param  resource  $socket
+     */
+    private static function closedWhileIdle($socket): bool
+    {
+        stream_set_blocking($socket, false);
+        $ended = fread($socket, 1) === '' && feof($socket);
+        stream_set_blocking($socket, true);
+
+        return $ended;
+    }
+
+    public function test_once_a_worker_has_given_way_it_hands_connections_over_at_their_responses()
+    {
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}');
+        try {
+            /*
+             * Two clients take turns on one worker, each asking again only once the other has its
+             * answer, so each is idle while the other waits. Closing an idle connection races with
+             * a request its client sends at that moment, which then gets no response, while a
+             * response that says Connection: close races with nothing. So the worker cuts one idle
+             * connection, to let the first waiting client in, and from then on gives each up at
+             * a response.
+             */
+            $clients = [null, null];
+            $cut = 0;
+            for ($round = 0; $round < 20; $round++) {
+                $mine = $round % 2;
+                if ($clients[$mine] !== null && self::closedWhileIdle($clients[$mine])) {
+                    $cut++;
+                    fclose($clients[$mine]);
+                    $clients[$mine] = null;
+                }
+                $clients[$mine] ??= self::connect($port);
+                fwrite($clients[$mine], "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($clients[$mine]));
+                $this->assertSame(200, $response['status']);
+                if (($response['headers']['connection'] ?? '') === 'close') {
+                    fclose($clients[$mine]);
+                    $clients[$mine] = null;
+                }
+            }
+            $this->assertSame(1, $cut, 'idle connections cut in 20 turns');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_busy_connection_gives_way_to_a_waiting_client_after_its_turn()
+    {
+        // One worker, each request taking 30ms: a hundred to a connection would be three seconds
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}', '$r -> { sleep(0.03); return {"body" => "ok"}; }');
+        try {
+            $busy = self::keptOpen($port);
+            $waiting = self::connect($port);
+            fwrite($waiting, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+            $start = microtime(true);
+            // The busy client asks again as soon as it has its answer, until it is told it closes
+            $closed = false;
+            for ($asked = 0; ! $closed && $asked < 100; $asked++) {
+                fwrite($busy, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($busy));
+                $this->assertSame(200, $response['status']);
+                $closed = ($response['headers']['connection'] ?? '') === 'close';
+            }
+            fclose($busy);
+            $this->assertTrue($closed, 'the busy connection was never handed over');
+            $this->assertSame(200, self::response(self::readResponse($waiting))['status']);
+            fclose($waiting);
+            // A TURN (50ms) and a request or two, with room for a busy machine
+            $this->assertLessThan(1, microtime(true) - $start, "the waiting client was answered after the busy one had {$asked}");
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
     public function test_max_requests_counts_the_requests_on_one_connection()
     {
         $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
