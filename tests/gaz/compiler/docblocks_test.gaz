@@ -1,0 +1,133 @@
+// compiler/docblocks.gaz: the declarations of a source and the docblocks right above them
+namespace gazlang;
+
+import "compiler/docblocks.gaz";
+import "std/test.gaz" use expect;
+
+const SOURCE = '/**
+ * Shapes, for the test.
+ *
+ *     $x = shapes::area(2);
+ */
+namespace shapes;
+
+/** Not the area: a blank line follows */
+
+/** The area of a square
+ * of side $n */
+pub fn area(int $n, $options = {"round" => true}): int {
+    $text = "/** not a docblock */";
+    return $n * $n;
+}
+
+/**
+ * The first of two
+ */
+/**
+ * The second, right above
+ */
+fn helper() {}
+
+/**/
+pub const EMPTY = 1;
+
+/**
+ * A docblock that holds /* as text
+ */
+pub const OPEN = 2;
+
+/**
+ * A docblock above a plain comment
+ */
+// which is right above instead
+pub const NOTE = 3;
+
+$x = 1; /** after code */
+pub const AFTER = 4;
+
+/**
+ * A shape
+ */
+pub abstract kind Shape {
+    /** Its name */
+    pub string #name = "x";
+    #secret;
+    /** How many were made */
+    pub static #made = 0;
+    kin const SIDES = {"a" => 1};
+
+    /** Makes one */
+    fn _(pub #size) {}
+
+    /** Grows it */
+    pub fn grow($by = 1): Shape { return #; }
+    /** One of side 1 */
+    pub static fn unit() { return Shape(1); }
+    /** Draws it */
+    pub abstract fn draw();
+}
+
+/** A doc for what is not a declaration */
+echo "x";
+
+/** Separated by a blank line */
+
+pub const LOOSE = 5;
+
+pub const QUOTED = "a
+/** in a string */";
+pub const AFTER_STRING = 6;
+';
+
+// A declaration as "what owner.name pub line: signature | doc"
+fn describe(Declaration $d): string {
+    $owner = $d.owner == null ? "" : "{$d.owner}.";
+    $pub = $d.pub ? " pub" : "";
+    $doc = $d.doc == null ? "null" : replace($d.doc, "\n", " / ");
+
+    return "{$d.what} {$owner}{$d.name}{$pub} {$d.line}: {$d.signature} | {$doc}";
+}
+
+$outline = outline(SOURCE);
+expect("the namespace", $outline.namespace, "shapes");
+expect("the overview, its example kept indented", $outline.overview, "Shapes, for the test.\n\n    \$x = shapes::area(2);");
+expect("every declaration, with the docblock right above it", map($outline.declarations, describe), [
+    "function area pub 12: pub fn area(int \$n, \$options = {\"round\" => true}): int | The area of a square / of side \$n",
+    "function helper 23: fn helper() | The second, right above",
+    "constant EMPTY pub 26: pub const EMPTY = 1; | null",
+    "constant OPEN pub 31: pub const OPEN = 2; | A docblock that holds /* as text",
+    "constant NOTE pub 37: pub const NOTE = 3; | null",
+    "constant AFTER pub 40: pub const AFTER = 4; | null",
+    "kind Shape pub 45: pub abstract kind Shape | A shape",
+    "field Shape.name pub 47: pub string #name = \"x\"; | Its name",
+    "field Shape.secret 48: #secret; | null",
+    "static field Shape.made pub 50: pub static #made = 0; | How many were made",
+    "constant Shape.SIDES 51: kin const SIDES = {\"a\" => 1}; | null",
+    "constructor Shape._ 54: fn _(pub #size) | Makes one",
+    "method Shape.grow pub 57: pub fn grow(\$by = 1): Shape | Grows it",
+    "static method Shape.unit pub 59: pub static fn unit() | One of side 1",
+    "method Shape.draw pub 61: pub abstract fn draw(); | Draws it",
+    "constant LOOSE pub 69: pub const LOOSE = 5; | null",
+    "constant QUOTED pub 71: pub const QUOTED = \"a\n/** in a string */\"; | null",
+    "constant AFTER_STRING pub 73: pub const AFTER_STRING = 6; | null",
+]);
+
+// Line endings of either kind give the same text
+$crlf = outline(replace(SOURCE, "\n", "\r\n"));
+expect("CRLF line endings", map($crlf.declarations, $d -> $d.doc), map($outline.declarations, $d -> $d.doc));
+expect("CRLF overview", $crlf.overview, $outline.overview);
+
+// No namespace line: the first docblock is the first declaration's, not an overview
+$plain = outline("/** Adds */\nfn add(\$a, \$b) { return \$a + \$b; }\n");
+expect("no namespace", $plain.namespace, null);
+expect("no overview without a namespace line", $plain.overview, null);
+expect("a docblock on the first line", $plain.declarations[0].doc, "Adds");
+
+// Source the lexer refuses is outlined up to its mistake
+$broken = outline("/** Kept */\nfn kept() {}\n\$s = \"unterminated\n");
+expect("what is above a lexer error", map($broken.declarations, $d -> $d.name), ["kept"]);
+expect("a declaration cut off by the end", map(outline("pub fn").declarations, $d -> $d.name), []);
+
+// A template is markup, not GazLang
+expect("a template declares nothing", outline_of_file("tests/gaz/templates/views/card.gazml").declarations, []);
+expect("a file of GazLang", outline_of_file("lib/csv.gaz").namespace, "csv");

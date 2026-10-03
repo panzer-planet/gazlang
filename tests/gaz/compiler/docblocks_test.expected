@@ -1,0 +1,12 @@
+ok the namespace
+ok the overview, its example kept indented
+ok every declaration, with the docblock right above it
+ok CRLF line endings
+ok CRLF overview
+ok no namespace
+ok no overview without a namespace line
+ok a docblock on the first line
+ok what is above a lexer error
+ok a declaration cut off by the end
+ok a template declares nothing
+ok a file of GazLang
