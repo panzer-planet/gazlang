@@ -1,4 +1,4 @@
-/*
+/**
  * Documentation comments ("docblocks") and the declarations they document, read from source
  * with the compiler's own lexer, so a comment is told from a string exactly. A docblock is a
  * block comment opened by a slash and two stars, followed by anything but the closing slash (an
@@ -29,7 +29,7 @@ const CLOSERS = ["RIGHT_PAREN", "RIGHT_BRACKET", "RIGHT_BRACE"];
 // The tokens after which a statement, or a member of a kind, starts
 const STATEMENT_ENDS = ["SEMICOLON", "LEFT_BRACE", "RIGHT_BRACE"];
 
-/*
+/**
  * A declaration of a file: a function, kind or constant at the top level, or a member of a kind
  * (with #owner the kind's name). $signature is its source from its first word up to its body,
  * or to the end of the statement for one without; $line the line its first word is on; $doc
@@ -56,7 +56,7 @@ pub kind Declaration {
     ) {}
 }
 
-/*
+/**
  * What a file declares: its namespace (null without one), its overview (the first docblock of
  * the file, before its namespace line), its declarations in source order, and the paths its
  * imports name, as written
@@ -65,12 +65,16 @@ pub kind Outline {
     fn _(pub ?string #namespace, pub ?string #overview, pub list #declarations, pub list #imports = []) {}
 }
 
-// The outline of GazLang source
+/**
+ * The outline of GazLang source
+ */
 pub fn outline(string $source): Outline {
     return OutlineReader($source).read();
 }
 
-// The outline of the file at $path; a template (.gazml), being markup, declares nothing here
+/**
+ * The outline of the file at $path; a template (.gazml), being markup, declares nothing here
+ */
 pub fn outline_of_file(string $path): Outline {
     if (!ends_with($path, ".gaz")) {
         return Outline(null, null, []);

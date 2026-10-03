@@ -71,6 +71,63 @@ class EditorGrammarTest extends GazLangTestCase
         }
     }
 
+    /**
+     * A docblock is scoped as documentation, and the empty comment written with two stars and a
+     * plain block comment are not: the first of the comment rules that matches at the start wins,
+     * as in an editor
+     */
+    public function test_it_scopes_a_docblock_as_documentation()
+    {
+        $plist = simplexml_load_string((string) file_get_contents(self::GRAMMAR));
+        $this->assertNotFalse($plist);
+        $repository = self::plistValue($plist->dict)['repository'];
+        $scopeOf = function (string $text) use ($repository): ?string {
+            foreach ($repository['comments']['patterns'] as $pattern) {
+                $rule = isset($pattern['include']) ? $repository[substr($pattern['include'], 1)] : $pattern;
+                if (preg_match('#^(?:'.($rule['begin'] ?? $rule['match']).')#', $text)) {
+                    return $rule['name'];
+                }
+            }
+
+            return null;
+        };
+
+        $this->assertSame('comment.block.documentation.gaz', $scopeOf("/**\n * Adds\n */"));
+        $this->assertSame('comment.block.documentation.gaz', $scopeOf('/** Adds */'));
+        $this->assertSame('comment.block.gaz', $scopeOf('/**/'));
+        $this->assertSame('comment.block.gaz', $scopeOf('/* plain */'));
+        $this->assertSame('comment.line.double-slash.gaz', $scopeOf('// line'));
+    }
+
+    /**
+     * A property list's value as PHP's: a dict a map, an array a list, a string itself
+     */
+    private static function plistValue(\SimpleXMLElement $node): mixed
+    {
+        if ($node->getName() === 'array') {
+            $values = [];
+            foreach ($node->children() as $child) {
+                $values[] = self::plistValue($child);
+            }
+
+            return $values;
+        }
+        if ($node->getName() !== 'dict') {
+            return (string) $node;
+        }
+        $map = [];
+        $key = null;
+        foreach ($node->children() as $child) {
+            if ($child->getName() === 'key') {
+                $key = (string) $child;
+            } else {
+                $map[$key] = self::plistValue($child);
+            }
+        }
+
+        return $map;
+    }
+
     public function test_the_template_grammar_names_exactly_the_directives()
     {
         $grammar = (string) file_get_contents(self::ROOT.'/editors/gazml/gazml.tmLanguage');

@@ -211,7 +211,7 @@ kind Site {
         #add_chain($pages, $titles);
     }
 
-    // What renders the comments of a file of the library, its links going where the docs' go
+    // What renders the docblocks of a file of the library, its links going where the docs' go
     fn comment_renderer(string $source): markdown::Renderer {
         $renderer = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code), false);
         $root = root_of(LIBRARY_INDEX);

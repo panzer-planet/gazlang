@@ -80,6 +80,11 @@ composer ci                         # what CI runs, cold: phpstan with no result
   rule or step they read (`get_next_token()`, `function_call()`, `binary()`).
   A comment of more than one line is a `/* */` block (` * ` down the side), not stacked `//` lines;
   `//` is for one line, or a note after code.
+  **A `pub` name's documentation is a docblock**: `/**` alone on its first line, ` * ` down the
+  side, ` */` last, Markdown (no `@param` tags: the signature has the names and types), right
+  above the declaration, and a file's overview the first one, above its `namespace` line. Tools
+  read it (the website, the language server); a plain comment stays the source's. `lib/` is
+  complete and the site's build holds it so; other code changes when it is worked on.
   **Clean code over dense code**: a kind for each concept rather than a list read by position
   (`Task("Write the VM", 3, 10)`, not `[name, done, total]` and `$t[1]`), small methods named for
   what they do (`select_next()`, `advance()`), named constants for layout and other magic
@@ -102,7 +107,7 @@ composer ci                         # what CI runs, cold: phpstan with no result
 ## Layout
 
 - `compiler/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into
-  GazLang), `codegen.gaz`, and `gazlang.gaz`, the
+  GazLang), `codegen.gaz`, `docblocks.gaz` (see "Docblocks"), and `gazlang.gaz`, the
   driver: `gazlang.gaz -- code|tokens|ast [FILE]`, reading standard input without a FILE, a
   usage message and exit 2 otherwise. `gazlang.gzb` is its bytecode.
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
@@ -382,24 +387,25 @@ that must find nothing to do.
   (`textDocument/didOpen`/`didChange` reparses the whole document, full sync, and
   `publishDiagnostics` the first error, the document taken as the main file, so a module opened
   alone is checked by its own imports as the compiler checks it; one in an imported file is shown
-  at the document's import of it, or its first line when reached through another file), hover (a builtin's arity from `builtins()`, or a
-  declared function's parameters found by scanning the document's own text for `fn name(...)`),
-  go-to-definition (the same textual search, followed across the document's own `import`
-  lines — resolved by the compiler's own rules, `import_target()` and `project_root()` in
+  at the document's import of it, or its first line when reached through another file), hover (a builtin's arity from `builtins()`, or
+  a function's, kind's or constant's signature as written and its docblock, as Markdown),
+  go-to-definition (the same search, followed across the document's own `import`
+  statements — resolved by the compiler's own rules, `import_target()` and `project_root()` in
   `parser.gaz`, and only into files that exist on disk, so a `std/` import isn't chased — cycles ended by a
   set of real paths already visited on that branch), and completion (every keyword worth
   completing: `Lexer::KEYWORDS` in its order, skipping the ones the parser only refuses,
   `Parser::RESERVED` and `Parser::REMOVED` (`include`), so a new keyword is offered by itself, which `LspTest` checks against
-  the lexer's table; every builtin with its arity; every function the
+  the lexer's table; every builtin with its arity; every function, kind and constant the
   document can reach by name, itself and what it imports, directly or not (further than the
   compiler lets it see, so a completion can nudge toward an import), each once even if declared reachably
-  more than once; no filtering by what is typed, which editors do themselves; inside the string
+  more than once, a docblock's first line as its `detail` and the whole as its `documentation`; no filtering by what is typed, which editors do themselves; inside the string
   of an `import`, the `.gaz` and `.gazml` files and folders it could name instead, from the file's own
   directory after `./` and from its project root otherwise, `std/` having no directory to list) and
   document links (each `import` path links to the file it names, `std/` and missing files left out)
-  are done; textual,
-  not from the parsed tree, since the tree doesn't exist while the document has an unrelated
-  syntax error, which is the common case mid-edit. Nothing else is planned yet; add what a real
+  are done. Declarations, docblocks and imports come from `compiler/docblocks.gaz`, the lexer's
+  reading, not from the parsed tree, since the tree doesn't exist while the document has an unrelated
+  syntax error, which is the common case mid-edit (the lexer reads up to its own first error); each
+  file's outline is kept until its text changes, so a hover lexes only what changed. Nothing else is planned yet; add what a real
   session of using it shows is missing. It is `namespace gazlang`, not its own, reusing the
   compiler's own `Lexer` and `Parser` as a test of the internals does (see "Modules and namespaces" and
   `tests/LspTest.php`), rather than making them `pub` for one caller. Framing a message needs an
@@ -432,14 +438,16 @@ that must find nothing to do.
 - **The website** is built by gaz: `bin/gaz site/build.gaz` (from the root; into `site/dist`,
   gitignored; open `site/dist/index.html`, or `php -S localhost:8000 -t site/dist`) makes the home
   page from the README, a reference page per `##` section of `docs/language.md`, a page per
-  `lib/*.gaz` from its `pub` names and the comments above them (read from the source, so it can't
-  drift and a new file appears by itself), and `docs/bytecode.md` and `docs/internals.md`. Pages
+  `lib/*.gaz` from its `pub` names and the docblocks above them (read from the source by
+  `compiler/docblocks.gaz`, so it can't drift and a new file appears by itself), and `docs/bytecode.md` and `docs/internals.md`. Pages
   are `.gazml` templates (`site/templates/`), so escaping is the templates' and not remembered
   at each concatenation; a link's scheme must be http, https or mailto, anything else leaves its
-  text. **The library's comments are Markdown as the docs are**, through the same converter and
+  text. **The library's docblocks are Markdown as the docs are**, through the same converter and
   links, except that a backslash is always itself (`"\"` in a regex comment means a backslash),
-  and an example indented under a blank line is GazLang code. `.github/workflows/pages.yml`
-  publishes it.
+  and an example indented under a blank line is GazLang code. **Every name a library page lists
+  needs a docblock** (`verify::undocumented()`): one without fails the build, naming the page and
+  the line to write it at, so the library can't drift from its pages; a plain comment isn't shown.
+  `.github/workflows/pages.yml` publishes it.
   **GazLang is highlighted by the compiler's own lexer** (`Lexer.span()` says where each token
   lies), so a colour can't disagree with the language, and every piece is cut from the source
   rather than printed from a token, so whitespace, comments and escapes come out as written:
@@ -2218,6 +2226,18 @@ try {
   did once, so a region holding a comment could be commented out, and in 900 block comments
   nothing used it while globs and paths in doc comments kept tripping it; commenting code out is
   `//` on each line. An unterminated one is an error at the line it opened on.
+- **Docblocks**: a block comment opened by `/**` (not the empty `/**/`) on the lines right above a
+  declaration, no blank line between, documents it. **A convention, not syntax**: the lexer skips
+  it as any comment, nothing reaches the bytecode and nothing reads it at run time, so no program
+  can depend on its documentation. `compiler/docblocks.gaz` is the one reader, `pub` in
+  `namespace gazlang` for the website and the language server, on the compiler's lexer so a `/**`
+  in a string is never one; the compiler never imports it, so the seed doesn't change with it. It
+  gives a file's namespace, overview (the first docblock, above its `namespace` line), imports and
+  declarations (top level and a kind's members, each with whether it is `pub`, its signature as
+  written, its line and its docblock's text without the ` * ` margin). One across a blank line, or
+  with a plain comment between, documents nothing: "right above" is the one rule a reader can see.
+  Markdown only, no tags. `editors/gaz/gaz.tmLanguage` scopes one as
+  `comment.block.documentation.gaz`; the site's highlighter shows it as any comment.
 - **Keywords are lowercase and exact**, so `kind If`, `fn Return()` and `kind Match` are
   ordinary names, which a self-hosted AST wants. PHP matches keywords *and* names
   case-insensitively; matching only keywords that way was its wart without its rule. A

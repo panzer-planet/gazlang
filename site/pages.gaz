@@ -103,7 +103,7 @@ kind EntryView {
 }
 
 /*
- * A file of the library as its pages show it. Its comments are Markdown, rendered as the docs
+ * A file of the library as its pages show it. Its docblocks are Markdown, rendered as the docs
  * are, links going through the same Linker, except that a backslash is always itself: they are
  * written for readers of the source (a regex's "\" means a backslash).
  */
@@ -192,7 +192,7 @@ fn library_navigation(list $libraries, ?int $current): list {
     return $items;
 }
 
-// A comment of the library's source as HTML, its examples highlighted
+// A docblock of the library's source as HTML, its examples highlighted
 fn comment_html(markdown::Renderer $renderer, string $comment): Html {
     if ($comment == "") {
         return Html("");

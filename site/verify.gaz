@@ -1,4 +1,4 @@
-/*
+/**
  * Checks a site before it is published. The site is a map from each file's path
  * ("reference/values.html") to its text, and in each page:
  *
@@ -44,7 +44,9 @@ kind OpenTag {
     fn _(pub string #name, pub int #line) {}
 }
 
-// The problems with a site's pages, in file and line order; none means all is well
+/**
+ * The problems with a site's pages, in file and line order; none means all is well
+ */
 pub fn site(map $files): list {
     $ids = {};
     foreach ($files as $path => $text) {
@@ -65,7 +67,7 @@ pub fn site(map $files): list {
     return $problems;
 }
 
-/*
+/**
  * The names a library page lists with no docblock above them, each "page: problem": the file of
  * the library is $library, read from $source, and its page is $page
  */
@@ -90,7 +92,9 @@ fn missing_docblock(library::Entry $entry, string $name, string $page, string $s
     return ["{$page}: {$name} has no docblock: write one above it, at {$source}:{$entry.line}"];
 }
 
-// Whether a URL is to another site
+/**
+ * Whether a URL is to another site
+ */
 pub fn is_external(string $url): bool {
     foreach (EXTERNAL as $start) {
         if (starts_with($url, $start)) {
@@ -155,7 +159,7 @@ fn split_anchor(string $url): list {
     return [slice($url, 0, $hash), slice($url, $hash + 1)];
 }
 
-/*
+/**
  * A relative path from the file at $from as a path from the site's root, or null for one that
  * climbs out of the site
  */

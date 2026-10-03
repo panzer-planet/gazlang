@@ -607,6 +607,30 @@ it, though, so a glob such as `**` followed by a slash can't be written in one. 
 code that has a block comment in it, put `//` on each line. An unterminated block comment is an error
 at the line it opened on.
 
+### Documentation comments
+
+A block comment that opens with `/**` (and isn't the empty `/**/`) on the lines right above a
+declaration, with no blank line between, is that declaration's **docblock**: its documentation,
+for the reader rather than the program. It is a convention that tools read, not part of the
+language: nothing of it reaches the program, and a running program can't see it. Its text is
+Markdown, written with `*` down the side, and an example is indented under a blank line:
+
+```gaz
+/**
+ * The price with VAT added, rounded to cents.
+ *
+ *     echo with_vat(100);         // 115.0
+ */
+pub fn with_vat(int|float $price): float {
+    return round($price * 1.15, 2);
+}
+```
+
+The website's pages of the standard library show each `pub` name's docblock (and a file's first
+docblock, above its `namespace` line, as its overview), and the language server shows them on
+hover and in completion. A plain comment stays the source's own. Since `*/` ends any block
+comment, it can't appear in a docblock's text.
+
 ## Names
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match

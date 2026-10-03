@@ -38,7 +38,7 @@ itself needs neither.
 
 | Path | What it does |
 | --- | --- |
-| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
+| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, `docblocks.gaz` (a file's declarations and their docblocks, for the website and the language server; the compiler never imports it), and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
 | `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
 | `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and imported as `std/json.gaz` |
 | `examples/` | sample programs, which nothing tests |
@@ -204,5 +204,6 @@ open in the language is in [CLAUDE.md](../CLAUDE.md) under "Status and what is n
 ## Style
 
 GazLang in `compiler/` and `lib/`: functions and variables snake_case, kinds PascalCase,
-constants UPPERCASE. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
+constants UPPERCASE. A `pub` name's documentation is a docblock (see [documentation comments](language.md#documentation-comments)),
+and the website's build fails on a name of `lib/` without one. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
 PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and methods.

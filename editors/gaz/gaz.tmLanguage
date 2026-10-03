@@ -93,9 +93,24 @@
 				</dict>
 				<dict>
 					<key>include</key>
+					<string>#docblock</string>
+				</dict>
+				<dict>
+					<key>include</key>
 					<string>#block-comment</string>
 				</dict>
 			</array>
+		</dict>
+		<!-- A docblock opens with two stars and then anything but the closing slash, so the empty
+		     comment written with two stars stays a plain one. Tools read it, the language doesn't. -->
+		<key>docblock</key>
+		<dict>
+			<key>name</key>
+			<string>comment.block.documentation.gaz</string>
+			<key>begin</key>
+			<string>/\*\*(?!/)</string>
+			<key>end</key>
+			<string>\*/</string>
 		</dict>
 		<!-- Block comments don't nest: the first closer ends one, as in the lexer. -->
 		<key>block-comment</key>

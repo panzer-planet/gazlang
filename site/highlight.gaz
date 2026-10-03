@@ -66,8 +66,8 @@ const BYTECODE_KEYWORDS = ["in", "extends", "pub", "kin", "local", "captured"];
 
 /*
  * A run of source text and how it is shown. $type is the lexer's token type for a token of
- * GazLang, or SPACE_TYPE, COMMENT_TYPE or TEXT_TYPE, so a reader of the pieces (the library pages) can find
- * declarations and the comments above them.
+ * GazLang, or SPACE_TYPE, COMMENT_TYPE or TEXT_TYPE, so a reader of the pieces can tell a
+ * token from what the lexer skipped, and source the lexer refused from source it read.
  */
 pub kind Piece {
     fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE) {}

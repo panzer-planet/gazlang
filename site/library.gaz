@@ -1,4 +1,4 @@
-/*
+/**
  * What a file of the standard library offers, read from its source: the names it marks pub
  * (and the constructors and pub members of its pub kinds), each with its declaration and its
  * docblock, and the file's overview. The declarations and docblocks are the compiler's
@@ -15,6 +15,10 @@ import "compiler/docblocks.gaz" use outline, Declaration;
 import "./highlight.gaz";
 import "std/text.gaz";
 
+/**
+ * A name a library page lists: a pub function, kind or constant, or a pub kind's constructor or
+ * pub member, with its members if it is a kind
+ */
 pub kind Entry {
     // A kind's constructor and pub members, in source order
     pub list #members = [];
@@ -27,12 +31,16 @@ pub kind Entry {
     fn _(pub string #what, pub string #name, pub list #signature, pub string #doc, pub int #line = 0) {}
 }
 
-// A file of the library: its name, its namespace, its overview, and its entries
+/**
+ * A file of the library: its name, its namespace, its overview, and its entries
+ */
 pub kind Library {
     fn _(pub string #name, pub string #namespace, pub string #comment, pub list #entries) {}
 }
 
-// A file of the library by its name ("csv") and source
+/**
+ * A file of the library by its name ("csv") and source
+ */
 pub fn read(string $name, string $source): Library {
     $outline = outline($source);
     $entries = [];
@@ -65,7 +73,7 @@ fn entry(Declaration $declaration): Entry {
     return Entry($declaration.what, $declaration.name, $signature, $declaration.doc ?? "", $declaration.line);
 }
 
-/*
+/**
  * A docblock's text as Markdown. Docblocks are Markdown (`code`, *emphasis*, lists, links), read
  * without backslash escapes, since a backslash in one means itself (the site renders them
  * with markdown::Renderer's $escapes off). What Markdown would take for an indented code block
@@ -113,7 +121,9 @@ fn code_block(list $lines): list {
     return ["```gaz", ...map($lines, $line -> slice($line, min($indent, len($line)))), "```", ""];
 }
 
-// The first paragraph of a docblock's text, joined into one line
+/**
+ * The first paragraph of a docblock's text, joined into one line
+ */
 pub fn summary(string $text): string {
     $first = split($text .. "\n\n", "\n\n")[0];
 
