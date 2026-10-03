@@ -1,4 +1,4 @@
-/*
+/**
  * A small regular expression engine for GazLang: regex::matches($s, $pattern) tests whether
  * $s matches $pattern in full, regex::search($s, $pattern) whether $pattern occurs anywhere in
  * $s, regex::find($s, $pattern) the start index of the first (leftmost) match, or null,
@@ -379,23 +379,29 @@ kind Matcher {
     }
 }
 
-// Whether $s matches $pattern in full (as if anchored at both ends).
+/**
+ * Whether $s matches $pattern in full (as if anchored at both ends).
+ */
 pub fn matches($s, $pattern) {
     return Matcher(compile($pattern), len($s)).run($s, 0, false, true) != null;
 }
 
-// The start index of the first (leftmost) place $pattern occurs in $s, or null.
+/**
+ * The start index of the first (leftmost) place $pattern occurs in $s, or null.
+ */
 pub fn find($s, $pattern) {
     $slots = Matcher(compile($pattern), len($s)).run($s, 0, true, false);
     return $slots == null ? null : $slots[0];
 }
 
-// Whether $pattern occurs anywhere in $s.
+/**
+ * Whether $pattern occurs anywhere in $s.
+ */
 pub fn search($s, $pattern) {
     return find($s, $pattern) != null;
 }
 
-/*
+/**
  * What the first match took, and each group in it: [whole match, group 1, group 2, ...] with
  * groups numbered by their "(" from the left, a group that took no part null, and a group
  * repeated what it took the last time. Null when nothing matches.
@@ -422,7 +428,7 @@ fn captured($s, $slots, $group) {
     return slice($s, $from, $to - $from);
 }
 
-/*
+/**
  * $s with every match of $pattern replaced by $with, taken as it is (no "$1"), looking for the
  * next match where the last ended. An empty match replaces nothing and the search moves on a
  * byte: replace("abc", "x*", "-") is "-a-b-c-".

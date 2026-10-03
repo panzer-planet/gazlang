@@ -1,4 +1,4 @@
-/*
+/**
  * Command line arguments for a GazLang program: declare what it takes, and cli parses args(),
  * writes --help, and turns a mistake into a message and exit code 2.
  *
@@ -25,41 +25,75 @@ namespace cli;
 const HELP = "help";
 const USAGE_ERROR = 2;
 
-// What parsing stopped with instead of a result: help to print, or a mistake
+/**
+ * What parsing stopped with instead of a result: help to print, or a mistake
+ */
 pub kind Stop extends Error {
+    /**
+     * A stop with $message to print and the exit code it ends the program with under parse():
+     * 0 for help, 2 for a mistake
+     */
     fn _($message, pub #code) {
         ##_($message);
     }
 }
 
+/**
+ * A command line tool, or one of its subcommands: what it takes, declared with flag(),
+ * option(), argument(), optional(), rest() and command(), and parse() or run() to read args()
+ * by it (see the overview above)
+ */
 pub kind Command {
     #options = [];
     #arguments = [];
     #commands = {};
 
+    /**
+     * A command named $name, as its help names it, with a one-line $summary for its help;
+     * command() makes a subcommand with its handler and the command above it
+     */
     fn _(pub #name, pub #summary, #on_run = null, #above = null) {}
 
+    /**
+     * A flag, --$name, true when given and false when not; $short is its one-letter -x, or null
+     * for none, and $help its line in the help. A name or letter given twice, or -h, is an error.
+     */
     pub fn flag($name, $short, $help) {
         #add_option(Option($name, $short, $help, false, false));
     }
 
+    /**
+     * An option, --$name with a value (a string), or $default when it isn't given; $short and
+     * $help as flag() takes them
+     */
     pub fn option($name, $short, $help, $default = null) {
         #add_option(Option($name, $short, $help, true, $default));
     }
 
+    /**
+     * A required argument, the next one on the command line; it can't follow an optional one
+     */
     pub fn argument($name, $help) {
         #add_argument(Argument($name, $help, "required", null));
     }
 
+    /**
+     * An argument that may be left out, $default then; only optional ones and rest() can follow it
+     */
     pub fn optional($name, $help, $default = null) {
         #add_argument(Argument($name, $help, "optional", $default));
     }
 
+    /**
+     * The arguments left over, as a list (empty when there are none); nothing can follow it
+     */
     pub fn rest($name, $help) {
         #add_argument(Argument($name, $help, "rest", []));
     }
 
-    // A subcommand, which is a Command of its own: give it options and arguments
+    /**
+     * A subcommand, which is a Command of its own: give it options and arguments
+     */
     pub fn command($name, $summary, $handler) {
         if (len(#arguments) > 0) {
             throw "{#name} takes arguments, so it can't have commands too";
@@ -71,17 +105,23 @@ pub kind Command {
         return $command;
     }
 
-    // What $argv asks for, as a map by name; --help or a mistake ends the program
+    /**
+     * What $argv asks for, as a map by name; --help or a mistake ends the program
+     */
     pub fn parse($argv) {
         return #parsed_or_exit($argv)[1];
     }
 
-    // As parse(), but raising a cli::Stop where parse() would exit
+    /**
+     * As parse(), but raising a cli::Stop where parse() would exit
+     */
     pub fn try_parse($argv) {
         return #try_run($argv)[1];
     }
 
-    // Parse $argv and call the handler of the command it names with what was parsed
+    /**
+     * Parse $argv and call the handler of the command it names with what was parsed
+     */
     pub fn run($argv) {
         [$command, $values] = #parsed_or_exit($argv);
         $handler = $command.handler();
@@ -92,15 +132,23 @@ pub kind Command {
         return $handler($values);
     }
 
-    // [the command $argv names, what was parsed], raising a Stop for help or a mistake
+    /**
+     * [the command $argv names, what was parsed], raising a Stop for help or a mistake
+     */
     pub fn try_run($argv) {
         return Parse(#, $argv).result();
     }
 
+    /**
+     * The help --help prints: usage, the summary, the arguments, options and commands
+     */
     pub fn help() {
         return Help(#).text();
     }
 
+    /**
+     * The name as it is typed, the commands above it included: "todo add"
+     */
     pub fn full_name() {
         if (#above == null) {
             return #name;
@@ -109,23 +157,37 @@ pub kind Command {
         return #above.full_name() .. " " .. #name;
     }
 
-    // What Parse and Help need to see
+    /**
+     * What Parse and Help need to see
+     */
     pub fn declared_options() {
         return #options;
     }
 
+    /**
+     * The arguments declared, in order, for Parse and Help
+     */
     pub fn declared_arguments() {
         return #arguments;
     }
 
+    /**
+     * The subcommands declared, as a map by name
+     */
     pub fn subcommands() {
         return #commands;
     }
 
+    /**
+     * The handler run() calls for this command, or null
+     */
     pub fn handler() {
         return #on_run;
     }
 
+    /**
+     * The command this is a subcommand of, or null for the tool itself
+     */
     pub fn parent_command() {
         return #above;
     }

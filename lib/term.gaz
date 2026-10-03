@@ -1,4 +1,4 @@
-/*
+/**
  * The terminal: styles and colours, moving the cursor, and reading keys.
  *
  * Drawing is escape sequences, and every function here that makes one *returns* it, so
@@ -16,6 +16,10 @@ import "./text.gaz" use quote;
 
 const ESC = "\e";
 const CSI = "\e[";
+
+/**
+ * The escape sequence that turns every style off, which style() ends with
+ */
 pub const RESET = "\e[0m";
 
 // ---- Styles ----------------------------------------------------------------------------------
@@ -89,7 +93,9 @@ fn sgr_codes($word) {
     throw "term: unknown style \"" .. $word .. "\"";
 }
 
-// The escape sequence that starts a style: term::start("bold red") is "\e[1;31m"
+/**
+ * The escape sequence that starts a style: term::start("bold red") is "\e[1;31m"
+ */
 pub fn start($spec) {
     $codes = [];
     foreach (split(trim($spec), " ") as $word) {
@@ -100,7 +106,7 @@ pub fn start($spec) {
     return CSI .. join($codes, ";") .. "m";
 }
 
-/*
+/**
  * $text in a style, and back to normal after it: term::style("hi", "bold red on_#003"). Words:
  * bold dim italic underline blink inverse hidden strike; black red green yellow blue magenta
  * cyan white, bright_ for the bright ones; on_ before a colour for the background; #rgb and
@@ -113,33 +119,92 @@ pub fn style($text, $spec) {
 
 // ---- Moving and clearing ---------------------------------------------------------------------
 
-// The cursor at column $col, row $row; the top left is 1, 1
+/**
+ * The cursor at column $col, row $row; the top left is 1, 1
+ */
 pub fn move_to($col, $row) { return CSI .. $row .. ";" .. $col .. "H"; }
+
+/**
+ * The cursor $n rows up; nothing for 0 or less
+ */
 pub fn up($n = 1) { return $n > 0 ? CSI .. $n .. "A" : ""; }
+
+/**
+ * The cursor $n rows down; nothing for 0 or less
+ */
 pub fn down($n = 1) { return $n > 0 ? CSI .. $n .. "B" : ""; }
+
+/**
+ * The cursor $n columns right; nothing for 0 or less
+ */
 pub fn right($n = 1) { return $n > 0 ? CSI .. $n .. "C" : ""; }
+
+/**
+ * The cursor $n columns left; nothing for 0 or less
+ */
 pub fn left($n = 1) { return $n > 0 ? CSI .. $n .. "D" : ""; }
+
+/**
+ * The cursor at column $col of its row
+ */
 pub fn column($col) { return CSI .. $col .. "G"; }
 
+/**
+ * The cursor hidden
+ */
 pub fn hide_cursor() { return CSI .. "?25l"; }
+
+/**
+ * The cursor shown again
+ */
 pub fn show_cursor() { return CSI .. "?25h"; }
+
+/**
+ * The cursor's place kept, for restore_cursor()
+ */
 pub fn save_cursor() { return ESC .. "7"; }
+
+/**
+ * The cursor back where save_cursor() kept it
+ */
 pub fn restore_cursor() { return ESC .. "8"; }
 
-// The whole screen, the cursor left where it was; add move_to(1, 1) for the corner
+/**
+ * The whole screen, the cursor left where it was; add move_to(1, 1) for the corner
+ */
 pub fn clear() { return CSI .. "2J"; }
+
+/**
+ * The whole of the cursor's row, the cursor left where it was
+ */
 pub fn clear_line() { return CSI .. "2K"; }
+
+/**
+ * The cursor's row from the cursor to its end
+ */
 pub fn clear_to_end_of_line() { return CSI .. "K"; }
+
+/**
+ * The screen from the cursor to its end
+ */
 pub fn clear_below() { return CSI .. "J"; }
 
-// A second screen that leaves what was on the terminal untouched when the program is done
+/**
+ * A second screen that leaves what was on the terminal untouched when the program is done
+ */
 pub fn enter_screen() { return CSI .. "?1049h"; }
+
+/**
+ * Back from the second screen to what was on the terminal before enter_screen()
+ */
 pub fn leave_screen() { return CSI .. "?1049l"; }
 
-// Set the window's title
+/**
+ * Set the window's title
+ */
 pub fn title($text) { return ESC .. "]0;" .. $text .. "\x07"; }
 
-/*
+/**
  * Run $f on a screen of its own in raw mode, with the cursor hidden, and put everything back
  * however $f ends (an error included; exit() and signals are term.c's). Gives what $f gives.
  * Standard input and output must be a terminal, or gaz --tty's pretend one: without, it says so
@@ -169,7 +234,9 @@ pub fn fullscreen($f) {
 
 // ---- Measuring -------------------------------------------------------------------------------
 
-// $text without its escape sequences: CSI ones, and OSC ones ended by BEL or ST
+/**
+ * $text without its escape sequences: CSI ones, and OSC ones ended by BEL or ST
+ */
 pub fn strip($text) {
     $out = "";
     $n = len($text);
@@ -230,7 +297,7 @@ fn utf8_length($text, $i) {
     return $length;
 }
 
-/*
+/**
  * $text as a list of its characters: "aé→" is ["a", "é", "→"]. Not split(): that splits bytes.
  * The first byte says how long a character is; a stray continuation byte is one of its own.
  */
@@ -246,7 +313,7 @@ pub fn chars($text) {
     return $out;
 }
 
-/*
+/**
  * How many columns $text takes up: its characters (as chars() counts them), without escape
  * sequences. ponytail: a wide character (CJK, emoji) takes two columns and counts one, and a
  * combining mark takes none and counts one.
@@ -402,7 +469,7 @@ fn one_key($bytes, $i, $flush) {
     return [make_key($bytes[$i]), 1];
 }
 
-/*
+/**
  * The keys in $bytes, as {"keys" => [key, ...], "rest" => "..."}: rest is the start of a key
  * the bytes stop in the middle of ("\e" or "\e[1;" may be the escape key or the start of an
  * arrow), to put before whatever arrives next. With $flush nothing more is coming, so rest is
@@ -423,7 +490,9 @@ pub fn decode($bytes, $flush = false) {
     return {"keys" => $keys, "rest" => slice($bytes, $i)};
 }
 
-// $key as text that a `match` can take: "a", "enter", "ctrl+c", "ctrl+alt+up", "shift+tab"
+/**
+ * $key as text that a `match` can take: "a", "enter", "ctrl+c", "ctrl+alt+up", "shift+tab"
+ */
 pub fn name($key) {
     $text = $key["key"];
     if ($key["shift"]) { $text = "shift+" .. $text; }
@@ -432,7 +501,9 @@ pub fn name($key) {
     return $text;
 }
 
-// The character $key types, for a text field, or null when it isn't one (ctrl, alt, enter, up)
+/**
+ * The character $key types, for a text field, or null when it isn't one (ctrl, alt, enter, up)
+ */
 pub fn text($key) {
     if ($key["ctrl"] || $key["alt"]) {
         return null;
@@ -456,7 +527,7 @@ pub fn text($key) {
  */
 const ESCAPE_WAIT = 0.05;
 
-/*
+/**
  * Reads keys from standard input through term_read(). It keeps what a read left over (a
  * sequence cut in two by the reads, several keys in one read), so make one and keep using it.
  * Under gaz --tty the keys come from the script on standard input instead (see Script), which
@@ -469,7 +540,7 @@ pub kind Input {
     #rest = "";
     #ended = false;
 
-    /*
+    /**
      * The next key, waiting up to $timeout seconds for one (null: as long as it takes). null when
      * the time runs out. When the input ends, {"key" => "eof"}, again on every call after.
      */
@@ -506,7 +577,7 @@ pub kind Input {
         #rest = $decoded["rest"];
     }
 
-    /*
+    /**
      * read(), except that under gaz --tty a `snap` in the script comes as the key "snap", for
      * tui::interact() to show the screen; read() goes past one, since nothing else can show it
      */
@@ -514,7 +585,9 @@ pub kind Input {
         return term_is_virtual() ? #script().read($timeout, true) : #read($timeout);
     }
 
-    /* Under gaz --tty, the script so far, to say which screen a snapshot is */
+    /**
+     * Under gaz --tty, the script so far, to say which screen a snapshot is
+     */
     pub fn typed() {
         return #script().typed();
     }

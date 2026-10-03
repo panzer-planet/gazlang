@@ -1,4 +1,4 @@
-/*
+/**
  * HTML built in code, safely: `web::html"..."` is an `Html`, as a template's result is, with its
  * text taken as markup and each value written for the place in the markup it lands.
  *
@@ -81,7 +81,7 @@ const RECENT = 12;
 // one that makes up its text parts as it runs
 const SCANS_KEPT = 2000;
 
-/*
+/**
  * An `Html` from a tagged string: its text as it is, since it was written in the program, and
  * each value written for where it lands (see above). A value prints as `echo` prints it (`null`,
  * `true`, `12`, `1.5`, or an object's `to_string()`). In text a list is its elements, each by

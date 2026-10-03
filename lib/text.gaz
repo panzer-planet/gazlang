@@ -1,4 +1,4 @@
-/*
+/**
  * Text as lines. text::lines(read_stdin()) is what a one-liner wants: the lines of what was piped
  * in, without the empty one that splitting on "\n" leaves after a last line that ends in one.
  * And a line's indentation, for reading text laid out by it, and trimming one end of a string.
@@ -7,7 +7,7 @@ namespace text;
 
 const WHITESPACE = " \t\n\r";      // what trim() takes off without a set
 
-/*
+/**
  * The lines of a string, as read_line() reads them: "\n" or "\r\n" ends a line and is not part of
  * it, and a last line needs no end. A string that ends in one has no empty line after it
  * ("a\nb\n" is ["a", "b"], where split() gives a third, ""), so a file with a trailing newline
@@ -36,7 +36,9 @@ pub fn lines($text) {
     return $lines;
 }
 
-// How many spaces and tabs a line starts with
+/**
+ * How many spaces and tabs a line starts with
+ */
 pub fn indentation(string $line): int {
     $count = 0;
     while ($count < len($line) && ($line[$count] == " " || $line[$count] == "\t")) {
@@ -46,12 +48,14 @@ pub fn indentation(string $line): int {
     return $count;
 }
 
-// A line without the spaces and tabs it starts with
+/**
+ * A line without the spaces and tabs it starts with
+ */
 pub fn unindented(string $line): string {
     return slice($line, indentation($line));
 }
 
-/*
+/**
  * A value as the literal that reads back as it, for a message: a string quoted, so a space, a
  * quote or a NUL byte shows, and a number, list or map as echo prints it.
  * ponytail: written as the list's text without its brackets, so a string is quoted by the same
@@ -61,7 +65,7 @@ pub fn quote($value) {
     return slice(to_string([$value]), 1, -1);
 }
 
-/*
+/**
  * A string without the bytes of $chars at its start: trim()'s other halves, for a path's
  * trailing slashes or a number's leading zeros. Bytes, as trim() takes them, so a character of
  * more than one byte isn't one of them; without $chars, the whitespace trim() takes off.
@@ -75,7 +79,9 @@ pub fn trim_start(string $s, string $chars = WHITESPACE): string {
     return slice($s, $from);
 }
 
-// The same at its end: trim_end("dir///", "/") is "dir"
+/**
+ * The same at its end: trim_end("dir///", "/") is "dir"
+ */
 pub fn trim_end(string $s, string $chars = WHITESPACE): string {
     $to = len($s);
     while ($to > 0 && contains($chars, $s[$to - 1])) {

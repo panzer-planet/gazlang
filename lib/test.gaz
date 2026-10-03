@@ -1,4 +1,4 @@
-/*
+/**
  * Testing GazLang code: a test file imports this and checks values, and `gaz test` runs every
  * test file it finds.
  *
@@ -51,7 +51,9 @@ kind Tally {
     pub static #failures = 0;
 }
 
-// Prints "ok <label>" when $actual == $expected and both are of one type, or a FAIL line naming both
+/**
+ * Prints "ok <label>" when $actual == $expected and both are of one type, or a FAIL line naming both
+ */
 pub fn expect($label, $actual, $expected) {
     if ($actual == $expected && type_of($actual) == type_of($expected)) {
         pass($label);
@@ -64,7 +66,7 @@ pub fn expect($label, $actual, $expected) {
     fail($label, $reason);
 }
 
-/*
+/**
  * Calls $thunk and prints "ok <label>" when it throws what is described, or a FAIL line naming
  * what was wanted and what was thrown, if anything: throws($label, $thunk, $message), or
  * throws($label, $thunk, $kind, $message) to require that exact kind too.
@@ -93,8 +95,10 @@ pub fn throws($label, $thunk, $kind_or_message, $message = null) {
     fail($label, "expected {$wanted_text} to be thrown, got " .. described_thrown($thrown));
 }
 
-// Compares $actual against the file recorded next to the calling test file, or under --update
-// (re)writes it. Needs the test file's own path, which gaz test passes as args()[0].
+/**
+ * Compares $actual against the file recorded next to the calling test file, or under --update
+ * (re)writes it. Needs the test file's own path, which gaz test passes as args()[0].
+ */
 pub fn snapshot($label, $actual) {
     $path = snapshot_path($label);
     $text = literal($actual);
@@ -115,12 +119,16 @@ pub fn snapshot($label, $actual) {
     }
 }
 
-// Ends the program: status 1 if any check in it failed, 0 if none did
+/**
+ * Ends the program: status 1 if any check in it failed, 0 if none did
+ */
 pub fn done() {
     exit(Tally::failures > 0 ? 1 : 0);
 }
 
-// Runs every *_test.gaz file gaz test finds and reports; the entry point of its bootstrap program
+/**
+ * Runs every *_test.gaz file gaz test finds and reports; the entry point of its bootstrap program
+ */
 pub fn main() {
     $paths = [];
     $update = false;

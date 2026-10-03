@@ -1,11 +1,15 @@
-// Random choices for GazLang (random::shuffle(), random::pick(), random::key(),
-// random::chance(), random::weighted()), on the rand_int() and rand_float() builtins. Not
-// cryptographically secure: the numbers are for games, simulations and sampling, not for
-// passwords or keys. Call rand_seed($seed) first to get the same choices on every run.
+/**
+ * Random choices for GazLang (random::shuffle(), random::pick(), random::key(),
+ * random::chance(), random::weighted()), on the rand_int() and rand_float() builtins. Not
+ * cryptographically secure: the numbers are for games, simulations and sampling, not for
+ * passwords or keys. Call rand_seed($seed) first to get the same choices on every run.
+ */
 namespace random;
 
-// A copy of the list or string in a random order (Fisher-Yates); a copy, since a function
-// can't change its argument
+/**
+ * A copy of the list or string in a random order (Fisher-Yates); a copy, since a function
+ * can't change its argument
+ */
 pub fn shuffle($x) {
     if (type_of($x) == "string") {
         return join(shuffle(split($x, "")), "");
@@ -20,7 +24,9 @@ pub fn shuffle($x) {
     return $x;
 }
 
-// A random key of a non-empty list (an index) or map
+/**
+ * A random key of a non-empty list (an index) or map
+ */
 pub fn key($x) {
     if (type_of($x) == "list") {
         if (len($x) == 0) {
@@ -35,18 +41,24 @@ pub fn key($x) {
     return $keys[rand_int(0, len($keys) - 1)];
 }
 
-// A random element of a non-empty list, or value of a map
+/**
+ * A random element of a non-empty list, or value of a map
+ */
 pub fn pick($x) {
     return $x[key($x)];
 }
 
-// true with probability $p: always from 1 up, never from 0 down
+/**
+ * true with probability $p: always from 1 up, never from 0 down
+ */
 pub fn chance($p) {
     return rand_float() < $p;
 }
 
-// An item from a list of [item, weight] pairs, picked with probability in proportion to its
-// weight; $total is the weights added up, when the caller already knows it
+/**
+ * An item from a list of [item, weight] pairs, picked with probability in proportion to its
+ * weight; $total is the weights added up, when the caller already knows it
+ */
 pub fn weighted($pairs, $total = null) {
     $total ??= sum(map($pairs, $pair -> $pair[1]));
     if ($total <= 0) {

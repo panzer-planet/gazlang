@@ -1,30 +1,32 @@
-// JSON (RFC 8259) for GazLang: json::decode($text) and json::encode($value).
-//
-// Decoding gives maps for objects:
-// - objects become maps with string keys (a key like "0" stays the string "0"), arrays lists;
-// - numbers with a fraction or exponent become floats, others ints, and an integer
-//   too large for an int becomes a float;
-// - true, false, null and strings map directly, with escapes decoded and surrogate
-//   pairs joined into one code point written as UTF-8;
-// - nesting deeper than 511 arrays or objects is an error.
-// Invalid JSON raises "Invalid JSON: <what> at position <byte offset>", which try/catch
-// can catch, except that a document that isn't well formed UTF-8 is refused whole, before it is
-// read, so that error has no position.
-// A number too large for a float is an error, since GazLang has no infinity. JSON text is
-// UTF-8, so a document that isn't well formed UTF-8 is invalid ("Invalid JSON: not well formed
-// UTF-8"), as is an escape naming half a surrogate pair, and every string decoded is well formed.
-//
-// Encoding writes compact JSON: a list is a JSON array and a map an object, with int keys
-// written as strings. Strings are written as UTF-8, escaping only what JSON requires, and
-// floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25). A string or key that
-// isn't well formed UTF-8 is an error, since the JSON written would be invalid.
-//
-// An object is written as what its pub to_json() returns, which is a value to encode (a map, say),
-// not JSON text, and may hold objects itself; one without it is an error ("Team has no member
-// to_json"), and so is one that comes back inside its own. The kind decides what escapes it, so
-// nothing private is written by accident. Decoding gives maps, never objects: a kind that can be
-// read back has a static from_json($data) by convention, which can set its private fields and
-// check them, and a document never gets to choose which kinds are built.
+/**
+ * JSON (RFC 8259) for GazLang: json::decode($text) and json::encode($value).
+ *
+ * Decoding gives maps for objects:
+ * - objects become maps with string keys (a key like "0" stays the string "0"), arrays lists;
+ * - numbers with a fraction or exponent become floats, others ints, and an integer
+ *   too large for an int becomes a float;
+ * - true, false, null and strings map directly, with escapes decoded and surrogate
+ *   pairs joined into one code point written as UTF-8;
+ * - nesting deeper than 511 arrays or objects is an error.
+ * Invalid JSON raises "Invalid JSON: <what> at position <byte offset>", which try/catch
+ * can catch, except that a document that isn't well formed UTF-8 is refused whole, before it is
+ * read, so that error has no position.
+ * A number too large for a float is an error, since GazLang has no infinity. JSON text is
+ * UTF-8, so a document that isn't well formed UTF-8 is invalid ("Invalid JSON: not well formed
+ * UTF-8"), as is an escape naming half a surrogate pair, and every string decoded is well formed.
+ *
+ * Encoding writes compact JSON: a list is a JSON array and a map an object, with int keys
+ * written as strings. Strings are written as UTF-8, escaping only what JSON requires, and
+ * floats keep their exact digits (1.0, 0.30000000000000004, 1.0E+25). A string or key that
+ * isn't well formed UTF-8 is an error, since the JSON written would be invalid.
+ *
+ * An object is written as what its pub to_json() returns, which is a value to encode (a map, say),
+ * not JSON text, and may hold objects itself; one without it is an error ("Team has no member
+ * to_json"), and so is one that comes back inside its own. The kind decides what escapes it, so
+ * nothing private is written by accident. Decoding gives maps, never objects: a kind that can be
+ * read back has a static from_json($data) by convention, which can set its private fields and
+ * check them, and a document never gets to choose which kinds are built.
+ */
 
 namespace json;
 
@@ -32,10 +34,17 @@ import "./chars.gaz" use char_at, is_digit, is_hex_digit, is_space;
 
 const MAXIMUM_CHARACTER_BYTES = 4;
 
+/**
+ * The value JSON text stands for, by the rules above; text that isn't JSON is an error
+ */
 pub fn decode($text) {
     return Reader($text).parse();
 }
 
+/**
+ * $value as compact JSON text, by the rules above; a value JSON can't hold (a function, a
+ * kind, an object without to_json()) is an error
+ */
 pub fn encode($value) {
     return write($value, OpenObjects());
 }

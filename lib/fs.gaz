@@ -1,4 +1,4 @@
-/*
+/**
  * Files and directories for command line tools, on the file builtins: copying a file or a tree,
  * walking a tree, matching a glob, replacing a file in one step, removing a tree, touching a
  * file, and a directory of one's own for scratch work.
@@ -22,7 +22,7 @@ const DEFAULT_TEMP = "/tmp";
 const PRIVATE = 0o700;          // a temporary directory's mode: its owner's alone
 const PERMISSIONS = 0o777;      // the bits a file may have while it is written: no setuid, setgid or sticky
 
-/*
+/**
  * Copy the file at $from to $to, replacing a file there. It is read and written a piece at a
  * time, so a file of any size takes little memory, and its bytes come out exactly. $to gets
  * $from's mode, and with $keep_time its modification time too; copying a file onto itself is an
@@ -49,7 +49,7 @@ pub fn copy(string $from, string $to, bool $keep_time = false): null {
     }
 }
 
-/*
+/**
  * Copy everything under the directory $from into $to, made if it isn't there (with its
  * parents): each file as copy() copies it, each directory with its mode, and each symbolic link
  * as a link with the same text, never followed, so a link that pointed within the tree points
@@ -87,7 +87,7 @@ pub fn copy_tree(string $from, string $to): list {
     return $left_out;
 }
 
-/*
+/**
  * Every path under the directory $dir, relative to it: depth first, each directory's names
  * sorted byte by byte as list_dir() sorts them, and a directory before what it holds
  * (["a", "a/x", "b"]). A symbolic link is listed but never followed, so a link to a
@@ -107,7 +107,7 @@ pub fn walk(string $dir): list {
     return $paths;
 }
 
-/*
+/**
  * The paths matching $pattern, sorted byte by byte. A pattern is names separated by "/",
  * relative to the working directory or, starting with "/", absolute, and gives paths written the
  * same way. In a name, * matches any bytes and ? any one byte, [abc] one of a set, [a-z] one of
@@ -135,7 +135,7 @@ pub fn glob(string $pattern): list {
     return sort(filter(keys($unique), $path -> $path != "" && $path != "/"));
 }
 
-/*
+/**
  * Write $data to $path in one step: into a new file beside it, which is synced to the disk,
  * closed (an error if the writing failed) and then renamed over $path, whose directory is synced
  * too, so whoever opens $path sees the old contents or the new ones, never part of either, and
@@ -167,7 +167,7 @@ pub fn write_atomic(string $path, string $data): null {
     }
 }
 
-/*
+/**
  * Remove $path and, if it is a directory, everything under it. A symbolic link is removed
  * itself, never what it points at, wherever it is in the tree. Nothing there is an error, as
  * delete_file() says it.
@@ -183,7 +183,7 @@ pub fn remove_tree(string $path): null {
     delete_dir($path);
 }
 
-/*
+/**
  * A new, empty directory of its own under $TMPDIR (or /tmp), named $prefix and random hex
  * ("/tmp/gaz-3f9a0c61b2d4e5f7"), for scratch work, which only its owner can read or enter
  * (0o700); remove it with remove_tree() when done.
@@ -199,7 +199,7 @@ pub fn temp_dir(string $prefix = "gaz"): string {
     return $dir;
 }
 
-/*
+/**
  * Make $path an empty file if nothing is there, and set its modification time to now either way,
  * through a link as set_mtime() goes: what touch does, for a build tool's stamp files. Its
  * contents are never changed.
@@ -209,7 +209,7 @@ pub fn touch(string $path): null {
     set_mtime($path, time());
 }
 
-/*
+/**
  * The directory a path is in: "a/b" for "a/b/c.txt", "." for a name alone, "/" for "/x". A
  * trailing "/" names the same directory, so "a/b/" is in "a".
  */

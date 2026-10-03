@@ -1,4 +1,4 @@
-/*
+/**
  * A zero-config static file server, what `gaz -S` runs (see vm.c's DEVSERVER_SOURCE): serves a
  * directory over HTTP with no program to write.
  *
@@ -15,6 +15,10 @@ import "./http.gaz";
 import "./cli.gaz";
 import "./text.gaz" use quote;
 
+/**
+ * Serve the directory --docroot names (the working directory without one) at the address the
+ * command line gives, as host:port, until the program is stopped
+ */
 pub fn main() {
     $cli = cli::Command("gaz -S", "Serve static files from a directory over HTTP");
     $cli.argument("address", "Where to listen, as host:port");

@@ -1,4 +1,4 @@
-/*
+/**
  * Widgets for a full-screen terminal program, on lib/term.gaz.
  *
  * Nothing draws to the terminal directly. Everything draws into a Screen, a grid of cells, and
@@ -30,7 +30,7 @@ const BORDERS = {
     "ascii" => ["+", "+", "+", "+", "-", "|"],
 };
 
-/*
+/**
  * The screen as a grid of cells, each [character, style], columns and rows counted from 1.
  * Drawing outside it is clipped, so a widget that doesn't fit is cut off, not an error.
  */
@@ -40,6 +40,9 @@ pub kind Screen {
     #shown = null;
     #caret = null;
 
+    /**
+     * A blank screen $cols wide and $rows high, of which the terminal is known to show nothing yet
+     */
     fn _(pub #cols, pub #rows) {
         #reset();
     }
@@ -58,7 +61,9 @@ pub kind Screen {
         #caret = null;
     }
 
-    /* Blank every cell */
+    /**
+     * Blank every cell
+     */
     pub fn clear() {
         #cells = [];
         for ($r = 0; $r < #rows; $r++) {
@@ -67,14 +72,16 @@ pub kind Screen {
         #caret = null;
     }
 
-    /* The size to be $cols by $rows: blank, and the terminal to be drawn again in full */
+    /**
+     * The size to be $cols by $rows: blank, and the terminal to be drawn again in full
+     */
     pub fn resize($cols, $rows) {
         #cols = $cols;
         #rows = $rows;
         #reset();
     }
 
-    /*
+    /**
      * Take the terminal's size (term_size(), which is polled: nothing tells a program the window
      * changed). True when it was different, and the screen is blank and to be drawn in full.
      */
@@ -87,12 +94,14 @@ pub kind Screen {
         return true;
     }
 
-    /* Forget what the terminal shows, so the next render draws everything (after something else drew) */
+    /**
+     * Forget what the terminal shows, so the next render draws everything (after something else drew)
+     */
     pub fn invalidate() {
         #shown = null;
     }
 
-    /*
+    /**
      * $text from column $col of row $row in $style (a term::style() spec, "" for none). One
      * character to a cell; ponytail: a wide character (CJK, emoji) takes two columns but one cell,
      * which shifts what follows it on the row, and a control character is drawn as it is.
@@ -110,7 +119,9 @@ pub kind Screen {
         }
     }
 
-    /* A $width by $height rectangle of $char in $style */
+    /**
+     * A $width by $height rectangle of $char in $style
+     */
     pub fn fill($col, $row, $width, $height, $char = " ", $style = "") {
         $line = repeat($char, max($width, 0));
         for ($i = 0; $i < $height; $i++) {
@@ -118,17 +129,23 @@ pub kind Screen {
         }
     }
 
-    /* Where the terminal's cursor goes after a render (a text field's), or none */
+    /**
+     * Where the terminal's cursor goes after a render (a text field's), or none
+     */
     pub fn cursor($col, $row) {
         #caret = [$col, $row];
     }
 
-    /* The whole screen as a Rect, for a view to cut up */
+    /**
+     * The whole screen as a Rect, for a view to cut up
+     */
     pub fn bounds() {
         return Rect(1, 1, #cols, #rows);
     }
 
-    /* Each row as plain text, for a test to read */
+    /**
+     * Each row as plain text, for a test to read
+     */
     pub fn lines() {
         $lines = [];
         foreach (#cells as $row) {
@@ -141,7 +158,7 @@ pub kind Screen {
         return $lines;
     }
 
-    /*
+    /**
      * The screen as text to read, which gaz --tty prints: a ruler of columns, each row numbered
      * (both from 1, as put() counts them, and without the spaces at its end), then the styled
      * text, since a row's text can't show which item is inverse or bold, and where the cursor is.
@@ -199,12 +216,14 @@ pub kind Screen {
         return $runs;
     }
 
-    /* What a cell is, as [character, style] */
+    /**
+     * What a cell is, as [character, style]
+     */
     pub fn cell($col, $row) {
         return #cells[$row - 1][$col - 1];
     }
 
-    /*
+    /**
      * The escape sequences that make the terminal show this screen. The first render clears the
      * terminal and draws what isn't blank; after that only what has changed since the last one.
      */
@@ -261,38 +280,51 @@ pub kind Screen {
     }
 }
 
-/*
+/**
  * A rectangle of the screen: where it starts (columns and rows count from 1) and how big. A view
  * is given one to draw in and cuts it up with the split_ methods for its parts, so it does no
  * column arithmetic of its own, and a part that doesn't fit is smaller, never negative.
  */
 pub kind Rect {
+    /**
+     * The rectangle $width by $height with its top left at column $col, row $row
+     */
     fn _(pub #col, pub #row, pub #width, pub #height);
 
-    /* Shrunk by $n on every side, to nothing at the least */
+    /**
+     * Shrunk by $n on every side, to nothing at the least
+     */
     pub fn inset($n = 1) {
         return Rect(#col + $n, #row + $n, max(#width - 2 * $n, 0), max(#height - 2 * $n, 0));
     }
 
-    /* [the first $width columns, the rest] */
+    /**
+     * [the first $width columns, the rest]
+     */
     pub fn split_left($width) {
         $left = min(max($width, 0), #width);
         return [Rect(#col, #row, $left, #height), Rect(#col + $left, #row, #width - $left, #height)];
     }
 
-    /* [the rest, the last $width columns] */
+    /**
+     * [the rest, the last $width columns]
+     */
     pub fn split_right($width) {
         $right = min(max($width, 0), #width);
         return [Rect(#col, #row, #width - $right, #height), Rect(#col + #width - $right, #row, $right, #height)];
     }
 
-    /* [the first $height rows, the rest] */
+    /**
+     * [the first $height rows, the rest]
+     */
     pub fn split_top($height) {
         $top = min(max($height, 0), #height);
         return [Rect(#col, #row, #width, $top), Rect(#col, #row + $top, #width, #height - $top)];
     }
 
-    /* [the rest, the last $height rows] */
+    /**
+     * [the rest, the last $height rows]
+     */
     pub fn split_bottom($height) {
         $bottom = min(max($height, 0), #height);
         return [Rect(#col, #row, #width, #height - $bottom), Rect(#col, #row + #height - $bottom, #width, $bottom)];
@@ -301,7 +333,7 @@ pub kind Rect {
 
 /* ---- Drawing ----------------------------------------------------------------------------- */
 
-/*
+/**
  * $text in a field $width wide, cut off if longer and padded if shorter, $align "left", "center"
  * or "right"
  */
@@ -319,7 +351,7 @@ pub fn label($screen, $col, $row, $width, $text, $style = "", $align = "left") {
     $screen.put($col, $row, repeat(" ", $before) .. join($chars, "") .. repeat(" ", $gap - $before), $style);
 }
 
-/*
+/**
  * A box $width by $height with its top left at $col, $row, its inside blank, and $title in the
  * top edge. $border is single, double, round, heavy or ascii.
  */
@@ -343,7 +375,7 @@ pub fn box($screen, $col, $row, $width, $height, $title = "", $style = "", $bord
     $screen.put($col, $row + $height - 1, $bottom_left .. repeat($across, $width - 2) .. $bottom_right, $style);
 }
 
-/*
+/**
  * A bar $width wide, $fraction (0 to 1) of it filled, and the percentage at its end
  */
 pub fn progress($screen, $col, $row, $width, $fraction, $style = "green") {
@@ -374,7 +406,7 @@ fn padded($cells, $count) {
     return $cells;
 }
 
-/*
+/**
  * A table: $headers a list of names, $rows a list of lists, columns as wide as their widest
  * cell and numbers aligned on the right; a header or a row shorter than the rest is blank where it
  * stops. Gives how many rows it took (two more than $rows).
@@ -408,7 +440,9 @@ fn fitted($text, $width, $right) {
     return $right ? repeat(" ", $gap) .. join($chars, "") : join($chars, "") .. repeat(" ", $gap);
 }
 
-/* The width table() draws $headers and $rows at, for fitting what goes beside it */
+/**
+ * The width table() draws $headers and $rows at, for fitting what goes beside it
+ */
 pub fn table_width($headers, $rows) {
     [$headers, $rows] = squared($headers, $rows);
     $widths = column_widths($headers, $rows);
@@ -439,7 +473,7 @@ fn column_widths($headers, $rows) {
     return $widths;
 }
 
-/*
+/**
  * $text cut into lines no wider than $width: at spaces, keeping its own line breaks, and a word
  * wider than a whole line cut where it must be
  */
@@ -473,7 +507,9 @@ pub fn wrap($text, $width) {
     return $lines;
 }
 
-/* $text wrapped into $rect, as much of it as fits, in $style; gives how many lines it took */
+/**
+ * $text wrapped into $rect, as much of it as fits, in $style; gives how many lines it took
+ */
 pub fn paragraph($screen, $rect, $text, $style = "") {
     $lines = slice(wrap($text, $rect.width), 0, max($rect.height, 0));
     foreach ($lines as $i => $line) {
@@ -482,7 +518,7 @@ pub fn paragraph($screen, $rect, $text, $style = "") {
     return len($lines);
 }
 
-/*
+/**
  * A line of key hints in $width from $col, $row: $hints is a list of [keys, what they do]
  * (["j/k", "move"]), said "j/k move", or ["", text] for a prompt said as it is. As many whole
  * hints as fit, and $more at the right end ("? keys") when given, for where the rest are.
@@ -504,7 +540,7 @@ pub fn hints($screen, $col, $row, $width, $hints, $more = "", $style = "dim") {
     }
 }
 
-/*
+/**
  * Every key there is, in a box in the middle of $screen, over what is there: $groups is a list of
  * [title, hints], hints as hints() takes them (a prompt, with no keys, is left out). What doesn't
  * fit the screen is cut off.
@@ -538,7 +574,7 @@ pub fn key_help($screen, $groups, $title = "Keys") {
     }
 }
 
-/*
+/**
  * A table you move about in: a header, rows that scroll, a selected row, and columns that sort.
  * $headers are the column names and $rows a list of lists of cells; a column whose cells are all
  * numbers is aligned on the right. $style_of($row, $index), if given, says what style a row is
@@ -568,6 +604,9 @@ pub kind Table {
     #column = null;
     #descending = false;
 
+    /**
+     * A table of $rows under $headers, in the order given, the first row selected
+     */
     fn _($headers, $rows, $style_of = null) {
         #headers = $headers;
         #style_of = $style_of;
@@ -576,7 +615,7 @@ pub kind Table {
         #reorder(null);
     }
 
-    /*
+    /**
      * When the table is too wide, leave out $columns (indexes from 0) in that order, as many as it
      * takes, before squeezing any: a name cut to four letters says less than a column not shown.
      * Gives the table, so it can follow the constructor.
@@ -622,17 +661,24 @@ pub kind Table {
         #cursor = max(min(#cursor, len(#order) - 1), 0);
     }
 
-    /* Which of the rows is selected, as its index in the rows given, or null when there are none */
+    /**
+     * Which of the rows is selected, as its index in the rows given, or null when there are none
+     */
     pub fn selected_index() {
         return len(#order) == 0 ? null : #order[#cursor];
     }
 
+    /**
+     * The selected row, as it was given, or null when there are none
+     */
     pub fn selected_row() {
         $index = #selected_index();
         return $index == null ? null : #rows[$index];
     }
 
-    /* Show other rows, keeping the selection on the same index where there still is one */
+    /**
+     * Show other rows, keeping the selection on the same index where there still is one
+     */
     pub fn set_rows($rows) {
         $keep = #selected_index();
         #rows = $rows;
@@ -640,7 +686,9 @@ pub kind Table {
         #reorder($keep != null && $keep < len($rows) ? $keep : null);
     }
 
-    /* Sort on column $column (from 0), the least first unless $descending */
+    /**
+     * Sort on column $column (from 0), the least first unless $descending
+     */
     pub fn sort_by($column, $descending = false) {
         if ($column < 0 || $column >= len(#headers)) {
             throw "tui::Table has no column {$column}";
@@ -651,11 +699,17 @@ pub kind Table {
         #reorder($keep);
     }
 
-    /* [column, descending] it is sorted by, or null */
+    /**
+     * [column, descending] it is sorted by, or null
+     */
     pub fn sorted_by() {
         return #column == null ? null : [#column, #descending];
     }
 
+    /**
+     * Take a key: "select" for enter, null for anything else, which the table has dealt with
+     * itself (see the keys above)
+     */
     pub fn handle($key) {
         $last = max(len(#order) - 1, 0);
         match (term::name($key)) {
@@ -743,7 +797,9 @@ pub kind Table {
         return $widths;
     }
 
-    /* Draw it in $rect, the selection showing as such only when $focused */
+    /**
+     * Draw it in $rect, the selection showing as such only when $focused
+     */
     pub fn draw($screen, $rect, $focused = true) {
         if ($rect.width < 1 || $rect.height < 1) {
             return null;
@@ -795,7 +851,7 @@ pub kind Table {
     }
 }
 
-/*
+/**
  * A list to choose from, in a box. handle() takes a key, and gives "select" for enter,
  * "cancel" for escape, q or ctrl+c, and null for anything else, which it has dealt with itself
  * (the arrows, j and k, home and end, page up and down).
@@ -807,15 +863,28 @@ pub kind Menu {
     #top = 0;
     #page = 10;
 
+    /**
+     * A menu of $items, strings, with $title on its box, the first selected
+     */
     fn _($items, $title = "") {
         #items = $items;
         #title = $title;
     }
 
-    /* Which item is selected, as an index, and as the item */
+    /**
+     * Which item is selected, as an index
+     */
     pub fn index() { return #selected; }
+
+    /**
+     * The selected item
+     */
     pub fn item() { return #items[#selected]; }
 
+    /**
+     * Take a key: "select" for enter, "cancel" for escape, q or ctrl+c, and null for anything
+     * else, which the menu has dealt with itself
+     */
     pub fn handle($key) {
         /* an empty menu has nothing to move to, and nothing to select */
         $last = max(len(#items) - 1, 0);
@@ -837,7 +906,9 @@ pub kind Menu {
         return null;
     }
 
-    /* Draw it in a box $width by $height, scrolled so the selected item shows */
+    /**
+     * Draw it in a box $width by $height, scrolled so the selected item shows
+     */
     pub fn draw($screen, $col, $row, $width, $height) {
         box($screen, $col, $row, $width, $height, #title);
         $visible = $height - 2;
@@ -855,7 +926,7 @@ pub kind Menu {
     }
 }
 
-/*
+/**
  * A line of text being edited. handle() takes a key and gives "submit" for enter, "cancel" for
  * escape or ctrl+c, and null otherwise: typing inserts, and backspace, delete, the arrows,
  * home and end (or ctrl+a and ctrl+e), ctrl+u (delete to the start) and ctrl+k (to the end) edit.
@@ -865,13 +936,23 @@ pub kind TextField {
     #at;
     #left = 0;
 
+    /**
+     * A field holding $value, the cursor at its end
+     */
     fn _($value = "") {
         #chars = term::chars($value);
         #at = len(#chars);
     }
 
+    /**
+     * The text in the field
+     */
     pub fn value() { return join(#chars, ""); }
 
+    /**
+     * Take a key: "submit" for enter, "cancel" for escape or ctrl+c, and null for anything else,
+     * which edits the text (see above)
+     */
     pub fn handle($key) {
         $typed = term::text($key);
         if ($typed != null) {
@@ -903,7 +984,9 @@ pub kind TextField {
         return null;
     }
 
-    /* Draw it $width wide, scrolled sideways to keep the cursor in view, and put the cursor there */
+    /**
+     * Draw it $width wide, scrolled sideways to keep the cursor in view, and put the cursor there
+     */
     pub fn draw($screen, $col, $row, $width, $style = "underline") {
         if ($width <= 0) {
             return null;
@@ -923,7 +1006,7 @@ pub kind TextField {
 
 /* ---- Whole screens ----------------------------------------------------------------------- */
 
-/*
+/**
  * A steady beat: when the next one is due, given the time now (seconds from monotonic_time(); it
  * is passed in, so it can be tested with times made up). A beat that comes late doesn't make up
  * for it with two: the next is an interval from when it came.
@@ -931,17 +1014,26 @@ pub kind TextField {
 pub kind Metronome {
     #next;
 
+    /**
+     * A beat every $interval seconds, the first due $interval after $now
+     */
     fn _(#interval, $now) {
         #next = $now + #interval;
     }
 
-    /* Whether a beat is due */
+    /**
+     * Whether a beat is due
+     */
     pub fn due($now) { return $now >= #next; }
 
-    /* Seconds until the next beat, or 0 when it is due */
+    /**
+     * Seconds until the next beat, or 0 when it is due
+     */
     pub fn wait($now) { return max(#next - $now, 0); }
 
-    /* A beat has been taken at $now */
+    /**
+     * A beat has been taken at $now
+     */
     pub fn beat($now) {
         #next += #interval;
         if (#next <= $now) {
@@ -950,7 +1042,7 @@ pub kind Metronome {
     }
 }
 
-/*
+/**
  * Run $draw($screen) and $handle($key) on a screen of its own until $handle gives something
  * other than null, which is what this gives; input that ends gives null. Keys come from $input
  * (a term::Input), or from a new one. A program that shows one screen after another passes the
@@ -1062,12 +1154,14 @@ fn leave($screen, $input, $result) {
     return $result;
 }
 
-/* A box of $width by $height in the middle of $screen, as [col, row] of its top left */
+/**
+ * A box of $width by $height in the middle of $screen, as [col, row] of its top left
+ */
 pub fn centered($screen, $width, $height) {
     return [max(intdiv($screen.cols - $width, 2), 0) + 1, max(intdiv($screen.rows - $height, 2), 0) + 1];
 }
 
-/*
+/**
  * Choose one of $items in a menu of a screen of its own: its index, or null if cancelled or
  * there is nothing to choose. $input is interact()'s. Needs a terminal.
  */
@@ -1089,7 +1183,7 @@ pub fn choose($items, $title = "", $input = null) {
     return $picked == "select" ? $menu.index() : null;
 }
 
-/*
+/**
  * Ask a question on a screen of its own and give the answer, or null if cancelled. $initial is
  * what the field starts with. $input is interact()'s. Needs a terminal.
  */

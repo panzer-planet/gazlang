@@ -1,12 +1,16 @@
-// Character helpers, matching the lexer's character kinds exactly
-// (chars::is_space, chars::is_digit, chars::is_hex_digit, chars::is_alpha,
-// chars::is_alnum): ASCII only.
-//
-// Each is_* takes one character. Anything else (an empty or longer string, null, a
-// number) is false rather than an error, so reading past the end of a string is safe.
+/**
+ * Character helpers, matching the lexer's character kinds exactly
+ * (chars::is_space, chars::is_digit, chars::is_hex_digit, chars::is_alpha,
+ * chars::is_alnum): ASCII only.
+ *
+ * Each is_* takes one character. Anything else (an empty or longer string, null, a
+ * number) is false rather than an error, so reading past the end of a string is safe.
+ */
 namespace chars;
 
-// The character at position $i of $s, or "" outside it (indexing past the end is an error)
+/**
+ * The character at position $i of $s, or "" outside it (indexing past the end is an error)
+ */
 pub fn char_at($s, $i) {
     if ($i >= 0 && $i < len($s)) {
         return $s[$i];
@@ -14,7 +18,7 @@ pub fn char_at($s, $i) {
     return "";
 }
 
-/*
+/**
  * How many characters from position $i on satisfy $predicate, which is given one character:
  * chars::span("123abc", 0, chars::is_digit) is 3, and slice($s, $i, span($s, $i, is_digit)) is
  * the number at $i. 0 when the one at $i doesn't, or when $i is negative or at or past the end.
@@ -31,31 +35,44 @@ pub fn span($s, $i, $predicate) {
     return $at - $i;
 }
 
-// Whether $c is a one character string
+/**
+ * Whether $c is a one character string
+ */
 pub fn is_char($c) {
     return type_of($c) == "string" && len($c) == 1;
 }
 
-// 0 to 9
+/**
+ * 0 to 9
+ */
 pub fn is_digit($c) {
     return is_char($c) && $c >= "0" && $c <= "9";
 }
 
-// 0 to 9, a to f or A to F
+/**
+ * 0 to 9, a to f or A to F
+ */
 pub fn is_hex_digit($c) {
     return is_digit($c) || is_char($c) && ($c >= "a" && $c <= "f" || $c >= "A" && $c <= "F");
 }
 
-// a to z or A to Z; strings compare byte by byte
+/**
+ * a to z or A to Z; strings compare byte by byte
+ */
 pub fn is_alpha($c) {
     return is_char($c) && ($c >= "a" && $c <= "z" || $c >= "A" && $c <= "Z");
 }
 
+/**
+ * Whether $c is a letter or a digit: is_alpha() or is_digit()
+ */
 pub fn is_alnum($c) {
     return is_alpha($c) || is_digit($c);
 }
 
-// Space, tab, newline or carriage return
+/**
+ * Space, tab, newline or carriage return
+ */
 pub fn is_space($c) {
     return in_array($c, [" ", "\t", "\n", "\r"]);
 }

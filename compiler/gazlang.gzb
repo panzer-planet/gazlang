@@ -218,7 +218,7 @@ LABEL ENDIF_5
 
 fn chars::char_at 2 2
 locals $s $i
-@ "<std>/chars.gaz" 11
+@ "<std>/chars.gaz" 15
 LOAD 1
 PUSH 0
 GE
@@ -234,43 +234,43 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ELSE_0
-@ "<std>/chars.gaz" 12
+@ "<std>/chars.gaz" 16
 LOAD 0
 LOAD 1
 INDEX_GET
 RET
-@ "<std>/chars.gaz" 11
+@ "<std>/chars.gaz" 15
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/chars.gaz" 14
+@ "<std>/chars.gaz" 18
 PUSH ""
 RET
-@ "<std>/chars.gaz" 10
+@ "<std>/chars.gaz" 14
 PUSH null
 RET
 
 fn chars::span 3 3
 locals $s $i $predicate $at
-@ "<std>/chars.gaz" 24
+@ "<std>/chars.gaz" 28
 LOAD 1
 PUSH 0
 LT
 JZ ELSE_0
-@ "<std>/chars.gaz" 25
+@ "<std>/chars.gaz" 29
 PUSH 0
 RET
-@ "<std>/chars.gaz" 24
+@ "<std>/chars.gaz" 28
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/chars.gaz" 27
+@ "<std>/chars.gaz" 31
 LOAD 1
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_1
-@ "<std>/chars.gaz" 28
+@ "<std>/chars.gaz" 32
 LOAD 3
 LOAD 0
 CALL_BUILTIN len 1
@@ -288,27 +288,27 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ENDWHILE_1
-@ "<std>/chars.gaz" 29
+@ "<std>/chars.gaz" 33
 LOAD 3
 INC
 STORE 3
 LOAD 3
 POP
-@ "<std>/chars.gaz" 28
+@ "<std>/chars.gaz" 32
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/chars.gaz" 31
+@ "<std>/chars.gaz" 35
 LOAD 3
 LOAD 1
 SUB
 RET
-@ "<std>/chars.gaz" 23
+@ "<std>/chars.gaz" 27
 PUSH null
 RET
 
 fn chars::is_char 1 1
 locals $c
-@ "<std>/chars.gaz" 36
+@ "<std>/chars.gaz" 42
 LOAD 0
 CALL_BUILTIN type_of 1
 PUSH "string"
@@ -325,13 +325,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "<std>/chars.gaz" 35
+@ "<std>/chars.gaz" 41
 PUSH null
 RET
 
 fn chars::is_digit 1 1
 locals $c
-@ "<std>/chars.gaz" 41
+@ "<std>/chars.gaz" 49
 LOAD 0
 CALL chars::is_char 1
 JZ AND_FALSE_1
@@ -355,13 +355,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "<std>/chars.gaz" 40
+@ "<std>/chars.gaz" 48
 PUSH null
 RET
 
 fn chars::is_hex_digit 1 1
 locals $c
-@ "<std>/chars.gaz" 46
+@ "<std>/chars.gaz" 56
 LOAD 0
 CALL chars::is_digit 1
 NOT
@@ -418,13 +418,13 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "<std>/chars.gaz" 45
+@ "<std>/chars.gaz" 55
 PUSH null
 RET
 
 fn chars::is_alpha 1 1
 locals $c
-@ "<std>/chars.gaz" 51
+@ "<std>/chars.gaz" 63
 LOAD 0
 CALL chars::is_char 1
 JZ AND_FALSE_0
@@ -470,13 +470,13 @@ LABEL AND_FALSE_0
 PUSH false
 LABEL AND_END_0
 RET
-@ "<std>/chars.gaz" 50
+@ "<std>/chars.gaz" 62
 PUSH null
 RET
 
 fn chars::is_alnum 1 1
 locals $c
-@ "<std>/chars.gaz" 55
+@ "<std>/chars.gaz" 70
 LOAD 0
 CALL chars::is_alpha 1
 NOT
@@ -491,18 +491,18 @@ LABEL OR_TRUE_0
 PUSH true
 LABEL OR_END_0
 RET
-@ "<std>/chars.gaz" 54
+@ "<std>/chars.gaz" 69
 PUSH null
 RET
 
 fn chars::is_space 1 1
 locals $c
-@ "<std>/chars.gaz" 60
+@ "<std>/chars.gaz" 77
 LOAD 0
 PUSH [" ", "\t", "\n", "\r"]
 CALL_BUILTIN in_array 2
 RET
-@ "<std>/chars.gaz" 59
+@ "<std>/chars.gaz" 76
 PUSH null
 RET
 
@@ -791,49 +791,49 @@ RET
 
 fn json::decode 1 1
 locals $text
-@ "<std>/json.gaz" 36
+@ "<std>/json.gaz" 41
 LOAD 0
 NEW json::Reader 1
 GET_METHOD parse
 CALL_METHOD 0 parse
 RET
-@ "<std>/json.gaz" 35
+@ "<std>/json.gaz" 40
 PUSH null
 RET
 
 fn json::encode 1 1
 locals $value
-@ "<std>/json.gaz" 40
+@ "<std>/json.gaz" 49
 LOAD 0
 NEW json::OpenObjects 0
 CALL json::write 2
 RET
-@ "<std>/json.gaz" 39
+@ "<std>/json.gaz" 48
 PUSH null
 RET
 
 fn json::write 2 2
 locals $value $open $type $id $text $parts $#foreach_array_0 $#foreach_position_0 $item $#foreach_array_1 $#foreach_position_1 $key
-@ "<std>/json.gaz" 63
+@ "<std>/json.gaz" 72
 LOAD 0
 CALL_BUILTIN type_of 1
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 64
+@ "<std>/json.gaz" 73
 LOAD 2
 PUSH "string"
 EQUALS
 JZ ELSE_0
-@ "<std>/json.gaz" 65
+@ "<std>/json.gaz" 74
 LOAD 0
 CALL json::encode_string 1
 RET
-@ "<std>/json.gaz" 64
+@ "<std>/json.gaz" 73
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 67
+@ "<std>/json.gaz" 76
 LOAD 2
 PUSH "function"
 EQUALS
@@ -886,35 +886,35 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "<std>/json.gaz" 68
+@ "<std>/json.gaz" 77
 PUSH "Cannot encode a "
 LOAD 2
 CONCAT
 PUSH " as JSON"
 CONCAT
 THROW
-@ "<std>/json.gaz" 67
+@ "<std>/json.gaz" 76
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 70
+@ "<std>/json.gaz" 79
 LOAD 2
 PUSH "object"
 EQUALS
 JZ ELSE_6
-@ "<std>/json.gaz" 71
+@ "<std>/json.gaz" 80
 LOAD 0
 CALL_BUILTIN object_id 1
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 72
+@ "<std>/json.gaz" 81
 LOAD 1
 GET_METHOD contains
 LOAD 3
 CALL_METHOD 1 contains
 JZ ELSE_7
-@ "<std>/json.gaz" 73
+@ "<std>/json.gaz" 82
 PUSH "Cannot encode "
 LOAD 0
 CALL_BUILTIN kind_name 1
@@ -922,17 +922,17 @@ CONCAT
 PUSH " as JSON: its to_json() comes back to itself"
 CONCAT
 THROW
-@ "<std>/json.gaz" 72
+@ "<std>/json.gaz" 81
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "<std>/json.gaz" 75
+@ "<std>/json.gaz" 84
 LOAD 1
 GET_METHOD enter
 LOAD 3
 CALL_METHOD 1 enter
 POP
-@ "<std>/json.gaz" 76
+@ "<std>/json.gaz" 85
 LOAD 0
 GET_METHOD to_json
 CALL_METHOD 0 to_json
@@ -941,20 +941,20 @@ CALL json::write 2
 STORE 4
 LOAD 4
 POP
-@ "<std>/json.gaz" 77
+@ "<std>/json.gaz" 86
 LOAD 1
 GET_METHOD leave
 LOAD 3
 CALL_METHOD 1 leave
 POP
-@ "<std>/json.gaz" 79
+@ "<std>/json.gaz" 88
 LOAD 4
 RET
-@ "<std>/json.gaz" 70
+@ "<std>/json.gaz" 79
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "<std>/json.gaz" 81
+@ "<std>/json.gaz" 90
 LOAD 2
 PUSH "list"
 NOT_EQUALS
@@ -969,25 +969,25 @@ LABEL AND_FALSE_9
 PUSH false
 LABEL AND_END_9
 JZ ELSE_8
-@ "<std>/json.gaz" 83
+@ "<std>/json.gaz" 92
 LOAD 0
 CALL_BUILTIN to_string 1
 RET
-@ "<std>/json.gaz" 81
+@ "<std>/json.gaz" 90
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "<std>/json.gaz" 86
+@ "<std>/json.gaz" 95
 NEW_ARRAY
 STORE 5
 LOAD 5
 POP
-@ "<std>/json.gaz" 87
+@ "<std>/json.gaz" 96
 LOAD 2
 PUSH "list"
 EQUALS
 JZ ELSE_10
-@ "<std>/json.gaz" 88
+@ "<std>/json.gaz" 97
 LOAD 0
 FOREACH_CHECK
 STORE 6
@@ -996,16 +996,16 @@ STORE 7
 LABEL FOREACH_11
 FOREACH_NEXT 6 7 ENDFOREACH_11
 STORE 8
-@ "<std>/json.gaz" 89
+@ "<std>/json.gaz" 98
 LOAD 8
 LOAD 1
 CALL json::write 2
 SET_PATH [] 5
 POP
-@ "<std>/json.gaz" 88
+@ "<std>/json.gaz" 97
 JMP FOREACH_11
 LABEL ENDFOREACH_11
-@ "<std>/json.gaz" 91
+@ "<std>/json.gaz" 100
 PUSH "["
 LOAD 5
 PUSH ","
@@ -1014,11 +1014,11 @@ CONCAT
 PUSH "]"
 CONCAT
 RET
-@ "<std>/json.gaz" 87
+@ "<std>/json.gaz" 96
 JMP ENDIF_10
 LABEL ELSE_10
 LABEL ENDIF_10
-@ "<std>/json.gaz" 93
+@ "<std>/json.gaz" 102
 LOAD 0
 FOREACH_CHECK
 STORE 9
@@ -1028,7 +1028,7 @@ LABEL FOREACH_12
 FOREACH_NEXT_KEY 9 10 ENDFOREACH_12
 STORE 11
 STORE 8
-@ "<std>/json.gaz" 94
+@ "<std>/json.gaz" 103
 LOAD 11
 CALL_BUILTIN to_string 1
 CALL json::encode_string 1
@@ -1040,10 +1040,10 @@ CALL json::write 2
 CONCAT
 SET_PATH [] 5
 POP
-@ "<std>/json.gaz" 93
+@ "<std>/json.gaz" 102
 JMP FOREACH_12
 LABEL ENDFOREACH_12
-@ "<std>/json.gaz" 96
+@ "<std>/json.gaz" 105
 PUSH "{"
 LOAD 5
 PUSH ","
@@ -1052,67 +1052,67 @@ CONCAT
 PUSH "}"
 CONCAT
 RET
-@ "<std>/json.gaz" 62
+@ "<std>/json.gaz" 71
 PUSH null
 RET
 
 fn json::skip_digits 2 2
 locals $text $pos
 LABEL WHILE_0
-@ "<std>/json.gaz" 405
+@ "<std>/json.gaz" 414
 LOAD 0
 LOAD 1
 CALL chars::char_at 2
 CALL chars::is_digit 1
 JZ ENDWHILE_0
-@ "<std>/json.gaz" 406
+@ "<std>/json.gaz" 415
 LOAD 1
 INC
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 405
+@ "<std>/json.gaz" 414
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/json.gaz" 408
+@ "<std>/json.gaz" 417
 LOAD 1
 RET
-@ "<std>/json.gaz" 404
+@ "<std>/json.gaz" 413
 PUSH null
 RET
 
 fn json::int_fits 2 2
 locals $integer $negative $digits $limit
-@ "<std>/json.gaz" 414
+@ "<std>/json.gaz" 423
 LOAD 0
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 415
+@ "<std>/json.gaz" 424
 PUSH "9223372036854775807"
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 416
+@ "<std>/json.gaz" 425
 LOAD 1
 JZ ELSE_0
-@ "<std>/json.gaz" 417
+@ "<std>/json.gaz" 426
 LOAD 0
 PUSH 1
 CALL_BUILTIN slice 2
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 418
+@ "<std>/json.gaz" 427
 PUSH "9223372036854775808"
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 416
+@ "<std>/json.gaz" 425
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 420
+@ "<std>/json.gaz" 429
 LOAD 2
 CALL_BUILTIN len 1
 PUSH 19
@@ -1141,26 +1141,26 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 RET
-@ "<std>/json.gaz" 413
+@ "<std>/json.gaz" 422
 PUSH null
 RET
 
 fn json::utf8 1 1
 locals $code_point $continuation
-@ "<std>/json.gaz" 426
+@ "<std>/json.gaz" 435
 LOAD 0
 PUSH 128
 LT
 JZ ELSE_0
-@ "<std>/json.gaz" 427
+@ "<std>/json.gaz" 436
 LOAD 0
 CALL_BUILTIN chr 1
 RET
-@ "<std>/json.gaz" 426
+@ "<std>/json.gaz" 435
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 429
+@ "<std>/json.gaz" 438
 PUSH 128
 LOAD 0
 PUSH 63
@@ -1170,12 +1170,12 @@ CALL_BUILTIN chr 1
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 430
+@ "<std>/json.gaz" 439
 LOAD 0
 PUSH 2048
 LT
 JZ ELSE_1
-@ "<std>/json.gaz" 431
+@ "<std>/json.gaz" 440
 PUSH 192
 LOAD 0
 PUSH 6
@@ -1185,16 +1185,16 @@ CALL_BUILTIN chr 1
 LOAD 1
 CONCAT
 RET
-@ "<std>/json.gaz" 430
+@ "<std>/json.gaz" 439
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 433
+@ "<std>/json.gaz" 442
 LOAD 0
 PUSH 65536
 LT
 JZ ELSE_2
-@ "<std>/json.gaz" 434
+@ "<std>/json.gaz" 443
 PUSH 224
 LOAD 0
 PUSH 12
@@ -1213,11 +1213,11 @@ CONCAT
 LOAD 1
 CONCAT
 RET
-@ "<std>/json.gaz" 433
+@ "<std>/json.gaz" 442
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/json.gaz" 436
+@ "<std>/json.gaz" 445
 PUSH 240
 LOAD 0
 PUSH 18
@@ -1233,7 +1233,7 @@ BIT_AND
 BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
-@ "<std>/json.gaz" 437
+@ "<std>/json.gaz" 446
 PUSH 128
 LOAD 0
 PUSH 6
@@ -1245,27 +1245,27 @@ CALL_BUILTIN chr 1
 CONCAT
 LOAD 1
 CONCAT
-@ "<std>/json.gaz" 436
+@ "<std>/json.gaz" 445
 RET
-@ "<std>/json.gaz" 425
+@ "<std>/json.gaz" 434
 PUSH null
 RET
 
 fn json::encode_string 1 1
 locals $string $escapes $hex $result $run_start $length $i $c $code $escaped
-@ "<std>/json.gaz" 444
+@ "<std>/json.gaz" 453
 LOAD 0
 CALL_BUILTIN utf8_valid 1
 NOT
 JZ ELSE_0
-@ "<std>/json.gaz" 445
+@ "<std>/json.gaz" 454
 PUSH "Cannot encode text that isn't well formed UTF-8 as JSON"
 THROW
-@ "<std>/json.gaz" 444
+@ "<std>/json.gaz" 453
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 447
+@ "<std>/json.gaz" 456
 NEW_MAP
 PUSH "\""
 KEY_CHECK
@@ -1299,28 +1299,28 @@ MAP_SET
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 448
+@ "<std>/json.gaz" 457
 PUSH "0123456789abcdef"
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 449
+@ "<std>/json.gaz" 458
 PUSH ""
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 450
+@ "<std>/json.gaz" 459
 PUSH 0
 STORE 4
 LOAD 4
 POP
-@ "<std>/json.gaz" 451
+@ "<std>/json.gaz" 460
 LOAD 0
 CALL_BUILTIN len 1
 STORE 5
 LOAD 5
 POP
-@ "<std>/json.gaz" 453
+@ "<std>/json.gaz" 462
 PUSH 0
 STORE 6
 LOAD 6
@@ -1330,20 +1330,20 @@ LOAD 6
 LOAD 5
 LT
 JZ ENDWHILE_1
-@ "<std>/json.gaz" 454
+@ "<std>/json.gaz" 463
 LOAD 0
 LOAD 6
 INDEX_GET
 STORE 7
 LOAD 7
 POP
-@ "<std>/json.gaz" 455
+@ "<std>/json.gaz" 464
 LOAD 7
 CALL_BUILTIN ord 1
 STORE 8
 LOAD 8
 POP
-@ "<std>/json.gaz" 457
+@ "<std>/json.gaz" 466
 LOAD 8
 PUSH 32
 GE
@@ -1368,13 +1368,13 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "<std>/json.gaz" 458
+@ "<std>/json.gaz" 467
 JMP CONTINUE_1
-@ "<std>/json.gaz" 457
+@ "<std>/json.gaz" 466
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/json.gaz" 460
+@ "<std>/json.gaz" 469
 PUSH "\\u00"
 LOAD 2
 LOAD 8
@@ -1391,23 +1391,23 @@ CONCAT
 STORE 9
 LOAD 9
 POP
-@ "<std>/json.gaz" 461
+@ "<std>/json.gaz" 470
 LOAD 1
 LOAD 7
 CALL_BUILTIN has_key 2
 JZ ELSE_5
-@ "<std>/json.gaz" 462
+@ "<std>/json.gaz" 471
 LOAD 1
 LOAD 7
 INDEX_GET
 STORE 9
 LOAD 9
 POP
-@ "<std>/json.gaz" 461
+@ "<std>/json.gaz" 470
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "<std>/json.gaz" 464
+@ "<std>/json.gaz" 473
 LOAD 0
 LOAD 4
 LOAD 6
@@ -1418,7 +1418,7 @@ LOAD 9
 CONCAT
 CONCAT_ASSIGN 3
 POP
-@ "<std>/json.gaz" 465
+@ "<std>/json.gaz" 474
 LOAD 6
 PUSH 1
 ADD
@@ -1426,7 +1426,7 @@ STORE 4
 LOAD 4
 POP
 LABEL CONTINUE_1
-@ "<std>/json.gaz" 453
+@ "<std>/json.gaz" 462
 LOAD 6
 INC
 STORE 6
@@ -1434,7 +1434,7 @@ LOAD 6
 POP
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/json.gaz" 468
+@ "<std>/json.gaz" 477
 PUSH "\""
 LOAD 3
 CONCAT
@@ -1448,7 +1448,7 @@ CONCAT
 PUSH "\""
 CONCAT
 RET
-@ "<std>/json.gaz" 443
+@ "<std>/json.gaz" 452
 PUSH null
 RET
 
@@ -8837,9 +8837,9 @@ method contains json::OpenObjects pub
 method enter json::OpenObjects pub
 method leave json::OpenObjects pub
 locals
-@ "<std>/json.gaz" 47
+@ "<std>/json.gaz" 56
 NEW_MAP
-@ "<std>/json.gaz" 46
+@ "<std>/json.gaz" 55
 SET_FIELD ids
 POP
 LOAD_THIS
@@ -8847,34 +8847,34 @@ RET
 
 fn json::OpenObjects.contains 1 1
 locals $id
-@ "<std>/json.gaz" 50
+@ "<std>/json.gaz" 59
 LOAD_FIELD ids
 LOAD 0
 CALL_BUILTIN has_key 2
 RET
-@ "<std>/json.gaz" 49
+@ "<std>/json.gaz" 58
 PUSH null
 RET
 
 fn json::OpenObjects.enter 1 1
 locals $id
-@ "<std>/json.gaz" 54
+@ "<std>/json.gaz" 63
 LOAD 0
 KEY_CHECK
 PUSH true
 SET_PATH_THIS .ids[k]
 POP
-@ "<std>/json.gaz" 53
+@ "<std>/json.gaz" 62
 PUSH null
 RET
 
 fn json::OpenObjects.leave 1 1
 locals $id
-@ "<std>/json.gaz" 58
+@ "<std>/json.gaz" 67
 LOAD 0
 KEY_CHECK
 DELETE_PATH_THIS .ids[k]
-@ "<std>/json.gaz" 57
+@ "<std>/json.gaz" 66
 PUSH null
 RET
 
@@ -8899,17 +8899,17 @@ method parse_escape json::Reader
 method parse_hex4 json::Reader
 method parse_number json::Reader
 locals $#argument_0
-@ "<std>/json.gaz" 106
+@ "<std>/json.gaz" 115
 PUSH 0
-@ "<std>/json.gaz" 104
+@ "<std>/json.gaz" 113
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 107
+@ "<std>/json.gaz" 116
 PUSH 0
-@ "<std>/json.gaz" 104
+@ "<std>/json.gaz" 113
 SET_FIELD depth
 POP
-@ "<std>/json.gaz" 109
+@ "<std>/json.gaz" 118
 NEW_MAP
 PUSH "\""
 KEY_CHECK
@@ -8944,7 +8944,7 @@ PUSH "t"
 KEY_CHECK
 PUSH "\t"
 MAP_SET
-@ "<std>/json.gaz" 104
+@ "<std>/json.gaz" 113
 SET_FIELD simple
 POP
 CALL_CONSTRUCTOR json::Reader
@@ -8954,7 +8954,7 @@ RET
 
 fn json::Reader._ 1 1
 locals $text
-@ "<std>/json.gaz" 111
+@ "<std>/json.gaz" 120
 LOAD 0
 SET_FIELD text
 POP
@@ -8963,42 +8963,42 @@ RET
 
 fn json::Reader.parse 0 0
 locals $value
-@ "<std>/json.gaz" 115
+@ "<std>/json.gaz" 124
 LOAD_FIELD text
 CALL_BUILTIN utf8_valid 1
 NOT
 JZ ELSE_0
-@ "<std>/json.gaz" 116
+@ "<std>/json.gaz" 125
 PUSH "Invalid JSON: not well formed UTF-8"
 THROW
-@ "<std>/json.gaz" 115
+@ "<std>/json.gaz" 124
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 118
+@ "<std>/json.gaz" 127
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 119
+@ "<std>/json.gaz" 128
 LOAD_THIS
 GET_METHOD parse_value
 CALL_METHOD 0 parse_value
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 120
+@ "<std>/json.gaz" 129
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 121
+@ "<std>/json.gaz" 130
 LOAD_FIELD pos
 LOAD_FIELD text
 CALL_BUILTIN len 1
 LT
 JZ ELSE_1
-@ "<std>/json.gaz" 122
+@ "<std>/json.gaz" 131
 LOAD_THIS
 GET_METHOD fail
 PUSH "unexpected "
@@ -9010,20 +9010,20 @@ PUSH " after the value"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 121
+@ "<std>/json.gaz" 130
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 125
+@ "<std>/json.gaz" 134
 LOAD 0
 RET
-@ "<std>/json.gaz" 114
+@ "<std>/json.gaz" 123
 PUSH null
 RET
 
 fn json::Reader.fail 1 1
 locals $message
-@ "<std>/json.gaz" 129
+@ "<std>/json.gaz" 138
 PUSH "Invalid JSON: "
 LOAD 0
 CONCAT
@@ -9032,44 +9032,44 @@ CONCAT
 LOAD_FIELD pos
 CONCAT
 THROW
-@ "<std>/json.gaz" 128
+@ "<std>/json.gaz" 137
 PUSH null
 RET
 
 fn json::Reader.describe_char 0 0
 locals
-@ "<std>/json.gaz" 134
+@ "<std>/json.gaz" 143
 LOAD_FIELD pos
 LOAD_FIELD text
 CALL_BUILTIN len 1
 GE
 JZ ELSE_0
-@ "<std>/json.gaz" 135
+@ "<std>/json.gaz" 144
 PUSH "end of input"
 RET
-@ "<std>/json.gaz" 134
+@ "<std>/json.gaz" 143
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 137
+@ "<std>/json.gaz" 146
 LOAD_THIS
 GET_METHOD character
 CALL_METHOD 0 character
 CALL json::encode_string 1
 RET
-@ "<std>/json.gaz" 133
+@ "<std>/json.gaz" 142
 PUSH null
 RET
 
 fn json::Reader.character 0 0
 locals $size
-@ "<std>/json.gaz" 145
+@ "<std>/json.gaz" 154
 PUSH 1
 STORE 0
 LOAD 0
 POP
 LABEL WHILE_0
-@ "<std>/json.gaz" 146
+@ "<std>/json.gaz" 155
 LOAD 0
 PUSH 4
 LT
@@ -9087,99 +9087,99 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "<std>/json.gaz" 147
+@ "<std>/json.gaz" 156
 LOAD 0
 INC
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 146
+@ "<std>/json.gaz" 155
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/json.gaz" 149
+@ "<std>/json.gaz" 158
 LOAD_FIELD text
 LOAD_FIELD pos
 LOAD 0
 CALL_BUILTIN slice 3
 RET
-@ "<std>/json.gaz" 144
+@ "<std>/json.gaz" 153
 PUSH null
 RET
 
 fn json::Reader.skip_whitespace 0 0
 locals
 LABEL WHILE_0
-@ "<std>/json.gaz" 153
+@ "<std>/json.gaz" 162
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 CALL chars::is_space 1
 JZ ENDWHILE_0
-@ "<std>/json.gaz" 154
+@ "<std>/json.gaz" 163
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 153
+@ "<std>/json.gaz" 162
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/json.gaz" 152
+@ "<std>/json.gaz" 161
 PUSH null
 RET
 
 fn json::Reader.parse_value 0 0
 locals $c
-@ "<std>/json.gaz" 159
+@ "<std>/json.gaz" 168
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 160
+@ "<std>/json.gaz" 169
 LOAD 0
 PUSH "{"
 EQUALS
 JZ ELSE_0
-@ "<std>/json.gaz" 161
+@ "<std>/json.gaz" 170
 LOAD_THIS
 GET_METHOD parse_object
 CALL_METHOD 0 parse_object
 RET
-@ "<std>/json.gaz" 160
+@ "<std>/json.gaz" 169
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 163
+@ "<std>/json.gaz" 172
 LOAD 0
 PUSH "["
 EQUALS
 JZ ELSE_1
-@ "<std>/json.gaz" 164
+@ "<std>/json.gaz" 173
 LOAD_THIS
 GET_METHOD parse_array
 CALL_METHOD 0 parse_array
 RET
-@ "<std>/json.gaz" 163
+@ "<std>/json.gaz" 172
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 166
+@ "<std>/json.gaz" 175
 LOAD 0
 PUSH "\""
 EQUALS
 JZ ELSE_2
-@ "<std>/json.gaz" 167
+@ "<std>/json.gaz" 176
 LOAD_THIS
 GET_METHOD parse_string
 CALL_METHOD 0 parse_string
 RET
-@ "<std>/json.gaz" 166
+@ "<std>/json.gaz" 175
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/json.gaz" 169
+@ "<std>/json.gaz" 178
 LOAD 0
 PUSH "-"
 EQUALS
@@ -9195,55 +9195,55 @@ LABEL OR_TRUE_4
 PUSH true
 LABEL OR_END_4
 JZ ELSE_3
-@ "<std>/json.gaz" 170
+@ "<std>/json.gaz" 179
 LOAD_THIS
 GET_METHOD parse_number
 CALL_METHOD 0 parse_number
 RET
-@ "<std>/json.gaz" 169
+@ "<std>/json.gaz" 178
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "<std>/json.gaz" 172
+@ "<std>/json.gaz" 181
 LOAD_THIS
 GET_METHOD match
 PUSH "true"
 CALL_METHOD 1 match
 JZ ELSE_5
-@ "<std>/json.gaz" 173
+@ "<std>/json.gaz" 182
 PUSH true
 RET
-@ "<std>/json.gaz" 172
+@ "<std>/json.gaz" 181
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "<std>/json.gaz" 175
+@ "<std>/json.gaz" 184
 LOAD_THIS
 GET_METHOD match
 PUSH "false"
 CALL_METHOD 1 match
 JZ ELSE_6
-@ "<std>/json.gaz" 176
+@ "<std>/json.gaz" 185
 PUSH false
 RET
-@ "<std>/json.gaz" 175
+@ "<std>/json.gaz" 184
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "<std>/json.gaz" 178
+@ "<std>/json.gaz" 187
 LOAD_THIS
 GET_METHOD match
 PUSH "null"
 CALL_METHOD 1 match
 JZ ELSE_7
-@ "<std>/json.gaz" 179
+@ "<std>/json.gaz" 188
 PUSH null
 RET
-@ "<std>/json.gaz" 178
+@ "<std>/json.gaz" 187
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "<std>/json.gaz" 181
+@ "<std>/json.gaz" 190
 LOAD_THIS
 GET_METHOD fail
 PUSH "unexpected "
@@ -9253,13 +9253,13 @@ CALL_METHOD 0 describe_char
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 158
+@ "<std>/json.gaz" 167
 PUSH null
 RET
 
 fn json::Reader.match 1 1
 locals $word $#update_value_0
-@ "<std>/json.gaz" 186
+@ "<std>/json.gaz" 195
 LOAD_FIELD text
 LOAD_FIELD pos
 LOAD 0
@@ -9268,7 +9268,7 @@ CALL_BUILTIN slice 3
 LOAD 0
 EQUALS
 JZ ELSE_0
-@ "<std>/json.gaz" 187
+@ "<std>/json.gaz" 196
 LOAD 0
 CALL_BUILTIN len 1
 STORE 1
@@ -9280,153 +9280,153 @@ LOAD 1
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 188
+@ "<std>/json.gaz" 197
 PUSH true
 RET
-@ "<std>/json.gaz" 186
+@ "<std>/json.gaz" 195
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 190
+@ "<std>/json.gaz" 199
 PUSH false
 RET
-@ "<std>/json.gaz" 185
+@ "<std>/json.gaz" 194
 PUSH null
 RET
 
 fn json::Reader.enter 0 0
 locals
-@ "<std>/json.gaz" 195
+@ "<std>/json.gaz" 204
 LOAD_THIS
 GET_PROPERTY_EXISTING depth
 INC
 SET_FIELD depth
 POP
-@ "<std>/json.gaz" 196
+@ "<std>/json.gaz" 205
 LOAD_FIELD depth
 PUSH 511
 GT
 JZ ELSE_0
-@ "<std>/json.gaz" 197
+@ "<std>/json.gaz" 206
 LOAD_THIS
 GET_METHOD fail
 PUSH "nesting deeper than 511 levels"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 196
+@ "<std>/json.gaz" 205
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 199
+@ "<std>/json.gaz" 208
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 200
+@ "<std>/json.gaz" 209
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 194
+@ "<std>/json.gaz" 203
 PUSH null
 RET
 
 fn json::Reader.parse_array 0 0
 locals $array $c
-@ "<std>/json.gaz" 204
+@ "<std>/json.gaz" 213
 LOAD_THIS
 GET_METHOD enter
 CALL_METHOD 0 enter
 POP
-@ "<std>/json.gaz" 205
+@ "<std>/json.gaz" 214
 NEW_ARRAY
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 206
+@ "<std>/json.gaz" 215
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 PUSH "]"
 EQUALS
 JZ ELSE_0
-@ "<std>/json.gaz" 207
+@ "<std>/json.gaz" 216
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 208
+@ "<std>/json.gaz" 217
 LOAD_THIS
 GET_PROPERTY_EXISTING depth
 DEC
 SET_FIELD depth
 POP
-@ "<std>/json.gaz" 209
+@ "<std>/json.gaz" 218
 LOAD 0
 RET
-@ "<std>/json.gaz" 206
+@ "<std>/json.gaz" 215
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
 LABEL WHILE_1
-@ "<std>/json.gaz" 212
+@ "<std>/json.gaz" 221
 PUSH true
 JZ ENDWHILE_1
-@ "<std>/json.gaz" 213
+@ "<std>/json.gaz" 222
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 214
+@ "<std>/json.gaz" 223
 LOAD_THIS
 GET_METHOD parse_value
 CALL_METHOD 0 parse_value
 SET_PATH [] 0
 POP
-@ "<std>/json.gaz" 215
+@ "<std>/json.gaz" 224
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 217
+@ "<std>/json.gaz" 226
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 218
+@ "<std>/json.gaz" 227
 LOAD 1
 PUSH "]"
 EQUALS
 JZ ELSE_2
-@ "<std>/json.gaz" 219
+@ "<std>/json.gaz" 228
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 220
+@ "<std>/json.gaz" 229
 LOAD_THIS
 GET_PROPERTY_EXISTING depth
 DEC
 SET_FIELD depth
 POP
-@ "<std>/json.gaz" 221
+@ "<std>/json.gaz" 230
 LOAD 0
 RET
-@ "<std>/json.gaz" 218
+@ "<std>/json.gaz" 227
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/json.gaz" 223
+@ "<std>/json.gaz" 232
 LOAD 1
 PUSH ","
 NOT_EQUALS
 JZ ELSE_3
-@ "<std>/json.gaz" 224
+@ "<std>/json.gaz" 233
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected , or ] but found "
@@ -9436,78 +9436,78 @@ CALL_METHOD 0 describe_char
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 223
+@ "<std>/json.gaz" 232
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "<std>/json.gaz" 226
+@ "<std>/json.gaz" 235
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 212
+@ "<std>/json.gaz" 221
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/json.gaz" 203
+@ "<std>/json.gaz" 212
 PUSH null
 RET
 
 fn json::Reader.parse_object 0 0
 locals $object $key $c
-@ "<std>/json.gaz" 231
+@ "<std>/json.gaz" 240
 LOAD_THIS
 GET_METHOD enter
 CALL_METHOD 0 enter
 POP
-@ "<std>/json.gaz" 232
+@ "<std>/json.gaz" 241
 NEW_MAP
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 233
+@ "<std>/json.gaz" 242
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 PUSH "}"
 EQUALS
 JZ ELSE_0
-@ "<std>/json.gaz" 234
+@ "<std>/json.gaz" 243
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 235
+@ "<std>/json.gaz" 244
 LOAD_THIS
 GET_PROPERTY_EXISTING depth
 DEC
 SET_FIELD depth
 POP
-@ "<std>/json.gaz" 236
+@ "<std>/json.gaz" 245
 LOAD 0
 RET
-@ "<std>/json.gaz" 233
+@ "<std>/json.gaz" 242
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
 LABEL WHILE_1
-@ "<std>/json.gaz" 239
+@ "<std>/json.gaz" 248
 PUSH true
 JZ ENDWHILE_1
-@ "<std>/json.gaz" 240
+@ "<std>/json.gaz" 249
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 241
+@ "<std>/json.gaz" 250
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 PUSH "\""
 NOT_EQUALS
 JZ ELSE_2
-@ "<std>/json.gaz" 242
+@ "<std>/json.gaz" 251
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected a string key but found "
@@ -9517,30 +9517,30 @@ CALL_METHOD 0 describe_char
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 241
+@ "<std>/json.gaz" 250
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/json.gaz" 244
+@ "<std>/json.gaz" 253
 LOAD_THIS
 GET_METHOD parse_string
 CALL_METHOD 0 parse_string
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 246
+@ "<std>/json.gaz" 255
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 247
+@ "<std>/json.gaz" 256
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 PUSH ":"
 NOT_EQUALS
 JZ ELSE_3
-@ "<std>/json.gaz" 248
+@ "<std>/json.gaz" 257
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected : but found "
@@ -9550,22 +9550,22 @@ CALL_METHOD 0 describe_char
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 247
+@ "<std>/json.gaz" 256
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "<std>/json.gaz" 250
+@ "<std>/json.gaz" 259
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 251
+@ "<std>/json.gaz" 260
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 253
+@ "<std>/json.gaz" 262
 LOAD 1
 KEY_CHECK
 LOAD_THIS
@@ -9573,48 +9573,48 @@ GET_METHOD parse_value
 CALL_METHOD 0 parse_value
 SET_PATH [k] 0
 POP
-@ "<std>/json.gaz" 254
+@ "<std>/json.gaz" 263
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/json.gaz" 256
+@ "<std>/json.gaz" 265
 LOAD_FIELD text
 LOAD_FIELD pos
 CALL chars::char_at 2
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 257
+@ "<std>/json.gaz" 266
 LOAD 2
 PUSH "}"
 EQUALS
 JZ ELSE_4
-@ "<std>/json.gaz" 258
+@ "<std>/json.gaz" 267
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 259
+@ "<std>/json.gaz" 268
 LOAD_THIS
 GET_PROPERTY_EXISTING depth
 DEC
 SET_FIELD depth
 POP
-@ "<std>/json.gaz" 260
+@ "<std>/json.gaz" 269
 LOAD 0
 RET
-@ "<std>/json.gaz" 257
+@ "<std>/json.gaz" 266
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "<std>/json.gaz" 262
+@ "<std>/json.gaz" 271
 LOAD 2
 PUSH ","
 NOT_EQUALS
 JZ ELSE_5
-@ "<std>/json.gaz" 263
+@ "<std>/json.gaz" 272
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected , or } but found "
@@ -9624,78 +9624,78 @@ CALL_METHOD 0 describe_char
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 262
+@ "<std>/json.gaz" 271
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "<std>/json.gaz" 265
+@ "<std>/json.gaz" 274
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 INC
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 239
+@ "<std>/json.gaz" 248
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/json.gaz" 230
+@ "<std>/json.gaz" 239
 PUSH null
 RET
 
 fn json::Reader.parse_string 0 0
 locals $text $length $pos $run_start $result $c
-@ "<std>/json.gaz" 273
+@ "<std>/json.gaz" 282
 LOAD_FIELD text
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 274
+@ "<std>/json.gaz" 283
 LOAD 0
 CALL_BUILTIN len 1
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 275
+@ "<std>/json.gaz" 284
 LOAD_FIELD pos
 PUSH 1
 ADD
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 276
+@ "<std>/json.gaz" 285
 LOAD 2
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 277
+@ "<std>/json.gaz" 286
 PUSH ""
 STORE 4
 LOAD 4
 POP
 LABEL WHILE_0
-@ "<std>/json.gaz" 279
+@ "<std>/json.gaz" 288
 LOAD 2
 LOAD 1
 LT
 JZ ENDWHILE_0
-@ "<std>/json.gaz" 280
+@ "<std>/json.gaz" 289
 LOAD 0
 LOAD 2
 INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "<std>/json.gaz" 281
+@ "<std>/json.gaz" 290
 LOAD 5
 PUSH "\""
 EQUALS
 JZ ELSE_1
-@ "<std>/json.gaz" 282
+@ "<std>/json.gaz" 291
 LOAD 2
 PUSH 1
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 283
+@ "<std>/json.gaz" 292
 LOAD 4
 LOAD 0
 LOAD 3
@@ -9705,16 +9705,16 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT
 RET
-@ "<std>/json.gaz" 281
+@ "<std>/json.gaz" 290
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 285
+@ "<std>/json.gaz" 294
 LOAD 5
 PUSH "\\"
 EQUALS
 JZ ELSE_2
-@ "<std>/json.gaz" 286
+@ "<std>/json.gaz" 295
 LOAD 0
 LOAD 3
 LOAD 2
@@ -9723,49 +9723,49 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 4
 POP
-@ "<std>/json.gaz" 287
+@ "<std>/json.gaz" 296
 LOAD 2
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 288
+@ "<std>/json.gaz" 297
 LOAD_THIS
 GET_METHOD parse_escape
 CALL_METHOD 0 parse_escape
 CONCAT_ASSIGN 4
 POP
-@ "<std>/json.gaz" 289
+@ "<std>/json.gaz" 298
 LOAD_FIELD pos
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 290
+@ "<std>/json.gaz" 299
 LOAD 2
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 285
+@ "<std>/json.gaz" 294
 JMP ENDIF_2
 LABEL ELSE_2
-@ "<std>/json.gaz" 291
+@ "<std>/json.gaz" 300
 LOAD 5
 CALL_BUILTIN ord 1
 PUSH 32
 LT
 JZ ELSE_3
-@ "<std>/json.gaz" 292
+@ "<std>/json.gaz" 301
 LOAD 2
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 293
+@ "<std>/json.gaz" 302
 LOAD_THIS
 GET_METHOD fail
 PUSH "unescaped control character in string"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 291
+@ "<std>/json.gaz" 300
 JMP ENDIF_3
 LABEL ELSE_3
-@ "<std>/json.gaz" 295
+@ "<std>/json.gaz" 304
 LOAD 2
 INC
 STORE 2
@@ -9773,26 +9773,26 @@ LOAD 2
 POP
 LABEL ENDIF_3
 LABEL ENDIF_2
-@ "<std>/json.gaz" 279
+@ "<std>/json.gaz" 288
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/json.gaz" 299
+@ "<std>/json.gaz" 308
 LOAD 2
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 300
+@ "<std>/json.gaz" 309
 LOAD_THIS
 GET_METHOD fail
 PUSH "unterminated string"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 272
+@ "<std>/json.gaz" 281
 PUSH null
 RET
 
 fn json::Reader.parse_escape 0 0
 locals $c $unit $low
-@ "<std>/json.gaz" 305
+@ "<std>/json.gaz" 314
 LOAD_FIELD text
 LOAD_FIELD pos
 PUSH 1
@@ -9801,33 +9801,33 @@ CALL chars::char_at 2
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 306
+@ "<std>/json.gaz" 315
 LOAD_FIELD simple
 LOAD 0
 CALL_BUILTIN has_key 2
 JZ ELSE_0
-@ "<std>/json.gaz" 307
+@ "<std>/json.gaz" 316
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 PUSH 2
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 308
+@ "<std>/json.gaz" 317
 LOAD_FIELD simple
 LOAD 0
 INDEX_GET
 RET
-@ "<std>/json.gaz" 306
+@ "<std>/json.gaz" 315
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 310
+@ "<std>/json.gaz" 319
 LOAD 0
 PUSH "u"
 NOT_EQUALS
 JZ ELSE_1
-@ "<std>/json.gaz" 311
+@ "<std>/json.gaz" 320
 LOAD_THIS
 GET_METHOD fail
 PUSH "invalid escape "
@@ -9838,11 +9838,11 @@ CALL json::encode_string 1
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 310
+@ "<std>/json.gaz" 319
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 314
+@ "<std>/json.gaz" 323
 LOAD_THIS
 GET_METHOD parse_hex4
 LOAD_FIELD pos
@@ -9852,14 +9852,14 @@ CALL_METHOD 1 parse_hex4
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 315
+@ "<std>/json.gaz" 324
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 PUSH 6
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 319
+@ "<std>/json.gaz" 328
 LOAD 1
 PUSH 56320
 GE
@@ -9874,17 +9874,17 @@ LABEL AND_FALSE_3
 PUSH false
 LABEL AND_END_3
 JZ ELSE_2
-@ "<std>/json.gaz" 320
+@ "<std>/json.gaz" 329
 LOAD_THIS
 GET_METHOD fail
 PUSH "unpaired UTF-16 surrogate"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 319
+@ "<std>/json.gaz" 328
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/json.gaz" 322
+@ "<std>/json.gaz" 331
 LOAD 1
 PUSH 55296
 LT
@@ -9901,15 +9901,15 @@ LABEL OR_TRUE_5
 PUSH true
 LABEL OR_END_5
 JZ ELSE_4
-@ "<std>/json.gaz" 323
+@ "<std>/json.gaz" 332
 LOAD 1
 CALL json::utf8 1
 RET
-@ "<std>/json.gaz" 322
+@ "<std>/json.gaz" 331
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "<std>/json.gaz" 325
+@ "<std>/json.gaz" 334
 LOAD_FIELD text
 LOAD_FIELD pos
 PUSH 2
@@ -9917,17 +9917,17 @@ CALL_BUILTIN slice 3
 PUSH "\\u"
 NOT_EQUALS
 JZ ELSE_6
-@ "<std>/json.gaz" 326
+@ "<std>/json.gaz" 335
 LOAD_THIS
 GET_METHOD fail
 PUSH "unpaired UTF-16 surrogate"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 325
+@ "<std>/json.gaz" 334
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "<std>/json.gaz" 328
+@ "<std>/json.gaz" 337
 LOAD_THIS
 GET_METHOD parse_hex4
 LOAD_FIELD pos
@@ -9937,7 +9937,7 @@ CALL_METHOD 1 parse_hex4
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 329
+@ "<std>/json.gaz" 338
 LOAD 2
 PUSH 56320
 LT
@@ -9954,24 +9954,24 @@ LABEL OR_TRUE_8
 PUSH true
 LABEL OR_END_8
 JZ ELSE_7
-@ "<std>/json.gaz" 330
+@ "<std>/json.gaz" 339
 LOAD_THIS
 GET_METHOD fail
 PUSH "unpaired UTF-16 surrogate"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 329
+@ "<std>/json.gaz" 338
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "<std>/json.gaz" 332
+@ "<std>/json.gaz" 341
 LOAD_THIS
 GET_PROPERTY_EXISTING pos
 PUSH 6
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 333
+@ "<std>/json.gaz" 342
 PUSH 65536
 LOAD 1
 PUSH 55296
@@ -9985,18 +9985,18 @@ SUB
 ADD
 CALL json::utf8 1
 RET
-@ "<std>/json.gaz" 304
+@ "<std>/json.gaz" 313
 PUSH null
 RET
 
 fn json::Reader.parse_hex4 1 1
 locals $at $value $i $c
-@ "<std>/json.gaz" 338
+@ "<std>/json.gaz" 347
 PUSH 0
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 339
+@ "<std>/json.gaz" 348
 PUSH 0
 STORE 2
 LOAD 2
@@ -10006,7 +10006,7 @@ LOAD 2
 PUSH 4
 LT
 JZ ENDWHILE_0
-@ "<std>/json.gaz" 340
+@ "<std>/json.gaz" 349
 LOAD_FIELD text
 LOAD 0
 LOAD 2
@@ -10015,28 +10015,28 @@ CALL chars::char_at 2
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 341
+@ "<std>/json.gaz" 350
 LOAD 3
 CALL chars::is_hex_digit 1
 NOT
 JZ ELSE_1
-@ "<std>/json.gaz" 342
+@ "<std>/json.gaz" 351
 LOAD 0
 LOAD 2
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 343
+@ "<std>/json.gaz" 352
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected four hex digits after \\u"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 341
+@ "<std>/json.gaz" 350
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/json.gaz" 345
+@ "<std>/json.gaz" 354
 LOAD 1
 PUSH 16
 MUL
@@ -10049,7 +10049,7 @@ STORE 1
 LOAD 1
 POP
 LABEL CONTINUE_0
-@ "<std>/json.gaz" 339
+@ "<std>/json.gaz" 348
 LOAD 2
 INC
 STORE 2
@@ -10057,31 +10057,31 @@ LOAD 2
 POP
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/json.gaz" 347
+@ "<std>/json.gaz" 356
 LOAD 1
 RET
-@ "<std>/json.gaz" 337
+@ "<std>/json.gaz" 346
 PUSH null
 RET
 
 fn json::Reader.parse_number 0 0
 locals $text $start $pos $negative $digits_end $is_float $c $sign $number
-@ "<std>/json.gaz" 352
+@ "<std>/json.gaz" 361
 LOAD_FIELD text
 STORE 0
 LOAD 0
 POP
-@ "<std>/json.gaz" 353
+@ "<std>/json.gaz" 362
 LOAD_FIELD pos
 STORE 1
 LOAD 1
 POP
-@ "<std>/json.gaz" 354
+@ "<std>/json.gaz" 363
 LOAD 1
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 355
+@ "<std>/json.gaz" 364
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
@@ -10090,56 +10090,56 @@ EQUALS
 STORE 3
 LOAD 3
 POP
-@ "<std>/json.gaz" 356
+@ "<std>/json.gaz" 365
 LOAD 3
 JZ ELSE_0
-@ "<std>/json.gaz" 357
+@ "<std>/json.gaz" 366
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 356
+@ "<std>/json.gaz" 365
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/json.gaz" 360
+@ "<std>/json.gaz" 369
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
 PUSH "0"
 EQUALS
 JZ ELSE_1
-@ "<std>/json.gaz" 361
+@ "<std>/json.gaz" 370
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 360
+@ "<std>/json.gaz" 369
 JMP ENDIF_1
 LABEL ELSE_1
-@ "<std>/json.gaz" 362
+@ "<std>/json.gaz" 371
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
 CALL chars::is_digit 1
 JZ ELSE_2
-@ "<std>/json.gaz" 363
+@ "<std>/json.gaz" 372
 LOAD 0
 LOAD 2
 CALL json::skip_digits 2
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 362
+@ "<std>/json.gaz" 371
 JMP ENDIF_2
 LABEL ELSE_2
-@ "<std>/json.gaz" 365
+@ "<std>/json.gaz" 374
 LOAD 2
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 366
+@ "<std>/json.gaz" 375
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected a digit but found "
@@ -10151,24 +10151,24 @@ CALL_METHOD 1 fail
 POP
 LABEL ENDIF_2
 LABEL ENDIF_1
-@ "<std>/json.gaz" 368
+@ "<std>/json.gaz" 377
 LOAD 2
 STORE 4
 LOAD 4
 POP
-@ "<std>/json.gaz" 370
+@ "<std>/json.gaz" 379
 PUSH false
 STORE 5
 LOAD 5
 POP
-@ "<std>/json.gaz" 371
+@ "<std>/json.gaz" 380
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
 PUSH "."
 EQUALS
 JZ ELSE_3
-@ "<std>/json.gaz" 372
+@ "<std>/json.gaz" 381
 LOAD 0
 LOAD 2
 PUSH 1
@@ -10177,23 +10177,23 @@ CALL chars::char_at 2
 CALL chars::is_digit 1
 NOT
 JZ ELSE_4
-@ "<std>/json.gaz" 373
+@ "<std>/json.gaz" 382
 LOAD 2
 PUSH 1
 ADD
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 374
+@ "<std>/json.gaz" 383
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected a digit after the decimal point"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 372
+@ "<std>/json.gaz" 381
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "<std>/json.gaz" 376
+@ "<std>/json.gaz" 385
 LOAD 0
 LOAD 2
 PUSH 1
@@ -10202,23 +10202,23 @@ CALL json::skip_digits 2
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 377
+@ "<std>/json.gaz" 386
 PUSH true
 STORE 5
 LOAD 5
 POP
-@ "<std>/json.gaz" 371
+@ "<std>/json.gaz" 380
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "<std>/json.gaz" 380
+@ "<std>/json.gaz" 389
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
 STORE 6
 LOAD 6
 POP
-@ "<std>/json.gaz" 381
+@ "<std>/json.gaz" 390
 LOAD 6
 PUSH "e"
 EQUALS
@@ -10235,20 +10235,20 @@ LABEL OR_TRUE_6
 PUSH true
 LABEL OR_END_6
 JZ ELSE_5
-@ "<std>/json.gaz" 382
+@ "<std>/json.gaz" 391
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 383
+@ "<std>/json.gaz" 392
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
 STORE 7
 LOAD 7
 POP
-@ "<std>/json.gaz" 384
+@ "<std>/json.gaz" 393
 LOAD 7
 PUSH "+"
 EQUALS
@@ -10265,58 +10265,58 @@ LABEL OR_TRUE_8
 PUSH true
 LABEL OR_END_8
 JZ ELSE_7
-@ "<std>/json.gaz" 385
+@ "<std>/json.gaz" 394
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 384
+@ "<std>/json.gaz" 393
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "<std>/json.gaz" 387
+@ "<std>/json.gaz" 396
 LOAD 0
 LOAD 2
 CALL chars::char_at 2
 CALL chars::is_digit 1
 NOT
 JZ ELSE_9
-@ "<std>/json.gaz" 388
+@ "<std>/json.gaz" 397
 LOAD 2
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 389
+@ "<std>/json.gaz" 398
 LOAD_THIS
 GET_METHOD fail
 PUSH "expected a digit in the exponent"
 CALL_METHOD 1 fail
 POP
-@ "<std>/json.gaz" 387
+@ "<std>/json.gaz" 396
 JMP ENDIF_9
 LABEL ELSE_9
 LABEL ENDIF_9
-@ "<std>/json.gaz" 391
+@ "<std>/json.gaz" 400
 LOAD 0
 LOAD 2
 CALL json::skip_digits 2
 STORE 2
 LOAD 2
 POP
-@ "<std>/json.gaz" 392
+@ "<std>/json.gaz" 401
 PUSH true
 STORE 5
 LOAD 5
 POP
-@ "<std>/json.gaz" 381
+@ "<std>/json.gaz" 390
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "<std>/json.gaz" 395
+@ "<std>/json.gaz" 404
 LOAD 2
 SET_FIELD pos
 POP
-@ "<std>/json.gaz" 396
+@ "<std>/json.gaz" 405
 LOAD 0
 LOAD 1
 LOAD 2
@@ -10326,7 +10326,7 @@ CALL_BUILTIN slice 3
 STORE 8
 LOAD 8
 POP
-@ "<std>/json.gaz" 397
+@ "<std>/json.gaz" 406
 LOAD 5
 NOT
 JZ OR_TRUE_11
@@ -10347,19 +10347,19 @@ LABEL OR_TRUE_11
 PUSH true
 LABEL OR_END_11
 JZ ELSE_10
-@ "<std>/json.gaz" 398
+@ "<std>/json.gaz" 407
 LOAD 8
 CALL_BUILTIN to_float 1
 RET
-@ "<std>/json.gaz" 397
+@ "<std>/json.gaz" 406
 JMP ENDIF_10
 LABEL ELSE_10
 LABEL ENDIF_10
-@ "<std>/json.gaz" 400
+@ "<std>/json.gaz" 409
 LOAD 8
 CALL_BUILTIN to_int 1
 RET
-@ "<std>/json.gaz" 351
+@ "<std>/json.gaz" 360
 PUSH null
 RET
 

@@ -1,4 +1,4 @@
-/*
+/**
  * Cryptography for GazLang programs, on the builtins random_bytes(), sha256(), hmac_sha256(),
  * pbkdf2_sha256(), scrypt() and argon2id():
  *   crypto::hash_password($password, $options)   a string to store, naming its algorithm,
@@ -60,7 +60,7 @@ const BASE64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678
 
 /* ---- Passwords --------------------------------------------------------------------------- */
 
-/*
+/**
  * A password as a string to store, in the PHC string format: the algorithm, its parameters, a
  * random salt and the hash, the last two in base64 without padding:
  *   $argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>
@@ -76,7 +76,7 @@ pub fn hash_password(string $password, map $options = {}): string {
     return $settings.header() .. SEPARATOR .. encode64($salt, BASE64, false) .. SEPARATOR .. encode64($hash, BASE64, false);
 }
 
-/*
+/**
  * Whether $password is the one hash_password() made $stored from. A $stored this can't read,
  * or that asks for more than LIMITS allow, is false, as a wrong password is: it may be damaged,
  * or planted to make each login cost gigabytes and hours. $limits raises or lowers LIMITS for
@@ -91,7 +91,7 @@ pub fn verify_password(string $password, string $stored, map $limits = {}): bool
     return equals($hash, $parsed.hash);
 }
 
-/*
+/**
  * Whether $stored was made with other settings than $options give, so that a program can hash
  * the password again, with what it now uses, once a login has shown it. A $stored this can't
  * read needs it too: true. LIMITS don't apply, since they are verify_password()'s.
@@ -259,9 +259,11 @@ kind Stored {
 
 /* ---- Tokens and comparing -------------------------------------------------------------- */
 
-/* A random string for a session, a reset link or a CSRF token: $bytes random bytes (32, 256
-   bits, by default) in base64url, so it goes in a URL or a cookie as it is. Fewer than one byte
-   is an error: an empty token would match every empty one. */
+/**
+ * A random string for a session, a reset link or a CSRF token: $bytes random bytes (32, 256
+ * bits, by default) in base64url, so it goes in a URL or a cookie as it is. Fewer than one byte
+ * is an error: an empty token would match every empty one.
+ */
 pub fn token(int $bytes = TOKEN_BYTES): string {
     if ($bytes < 1) {
         throw "crypto::token() expects 1 byte or more, got {$bytes}";
@@ -269,7 +271,10 @@ pub fn token(int $bytes = TOKEN_BYTES): string {
     return base64url(random_bytes($bytes));
 }
 
-/*
+// Between a signed value and its MAC: base64url never holds one
+const SIGNATURE_SEPARATOR = ".";
+
+/**
  * $value with an HMAC of itself appended, so a caller can hand it to something untrusted (a
  * cookie, a URL) and tell whether it comes back unchanged: crypto::unsign() recovers $value if
  * the MAC still checks out, or null if it doesn't (or the text isn't one sign() made at all).
@@ -279,12 +284,15 @@ pub fn token(int $bytes = TOKEN_BYTES): string {
  * is a dot, which base64url never contains, so unsign() can always find the last one, whatever
  * $value holds.
  */
-const SIGNATURE_SEPARATOR = ".";
-
 pub fn sign(string $value, string $secret): string {
     return $value .. SIGNATURE_SEPARATOR .. base64url(hmac_sha256($value, $secret));
 }
 
+/**
+ * The value crypto::sign() signed into $signed with $secret, or null when its MAC doesn't check
+ * out: changed, signed with another secret, or not made by sign() at all. The MAC is compared
+ * with crypto::equals(), so how long this takes says nothing about how close a forgery came.
+ */
 pub fn unsign(string $signed, string $secret): ?string {
     $from_end = index_of(reverse($signed), SIGNATURE_SEPARATOR);
     if ($from_end == null) {
@@ -299,7 +307,7 @@ pub fn unsign(string $signed, string $secret): ?string {
     return $value;
 }
 
-/*
+/**
  * Whether two strings are the same, in a time that tells nothing about where they differ.
  * Comparing byte by byte stops at the first difference, so how long a wrong guess takes says
  * how much of it was right, and a secret can be found a byte at a time. Here each is run through
@@ -316,7 +324,7 @@ pub fn equals(string $a, string $b): bool {
 
 /* ---- Hex and base64 -------------------------------------------------------------------- */
 
-/*
+/**
  * Bytes as lowercase hex, two digits each: sha256("") |> crypto::hex starts "e3b0c442".
  * ponytail: each byte goes through $bytes[$i], and a one-byte string is made the first time its
  * value is seen in the program, so how long this takes can hint which byte values a secret
@@ -331,7 +339,9 @@ pub fn hex(string $bytes): string {
     return $text;
 }
 
-/* The bytes hex digits (either case) stand for; an odd count or another character is an error */
+/**
+ * The bytes hex digits (either case) stand for; an odd count or another character is an error
+ */
 pub fn from_hex(string $text): string {
     if (len($text) % 2 != 0) {
         throw "crypto::from_hex() expects an even number of digits, got " .. len($text);
@@ -351,23 +361,33 @@ fn hex_digit($text, $at) {
         ?? throw "crypto::from_hex() expects hex digits, got " .. quote($text[$at]) .. " at {$at}";
 }
 
-/* Base64 (RFC 4648, section 4), padded with = to a multiple of 4 characters */
+/**
+ * Base64 (RFC 4648, section 4), padded with = to a multiple of 4 characters
+ */
 pub fn base64(string $bytes): string {
     return encode64($bytes, BASE64, true);
 }
 
-/* The bytes of padded base64; anything else (a missing =, another character, bits left over
-   that aren't zero) is an error, so a value has only one spelling */
+/**
+ * The bytes of padded base64; anything else (a missing =, another character, bits left over
+ * that aren't zero) is an error, so a value has only one spelling
+ */
 pub fn from_base64(string $text): string {
     return decode64($text, BASE64, true, "base64");
 }
 
-/* Base64url (RFC 4648, section 5): - and _ for + and /, and no padding, so it needs no
-   escaping in a URL, a file name or a cookie */
+/**
+ * Base64url (RFC 4648, section 5): - and _ for + and /, and no padding, so it needs no
+ * escaping in a URL, a file name or a cookie
+ */
 pub fn base64url(string $bytes): string {
     return encode64($bytes, BASE64URL, false);
 }
 
+/**
+ * The bytes of unpadded base64url; anything else (an =, another character, bits left over that
+ * aren't zero) is an error, so a value has only one spelling
+ */
 pub fn from_base64url(string $text): string {
     return decode64($text, BASE64URL, false, "base64url");
 }

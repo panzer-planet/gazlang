@@ -1,4 +1,5 @@
 compiler/codegen.gaz
+compiler/docblocks.gaz
 compiler/gazlang.gaz
 compiler/lexer.gaz
 compiler/nodes.gaz
@@ -1049,6 +1050,7 @@ tests/fixtures/tag_library.gaz
 tests/fixtures/term_input.gaz
 tests/fixtures/term_read.gaz
 tests/fixtures/test_library/failures.gaz
+tests/gaz/compiler/docblocks_test.gaz
 tests/gaz/compiler/lexer_test.gaz
 tests/gaz/compiler/parser_test.gaz
 tests/gaz/errors/trace_test.gaz

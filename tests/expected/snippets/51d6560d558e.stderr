@@ -1,8 +1,8 @@
 Error: Invalid JSON: unexpected "]" at position 3
-  json::Reader.fail at <std>/json.gaz:129
-  json::Reader.parse_value at <std>/json.gaz:181
-  json::Reader.parse_array at <std>/json.gaz:214
-  json::Reader.parse_value at <std>/json.gaz:164
-  json::Reader.parse at <std>/json.gaz:119
-  json::decode at <std>/json.gaz:36
+  json::Reader.fail at <std>/json.gaz:138
+  json::Reader.parse_value at <std>/json.gaz:190
+  json::Reader.parse_array at <std>/json.gaz:223
+  json::Reader.parse_value at <std>/json.gaz:173
+  json::Reader.parse at <std>/json.gaz:128
+  json::decode at <std>/json.gaz:41
   top level on line 1

@@ -1,13 +1,17 @@
-// Formatting numbers and text for display: format::number(), format::pad_left(),
-// format::pad_right() and format::sprintf().
+/**
+ * Formatting numbers and text for display: format::number(), format::pad_left(),
+ * format::pad_right() and format::sprintf().
+ */
 namespace format;
 
 import "./text.gaz" use quote;
 
-// $number with $decimals digits after the point and thousands separated:
-// format::number(1234.5) is "1,234.50", format::number(-0.004) is "0.00".
-// Rounds like round($number, $decimals), so it gives "1.01" for 1.005, with halves
-// rounded away from zero. The number must fit in an int once scaled by 10^$decimals.
+/**
+ * $number with $decimals digits after the point and thousands separated:
+ * format::number(1234.5) is "1,234.50", format::number(-0.004) is "0.00".
+ * Rounds like round($number, $decimals), so it gives "1.01" for 1.005, with halves
+ * rounded away from zero. The number must fit in an int once scaled by 10^$decimals.
+ */
 pub fn number($number, $decimals = 2, $thousands = ",") {
     $scale = 1;
     for ($i = 0; $i < $decimals; $i++) {
@@ -34,8 +38,10 @@ pub fn number($number, $decimals = 2, $thousands = ",") {
     return $text;
 }
 
-// $value as echo prints it, padded with $pad on the left to at least $width characters (bytes),
-// so numbers and objects line up without converting them first
+/**
+ * $value as echo prints it, padded with $pad on the left to at least $width characters (bytes),
+ * so numbers and objects line up without converting them first
+ */
 pub fn pad_left($value, $width, $pad = " ") {
     $text = to_string($value);
     $missing = $width - len($text);
@@ -45,7 +51,9 @@ pub fn pad_left($value, $width, $pad = " ") {
     return repeat($pad, $missing) .. $text;
 }
 
-// $value as echo prints it, padded with $pad on the right to at least $width characters (bytes)
+/**
+ * $value as echo prints it, padded with $pad on the right to at least $width characters (bytes)
+ */
 pub fn pad_right($value, $width, $pad = " ") {
     $text = to_string($value);
     $missing = $width - len($text);
@@ -55,25 +63,28 @@ pub fn pad_right($value, $width, $pad = " ") {
     return $text .. repeat($pad, $missing);
 }
 
-/*
- * $template with each placeholder replaced by the next of $args, a list (GazLang has no
- * variadic calls): format::sprintf("%-6s|%5.1f|%03d", ["ab", 2.25, 7]) is "ab    |  2.3|007".
- * A placeholder is % then flags (- to pad on the right, 0 to pad a number with zeros after its
- * sign), a width (the fewest bytes), a precision (.2, %f only; 6 without one) and one of:
- *   %s  the value as echo prints it, whatever it is
- *   %d  an int
- *   %f  an int or float with the precision's digits, rounded as round() does (format::number)
- *   %x  an int of 0 or more in lowercase hex
- *   %o  an int of 0 or more in octal (a mode, 0o755, is "755")
- *   %%  a %
- * As many placeholders as arguments, a type %d, %f, %x or %o can't take, and a placeholder this
- * doesn't know are errors, raised before anything is formatted.
- */
+// What sprintf() takes after a %, its precision without one and at most, and its digits
 const CONVERSIONS = ["s", "d", "f", "x", "o", "%"];
 const DEFAULT_PRECISION = 6;
 const MAX_PRECISION = 18;
 const DIGITS = "0123456789abcdef";
 
+/**
+ * $template with each placeholder replaced by the next of $args, a list (GazLang has no
+ * variadic calls): format::sprintf("%-6s|%5.1f|%03d", ["ab", 2.25, 7]) is "ab    |  2.3|007".
+ * A placeholder is % then flags (- to pad on the right, 0 to pad a number with zeros after its
+ * sign), a width (the fewest bytes), a precision (.2, %f only; 6 without one) and one of:
+ *
+ * - `%s`, the value as echo prints it, whatever it is
+ * - `%d`, an int
+ * - `%f`, an int or float with the precision's digits, rounded as round() does (format::number)
+ * - `%x`, an int of 0 or more in lowercase hex
+ * - `%o`, an int of 0 or more in octal (a mode, 0o755, is "755")
+ * - `%%`, a %
+ *
+ * As many placeholders as arguments, a type %d, %f, %x or %o can't take, and a placeholder this
+ * doesn't know are errors, raised before anything is formatted.
+ */
 pub fn sprintf($template, $args) {
     check_arguments($template, $args);
     $pieces = split_template($template);

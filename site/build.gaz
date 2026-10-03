@@ -1,9 +1,10 @@
 /*
  * The website, built from the repository: the README as the home page, docs/language.md as the
  * language reference (a page for each of its sections), a page for each file of the standard
- * library (made from its pub names and the comments above them), and docs/bytecode.md and
+ * library (made from its pub names and the docblocks above them), and docs/bytecode.md and
  * docs/internals.md for contributors. Every page is checked before the build is done (links,
- * anchors, ids and tags, see verify.gaz), and a problem fails it, naming the page and line.
+ * anchors, ids and tags, see verify.gaz), and so is every name of the library for a docblock; a
+ * problem fails the build, naming the page and line.
  *
  *   bin/gaz site/build.gaz [DIRECTORY] [--root DIR] [--repository OWNER/NAME] [--release TAG]
  *
@@ -76,6 +77,8 @@ kind Site {
     #pages = {};
     #linker;
     #renderers = {};
+    // What is wrong with the library's sources, found while its pages are made
+    pub list #problems = [];
 
     fn _(pub Repository #repository, string #root, ?string #release) {
         #linker = Linker($repository, DOCUMENT_PAGES, $root);
@@ -183,7 +186,9 @@ kind Site {
             if (ends_with($file, ".gaz")) {
                 $name = slice($file, 0, -4);
                 $source = LIBRARY_DIRECTORY .. "/" .. $file;
-                $libraries[] = LibraryView(library::read($name, #read($source)), #comment_renderer($source));
+                $library = library::read($name, #read($source));
+                #problems = [...#problems, ...verify::undocumented($library, "library/{$name}.html", $source)];
+                $libraries[] = LibraryView($library, #comment_renderer($source));
             }
         }
 
@@ -333,7 +338,7 @@ $files = $site.files();
  * Checked before anything is written, so a failed build leaves the last good site where it
  * was; the pages that failed go next to it, for the lines the problems name
  */
-$problems = verify::site($files);
+$problems = [...verify::site($files), ...$site.problems];
 $failed = $options.output .. FAILED_SUFFIX;
 if (len($problems) > 0) {
     write_site($failed, $files);

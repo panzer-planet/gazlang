@@ -131,6 +131,25 @@ class SiteTest extends GazLangTestCase
         $this->assertMatchesRegularExpression('~library/twice\.html:\d+: the id "f" is given twice~', $printed);
     }
 
+    /**
+     * Every name a library page lists needs a docblock: a pub name with only a plain comment above
+     * it fails the build, naming the page and where to write one
+     */
+    public function test_a_library_name_without_a_docblock_fails_the_build()
+    {
+        $root = $this->copyOfTheDocuments('undocumented');
+        file_put_contents(self::ROOT."/{$root}/lib/undocumented.gaz", "/**\n * Undocumented.\n */\nnamespace undocumented;\n\n// Only a plain comment\npub fn f() {}\n");
+
+        [$printed, $code] = $this->build([self::TMP.'/undocumented-dist', '--root', $root, '--repository', 'owner/name']);
+
+        $this->assertSame(1, $code, $printed);
+        $this->assertStringContainsString(
+            'library/undocumented.html: undocumented::f has no docblock: write one above it, at lib/undocumented.gaz:7',
+            $printed
+        );
+        $this->assertStringContainsString('1 problem: the site was not written', $printed);
+    }
+
     public function test_the_repository_is_found_from_git_origin()
     {
         $repository = self::ROOT.'/'.self::TMP.'/origin-repo';

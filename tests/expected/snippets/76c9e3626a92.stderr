@@ -1,8 +1,8 @@
 Error: Invalid JSON: unpaired UTF-16 surrogate at position 7
-  json::Reader.fail at <std>/json.gaz:129
-  json::Reader.parse_escape at <std>/json.gaz:326
-  json::Reader.parse_string at <std>/json.gaz:288
-  json::Reader.parse_value at <std>/json.gaz:167
-  json::Reader.parse at <std>/json.gaz:119
-  json::decode at <std>/json.gaz:36
+  json::Reader.fail at <std>/json.gaz:138
+  json::Reader.parse_escape at <std>/json.gaz:335
+  json::Reader.parse_string at <std>/json.gaz:297
+  json::Reader.parse_value at <std>/json.gaz:176
+  json::Reader.parse at <std>/json.gaz:128
+  json::decode at <std>/json.gaz:41
   top level on line 1

@@ -1,21 +1,23 @@
-// HTTP/1.1 for GazLang, on the socket builtins (TLS for https): http::get($url,
-// $headers = {}), http::post($url, $body, $headers = {}) and http::request($method,
-// $url, $headers = {}, $body = null). Each returns
-// {"status" => 200, "headers" => {"content-type" => "text/plain", ...}, "body" => "..."}.
-//
-// - Any status is a response, 404 and 500 included. A request that gets no response (no such
-//   host, refused, a certificate that doesn't check out, a malformed response) is an error.
-// - https checks the server's certificate against the system's trusted ones and the host name.
-// - Redirects are followed, up to 20. A 303 becomes a GET (a HEAD stays a HEAD), and so does a
-//   POST after a 301 or 302, as browsers do; the others keep the method and body. Authorization
-//   and Cookie headers are dropped when a redirect leaves the scheme, host and port.
-// - Response header names are lowercased; a repeated header's values are joined with ", ".
-// - Host, Content-Length, Connection and Transfer-Encoding are written here; giving one is an
-//   error. No Content-Type is sent unless given.
-// - Each connection waits 30 seconds at most to connect and for each read.
-// - ponytail: one connection per request (Connection: close); keeping it alive would save the
-//   handshake for several requests to one server. Redirect targets' ./ and ../ are left for the
-//   server to resolve.
+/**
+ * HTTP/1.1 for GazLang, on the socket builtins (TLS for https): http::get($url,
+ * $headers = {}), http::post($url, $body, $headers = {}) and http::request($method,
+ * $url, $headers = {}, $body = null). Each returns
+ * {"status" => 200, "headers" => {"content-type" => "text/plain", ...}, "body" => "..."}.
+ *
+ * - Any status is a response, 404 and 500 included. A request that gets no response (no such
+ *   host, refused, a certificate that doesn't check out, a malformed response) is an error.
+ * - https checks the server's certificate against the system's trusted ones and the host name.
+ * - Redirects are followed, up to 20. A 303 becomes a GET (a HEAD stays a HEAD), and so does a
+ *   POST after a 301 or 302, as browsers do; the others keep the method and body. Authorization
+ *   and Cookie headers are dropped when a redirect leaves the scheme, host and port.
+ * - Response header names are lowercased; a repeated header's values are joined with ", ".
+ * - Host, Content-Length, Connection and Transfer-Encoding are written here; giving one is an
+ *   error. No Content-Type is sent unless given.
+ * - Each connection waits 30 seconds at most to connect and for each read.
+ * - ponytail: one connection per request (Connection: close); keeping it alive would save the
+ *   handshake for several requests to one server. Redirect targets' ./ and ../ are left for the
+ *   server to resolve.
+ */
 
 namespace http;
 
@@ -28,14 +30,26 @@ import "./text.gaz" use quote;
 const MAX_REDIRECTS = 20;
 const MAX_HEAD = 65536;      // a request's line and headers, in bytes
 
+/**
+ * A GET request for $url with $headers: the response, as the overview above says
+ */
 pub fn get($url, $headers = {}) {
     return request("GET", $url, $headers);
 }
 
+/**
+ * A POST request of $body, a string, to $url with $headers: the response, as the overview
+ * above says
+ */
 pub fn post($url, $body, $headers = {}) {
     return request("POST", $url, $headers, $body);
 }
 
+/**
+ * A request with any method, and $body null for none: the response, as the overview above
+ * says. A method or header name that isn't an HTTP token, or a URL with a space or control
+ * character in it, is an error, so nothing can end a line of the request.
+ */
 pub fn request($method, $url, $headers = {}, $body = null) {
     check_token("method", $method);
     if ($body != null && type_of($body) != "string") {
@@ -461,7 +475,35 @@ fn check_token($what, $name) {
     }
 }
 
-/*
+const REASONS = {
+    100 => "Continue", 200 => "OK", 201 => "Created", 202 => "Accepted", 204 => "No Content",
+    301 => "Moved Permanently", 302 => "Found", 303 => "See Other", 304 => "Not Modified",
+    307 => "Temporary Redirect", 308 => "Permanent Redirect", 400 => "Bad Request",
+    401 => "Unauthorized", 403 => "Forbidden", 404 => "Not Found", 405 => "Method Not Allowed",
+    408 => "Request Timeout", 409 => "Conflict", 410 => "Gone", 413 => "Content Too Large",
+    415 => "Unsupported Media Type", 417 => "Expectation Failed", 422 => "Unprocessable Content",
+    429 => "Too Many Requests", 431 => "Request Header Fields Too Large",
+    500 => "Internal Server Error", 501 => "Not Implemented", 502 => "Bad Gateway",
+    503 => "Service Unavailable", 504 => "Gateway Timeout", 505 => "HTTP Version Not Supported",
+};
+const SERVER_OPTIONS = {
+    "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
+    "idle_timeout" => 5, "requests_per_connection" => 100,
+};
+const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
+const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
+const OWN_CLIENT = 0;        // socket_wait()'s answer for an idle connection's own socket
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// A request refused before the handler sees it, with the status to answer
+kind Refusal extends Error {
+    fn _(pub #status, $message) {
+        ##_($message);
+    }
+}
+
+/**
  * The server: http::serve($listener, $handler, $options = {}) answers connections on a
  * socket_listen() listener for ever, each request by calling $handler($request) with
  *
@@ -501,35 +543,6 @@ fn check_token($what, $name) {
  * - ponytail: the request's deadline is checked before each read, so it can overrun by one
  *   "timeout"; writing the response has only the per-write timeout. TLS is a proxy's job in front.
  */
-
-const REASONS = {
-    100 => "Continue", 200 => "OK", 201 => "Created", 202 => "Accepted", 204 => "No Content",
-    301 => "Moved Permanently", 302 => "Found", 303 => "See Other", 304 => "Not Modified",
-    307 => "Temporary Redirect", 308 => "Permanent Redirect", 400 => "Bad Request",
-    401 => "Unauthorized", 403 => "Forbidden", 404 => "Not Found", 405 => "Method Not Allowed",
-    408 => "Request Timeout", 409 => "Conflict", 410 => "Gone", 413 => "Content Too Large",
-    415 => "Unsupported Media Type", 417 => "Expectation Failed", 422 => "Unprocessable Content",
-    429 => "Too Many Requests", 431 => "Request Header Fields Too Large",
-    500 => "Internal Server Error", 501 => "Not Implemented", 502 => "Bad Gateway",
-    503 => "Service Unavailable", 504 => "Gateway Timeout", 505 => "HTTP Version Not Supported",
-};
-const SERVER_OPTIONS = {
-    "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
-    "idle_timeout" => 5, "requests_per_connection" => 100,
-};
-const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
-const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
-const OWN_CLIENT = 0;        // socket_wait()'s answer for an idle connection's own socket
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// A request refused before the handler sees it, with the status to answer
-kind Refusal extends Error {
-    fn _(pub #status, $message) {
-        ##_($message);
-    }
-}
-
 pub fn serve($listener, $handler, $options = {}) {
     $options = server_options($options);
     // PHP-FPM's pm.max_requests: retiring a worker after N requests throws away whatever state it
@@ -551,7 +564,9 @@ pub fn serve($listener, $handler, $options = {}) {
     }
 }
 
-// One connection: its requests read and answered, and the connection closed, whatever happens
+/**
+ * One connection: its requests read and answered, and the connection closed, whatever happens
+ */
 pub fn handle($socket, $handler, $options = {}) {
     connection($socket, null, $handler, server_options($options), null);
 }
@@ -936,7 +951,7 @@ fn describe_error($e) {
 
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
 
-/*
+/**
  * A response that sends the client somewhere else: `return http::redirect("/login");`. 303 See
  * Other is the default, which a browser follows with a GET, as a form's POST wants; 301 and 308
  * are the permanent moves, 302 and 307 the temporary ones that keep the method as 308 does. $to
@@ -958,7 +973,9 @@ pub fn redirect(string $to, int $status = 303): map {
     return {"status" => $status, "headers" => {"Location" => $to}, "body" => ""};
 }
 
-// Seconds since 1970 as HTTP writes a date: "Sat, 08 Aug 2026 14:02:09 GMT"
+/**
+ * Seconds since 1970 as HTTP writes a date: "Sat, 08 Aug 2026 14:02:09 GMT"
+ */
 pub fn http_date($time) {
     $days = intdiv($time, 86400);
     $seconds = $time - $days * 86400;
@@ -972,7 +989,16 @@ pub fn http_date($time) {
         .. MONTH_NAMES[$month - 1] .. " $year " .. join($clock, ":") .. " GMT";
 }
 
-/*
+const CONTENT_TYPES = {
+    "html" => "text/html; charset=utf-8", "css" => "text/css", "js" => "text/javascript",
+    "json" => "application/json", "png" => "image/png", "jpg" => "image/jpeg",
+    "jpeg" => "image/jpeg", "gif" => "image/gif", "svg" => "image/svg+xml",
+    "ico" => "image/x-icon", "webp" => "image/webp", "txt" => "text/plain",
+    "pdf" => "application/pdf", "woff" => "font/woff", "woff2" => "font/woff2",
+    "ttf" => "font/ttf", "wasm" => "application/wasm", "mp4" => "video/mp4",
+};
+
+/**
  * A static file server: http::serve_static($dir) is a handler for http::serve() (or a
  * Router's not_found()) that answers from files under $dir.
  *
@@ -984,15 +1010,6 @@ pub fn http_date($time) {
  * - Content-Type comes from the extension (CONTENT_TYPES); anything else is
  *   application/octet-stream.
  */
-const CONTENT_TYPES = {
-    "html" => "text/html; charset=utf-8", "css" => "text/css", "js" => "text/javascript",
-    "json" => "application/json", "png" => "image/png", "jpg" => "image/jpeg",
-    "jpeg" => "image/jpeg", "gif" => "image/gif", "svg" => "image/svg+xml",
-    "ico" => "image/x-icon", "webp" => "image/webp", "txt" => "text/plain",
-    "pdf" => "application/pdf", "woff" => "font/woff", "woff2" => "font/woff2",
-    "ttf" => "font/ttf", "wasm" => "application/wasm", "mp4" => "video/mp4",
-};
-
 pub fn serve_static($dir) {
     return $request -> {
         $segments = decoded_segments($request["path"]);
@@ -1034,7 +1051,7 @@ fn file_content_type($path) {
     return CONTENT_TYPES[$extension] ?? "application/octet-stream";
 }
 
-/*
+/**
  * Routing requests to handlers, for http::serve():
  *
  *   $app = http::Router();
@@ -1060,40 +1077,66 @@ pub kind Router {
     #middleware = [];
     #not_found_handler = null;
 
+    /**
+     * Route GET requests for paths $pattern matches to $handler (and HEAD requests too)
+     */
     pub fn get($pattern, $handler) {
         #add("GET", $pattern, $handler);
     }
 
+    /**
+     * Route POST requests for paths $pattern matches to $handler
+     */
     pub fn post($pattern, $handler) {
         #add("POST", $pattern, $handler);
     }
 
+    /**
+     * Route PUT requests for paths $pattern matches to $handler
+     */
     pub fn put($pattern, $handler) {
         #add("PUT", $pattern, $handler);
     }
 
+    /**
+     * Route PATCH requests for paths $pattern matches to $handler
+     */
     pub fn patch($pattern, $handler) {
         #add("PATCH", $pattern, $handler);
     }
 
+    /**
+     * Route DELETE requests for paths $pattern matches to $handler
+     */
     pub fn delete($pattern, $handler) {
         #add("DELETE", $pattern, $handler);
     }
 
-    // Any other method, by name
+    /**
+     * Any other method, by name
+     */
     pub fn route($method, $pattern, $handler) {
         #add($method, $pattern, $handler);
     }
 
+    /**
+     * Add middleware, ($request, $next) -> response, around everything the router does, inside
+     * what was added before it
+     */
     pub fn use($middleware) {
         #middleware[] = $middleware;
     }
 
+    /**
+     * The handler for a path no route matches, instead of a plain 404 (serve_static(), say)
+     */
     pub fn not_found($handler) {
         #not_found_handler = $handler;
     }
 
-    // The function to give http::serve(): the router with its middleware around it
+    /**
+     * The function to give http::serve(): the router with its middleware around it
+     */
     pub fn handler() {
         $dispatch = $request -> #dispatch($request);
         foreach (reverse(#middleware) as $middleware) {
@@ -1296,22 +1339,16 @@ fn plain($status, $text) {
     return {"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text .. "\n"};
 }
 
-/*
- * Decoding what a request carries: percent-escapes, query strings and form bodies.
- *
- * - http::url_decode($text) undoes percent-escapes (%20 is a space), as RFC 3986 has them: a
- *   + stays a +. A % that isn't followed by two hex digits is an error.
- * - http::url_encode($text) is the other way: everything but letters, digits and - . _ ~ as %XX.
- * - http::query($request) is the query string as a map of strings, and http::form($request) a
- *   form body (Content-Type application/x-www-form-urlencoded) the same way. In both, + is a
- *   space, as HTML forms send it. A key given twice keeps its last value; http::query_all()
- *   and http::form_all() give every value, as a list for each key.
- */
+// Decoding what a request carries: percent-escapes, query strings and form bodies
 
 const UNRESERVED = "-._~";
 const FORM_TYPE = "application/x-www-form-urlencoded";
 const HEX = "0123456789ABCDEF";
 
+/**
+ * $text with its percent-escapes undone (%20 is a space), as RFC 3986 has them: a + stays a +.
+ * A % that isn't followed by two hex digits is an error.
+ */
 pub fn url_decode($text) {
     $decoded = "";
     $at = 0;
@@ -1325,6 +1362,10 @@ pub fn url_decode($text) {
     }
 }
 
+/**
+ * $text percent-escaped, url_decode()'s other way: everything but letters, digits and - . _ ~
+ * as %XX
+ */
 pub fn url_encode($text) {
     $encoded = "";
     foreach (split($text, "") as $c) {
@@ -1338,18 +1379,34 @@ pub fn url_encode($text) {
     return $encoded;
 }
 
+/**
+ * The request's query string as a map of strings, decoded: + is a space, as HTML forms send it,
+ * and a key given twice keeps its last value (query_all() has them all)
+ */
 pub fn query($request) {
     return last_values(query_all($request));
 }
 
+/**
+ * The request's query string as a map from each key to the list of every value it was given, in
+ * order
+ */
 pub fn query_all($request) {
     return decode_pairs($request["query"]);
 }
 
+/**
+ * A form body (Content-Type application/x-www-form-urlencoded) as a map of strings, as query()
+ * reads a query string; a body of another type is an error
+ */
 pub fn form($request) {
     return last_values(form_all($request));
 }
 
+/**
+ * A form body as a map from each key to the list of every value it was given, as query_all()
+ * reads a query string
+ */
 pub fn form_all($request) {
     check_form_type($request);
 
@@ -1429,32 +1486,14 @@ fn media_type($request) {
     return lower(trim(split($type, ";")[0]));
 }
 
-/*
- * Cookies, and signed sessions built on them.
- *
- * - http::cookies($request) is the Cookie header as a map, url_decode()d.
- * - http::set_cookie($response, $name, $value, $options = {}) returns $response with a
- *   Set-Cookie header added (a response can carry several: see write_response() above).
- *   $options: "path" (a Path attribute, "/" by default), "http_only" (an HttpOnly attribute,
- *   true by default: a cookie a page's own JavaScript can't read is one XSS can't steal),
- *   "secure" (a Secure attribute, false by default, since a plain http:// site couldn't send
- *   the cookie back), "same_site" ("Lax" by default, which stops a cookie going out on a
- *   cross-site request that isn't a plain navigation, the common CSRF vector) and "max_age" (a
- *   Max-Age attribute in seconds, a session cookie with none).
- * - http::session($request, $secret) reads and verifies the session cookie (crypto::sign() and
- *   crypto::equals(), on a json::encode()d map) and gives the map, or {} for no cookie or one
- *   that doesn't check out: a forged, tampered or expired cookie is routine, not an error a
- *   handler must catch.
- * - http::session_cookie($response, $session, $secret, $options = {}) is the other direction:
- *   $response with the session's Set-Cookie added.
- * - http::csrf_token($session) gets or makes a CSRF token in the session, returning the session
- *   (a handler saves it with session_cookie() as any other session change); http::verify_csrf()
- *   checks one a form submitted, with crypto::equals() as a signature is checked.
- */
+// Cookies, and signed sessions built on them
 
 const SESSION_COOKIE = "session";
 const COOKIE_OPTIONS = {"path" => "/", "http_only" => true, "secure" => false, "same_site" => "Lax", "max_age" => null};
 
+/**
+ * The request's Cookie header as a map from each cookie's name to its value, url_decode()d
+ */
 pub fn cookies($request) {
     $header = $request["headers"]["cookie"] ?? "";
     $cookies = {};
@@ -1470,6 +1509,19 @@ pub fn cookies($request) {
     return $cookies;
 }
 
+/**
+ * $response with a Set-Cookie header added for $name, its value url_encode()d (a response can
+ * carry several, each written as a line of its own). $options:
+ *
+ * - "path", a Path attribute, "/" by default;
+ * - "http_only", an HttpOnly attribute, true by default: a cookie a page's own JavaScript can't
+ *   read is one XSS can't steal;
+ * - "secure", a Secure attribute, false by default, since a plain http:// site couldn't send the
+ *   cookie back;
+ * - "same_site", "Lax" by default, which stops a cookie going out on a cross-site request that
+ *   isn't a plain navigation, the common CSRF vector;
+ * - "max_age", a Max-Age attribute in seconds, a session cookie with none.
+ */
 pub fn set_cookie($response, $name, $value, $options = {}) {
     $headers = $response["headers"] ?? {};
     $existing = $headers["Set-Cookie"] ?? [];
@@ -1524,6 +1576,11 @@ fn with_defaults($who, $options, $defaults) {
     return {...$defaults, ...$options};
 }
 
+/**
+ * The session the request's session cookie holds, read and verified (crypto::sign() and
+ * crypto::equals(), on a json::encode()d map), or {} for no cookie or one that doesn't check out:
+ * a forged, tampered or expired cookie is routine, not an error a handler must catch
+ */
 pub fn session($request, $secret) {
     $signed = cookies($request)[SESSION_COOKIE] ?? null;
     if ($signed == null) {
@@ -1542,19 +1599,29 @@ pub fn session($request, $secret) {
     return type_of($session) == "map" ? $session : {};
 }
 
+/**
+ * $response with the session's Set-Cookie added, signed with $secret: session()'s other
+ * direction. $options are set_cookie()'s.
+ */
 pub fn session_cookie($response, $session, $secret, $options = {}) {
     $payload = crypto::sign(json::encode($session), $secret);
 
     return set_cookie($response, SESSION_COOKIE, $payload, $options);
 }
 
-// The session with a CSRF token if it had none: check $session["csrf_token"] after calling
+/**
+ * The session with a CSRF token if it had none: check $session["csrf_token"] after calling
+ */
 pub fn csrf_token($session) {
     $session["csrf_token"] ??= crypto::token();
 
     return $session;
 }
 
+/**
+ * Whether $submitted, the token a form sent, is the session's CSRF token, compared with
+ * crypto::equals() as a signature is; false when the session has none
+ */
 pub fn verify_csrf($session, $submitted) {
     $token = $session["csrf_token"] ?? null;
 
@@ -1568,24 +1635,6 @@ pub fn verify_csrf($session, $submitted) {
  *   $app.use(http::sessions($secret, {"secure" => true}));
  *   $app.use(http::csrf());
  *   $app.use($authentication);              // the app's own: only it knows what a user is
- *
- * - http::security_headers($options = {}) adds SECURITY_HEADERS to every response that doesn't set
- *   them itself (a route can give its own Content-Security-Policy). $options maps a header name to
- *   the value to send instead, or to null to send none; names are matched ignoring case.
- * - http::sessions($secret, $options = {}) gives the handler $request["session"], the session from
- *   its signed cookie with a CSRF token always in it, and $request["flash"], the message the last
- *   request left for this one (null if none), which is not in the session. A handler changes the
- *   session by adding "session" to its response (http::with_session()); the middleware takes that
- *   key out again and writes the cookie only if the session differs from what the cookie held, so a
- *   flash is shown once: the next session has none unless the handler set one. $secret must be at
- *   least 32 bytes. $options are http::set_cookie()'s, "max_age" two weeks by default.
- * - http::csrf($options = {}) refuses a POST, PUT, PATCH or DELETE with a 403 unless it carries the
- *   session's token, in the form field "_csrf" or the X-CSRF-Token header, and, if the browser sent
- *   an Origin, that Origin is this host. $options: "field", the form field's name, and "failure", a
- *   function from the request to the response to answer with instead. It needs http::sessions()
- *   before it, and says so on the first request otherwise.
- * - http::with_session($response, $session) is $response asking for $session to be kept, and
- *   http::flash($request, $message) this request's session with a message for the next page.
  *
  * A login builds a new session map rather than changing the old one, with a fresh crypto::token() as
  * its "csrf_token", so nothing planted before it carries over: that is the app's to write, since
@@ -1604,6 +1653,17 @@ const CSRF_OPTIONS = {"field" => "_csrf", "failure" => null};
 const CSRF_HEADER = "x-csrf-token";
 const CSRF_REFUSAL = "Forbidden: this form has expired. Go back, reload the page and try again.";
 
+/**
+ * Middleware that adds security headers to every response that doesn't set them itself (a route
+ * can give its own Content-Security-Policy): a Content-Security-Policy allowing only this site,
+ * X-Content-Type-Options: nosniff and Referrer-Policy: same-origin. $options maps a header name
+ * to the value to send instead, or to null to send none; names are matched ignoring case. Add it
+ * first, so a refusal and a redirect from the middleware after it get the headers too:
+ *
+ *     $app.use(http::security_headers());
+ *     $app.use(http::sessions($secret, {"secure" => true}));
+ *     $app.use(http::csrf());
+ */
 pub fn security_headers($options = {}) {
     $headers = security_header_values($options);
 
@@ -1656,6 +1716,15 @@ fn header_key($headers, $name) {
     return null;
 }
 
+/**
+ * Middleware that gives the handler $request["session"], the session from its signed cookie
+ * with a CSRF token always in it, and $request["flash"], the message the last request left for
+ * this one (null if none), which is not in the session. A handler changes the session by adding
+ * "session" to its response (http::with_session()); the middleware takes that key out again and
+ * writes the cookie only if the session differs from what the cookie held, so a flash is shown
+ * once: the next session has none unless the handler set one. $secret must be at least 32 bytes.
+ * $options are http::set_cookie()'s, "max_age" two weeks by default.
+ */
 pub fn sessions(string $secret, $options = {}) {
     if (len($secret) < MINIMUM_SECRET) {
         throw "http::sessions() needs a secret of at least " .. MINIMUM_SECRET .. " bytes, not " .. len($secret) .. ": a short one can be guessed, and every session forged with it";
@@ -1695,10 +1764,17 @@ fn without_key($map, $key) {
     return $map;
 }
 
+/**
+ * $response asking http::sessions() to keep $session: `return http::with_session($page, $session);`
+ */
 pub fn with_session(map $response, map $session): map {
     return {...$response, "session" => $session};
 }
 
+/**
+ * This request's session with $message in it for the next page to show once, as
+ * $request["flash"]: give it to with_session()
+ */
 pub fn flash(map $request, string $message): map {
     $session = $request["session"];
     $session["flash"] = $message;
@@ -1706,6 +1782,13 @@ pub fn flash(map $request, string $message): map {
     return $session;
 }
 
+/**
+ * Middleware that refuses a POST, PUT, PATCH or DELETE with a 403 unless it carries the session's
+ * token, in the form field "_csrf" or the X-CSRF-Token header, and, if the browser sent an Origin,
+ * that Origin is this host. $options: "field", the form field's name, and "failure", a function
+ * from the request to the response to answer with instead. It needs http::sessions() before it,
+ * and says so on the first request otherwise.
+ */
 pub fn csrf($options = {}) {
     $options = with_defaults("http::csrf()", $options, CSRF_OPTIONS);
     $field = $options["field"];

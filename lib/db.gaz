@@ -1,4 +1,4 @@
-/*
+/**
  * Databases: SQLite and PostgreSQL behind one interface, on the db_open(), db_run() and db_close()
  * builtins, which a driver's library (libsqlite3, libpq) is built into the VM for, if it was found.
  *
@@ -28,42 +28,60 @@ namespace db;
 
 import "./chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
 
+/**
+ * A connection to a database, made by db::open(), whose methods each take one
+ * `db::sql"..."` and refuse anything else
+ */
 pub kind Db {
     #handle;
     #placeholder;
     #depth = 0;
 
+    /**
+     * A connection to the database $url names (see db::open())
+     */
     fn _($url) {
         #handle = db_open($url);
         #placeholder = placeholder_for($url);
     }
 
-    // {"rows" => [row, ...], "changes" => rows an insert, update or delete changed}
+    /**
+     * {"rows" => [row, ...], "changes" => rows an insert, update or delete changed}
+     */
     pub fn run($sql) {
         return #result($sql, "run");
     }
 
+    /**
+     * The rows, each a map from column name to value
+     */
     pub fn query($sql) {
         return #result($sql, "query")["rows"];
     }
 
-    // The first row, or null when there is none
+    /**
+     * The first row, or null when there is none
+     */
     pub fn row($sql) {
         return #result($sql, "row")["rows"][0] ?? null;
     }
 
-    // The first column of the first row, or null when there is none
+    /**
+     * The first column of the first row, or null when there is none
+     */
     pub fn value($sql) {
         $row = #result($sql, "value")["rows"][0] ?? null;
         return $row == null ? null : values($row)[0];
     }
 
-    // How many rows an insert, update or delete changed
+    /**
+     * How many rows an insert, update or delete changed
+     */
     pub fn exec($sql) {
         return #result($sql, "exec")["changes"];
     }
 
-    /*
+    /**
      * Runs $work with this database between begin and commit, gives what it returns, and rolls
      * back and raises again if it raises. Inside another transaction it is a savepoint instead.
      */
@@ -84,6 +102,10 @@ pub kind Db {
         return $result;
     }
 
+    /**
+     * Close the connection; closing it twice is fine, and it closes by itself when the last
+     * reference to it goes
+     */
     pub fn close() {
         db_close(#handle);
     }
@@ -114,6 +136,11 @@ fn numbered($n) {
     return '$' .. $n;
 }
 
+/**
+ * A connection to the database $url names: "sqlite:app.db", "sqlite::memory:" for one in
+ * memory, or "postgres://user:password@host:port/name" (postgresql:// too). A driver the VM was
+ * built without, or a database that can't be opened, is an error.
+ */
 pub fn open($url) {
     return Db($url);
 }
@@ -223,7 +250,7 @@ kind Rendering {
     }
 }
 
-/*
+/**
  * A name in the SQL (a table or a column) that can't be a parameter, written `"name"` with each `"`
  * in it doubled, so any text is one name and never more SQL. Quoted names keep their case in
  * PostgreSQL: `"Name"` and `name` are different columns there. A dot is part of the name, so a table
@@ -232,6 +259,9 @@ kind Rendering {
 pub kind Ident {
     #name;
 
+    /**
+     * The name $name; an empty one, or one holding a NUL byte, is an error
+     */
     fn _(string $name) {
         if ($name == "") {
             throw "db::ident() can't take an empty name";
@@ -242,16 +272,22 @@ pub kind Ident {
         #name = $name;
     }
 
+    /**
+     * The name in double quotes, a `"` in it doubled
+     */
     pub fn quoted(): string {
         return '"' .. replace(#name, '"', '""') .. '"';
     }
 
+    /**
+     * The name as the SQL shows it, quoted()
+     */
     pub fn to_string(): string {
         return #quoted();
     }
 }
 
-/*
+/**
  * The tag: `db::sql"select * from users where id = {$id}"` is SQL whose values are sent apart from
  * it, so nothing in them is ever read as SQL. A value may be:
  *
@@ -275,7 +311,7 @@ pub fn sql(list $strings, list $values): Sql {
     return Sql($strings, $values);
 }
 
-/*
+/**
  * SQL built some other way, used as it is, with no values: a migration read from a file, or a
  * statement put together by code that is trusted to do so. Every use is a place to check by hand.
  */
@@ -283,7 +319,9 @@ pub fn raw(string $text): Sql {
     return Sql([$text], []);
 }
 
-// A table or column name for a `db::sql"..."`, written quoted (see `Ident`)
+/**
+ * A table or column name for a `db::sql"..."`, written quoted (see `Ident`)
+ */
 pub fn ident(string $name): Ident {
     return Ident($name);
 }

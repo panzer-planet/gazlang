@@ -6,4 +6,4 @@ ok a pub kind's members and constructor
 ok a signature is highlighted pieces
 ok examples become code
 ok a summary is the first paragraph
-ok every file of lib/ has a namespace and pub names
+ok every file of lib/ has a namespace, an overview and pub names

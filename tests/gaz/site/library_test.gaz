@@ -89,8 +89,8 @@ expect("a summary is the first paragraph", library::summary("One\ntwo.\n\nThree.
 $unread = [];
 foreach (list_dir("lib") as $file) {
     $read = library::read(slice($file, 0, -4), read_file("lib/{$file}"));
-    if ($read.namespace == "" || len($read.entries) == 0) {
+    if ($read.namespace == "" || $read.comment == "" || len($read.entries) == 0) {
         $unread[] = $file;
     }
 }
-expect("every file of lib/ has a namespace and pub names", $unread, []);
+expect("every file of lib/ has a namespace, an overview and pub names", $unread, []);

@@ -23,3 +23,4 @@ ok a path in the same directory
 ok a path out of the site
 ok mailto is another site
 ok a page is not
+ok the names with no docblock
