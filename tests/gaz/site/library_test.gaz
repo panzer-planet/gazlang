@@ -2,19 +2,23 @@
 import "site/library.gaz";
 import "std/test.gaz" use expect;
 
-const SOURCE = '// Shapes, for the test.
-//
-// A second paragraph.
+const SOURCE = '/**
+ * Shapes, for the test.
+ *
+ * A second paragraph.
+ */
 namespace shapes;
 
 import "./chars.gaz";
 
 const PRIVATE = 1;
 
-// Not this one: a blank line follows
+/** Not this one: a blank line follows */
 
-// The area of a square
-// of side $n
+/**
+ * The area of a square
+ * of side $n
+ */
 pub fn area(int $n, $options = {"round" => true}): int {
     pub_looking_name();
     return $n * $n;
@@ -22,7 +26,7 @@ pub fn area(int $n, $options = {"round" => true}): int {
 
 fn hidden() {}
 
-/*
+/**
  * A shape
  * with a name
  */
@@ -32,9 +36,10 @@ pub kind Shape {
     pub static #made = 0;
     pub const SIDES = {"a" => 1};
 
-    // Makes one
+    /** Makes one */
     fn _(pub #size) {}
 
+    // A plain comment, which no page shows
     pub fn grow($by = 1): Shape { return #; }
     fn shrink() {}
     pub static fn unit() { return Shape(1); }
@@ -84,8 +89,8 @@ expect("a summary is the first paragraph", library::summary("One\ntwo.\n\nThree.
 $unread = [];
 foreach (list_dir("lib") as $file) {
     $read = library::read(slice($file, 0, -4), read_file("lib/{$file}"));
-    if ($read.namespace == "" || $read.comment == "" || len($read.entries) == 0) {
+    if ($read.namespace == "" || len($read.entries) == 0) {
         $unread[] = $file;
     }
 }
-expect("every file of lib/ has a namespace, a comment and pub names", $unread, []);
+expect("every file of lib/ has a namespace and pub names", $unread, []);

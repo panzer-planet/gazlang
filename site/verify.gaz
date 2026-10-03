@@ -10,10 +10,14 @@
  *   foreach (verify::site($files) as $problem) { print_error("{$problem}\n"); }
  *
  * A problem names the file and line: "index.html:12: no anchor #typos in reference/types.html".
+ *
+ * And a file of the library has a docblock above every name its page lists (undocumented()),
+ * so what the library offers can't drift from what its pages say.
  */
 namespace verify;
 
 import "./markdown.gaz" use unescape;
+import "./library.gaz";
 
 // The attributes that link to something
 const ATTRIBUTES = ["href", "src"];
@@ -59,6 +63,31 @@ pub fn site(map $files): list {
     }
 
     return $problems;
+}
+
+/*
+ * The names a library page lists with no docblock above them, each "page: problem": the file of
+ * the library is $library, read from $source, and its page is $page
+ */
+pub fn undocumented(library::Library $library, string $page, string $source): list {
+    $problems = [];
+    foreach ($library.entries as $entry) {
+        $name = "{$library.namespace}::{$entry.name}";
+        $problems = [...$problems, ...missing_docblock($entry, $name, $page, $source)];
+        foreach ($entry.members as $member) {
+            $problems = [...$problems, ...missing_docblock($member, "{$name}.{$member.name}", $page, $source)];
+        }
+    }
+
+    return $problems;
+}
+
+fn missing_docblock(library::Entry $entry, string $name, string $page, string $source): list {
+    if ($entry.doc != "") {
+        return [];
+    }
+
+    return ["{$page}: {$name} has no docblock: write one above it, at {$source}:{$entry.line}"];
 }
 
 // Whether a URL is to another site

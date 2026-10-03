@@ -92,8 +92,8 @@ class SiteTest extends GazLangTestCase
             'docs/language.md' => "# The language\n\nIntro.\n\n## Types <script>alert(3)</script>\n\nText.\n\n## Next\n\nMore.\n",
             'docs/bytecode.md' => "# Bytecode\n\n## A\n",
             'docs/internals.md' => "# Internals\n\n## B\n",
-            'lib/hostile.gaz' => "// Hostile <script>alert(4)</script> summary, `code` and *really*.\nnamespace hostile;\n\n"
-                ."// Does <b>things</b> & \"quotes\"\npub fn f() {}\n",
+            'lib/hostile.gaz' => "/**\n * Hostile <script>alert(4)</script> summary, `code` and *really*.\n */\nnamespace hostile;\n\n"
+                ."/**\n * Does <b>things</b> & \"quotes\"\n */\npub fn f() {}\n",
         ]);
         $output = self::TMP.'/hostile-dist';
 
@@ -123,7 +123,7 @@ class SiteTest extends GazLangTestCase
     public function test_an_id_given_twice_on_a_library_page_fails_the_build()
     {
         $root = $this->copyOfTheDocuments('twice');
-        file_put_contents(self::ROOT."/{$root}/lib/twice.gaz", "// Twice.\nnamespace twice;\n\n// # f\npub fn f() {}\n");
+        file_put_contents(self::ROOT."/{$root}/lib/twice.gaz", "/**\n * Twice.\n */\nnamespace twice;\n\n/**\n * # f\n */\npub fn f() {}\n");
 
         [$printed, $code] = $this->build([self::TMP.'/twice-dist', '--root', $root, '--repository', 'owner/name']);
 

@@ -3,6 +3,7 @@
  * close every tag in order, and leave no Markdown unread in their text
  */
 import "site/verify.gaz";
+import "site/library.gaz";
 import "std/test.gaz" use expect;
 
 // A list item from the page a Markdown bug once wrote: its code spans read wrong
@@ -74,3 +75,32 @@ expect("a path in the same directory", verify::resolve("reference/a.html", "./b.
 expect("a path out of the site", verify::resolve("a.html", "../b.html"), null);
 expect("mailto is another site", verify::is_external("mailto:a@b.c"), true);
 expect("a page is not", verify::is_external("a.html"), false);
+
+// A name a library page lists needs a docblock: the pub ones, and a pub kind's members and constructor
+const LIBRARY = '/**
+ * Shapes.
+ */
+namespace shapes;
+
+/**
+ * Documented.
+ */
+pub fn documented() {}
+
+pub fn bare() {}
+
+// A plain comment is not documentation
+pub kind Shape {
+    fn _() {}
+    /** Documented. */
+    pub fn grow() {}
+    fn private_method() {}
+}
+
+fn private_function() {}
+';
+expect("the names with no docblock", verify::undocumented(library::read("shapes", LIBRARY), "library/shapes.html", "lib/shapes.gaz"), [
+    "library/shapes.html: shapes::bare has no docblock: write one above it, at lib/shapes.gaz:11",
+    "library/shapes.html: shapes::Shape has no docblock: write one above it, at lib/shapes.gaz:14",
+    "library/shapes.html: shapes::Shape._ has no docblock: write one above it, at lib/shapes.gaz:15",
+]);
