@@ -12,6 +12,7 @@ import "./codegen.gaz";
 import "./lexer.gaz";
 import "./nodes.gaz";
 import "./parser.gaz";
+import "std/text.gaz" use quote;
 
 kind Dumper {
     // What the dump leaves out: where a node is, which the "@" lines and each node's line
@@ -74,7 +75,7 @@ kind Dumper {
     // A plain value as a literal: a list prints its elements as literals, so a string is
     // quoted as the lexer read it. An empty map prints as [], the same as an empty list.
     fn literal($value) {
-        return $value == {} ? "[]" : slice(to_string([$value]), 1, -1);
+        return $value == {} ? "[]" : quote($value);
     }
 
     // Whether a list or map holds only scalars, at any depth, so it can be written as a literal

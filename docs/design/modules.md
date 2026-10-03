@@ -376,8 +376,9 @@ include "json.gaz";                         import "./json.gaz";
 include "text.gaz" use quote;               import "./text.gaz" use quote;
 ```
 
-Inside `<std>`, `"./x.gaz"` and `"std/x.gaz"` have the same key. The library writes `./`, the
-spelling of a sibling.
+Inside `<std>`, `"./x.gaz"` and `"std/x.gaz"` have the same key. The library writes `std/`, so a
+library file loaded by its path (a test that joins a namespace to reach what is private) still shares
+its imports with the built-in library, not a second copy of them.
 
 **A template that needs `format::number`**. Today, `tests/gaz/templates/views/shop_card.gazml`
 can't reach it (`Namespace format is not included here`), and its `Product` type lives in the

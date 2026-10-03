@@ -4,7 +4,7 @@
  */
 namespace format;
 
-import "./text.gaz" use quote;
+import "std/text.gaz" use quote;
 
 /**
  * $number with $decimals digits after the point and thousands separated:

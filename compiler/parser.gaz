@@ -10,6 +10,7 @@ import "./lexer.gaz";
 import "./nodes.gaz";
 import "./template.gaz";
 import "std/json.gaz";
+import "std/text.gaz" use quote;
 
 // #line and #file are Error's own, and say where in this file the error was raised, so the
 // place in the source being parsed has names of its own, as in LexError
@@ -554,7 +555,7 @@ kind Html {
         return match {
             $token.type == "EOF" => "end of file",
             // A list prints its strings as literals
-            in_array($token.type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => "string " .. slice(to_string([$token.value]), 1, -1),
+            in_array($token.type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => "string " .. quote($token.value),
             $token.type == "TAG" => "tag {$token.value}\"...\"",
             // A float prints as the shortest literal that reads back
             default => "'{$token.value}'",
@@ -2619,7 +2620,7 @@ kind Html {
         }
         foreach ($project as $key => $value) {
             if ($key != "name") {
-                #fail_at("{$shown}: " .. slice(to_string([$key]), 1, -1) .. " isn't read yet: packages aren't built, and a gaz.json holds only its \"name\"", $shown, 1);
+                #fail_at("{$shown}: " .. quote($key) .. " isn't read yet: packages aren't built, and a gaz.json holds only its \"name\"", $shown, 1);
             }
         }
         if (type_of($project["name"] ?? null) != "string") {

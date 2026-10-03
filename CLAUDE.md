@@ -873,10 +873,10 @@ that must find nothing to do.
       which exists), for logs and rate limits; behind a proxy `X-Forwarded-For` is the one that matters,
       and whether to trust it is the program's.
     - `quote($value)` as a builtin (`value.c` has the function): `text::quote()` in `lib/text.gaz`
-      is the idiom `slice(to_string([$x]), 1, -1)` with a name, used by the library; the compiler
-      still spells it out and `lib/test.gaz` keeps a helper of its own, both of which can use it now
-      that nothing loads the library by path. A builtin takes its name from every program, so it
-      waits for a program that needs the speed or the bare name.
+      is the idiom `slice(to_string([$x]), 1, -1)` with a name, used by the library, `lib/test.gaz`
+      and the compiler (which imports `std/text.gaz`, as it does `std/chars.gaz`). A builtin takes
+      its name from every program, so it waits for a program that needs the speed or the bare
+      name.
     - Measured once already, against PHP's built-in server across no-opcache/opcache/opcache+JIT
       (`ab`, `workers(1)` each side): gaz matches PHP with every performance feature on for an
       ordinary handler (build data, encode it), and only loses on a tight arithmetic loop inside
@@ -1605,8 +1605,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   which the tests build from `lib/`), the games, the website, the language server and `compiler/`,
   whose `std/chars.gaz` is the built-in copy of the `bin/gaz` that compiles it. A library file
   imported by path as well is another module of the standard library's namespace, the ownership
-  error, unless `GAZLIB` names its directory, which makes it the same module. `StdLibraryTest` checks that what is built in
-  equals `lib/`.
+  error, unless `GAZLIB` names its directory, which makes it the same module. A library file
+  therefore names its siblings `std/x.gaz`, never `./x.gaz`: one loaded by its path (a test that
+  joins a namespace to reach what is private, `tests/gaz/lib/http_turns_test.gaz`) then shares its
+  imports with the built-in library and not a second copy of them. `StdLibraryTest` checks that
+  what is built in equals `lib/`.
 - In GazLang instead, each its own namespace, so only what a file marks `pub` escapes it:
   `chars.gaz` (character classes), `sorting.gaz` (`sorting::values`, `sorting::by`, on `sort`),
   `lists.gaz` (plain functions over plain lists, not a wrapping object: a `Collection` kind would have to be a

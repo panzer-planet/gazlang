@@ -7,6 +7,7 @@
 namespace gazlang;
 
 import "std/chars.gaz" use char_at, is_digit, is_hex_digit;
+import "std/text.gaz" use quote;
 
 // The hidden variable a template's output is gathered in (template.gaz): a name no program can
 // write, which only source translated from a template may use
@@ -29,7 +30,7 @@ kind Token {
             #type == "EOF" => "",
             // A list prints its strings as literals, and a float already prints as the
             // shortest literal that reads back
-            in_array(#type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => " " .. slice(to_string([#value]), 1, -1),
+            in_array(#type, ["STRING", "STRING_START", "STRING_MIDDLE", "STRING_END"]) => " " .. quote(#value),
             default => " " .. #value,
         };
 

@@ -30,7 +30,7 @@
  */
 namespace web;
 
-import "./chars.gaz" use char_at, is_alnum, is_alpha;
+import "std/chars.gaz" use char_at, is_alnum, is_alpha;
 
 // Where a value lands, which is how it is written
 const MARKUP = "markup";

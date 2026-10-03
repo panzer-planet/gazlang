@@ -4,7 +4,7 @@
  */
 namespace lists;
 
-import "./text.gaz" use quote;
+import "std/text.gaz" use quote;
 
 /**
  * The elements of a list of lists, in order, one level deep: [[1, 2], [], [3]] is [1, 2, 3]

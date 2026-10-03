@@ -13,8 +13,8 @@
  */
 namespace fs;
 
-import "./crypto.gaz";
-import "./text.gaz" use trim_end;
+import "std/crypto.gaz";
+import "std/text.gaz" use trim_end;
 
 const CHUNK = 65536;            // bytes a copy reads at a time
 const TEMP_NAME_BYTES = 8;      // random bytes in a temporary name, as hex

@@ -11,9 +11,9 @@
  */
 namespace devserver;
 
-import "./http.gaz";
-import "./cli.gaz";
-import "./text.gaz" use quote;
+import "std/http.gaz";
+import "std/cli.gaz";
+import "std/text.gaz" use quote;
 
 /**
  * Serve the directory --docroot names (the working directory without one) at the address the

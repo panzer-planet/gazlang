@@ -26,7 +26,7 @@
  */
 namespace db;
 
-import "./chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
+import "std/chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
 
 /**
  * A connection to a database, made by db::open(), whose methods each take one

@@ -35,6 +35,7 @@ namespace gazlang;
  */
 import "./lexer.gaz";
 import "./parser.gaz";
+import "std/text.gaz" use quote;
 
 // The directives that open a block, and the one that closes each
 const TEMPLATE_BLOCKS = {"if" => "endif", "foreach" => "endforeach"};
@@ -309,7 +310,7 @@ kind TemplateLine {
 
     fn flush_text() {
         if (#text != "") {
-            #append(slice(to_string([#text]), 1, -1));
+            #append(quote(#text));
             #text = "";
         }
     }

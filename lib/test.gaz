@@ -40,6 +40,8 @@
  */
 namespace test;
 
+import "std/text.gaz" use quote;
+
 const UPDATE_FLAG = "--update";
 const VERBOSE_FLAGS = ["-v", "--verbose"];
 
@@ -101,7 +103,7 @@ pub fn throws($label, $thunk, $kind_or_message, $message = null) {
  */
 pub fn snapshot($label, $actual) {
     $path = snapshot_path($label);
-    $text = literal($actual);
+    $text = quote($actual);
     if (has_flag(UPDATE_FLAG)) {
         write_file($path, $text);
         echo "ok " .. one_line($label) .. " (snapshot recorded at {$path})";
@@ -284,7 +286,7 @@ fn first_list_difference($actual, $expected, $path) {
 
 fn first_map_difference($actual, $expected, $path) {
     foreach ($expected as $key => $value) {
-        $place = $path .. "[" .. literal($key) .. "]";
+        $place = $path .. "[" .. quote($key) .. "]";
         if (!has_key($actual, $key)) {
             return difference_at($place, described($value), "nothing");
         }
@@ -294,7 +296,7 @@ fn first_map_difference($actual, $expected, $path) {
     }
     foreach ($actual as $key => $value) {
         if (!has_key($expected, $key)) {
-            return difference_at($path .. "[" .. literal($key) .. "]", "nothing", described($value));
+            return difference_at($path .. "[" .. quote($key) .. "]", "nothing", described($value));
         }
     }
 
@@ -307,7 +309,7 @@ fn difference_at($path, $expected, $actual) {
 
 // A value on a FAIL line: as echo prints it, cut short, then its type
 fn described($value) {
-    $shown = type_of($value) == "string" ? literal($value) : to_string($value);
+    $shown = type_of($value) == "string" ? quote($value) : to_string($value);
 
     return clipped($shown) .. " (" .. type_of($value) .. ")";
 }
@@ -330,19 +332,19 @@ fn clipped($text) {
 // What throws() was asked for, as its FAIL line names it
 fn described_error($kind, $message) {
     if ($kind == null) {
-        return $message == null ? "an error" : clipped(literal($message));
+        return $message == null ? "an error" : clipped(quote($message));
     }
     if ($message == null) {
         return kind_name($kind);
     }
 
-    return kind_name($kind) .. " " .. clipped(literal($message));
+    return kind_name($kind) .. " " .. clipped(quote($message));
 }
 
 // What was thrown, as throws()'s FAIL line names it: an Error by its kind and message
 fn described_thrown($thrown) {
     if (is_error($thrown)) {
-        return kind_name($thrown) .. " " .. clipped(literal($thrown.message));
+        return kind_name($thrown) .. " " .. clipped(quote($thrown.message));
     }
 
     return described($thrown);
@@ -410,11 +412,3 @@ fn snapshot_path($label) {
     return "{$dir}/{$name}.{$label}.snap";
 }
 
-// $value as the literal that reads back as it: quote() has no builtin yet, so a value wrapped in
-// a one-element list prints itself as a literal, and slicing off the brackets is the inverse of
-// reading one (the same trick the self-hosted front end uses; see CLAUDE.md). It is text::quote().
-// ponytail: importing ./text.gaz for it would add text.gaz to every test program's bytecode; do it
-// with the compiler's own move to text::quote, when one change can re-record them all.
-fn literal($value) {
-    return slice(to_string([$value]), 1, -1);
-}

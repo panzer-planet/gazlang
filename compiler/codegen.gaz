@@ -9,6 +9,7 @@ namespace gazlang;
 import "./lexer.gaz";
 import "./nodes.gaz";
 import "./parser.gaz";
+import "std/text.gaz" use quote;
 
 kind CodeGenerator {
     // Opcode emitted for each binary operator token (&& and || are jumps, see logical_op)
@@ -1228,7 +1229,7 @@ kind Program {
     // A value as a GazLang literal, which reads back as the same value: a list prints its
     // elements as literals, strings quoted and floats as the shortest digits that read back
     fn literal($value) {
-        return slice(to_string([$value]), 1, -1);
+        return quote($value);
     }
 
     // The header lines of a block
