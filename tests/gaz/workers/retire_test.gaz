@@ -48,7 +48,8 @@ expect("the master says so", master_lines($result["stderr"]), [
 expect("and ended cleanly", $result["status"], 0);
 fs::remove_tree($dir);
 
-// What the master says, without the lines a run under GAZVM_STATS adds about each process's values
+// What the master says: its own "gaz: " lines, without what a sanitized run adds about each process
+// (GAZVM_STATS's "gazvm: " values, and LeakSanitizer's note on Linux about a forked one)
 fn master_lines($stderr) {
-    return filter(text::lines($stderr), $line -> !starts_with($line, "gazvm: "));
+    return filter(text::lines($stderr), $line -> starts_with($line, "gaz: "));
 }
