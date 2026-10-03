@@ -64,15 +64,16 @@ class HttpServerTest extends GazLangTestCase
     }
 
     /**
-     * Start a server of a few lines run with -e, with some workers, http::serve() options and a
-     * handler written as GazLang (answering "ok" to everything unless given), and give it and its port
+     * Start a server of a few lines run with -e, with some workers, http::serve() options, a
+     * handler written as GazLang (answering "ok" to everything unless given) and what each worker
+     * does before it serves, and give it and its port
      *
      * @return array{resource, int}
      */
-    private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})'): array
+    private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})', string $startup = ''): array
     {
         $code = 'import "std/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
-            ."workers({$workers}); http::serve(\$l, {$handler}, {$options});";
+            ."workers({$workers}); {$startup} http::serve(\$l, {$handler}, {$options});";
         $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
         if ($server === false) {
             throw new \RuntimeException('Cannot start a server');
@@ -505,6 +506,34 @@ class HttpServerTest extends GazLangTestCase
             proc_terminate($server);
             proc_close($server);
             @unlink($log);
+        }
+    }
+
+    public function test_a_retiring_worker_serves_until_its_replacement_is_ready()
+    {
+        /*
+         * Each worker takes $startup seconds after workers() before it serves, as an app that
+         * connects to its database and builds itself does, and retires after every request. A
+         * retiring worker that left at once would leave the pool empty for that long; one that
+         * serves on until its replacement waits for connections leaves no gap.
+         */
+        $startup = 1.5;
+        [$server, $port] = self::startSmallServer(2, '{"max_requests" => 1}', startup: "sleep({$startup});");
+        try {
+            // The first request waits for the first workers to start
+            $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            $slowest = 0.0;
+            $until = microtime(true) + 2.5 * $startup;
+            for ($count = 0; microtime(true) < $until; $count++) {
+                $start = microtime(true);
+                $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+                $slowest = max($slowest, microtime(true) - $start);
+                usleep(20000);
+            }
+            $this->assertLessThan($startup / 2, $slowest, "the slowest of {$count} requests");
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
         }
     }
 

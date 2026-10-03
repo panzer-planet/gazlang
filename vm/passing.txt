@@ -1129,6 +1129,8 @@ tests/gaz/templates/web_html_test.gaz
 tests/gaz/workers/chdir_test.gaz
 tests/gaz/workers/inherited_test.gaz
 tests/gaz/workers/inherited_writer_test.gaz
+tests/gaz/workers/retire_grace_test.gaz
+tests/gaz/workers/retire_test.gaz
 tests/programs/cat_facts.gaz
 tests/programs/csv_report.gaz
 tests/programs/errors.gaz

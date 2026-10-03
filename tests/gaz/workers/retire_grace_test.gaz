@@ -1,0 +1,42 @@
+import "std/test.gaz" use expect;
+import "std/fs.gaz";
+import "std/text.gaz";
+
+/*
+ * A retiring worker that doesn't leave when asked (here because the program was started ignoring
+ * SIGTERM, which its workers then do too) is killed once the stop's grace, 10 seconds, is over, as
+ * a stop kills one; the replacement serves on. A program of its own, run with run(), since the
+ * master never returns from workers().
+ */
+$dir = fs::temp_dir("worker-retire-grace");
+$mark = $dir .. "/first-life-done";
+$program = '
+    $listener = socket_listen("127.0.0.1", 0);
+    workers(1);
+    if (!file_exists(MARK)) {
+        write_file(MARK, "");
+        worker_retire();
+        sleep(30);
+        print("never relieved\n");
+    }
+    // Waiting for a connection is what makes it ready to take over: this one has one at once
+    $client = socket_open("127.0.0.1", socket_port($listener));
+    socket_accept($listener);
+    // Outlives the grace, so the master is still watching when the retiring one is killed
+    sleep(12);
+    print("replacement done\n");
+';
+$program = replace($program, "MARK", text::quote($mark));
+$result = run(["sh", "-c", "trap \"\" TERM; exec \"$0\" -e \"$1\"", program_path(), $program]);
+expect("only the replacement finished", text::lines($result["stdout"]), ["replacement done"]);
+expect("the master killed the retiring one", master_lines($result["stderr"]), [
+    "gaz: worker 1 recycled; starting another",
+    "gaz: worker 1 died of signal 9 while retiring",
+]);
+expect("and ended cleanly", $result["status"], 0);
+fs::remove_tree($dir);
+
+// What the master says, without the lines a run under GAZVM_STATS adds about each process's values
+fn master_lines($stderr) {
+    return filter(text::lines($stderr), $line -> !starts_with($line, "gazvm: "));
+}

@@ -276,7 +276,8 @@ answering one request at a time.
   database or a cookie, as it does behind FPM.
 - **A worker can retire itself.** `http::serve($listener, $handler, {"max_requests" => 1000})`
   ends a worker after that many requests and the master starts a fresh one, which throws away
-  whatever it built up over its life: FPM's `pm.max_requests`.
+  whatever it built up over its life: FPM's `pm.max_requests`. The old one serves on until the new
+  one is ready, so retiring never leaves a client waiting for a worker to start.
 
 What it is not, today: there are no threads inside a worker (Puma's other half) and no event loop
 (Node's), so the pool's size is how many requests run at once, and the pool is a fixed size

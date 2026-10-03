@@ -1,0 +1,54 @@
+import "std/test.gaz" use expect;
+import "std/fs.gaz";
+import "std/text.gaz";
+
+/*
+ * worker_retire() hands a worker's number over: the master starts the replacement while the
+ * retiring worker carries on, and asks it to stop (its socket_accept() gives null) only once the
+ * replacement waits for connections. The retiring one isn't replaced again however it ends, so
+ * its exit code 3 is a line on standard error and not a failure of the pool. A program of its own,
+ * run with run(), since the master never returns from workers().
+ */
+expect("outside workers() there is no one to hand over to", worker_retire(), false);
+
+$dir = fs::temp_dir("worker-retire");
+$mark = $dir .. "/first-life-done";
+$program = '
+    $listener = socket_listen("127.0.0.1", 0);
+    workers(1);
+    if (!file_exists(MARK)) {
+        write_file(MARK, "");
+        print("asked " .. worker_retire() .. "\n");
+        print("asked again " .. worker_retire() .. "\n");
+        flush_output();
+        print("relieved " .. socket_accept($listener) .. "\n");
+        // Only the replacement takes connections now: this one lets it end
+        socket_open("127.0.0.1", socket_port($listener));
+        exit(3);
+    }
+    // Slow to start, as a program that connects to its database is: the retiring one waits for it
+    sleep(0.3);
+    print("replacement\n");
+    flush_output();
+    // Ends only after the retiring one has (its end of the connection closes with it), so the master hears from that one first
+    socket_read(socket_accept($listener));
+';
+$program = replace($program, "MARK", text::quote($mark));
+$result = run([program_path(), "-e", $program]);
+expect("the retiring worker asks once, and the replacement takes over before it is relieved", text::lines($result["stdout"]), [
+    "asked true",
+    "asked again false",
+    "replacement",
+    "relieved null",
+]);
+expect("the master says so", master_lines($result["stderr"]), [
+    "gaz: worker 1 recycled; starting another",
+    "gaz: worker 1 exited with code 3 while retiring",
+]);
+expect("and ended cleanly", $result["status"], 0);
+fs::remove_tree($dir);
+
+// What the master says, without the lines a run under GAZVM_STATS adds about each process's values
+fn master_lines($stderr) {
+    return filter(text::lines($stderr), $line -> !starts_with($line, "gazvm: "));
+}

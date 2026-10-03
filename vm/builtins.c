@@ -71,6 +71,7 @@ const BuiltinInfo builtin_info[] = {
     {"rename_file", 2, 2},
     {"chmod", 2, 2}, {"symlink", 2, 2}, {"readlink", 1, 1}, {"file_sync", 1, 1}, {"sync_dir", 1, 1},
     {"file_truncate", 2, 2}, {"set_mtime", 2, 2}, {"chdir", 1, 1},
+    {"worker_retire", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -101,6 +102,7 @@ enum {
     B_RENAME_FILE,
     B_CHMOD, B_SYMLINK, B_READLINK, B_FILE_SYNC, B_SYNC_DIR,
     B_FILE_TRUNCATE, B_SET_MTIME, B_CHDIR,
+    B_WORKER_RETIRE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -2156,6 +2158,11 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         flush_output();
         raise(SIGUSR2);
         *out = v_null();
+        return true;
+    case B_WORKER_RETIRE:
+        /* A worker asking to be replaced while it serves on (http::serve's max_requests): see
+           workers.c. False outside a worker, or once asked: there is nothing more to hand over. */
+        *out = v_bool(worker_retire());
         return true;
     }
     return raisef("Unknown builtin: %d", index);

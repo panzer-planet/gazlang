@@ -247,6 +247,7 @@ bool net_accept(Socket *listener, double timeout, Value *out) {
     if (listener->fd < 0) return raisef("socket_accept() on a closed socket");
     if (!listener->listening) return raisef("socket_accept() expects a listening socket, got a connection");
     if (!(timeout > 0)) return raisef("socket_accept() expects a timeout above 0 seconds");
+    worker_listening();
     int fd = -1;
     while (fd < 0) {
         if (workers_stopping()) {

@@ -615,6 +615,34 @@ that must find nothing to do.
     it restarts the worker at once, skipping the "died within a second of starting" check (a low
     `max_requests` recycling fast on purpose is not a startup failure) and logging a plainly different
     line (`worker N recycled; starting another`) rather than the failure phrasing.
+  - **`worker_retire()` hands a worker's number over instead of leaving a gap**, and is how
+    `"max_requests"` retires: the worker sets `retiring` in its `Slot` (the shared page is a small
+    struct per number: `accepted`, `listening`, `retiring`) and serves on; the master starts the
+    replacement under the same number at its next poll, keeping the retiring pid in a second half of
+    its pid table, and sends the retiring one the stop's SIGTERM once the replacement has set
+    `listening` (on entering `socket_accept()`), or once the number has ended for good. Leaving
+    first would leave the pool short for as long as the program takes to start after `workers()` (a
+    database connection, an app built: `apps/todo`'s Argon2 dummy hash is most of its 0.2s), and
+    empty when every worker retires at once, which an evenly spread load makes them do, since each
+    answers the same share (under `wrk`, the whole pool for 0.2s every couple of seconds, which was
+    the 99th percentile). A builtin of its own because the retiring worker must go on running
+    GazLang (the handler) while it waits, so `worker_recycle()`, which never returns, can't do it,
+    and nothing else can reach the master. After asking, the worker writes nothing more in its slot
+    (`slot = NULL`), which is the replacement's from the fork on; a second call gives `false`, as
+    one outside a worker does, which `http::serve` takes as "recycle at once". The retiring one is
+    reaped, never replaced, however it ends (an end other than `worker_recycle()`'s or a clean exit
+    is a line, `worker N exited with code 3 while retiring`); a second hand-over of one number
+    waits until the first one's leaver has gone. For that moment two processes have one number. One
+    still there `STOP_GRACE` after it was asked (stuck in a handler, or SIGTERM ignored since the
+    program started) is killed, as a stop kills one. Tested by `tests/gaz/workers/retire_test.gaz`
+    (the order, the lines, a slow replacement), `retire_grace_test.gaz` (the kill) and
+    `HttpServerTest` (a worker slow to start and `max_requests` 1: no request waits for a start).
+    **The master polls every 5ms while a hand-over is under way** (`handing_over()`), 50ms
+    otherwise: the retiring worker serves a connection a request meanwhile, a reconnect a request,
+    and with only the 50ms poll a server recycling every 0.4s lost a sixth of its throughput to
+    that, which the quicker relief won back; an idle master still wakes 20 times a second.
+    `ponytail:` noticing the hand-over still waits for a 50ms poll, since the master can't be woken
+    (see the program's own thread below).
   - **Stopping is graceful**: the master sends SIGTERM, which a worker catches (not `SA_RESTART`,
     so a waiting `accept()` wakes) and turns into `null` from its next `socket_accept()`, so
     `http::serve()` returns after the request in hand; the master kills what is left after 10
@@ -637,11 +665,14 @@ that must find nothing to do.
   - **A request has a deadline** (`"request_timeout"`, 30s, a 408) as well as the per-read
     `"timeout"`, which alone let a client trickling a byte every few seconds hold a worker for hours.
     `Reader` checks it before each read, so it can overrun by one read's timeout.
-  - **`"max_requests"`** (unset, no limit) calls `worker_recycle()` once the worker has answered that
-    many requests, however many connections they came on, instead of looping back to
-    `socket_accept()`: an opt-in policy, since forcing it by default would be gaz second-guessing an
-    app that has no accumulating state to worry about. The last one says `Connection: close`, and the
-    connection closes before the worker recycles.
+  - **`"max_requests"`** (unset, no limit) retires the worker once it has answered that many
+    requests, however many connections they came on: `worker_retire()`, then serving on, every
+    connection closing after its first request (`Connection: close`, so no client is cut off when the
+    stop comes), until the stop's `null` from `socket_accept()`, then `worker_recycle()`; outside
+    `workers()` (`worker_retire()` is `false`) `worker_recycle()` at once. An opt-in policy, since
+    forcing it by default would be gaz second-guessing an app that has no accumulating state to worry
+    about. The last one before it says `Connection: close`, and the connection closes before the
+    worker retires.
   - **Keep-alive is on by default**, since every browser and proxy expects it and a TCP handshake
     per request is the cost it saves. `"idle_timeout"` (5s) is the wait for a connection's next
     request, `"timeout"` still the wait for its first; `"requests_per_connection"` (100) bounds one
@@ -677,7 +708,11 @@ that must find nothing to do.
       client, 2.4 on average did, where one is enough; with the draw 1.25). Free capacity makes
       keep-alive cost nothing; without it the worst case is a connection per request plus up to
       20ms.
-      `http::handle()` has no listener and waits on its socket alone.
+      `http::handle()` has no listener and waits on its socket alone. `ponytail:` closing an idle
+      connection races with a request its client sends at that moment, which then sees a reset (a
+      browser retries it; `wrk` counts a read error): rare, more often when the machine is so busy
+      that a client takes over `YIELD_GRACE` to send its next request, as when replacements start
+      during a hand-over under a saturating benchmark.
     - **Up to four empty lines before a request line are skipped** (`MAX_EMPTY_LINES`), as RFC 9112
       asks of a server, bounded so a client can't hold a worker with them; a fifth is a 400.
     - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,
@@ -688,22 +723,20 @@ that must find nothing to do.
     that started closest together drift toward recycling close together too — a real, documented
     complaint, and FPM itself has no config option to randomise it (verified: nothing in the official
     `php.net` config reference, and the only "jitter" proposal found is an open, unimplemented issue
-    on `php-fpm-ng`, an unrelated third-party reimplementation, not upstream FPM). Gaz's version is
-    pure library code, no VM change: let `"max_requests"` take `[$min, $max]` as well as a plain int,
-    and have each worker call `rand_int($min, $max)` once at startup to pick its own personal
-    threshold instead of sharing one. **The one real gotcha**: `workers($n)` forks the running
-    program, and a fork duplicates the PRNG's state along with everything else — a worker that
-    doesn't call `rand_seed()` again after `workers()` returns its number would inherit the exact
-    same xoshiro256** state its siblings did, and `rand_int()` would hand every worker the identical
-    "random" threshold, silently defeating the whole point. `lib/http.gaz` reseeding from fresh OS
-    entropy right after `workers()` returns, before touching `"max_requests"`, is what actually makes
-    the jitter real; `rand_seed()`'s own doc already says every program starts freshly seeded, which
-    is true of the master before its first fork but not automatically true of each child after.
+    on `php-fpm-ng`, an unrelated third-party reimplementation, not upstream FPM). In gaz they do
+    retire together (an evenly spread load gives each worker the same count), but the hand-over
+    (`worker_retire()`) means that no longer leaves the pool short; what is left is their start-up
+    work landing at once, which only matters to an app whose start-up is heavy (a staggered
+    hand-over, one replacement starting at a time, was tried: no better on the todo app's tail and
+    worse on a fast-recycling server's throughput). If it is ever wanted, it is library code: let
+    `"max_requests"` take `[$min, $max]` and have each worker draw `rand_int($min, $max)` once; each
+    worker is already reseeded from OS entropy by `fork_worker()`, so the draws differ.
   - **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)**,
     growing the pool under load and letting idle workers exit, the one real capability gap against
     FPM's process manager (`worker_recycle()` already covers the other one, `pm.max_requests`). The
     blocker isn't the idea, it's that the master currently knows only whether a worker is alive
-    (`workers.c`'s one byte per worker in shared memory) — it has no idea which workers are idle in
+    and has started or retires (`workers.c`'s `Slot` per worker in shared memory) — it has no idea
+    which workers are idle in
     `socket_accept()` versus busy in a handler, because workers race to accept on the shared listening
     socket independently with no coordination through the master at all. Scaling needs that byte to
     become a state (idle/busy, with a last-transition time), workers to write it on each transition,
@@ -711,7 +744,9 @@ that must find nothing to do.
     one specific worker (not the whole group) the same graceful SIGTERM that shutdown already uses when
     one's been idle past a timeout with others to spare — which needs the master to track a *target*
     pool size separate from the live count, so a deliberate scale-down isn't misread as a crash and
-    respawned. `workers($min, $max)` in place of `workers($n)` is the likely shape; `ponytail:` no
+    respawned (the hand-over's second half of the pid table, a process the master reaps but doesn't
+    replace, is a start on that). `workers($min, $max)` in place of `workers($n)` is the likely
+    shape; `ponytail:` no
     jitter on synchronized scale-down either, matching FPM's own lack of one.
   - **Decoding a request is asked for, not done for every request**: `http::query($request)`
     and `http::form($request)` give maps of strings, a key given twice keeping its last value, so

@@ -1226,6 +1226,7 @@ or the other.
 | --- | --- |
 | `workers($count)` | Turns the program into `$count` processes, and gives each its number |
 | `worker_recycle()` | Ends this worker on purpose; the master replaces it, keeping the pool `$count` wide |
+| `worker_retire()` | Asks for this worker's replacement now, and serves on until it is ready; `true`, or `false` outside a worker |
 
 `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
@@ -1264,6 +1265,17 @@ with an unrelated `exit()` somewhere and be misread as a happy recycle, where a 
 exit can't. A recycle isn't logged as a failure and skips the "died within a second of starting"
 check that guards against a program that can't start, since a low `max_requests` recycling fast is
 deliberate, not a startup bug.
+
+`worker_retire()` retires a worker without leaving a gap, which is how `http::serve()`'s
+`max_requests` does it: the master starts the replacement at once, under the same number, while the
+retiring worker carries on serving, and once the replacement waits for connections the retiring
+one is asked to stop as a stop asks every worker, so its `socket_accept()` gives `null` after the
+request in hand; then it calls `worker_recycle()`, or ends however it likes, and isn't replaced
+again (one still running 10 seconds after it was asked is killed, as on a stop). A worker that left first would leave the pool short for as long as the program takes to
+start after `workers()` (connecting to a database, building an app), and empty when every worker
+retires at once, which an evenly spread load makes them do. For that moment two processes have one
+worker number. It gives `true`, or `false` outside a worker and when asked a second time, when there
+is nothing to hand over.
 
 ```gaz
 $listener = socket_listen("0.0.0.0", 8080);
@@ -1786,7 +1798,8 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   order when several come at once. It closes after a response that says `Connection: close`, which
   is one to an HTTP/1.0 request or to one that says `Connection: close`, one the server refused or
   a handler failed (the bytes after it can't be trusted to start a request), one whose handler
-  asked, the connection's `requests_per_connection`th, and the worker's last before `max_requests`.
+  asked, the connection's `requests_per_connection`th, the worker's last before `max_requests`, and
+  any while it retires.
   It also closes, without a word, when the client sends nothing for `idle_timeout` seconds, or
   `timeout` before its first request, or the worker is asked to stop. Up to four empty lines before
   a request line are skipped.
@@ -1808,8 +1821,10 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
   `"requests_per_connection"` (100; 1 closes every connection after its first request); and
   `"max_requests"` (unset, no limit), requests answered, however many connections they came on,
-  after which the worker calls `worker_recycle()` instead of accepting another connection, so a long-
-  lived worker's accumulated state doesn't outlive it.
+  after which the worker retires, so a long-lived worker's accumulated state doesn't outlive it: it
+  calls `worker_retire()` and serves on, one request to a connection so it can leave at any moment,
+  until its replacement is ready, so a retiring worker never leaves clients waiting for one; then
+  `worker_recycle()`. Without `workers()` it calls `worker_recycle()` at once.
 - It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 

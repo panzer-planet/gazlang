@@ -529,10 +529,10 @@ kind Refusal extends Error {
  * - A connection is kept open for the next request (HTTP/1.1's keep-alive) unless the request is
  *   HTTP/1.0 or says Connection: close, it was refused or the handler failed (the bytes after it
  *   can't be trusted to start a request), the handler asked to close, or it was the connection's
- *   "requests_per_connection"th or the worker's last before "max_requests". Up to four empty lines
- *   before a request line are skipped. A connection that sends nothing, before its first request or
- *   between two, is closed without a word once its wait is over, or sooner when a new client is
- *   waiting for a worker (see another_request()).
+ *   "requests_per_connection"th, the worker's last before "max_requests", or one while it retires
+ *   (see serve()). Up to four empty lines before a request line are skipped. A connection that
+ *   sends nothing, before its first request or between two, is closed without a word once its wait
+ *   is over, or sooner when a new client is waiting for a worker (see another_request()).
  * - Options: "timeout", seconds each read and write may wait, and a connection's first request
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
  *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
@@ -554,13 +554,29 @@ pub fn serve($listener, $handler, $options = {}) {
      * connection that closes before asking anything counts for nothing.
      */
     $served = 0;
+    /*
+     * Once it has answered that many, a worker retires by handing over (worker_retire()): it serves
+     * on, a request to a connection so it can leave at any moment, until its replacement is ready
+     * and it is asked to stop, and then recycles. Outside workers() there is no one to hand over
+     * to, and it recycles at once.
+     */
+    $retiring = false;
     // Null once a worker is asked to stop: the request in hand has been answered
     while (($socket = socket_accept($listener, $options["timeout"])) != null) {
         $left = $max_requests == null ? null : $max_requests - $served;
-        $served += connection($socket, $listener, $handler, $options, $left);
-        if ($max_requests != null && $served >= $max_requests) {
-            worker_recycle();
+        if ($retiring) {
+            $left = 1;
         }
+        $served += connection($socket, $listener, $handler, $options, $left);
+        if (!$retiring && $max_requests != null && $served >= $max_requests) {
+            $retiring = true;
+            if (!worker_retire()) {
+                worker_recycle();
+            }
+        }
+    }
+    if ($retiring) {
+        worker_recycle();
     }
 }
 
