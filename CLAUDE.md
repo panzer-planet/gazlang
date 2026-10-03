@@ -1505,7 +1505,11 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   `ISIG`, so Ctrl-C is the byte 3 for the program to decide about; a program in a loop that never
   reads can't be interrupted from the keyboard then. Resize is polled with `term_size()`, not
   signalled, so nothing runs asynchronously. `tests/fixtures/pty_run.py` runs a program on a pty,
-  since raw mode can't be seen from a pipe; `TermTest` skips those tests without python3.
+  since raw mode can't be seen from a pipe; `TermTest` skips those tests without python3. Its two
+  limits (`PTY_START`, to enter raw mode, 60s; `PTY_DEADLINE`, to end, 30s) only guard against a hang
+  and end with the program, so a loaded machine can't trip them: a fixed 3s and 5s once did, with the
+  football game taking longer than that to start on a busy CI runner; a test of a program meant to
+  hang gives a short deadline.
   `ponytail:` `run()` hands a child the terminal as raw mode left it.
 - Random numbers, not cryptographically secure (the docs say so): `rand_int($min, $max)` (both
   included), `rand_float()` (0.0 up to 1.0, the top 53 bits), `rand_seed($seed = null)`

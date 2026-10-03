@@ -188,7 +188,8 @@ class TermTest extends GazLangTestCase
         $alone = 'import "std/term.gaz"; import "std/tui.gaz";'
             .' $n = tui::choose(["a", "b", "c"]); $name = tui::ask("Name?");'
             .' echo to_string([$n, $name]);';
-        $ran = $this->onTerminal($alone, '1b5b42'.'0d'.bin2hex('hi').'0d');
+        // (it waits for a key that never comes, so it is given a few seconds, not the long default)
+        $ran = $this->onTerminal($alone, '1b5b42'.'0d'.bin2hex('hi').'0d', null, 4);
         $this->assertSame('timed out', $ran['code']);
     }
 

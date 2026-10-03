@@ -10,6 +10,12 @@ empty for none) is sent after that; ARGS are the program's own arguments. The en
 PTY_WAIT is how long, in seconds, to let a program run after the keys are typed (default 0.3), for
 one that moves by itself. PTY_HOLD, "HEX:EVERY:SECONDS", types those bytes every EVERY seconds for
 SECONDS instead, as a key held down does. The window is 132 by 40.
+
+Two limits only guard against a program that hangs, and a busy machine must not trip them: the
+program has PTY_START seconds (default 60) to change the terminal's modes or end, and PTY_DEADLINE
+seconds (default 30) to end after its keys and signal; one that doesn't is killed and its code is
+"timed out". Both end as soon as the program does what they wait for, so a large number costs
+nothing unless the program hangs. A test of a program that is meant to hang gives a short deadline.
 """
 import fcntl
 import json
@@ -58,7 +64,7 @@ def pump(seconds):
 before = modes(slave)
 process = subprocess.Popen(["bin/gaz", "-f", program, *program_args], stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
 # Wait for the program to change the terminal, or to end, not a fixed time: a busy machine starts it late
-give_up = time.time() + 3
+give_up = time.time() + float(os.environ.get("PTY_START", "60"))
 while process.poll() is None and modes(slave) == before and time.time() < give_up:
     pump(0.02)
 during = modes(slave)
@@ -79,7 +85,7 @@ if keys:
         pump(wait)
 if sig:
     process.send_signal(sig)
-deadline = time.time() + 5
+deadline = time.time() + float(os.environ.get("PTY_DEADLINE", "30"))
 while process.poll() is None and time.time() < deadline:
     pump(0.1)
 if process.poll() is None:

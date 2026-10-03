@@ -283,7 +283,7 @@ abstract class GazLangTestCase extends TestCase
      * @param  string|null  $hold  "HEX:EVERY:SECONDS": type those bytes every EVERY seconds for SECONDS, as a held key does
      * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
      */
-    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = [], float $wait = 0.3, ?string $hold = null): array
+    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = [], float $wait = 0.3, ?string $hold = null, ?float $deadline = null): array
     {
         $python = trim((string) shell_exec('command -v python3 2>/dev/null'));
         if ($python === '') {
@@ -291,7 +291,7 @@ abstract class GazLangTestCase extends TestCase
         }
         self::binary();
         $command = [$python, 'tests/fixtures/pty_run.py', $file, $keysHex, $signal ?? '', ...$args];
-        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT, [...getenv(), 'PTY_WAIT' => (string) $wait, ...($hold === null ? [] : ['PTY_HOLD' => $hold])]);
+        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT, [...getenv(), 'PTY_WAIT' => (string) $wait, ...($hold === null ? [] : ['PTY_HOLD' => $hold]), ...($deadline === null ? [] : ['PTY_DEADLINE' => (string) $deadline])]);
         $this->assertNotFalse($process);
         $json = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);
@@ -307,13 +307,13 @@ abstract class GazLangTestCase extends TestCase
      *
      * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
      */
-    protected function onTerminal(string $source, string $keysHex = '', ?string $signal = null): array
+    protected function onTerminal(string $source, string $keysHex = '', ?string $signal = null, ?float $deadline = null): array
     {
         $made = tempnam(sys_get_temp_dir(), 'gazterm');
         $file = $made.'.gaz';
         file_put_contents($file, $source);
         try {
-            return $this->fileOnTerminal($file, $keysHex, $signal);
+            return $this->fileOnTerminal($file, $keysHex, $signal, [], 0.3, null, $deadline);
         } finally {
             // tempnam() made the first, and only names the second
             unlink($made);
