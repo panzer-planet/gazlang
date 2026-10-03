@@ -30,8 +30,11 @@ $program = '
     sleep(0.3);
     print("replacement\n");
     flush_output();
-    // Ends only after the retiring one has (its end of the connection closes with it), so the master hears from that one first
+    // Ends only after the retiring one has (its end of the connection closes with it), and a moment
+    // later, so that the master reaps that one first however the system orders two processes ending
+    // together (a sanitized process takes longer to leave than the connection takes to close)
     socket_read(socket_accept($listener));
+    sleep(0.5);
 ';
 $program = replace($program, "MARK", text::quote($mark));
 $result = run([program_path(), "-e", $program]);
