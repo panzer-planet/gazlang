@@ -131,3 +131,7 @@ expect("a declaration cut off by the end", map(outline("pub fn").declarations, $
 // A template is markup, not GazLang
 expect("a template declares nothing", outline_of_file("tests/gaz/templates/views/card.gazml").declarations, []);
 expect("a file of GazLang", outline_of_file("lib/csv.gaz").namespace, "csv");
+
+// The paths imports name, as the lexer reads them: not a comment or a string that says one
+$imports = outline("import \"./a.gaz\";\nimport \"std/text.gaz\" use quote;\n// import \"./not.gaz\";\n\$s = 'import \"./nor.gaz\";';\n").imports;
+expect("the paths imports name", $imports, ["./a.gaz", "std/text.gaz"]);

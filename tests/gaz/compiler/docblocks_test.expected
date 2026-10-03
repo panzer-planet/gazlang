@@ -10,3 +10,4 @@ ok what is above a lexer error
 ok a declaration cut off by the end
 ok a template declares nothing
 ok a file of GazLang
+ok the paths imports name

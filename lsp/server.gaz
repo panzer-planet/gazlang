@@ -1,6 +1,7 @@
 /*
- * A Language Server Protocol server for GazLang: diagnostics for now (parse and lex errors),
- * over stdio, as every editor spawns one. bin/gaz lsp/server.gaz
+ * A Language Server Protocol server for GazLang, over stdio, as every editor spawns one:
+ * diagnostics (parse and lex errors), hover (a builtin's arity, or a declaration's signature and
+ * docblock), go-to-definition, completion and import links. bin/gaz lsp/server.gaz
  *
  * namespace gazlang, not its own: this reuses the compiler's own Lexer and Parser, which are
  * private to that namespace (as a test of the internals does; see CLAUDE.md).
@@ -9,6 +10,7 @@ namespace gazlang;
 
 import "compiler/lexer.gaz";
 import "compiler/parser.gaz";
+import "compiler/docblocks.gaz";
 import "std/json.gaz" use decode, encode;
 import "std/chars.gaz" use char_at, is_alnum, span;
 import "std/regex.gaz";
@@ -153,12 +155,11 @@ fn describe_arity($arity) {
 }
 
 /*
- * A hover result for the word under the cursor: a builtin's arity from builtins(), or a
- * declared function's parameter list found by scanning the source text for "fn word(...)".
- * Textual, not from the parsed tree: the tree doesn't exist while the document has a syntax
- * error elsewhere, which is the common case while it is being edited. ponytail: finds only a
- * top-level function or a method of the same name, and only the first; no kinds, fields or
- * parameter types yet.
+ * A hover result for the word under the cursor: a builtin's arity from builtins(), or the
+ * signature and docblock of what the document declares by that name, or a file it imports
+ * (found as definition() finds it). Read with the compiler's lexer, not from the parsed tree:
+ * the tree doesn't exist while the document has a syntax error elsewhere, which is the common
+ * case while it is being edited, and the lexer reads what is above a mistake.
  */
 fn hover($uri, $position) {
     $text = @documents[$uri] ?? null;
@@ -173,11 +174,79 @@ fn hover($uri, $position) {
     if (has_key($builtins, $word)) {
         return {"contents" => {"kind" => "markdown", "value" => "**{$word}** \u{2014} builtin, " .. describe_arity($builtins[$word])}};
     }
-    $found = regex::groups($text, "fn " .. $word .. "\\(([^)]*)\\)");
+    $found = find_declaration(reachable_files(path_from_uri($uri), $text), $word);
     if ($found == null) {
         return null;
     }
-    return {"contents" => {"kind" => "markdown", "value" => "```gaz\nfn {$word}(" .. ($found[1] ?? "") .. ")\n```"}};
+    $declaration = $found[1];
+    $value = "```gaz\n{$declaration.signature}\n```";
+    if ($declaration.doc != null) {
+        $value ..= "\n\n" .. $declaration.doc;
+    }
+    return {"contents" => {"kind" => "markdown", "value" => $value}};
+}
+
+/*
+ * The outline of a file's text (compiler/docblocks.gaz), kept until the text changes, so a
+ * hover or completion lexes only what changed since the last one
+ */
+fn outline_of($key, $text) {
+    $cached = @outlines[$key] ?? null;
+    if ($cached != null && $cached[0] == $text) {
+        return $cached[1];
+    }
+    $outline = ends_with($key, ".gazml") ? Outline(null, null, []) : outline($text);
+    @outlines[$key] = [$text, $outline];
+    return $outline;
+}
+
+// A file a document reaches, with its text and outline
+kind ReachableFile {
+    fn _(pub #path, pub #text, pub #outline) {}
+}
+
+/*
+ * The files a document can reach by name, as ReachableFiles: itself first (its own,
+ * possibly unsaved, text), then what it imports, directly or not, each once (a cycle of
+ * imports ends where it comes back). An unsaved document reaches only itself.
+ */
+fn reachable_files($path, $text) {
+    $files = [ReachableFile($path, $text, outline_of($path ?? "", $text))];
+    if ($path == null) {
+        return $files;
+    }
+    $root = root_of($path);
+    $visited = [$path];
+    $i = 0;
+    while ($i < len($files)) {
+        $file = $files[$i];
+        foreach (imported_paths($file.path, $file.outline.imports, $root) as $imported) {
+            if (!in_array($imported, $visited)) {
+                $visited[] = $imported;
+                $imported_text = read_file($imported);
+                $files[] = ReachableFile($imported, $imported_text, outline_of($imported, $imported_text));
+            }
+        }
+        $i++;
+    }
+    return $files;
+}
+
+/*
+ * The first declaration named $name in $files, as [ReachableFile, Declaration]: a function,
+ * kind or constant first, and failing those a member of a kind (a method, a field)
+ */
+fn find_declaration($files, $name) {
+    foreach ([true, false] as $top_level) {
+        foreach ($files as $file) {
+            foreach ($file.outline.declarations as $declaration) {
+                if ($declaration.name == $name && ($declaration.owner == null) == $top_level) {
+                    return [$file, $declaration];
+                }
+            }
+        }
+    }
+    return null;
 }
 
 // A real path to the file:// URI that names it, percent-encoding each segment on its own so a
@@ -186,40 +255,17 @@ fn uri_from_path($path) {
     return "file://" .. join(map(split($path, "/"), http::url_encode), "/");
 }
 
-// The zero-based line $byte is on, in $text
-fn line_at($text, $byte) {
-    return len(split(slice($text, 0, $byte), "\n")) - 1;
-}
-
-// Every match of $pattern in $text, each as regex::groups() gives it ([whole, group 1, ...]).
-// Repeated calls over ever-shorter slices, since regex.gaz gives one match at a time.
-fn all_matches($text, $pattern) {
-    $matches = [];
-    $offset = 0;
-    while (true) {
-        $window = slice($text, $offset);
-        $start = regex::find($window, $pattern);
-        if ($start == null) {
-            break;
-        }
-        $match = regex::groups($window, $pattern);
-        $matches[] = $match;
-        $offset += $start + len($match[0]);
-    }
-    return $matches;
-}
-
 /*
- * The real paths $text's own import "..."; lines name, resolved as the compiler resolves them
- * from $path (import_target() in compiler/parser.gaz: ./ from its directory, anything else from
+ * The real paths a file's imports name ($imports, as an Outline has them), resolved as the
+ * compiler resolves them from $path (import_target() in compiler/parser.gaz: ./ from its directory, anything else from
  * its project root, $root when no gaz.json is above it), for those that exist on disk. A std/
  * import isn't a file, and is skipped: only a program's own files can be followed this way.
  */
-fn imported_paths($path, $text, $root) {
+fn imported_paths($path, $imports, $root) {
     $directory = directory_of($path);
     $paths = [];
-    foreach (all_matches($text, 'import "([^"]*)"') as $match) {
-        $target = import_target($match[1], $directory, project_root($directory) ?? $root);
+    foreach ($imports as $import) {
+        $target = import_target($import, $directory, project_root($directory) ?? $root);
         if ($target.path != null && file_exists($target.path) && !is_dir($target.path)) {
             $paths[] = real_path($target.path);
         }
@@ -244,43 +290,46 @@ fn import_line($lines, $path, $file) {
     $target = real_path($file);
     $root = root_of($path);
     foreach ($lines as $i => $line) {
-        // Only a line that is an import: not a comment or a string that says one
-        if (starts_with(trim($line), "import ") && in_array($target, imported_paths($path, $line, $root))) {
+        // Only a line that is an import, as the lexer reads it: not a comment or a string that says one
+        if (starts_with(trim($line), "import ") && in_array($target, imported_paths($path, outline($line).imports, $root))) {
             return $i;
         }
     }
     return 0;
 }
 
-// Every name declared with fn in $text, in the order they appear
-fn function_names($text) {
-    return map(all_matches($text, "fn ([A-Za-z_][A-Za-z0-9_]*)\\("), $match -> $match[1]);
-}
+// The completion item kind for what a declaration is: a Function, Class or Constant
+const COMPLETION_KINDS = {"function" => 3, "kind" => 7, "constant" => 21};
 
 /*
- * Every function fn declares, in $text and every file it imports, directly or not (the same
- * reach find_definition() searches), each name once even if declared more than once reachably.
- * Further than the compiler lets a file see, which only its own imports: a completion of a name
- * the file must still import is a nudge, not a mistake.
+ * A completion for each function, kind and constant declared in $files (the same reach
+ * definition() searches), each name once even if declared more than once reachably, with the
+ * first line of its docblock as its detail and the whole of it as its documentation. Further
+ * than the compiler lets a file see, which only its own imports: a completion of a name the file
+ * must still import is a nudge, not a mistake.
  */
-fn declared_functions($path, $text, $visited, $root) {
-    $names = function_names($text);
-    if ($path != null) {
-        foreach (imported_paths($path, $text, $root) as $imported) {
-            if (in_array($imported, $visited)) {
+fn declared_names($files) {
+    $items = [];
+    $seen = {};
+    foreach ($files as $file) {
+        foreach ($file.outline.declarations as $declaration) {
+            if ($declaration.owner != null || has_key($seen, $declaration.name)) {
                 continue;
             }
-            $visited[] = $imported;
-            $names = [...$names, ...declared_functions($imported, read_file($imported), $visited, $root)];
+            $seen[$declaration.name] = true;
+            $items[] = completion_item($declaration);
         }
     }
-    $unique = [];
-    foreach ($names as $name) {
-        if (!in_array($name, $unique)) {
-            $unique[] = $name;
-        }
+    return $items;
+}
+
+fn completion_item($declaration) {
+    $item = {"label" => $declaration.name, "kind" => COMPLETION_KINDS[$declaration.what]};
+    if ($declaration.doc != null) {
+        $item["detail"] = split($declaration.doc, "\n")[0];
+        $item["documentation"] = {"kind" => "markdown", "value" => $declaration.doc};
     }
-    return $unique;
+    return $item;
 }
 
 /*
@@ -384,46 +433,16 @@ fn completions($uri, $position = null) {
     foreach (builtins() as $name => $arity) {
         $items[] = {"label" => $name, "kind" => 3, "detail" => describe_arity($arity)}; // Function
     }
-    $text = @documents[$uri] ?? null;
-    if ($text != null) {
-        $path = path_from_uri($uri);
-        $root = $path == null ? null : root_of($path);
-        foreach (declared_functions($path, $text, [$path], $root) as $name) {
-            $items[] = {"label" => $name, "kind" => 3};
-        }
+    if ($document != null) {
+        $items = [...$items, ...declared_names(reachable_files($path, $document))];
     }
     return $items;
 }
 
 /*
- * Where $name is declared with fn: in $text (which is $path's, but the caller's own copy,
- * possibly unsaved), or the first place it turns up in a file $path imports, followed
- * breadth-first-ish by recursion; $visited holds every real path followed so far on this
- * branch, so a cycle of imports ends the search rather than looping. null when nothing
- * declares it within reach.
- */
-fn find_definition($path, $text, $name, $visited, $root) {
-    $at = regex::find($text, "fn " .. $name .. "\\(");
-    if ($at != null) {
-        return {"uri" => uri_from_path($path), "range" => whole_line(split($text, "\n"), line_at($text, $at))};
-    }
-    foreach (imported_paths($path, $text, $root) as $imported) {
-        if (in_array($imported, $visited)) {
-            continue;
-        }
-        $visited[] = $imported;
-        $found = find_definition($imported, read_file($imported), $name, $visited, $root);
-        if ($found != null) {
-            return $found;
-        }
-    }
-    return null;
-}
-
-/*
- * Where the word under the cursor is declared with fn, in this document or a file it imports
- * (directly or not). ponytail: functions only, as hover is; a builtin has no source to jump to
- * and gives no result.
+ * Where the word under the cursor is declared, in this document or a file it imports (directly
+ * or not), as find_declaration() finds it: the whole of the declaration's first line. A builtin
+ * has no source to jump to and gives no result.
  */
 fn definition($uri, $position) {
     $path = path_from_uri($uri);
@@ -435,7 +454,12 @@ fn definition($uri, $position) {
     if ($word == null) {
         return null;
     }
-    return find_definition($path, $text, $word, [$path], root_of($path));
+    $found = find_declaration(reachable_files($path, $text), $word);
+    if ($found == null) {
+        return null;
+    }
+    [$file, $declaration] = $found;
+    return {"uri" => uri_from_path($file.path), "range" => whole_line(split($file.text, "\n"), $declaration.line - 1)};
 }
 
 // The line at $at of $text, or "" past its end
@@ -445,6 +469,7 @@ fn text_line($text, $at) {
 }
 
 @documents = {}; // uri -> text, for hover and definition; didOpen and didChange fill it
+@outlines = {};  // path -> [text, Outline], see outline_of()
 
 $connection = Connection();
 while (true) {

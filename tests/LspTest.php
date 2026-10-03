@@ -284,6 +284,48 @@ class LspTest extends GazLangTestCase
         );
     }
 
+    public function test_hovering_a_documented_function_gives_its_signature_and_docblock()
+    {
+        $source = "/**\n * Doubles \$n\n */\nfn double(int \$n): int { return \$n * 2; }\necho double(2);\n";
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $source],
+            ]],
+            $this->hoverAt(1, 4, 6), // "double" in the call
+        ]);
+
+        $this->assertSame(
+            ['kind' => 'markdown', 'value' => "```gaz\nfn double(int \$n): int\n```\n\nDoubles \$n"],
+            $messages[1]['result']['contents']
+        );
+    }
+
+    /**
+     * What the document imports is read for hover as it is for go-to-definition: a function, a
+     * kind and a constant, each with its docblock
+     */
+    public function test_hovering_a_name_from_an_imported_file_gives_its_docblock()
+    {
+        $uri = 'file://'.realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        $text = "import \"./documented.gaz\";\necho add(1, 2);\necho Point(1, 2).x + SIDES;\n";
+        $hover = fn (int $id, int $line, int $character) => ['jsonrpc' => '2.0', 'id' => $id, 'method' => 'textDocument/hover', 'params' => [
+            'textDocument' => ['uri' => $uri], 'position' => ['line' => $line, 'character' => $character],
+        ]];
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $uri, 'text' => $text]]],
+            $hover(1, 1, 6),  // add
+            $hover(2, 2, 6),  // Point
+            $hover(3, 2, 22), // SIDES
+        ]);
+        $values = array_map(fn ($message) => $message['result']['contents']['value'] ?? null, array_slice($messages, 1));
+
+        $this->assertSame([
+            "```gaz\nfn add(int \$a, int \$b): int\n```\n\nAdds two numbers.\n\nBoth must be ints.",
+            "```gaz\nkind Point\n```\n\nA point on a plane",
+            "```gaz\nconst SIDES = 4;\n```\n\nHow many sides a square has",
+        ], $values);
+    }
+
     public function test_hovering_a_keyword_gives_no_result()
     {
         $messages = $this->session([
@@ -443,6 +485,26 @@ class LspTest extends GazLangTestCase
         $byLabel = array_column($items, null, 'label');
 
         $this->assertArrayHasKey('helper', $byLabel);
+    }
+
+    /**
+     * A documented name carries its docblock's first line as its detail and the whole docblock as
+     * its documentation, from the document and from what it imports
+     */
+    public function test_completion_carries_a_docblock()
+    {
+        $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        $text = "import \"./documented.gaz\";\n/**\n * Here\n */\nfn here() {}\n";
+        $byLabel = array_column($this->completionsFor('file://'.$path, $text), null, 'label');
+
+        $this->assertSame([
+            'label' => 'add', 'kind' => 3, 'detail' => 'Adds two numbers.',
+            'documentation' => ['kind' => 'markdown', 'value' => "Adds two numbers.\n\nBoth must be ints."],
+        ], $byLabel['add']);
+        $this->assertSame('A point on a plane', $byLabel['Point']['detail']);
+        $this->assertSame(7, $byLabel['Point']['kind']);
+        $this->assertSame(21, $byLabel['SIDES']['kind']);
+        $this->assertSame('Here', $byLabel['here']['detail']);
     }
 
     public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()

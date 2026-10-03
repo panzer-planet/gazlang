@@ -58,10 +58,11 @@ pub kind Declaration {
 
 /*
  * What a file declares: its namespace (null without one), its overview (the first docblock of
- * the file, before its namespace line) and its declarations in source order
+ * the file, before its namespace line), its declarations in source order, and the paths its
+ * imports name, as written
  */
 pub kind Outline {
-    fn _(pub ?string #namespace, pub ?string #overview, pub list #declarations) {}
+    fn _(pub ?string #namespace, pub ?string #overview, pub list #declarations, pub list #imports = []) {}
 }
 
 // The outline of GazLang source
@@ -80,7 +81,7 @@ pub fn outline_of_file(string $path): Outline {
 
 // A token of the source and where it lies in it
 kind SourceToken {
-    fn _(pub string #type, pub int #line, pub int #start, pub int #stop) {}
+    fn _(pub string #type, pub #value, pub int #line, pub int #start, pub int #stop) {}
 }
 
 kind OutlineReader {
@@ -92,7 +93,7 @@ kind OutlineReader {
             $token = $lexer.get_next_token();
             while ($token.type != "EOF") {
                 [$start, $stop] = $lexer.span();
-                #tokens[] = SourceToken($token.type, $token.line, $start, $stop);
+                #tokens[] = SourceToken($token.type, $token.value, $token.line, $start, $stop);
                 $token = $lexer.get_next_token();
             }
         } catch (LexError $e) {
@@ -103,6 +104,7 @@ kind OutlineReader {
     pub fn read(): Outline {
         $namespace = null;
         $declarations = [];
+        $imports = [];
         // The kind whose body is open, and one declared whose body is still to open
         $kind = null;
         $declared_kind = null;
@@ -114,6 +116,9 @@ kind OutlineReader {
             $type = #type($t);
             if ($type == "NAMESPACE" && $braces == 0) {
                 $namespace = #text($t + 1);
+            }
+            if ($type == "IMPORT" && #type($t + 1) == "STRING") {
+                $imports[] = #tokens[$t + 1].value;
             }
             if ($at_start && $parentheses == 0 && #declares($t, $braces, $kind)) {
                 [$declaration, $end] = #declaration($t, $braces == 0 ? null : $kind);
@@ -140,7 +145,7 @@ kind OutlineReader {
             $t++;
         }
 
-        return Outline($namespace, #overview(), $declarations);
+        return Outline($namespace, #overview(), $declarations, $imports);
     }
 
     fn depth_change(string $type, list $openers, list $closers): int {
