@@ -1,0 +1,1 @@
+Error: Only a constant interpolates in bare braces, and len is a builtin: assign it to a $variable first, or join it with .. on line 2

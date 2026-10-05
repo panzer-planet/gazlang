@@ -1,0 +1,1 @@
+Error: Only a constant interpolates in bare braces, and Point is a kind: assign it to a $variable first, or join it with .. on line 3

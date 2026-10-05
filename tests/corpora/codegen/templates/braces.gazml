@@ -1,0 +1,3 @@
+@template braces($x)
+<style>p {color: red}</style>
+<p>{NAME} {Kind::NAME} {{ $x }}{X}</p>

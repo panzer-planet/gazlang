@@ -1,0 +1,5 @@
+// A tagged string's braces follow the same rule
+fn tag($strings, $values) {
+    return $values;
+}
+echo tag"limit {LIMIT}";

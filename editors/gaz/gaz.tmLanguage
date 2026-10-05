@@ -438,6 +438,21 @@
 							<key>match</key>
 							<string>\\(n|t|r|v|f|e|0|\\|"|\$|\{|x[0-9a-fA-F]{2}|u\{[0-9a-fA-F]{1,6}\})</string>
 						</dict>
+						<!-- "{NAME}", "{ns::NAME}": a constant's name alone in braces -->
+						<dict>
+							<key>name</key>
+							<string>meta.embedded.line.gaz</string>
+							<key>match</key>
+							<string>\{([a-zA-Z_][a-zA-Z0-9_]*(?:::[a-zA-Z_][a-zA-Z0-9_]*)*)\}</string>
+							<key>captures</key>
+							<dict>
+								<key>1</key>
+								<dict>
+									<key>name</key>
+									<string>constant.other.gaz</string>
+								</dict>
+							</dict>
+						</dict>
 						<dict>
 							<key>name</key>
 							<string>meta.embedded.line.gaz</string>

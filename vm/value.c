@@ -571,6 +571,26 @@ void format_float(double f, Buf *out) {
     }
 }
 
+static bool name_start(unsigned char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
+}
+
+/*
+ * Whether the text from the { at i is a name in braces, which a string literal interpolates as
+ * a constant: names joined by ::, then the } at once ({NAME}, {ns::NAME}). The same shape as
+ * at_braced_name() in compiler/lexer.gaz.
+ */
+static bool braced_name_at(const Str *s, size_t i) {
+    i++;
+    while (i < s->len && name_start((unsigned char)s->data[i])) {
+        while (i < s->len && (name_start((unsigned char)s->data[i]) || (s->data[i] >= '0' && s->data[i] <= '9'))) i++;
+        if (i < s->len && s->data[i] == '}') return true;
+        if (i + 1 >= s->len || s->data[i] != ':' || s->data[i + 1] != ':') return false;
+        i += 2;
+    }
+    return false;
+}
+
 /*
  * A string as a double-quoted GazLang literal that reads back as the same bytes:
  * named escapes, \xHH for other control bytes and NUL, and \$ and \{ only where they would
@@ -592,10 +612,10 @@ void quote(const Str *s, Buf *out) {
         case '\\': named = "\\\\"; break;
         case '"': named = "\\\""; break;
         case '$':
-            if ((next >= 'A' && next <= 'Z') || (next >= 'a' && next <= 'z') || next == '_') named = "\\$";
+            if (name_start(next)) named = "\\$";
             break;
         case '{':
-            if (next == '$' || next == '@' || next == '#') named = "\\{";
+            if (next == '$' || next == '@' || next == '#' || braced_name_at(s, i)) named = "\\{";
             break;
         }
         if (named) buf_adds(out, named);

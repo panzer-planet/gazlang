@@ -232,6 +232,8 @@ kind FunctionRefAST extends AST {
     // The "Kind::name" of the static field this names, or null; a static field is a slot,
     // so Counter::count reads and writes one rather than being a value of its own
     pub #static_name = null;
+    // Set (to true) only on the name of "{NAME}" in a string, which must be a constant's
+    pub #braced;
 
     fn _($name) {
         #name = $name;

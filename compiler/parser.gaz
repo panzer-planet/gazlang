@@ -1231,7 +1231,7 @@ kind Html {
         $node = #at(StringAST($start), $start);
 
         while (true) {
-            $value = #expr();
+            $value = #interpolated_value();
             if (#in_constant && is_a($value, VariableAST)) {
                 // Said here, where it is known the string did it: check_constant_expression() only sees a variable
                 $escape = $value.is_global() ? '\\{ for a brace' : '\\$ for a dollar sign';
@@ -1258,6 +1258,21 @@ kind Html {
     }
 
     /*
+     * One interpolated expression. An IDENTIFIER can only start one as the name of "{NAME}",
+     * since everything else in braces starts with a sigil: that name must turn out to be a
+     * constant's, which is checked with every other name once the whole program is read.
+     */
+    fn interpolated_value() {
+        $braced = #current_token.type == "IDENTIFIER";
+        $value = #expr();
+        if ($braced) {
+            $value.braced = true;
+        }
+
+        return $value;
+    }
+
+    /*
      * Parse a tagged string (TAG (STRING | STRING_START expr (STRING_MIDDLE expr)* STRING_END)),
      * the tag's name having been read, $at being its first token
      *
@@ -1273,7 +1288,7 @@ kind Html {
         #eat($start.type);
         $part = $start;
         while ($part.type == "STRING_START" || $part.type == "STRING_MIDDLE") {
-            $values[] = [null, #expr()];
+            $values[] = [null, #interpolated_value()];
             $part = #current_token;
             if ($part.type != "STRING_MIDDLE" && $part.type != "STRING_END") {
                 #fail("Expected '}' but found " .. #describe($part));
@@ -3603,6 +3618,9 @@ kind Html {
             $name = #as_asked($use.name, $asker);
             $static = #static_key($name);
             if ($static != null) {
+                if (is_a($use, FunctionRefAST) && ($use.braced ?? false)) {
+                    #fail_braced_name($use, "a static field");
+                }
                 if (is_a($use, FunctionCallAST)) {
                     #fail_at("{$use.name} is a static field, not a function", $use.file, $use.line);
                 }
@@ -3621,6 +3639,9 @@ kind Html {
                 $use.value = #constant_value($constant, $use);
 
                 continue;
+            }
+            if (is_a($use, FunctionRefAST) && ($use.braced ?? false)) {
+                #fail_braced_name($use);
             }
             if (has_key(#kinds, $use.name)) {
                 $kind = #kinds[$use.name];
@@ -3673,6 +3694,26 @@ kind Html {
         }
 
         return $root;
+    }
+
+    /*
+     * A name in a string's bare braces that isn't a constant's: "{NAME}" interpolates only a
+     * constant, so a misspelt one is an error rather than text. What the name is, when it is
+     * something, says how to interpolate it instead; when it is nothing, the text may have
+     * been meant, so the error names \{ too, rather than the error a bare name would get.
+     */
+    fn fail_braced_name($use, $what = null) {
+        $what ??= match {
+            has_key(#kinds, $use.name) => "a kind",
+            has_key(#builtins, $use.name) => "a builtin",
+            has_key(#functions, $use.name) => "a function",
+            default => null,
+        };
+        if ($what != null) {
+            #fail_at("Only a constant interpolates in bare braces, and {$use.name} is {$what}: assign it to a \$variable first, or join it with ..", $use.file, $use.line);
+        }
+        $braced = '{' .. $use.name .. '}';
+        #fail_at("Undefined constant {$use.name} in \"{$braced}\": declare it, or write \\{$braced} for the text", $use.file, $use.line);
     }
 
     /*

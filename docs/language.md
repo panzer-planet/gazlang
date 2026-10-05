@@ -99,10 +99,26 @@ echo "Hi $rows[0] and $m[key]";   // one index after a bare name
 echo "{$user.name} owes {@total + 1}";
 ```
 
-Braces interpolate any expression that **starts with a sigil** — `{$…}`, `{@…}`, `{#…}`.
-Anything else is literal, so `{round($n, 2)}` prints as written; assign it to a variable first,
-or start the expression with a sigil and call from there (`{$o.shout() .. to_string($n)}`).
-A lone `$`, `$5`, `me@example.com` and `{ $x}` are all literal too.
+Braces interpolate any expression that **starts with a sigil** — `{$…}`, `{@…}`, `{#…}` — and
+a **constant's name alone**: `{NAME}`, `{ns::NAME}` or `{Kind::NAME}`, the `}` right after the
+name.
+
+```gaz
+const LIMIT = 20;
+echo "at most {LIMIT} items";
+```
+
+```
+at most 20 items
+```
+
+A name in braces that isn't a constant is an error when the program is read, so a misspelt
+constant can't print as text: `Undefined constant LIMT in "{LIMT}": declare it, or write \{LIMT}
+for the text`, and a function, kind or static field there says to put it in a `$variable` first
+or join it with `..`. Anything else is literal, so `{round($n, 2)}` prints as written; assign it
+to a variable first, or start the expression with a sigil and call from there
+(`{$o.shout() .. to_string($n)}`). A lone `$`, `$5`, `me@example.com`, `{ $x}`, `{ X}`, `{3}`,
+`{X:1}` and `{}` are all literal too, and `\{NAME}` is the text `{NAME}`.
 
 The index after a bare name is `[0]`, `[-1]`, `[$i]` or `[key]`, read as the string `"key"`
 (`[01]` is the string `"01"`). `#` and a property path interpolate only inside braces, so
@@ -110,8 +126,10 @@ The index after a bare name is `[0]`, `[-1]`, `[$i]` or `[key]`, read as the str
 write `\{#` or use single quotes.
 
 The reason: `{` has to stay literal so a string holding JSON, CSS or braces needs no escaping,
-so only `{$`, `{@` and `{#` start an expression. Once one has started, anything goes inside the
-braces: `{$n + 1}` works.
+so only `{$`, `{@` and `{#` start an expression, and a name only when the `}` follows it at once:
+`{"a": 1}` and `body {color: red}` are not that shape. A constant has no sigil, and without the
+name rule `"{LIMIT}"` would quietly be text. Once an expression has started, anything goes inside
+the braces: `{$n + 1}` works.
 
 Escapes in `"..."`: `\n \t \r \v \f \e \0 \\ \" \$ \{`, `\xHH` (exactly two hex digits) and
 `\u{H…}` (1 to 6 hex digits, up to `10FFFF` and no surrogates, written out as UTF-8). Any other
@@ -145,7 +163,7 @@ echo shout"no values";                        // shout(["no values"], [])
   next to it: `t"{$a}{$b}"` is `t(["", "", ""], [$a, $b])`.
 - **The values** come second, exactly as they are, never converted to text, each evaluated once,
   left to right. Every form of interpolation works: `$x`, `$x[0]`, `{$expr}`, `{@global}`,
-  `{#field}` in a method, and another tagged string inside the braces.
+  `{#field}` in a method, a constant's `{NAME}`, and another tagged string inside the braces.
 - **A tag is a name**, and a tagged string is an ordinary call by that name: a function, a
   qualified one (`db::sql"..."`), one brought in by `use`, a static method, a kind (which
   constructs) or a builtin that takes two arguments. It is checked like any call when the program
@@ -1137,11 +1155,13 @@ echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
   is always exactly one name. Quoted names keep their case in PostgreSQL (`"Name"` is not `name`
   there), and a dot is part of the name: a table in a schema is two, `{$schema}.{$table}`.
 - Anything else (a map, a function, an object) is an error when the `db::sql"..."` is made.
-- **Only a variable is interpolated**: as in any string, `{$`, `{@` and `{#` start an
-  interpolation and nothing else does, so `{db::ident($c)}` would be text. Put a fragment or a name
-  in a variable first, `$column = db::ident($c);`, then write `{$column}`; the tag refuses what
-  looks like a call in braces (`db::sql text holds {db::ident(...)}: ...`), while a brace before
-  anything else (`'{1,2}'`, `'{"k": 1}'`) is text as usual.
+- **Only a variable or a constant is interpolated**: as in any string, `{$`, `{@`, `{#` and a
+  constant's `{NAME}` start an interpolation and nothing else does, so `{db::ident($c)}` would be
+  text. Put a fragment or a name in a variable first, `$column = db::ident($c);`, then write
+  `{$column}`; the tag refuses what looks like a call in braces (`db::sql text holds
+  {db::ident(...)}: ...`), while a brace before anything else (`'{1,2}'`, `'{"k": 1}'`) is text as
+  usual. A constant (`limit {PAGE_SIZE}`) is a value like any other, so it is bound as a parameter;
+  a word in braces meant as SQL text is written `\{word}`.
 - **A numbered placeholder can't be in the text**: `$1` (PostgreSQL's) or `?1` (SQLite's) would be
   read as whichever value has that number. Interpolate the value instead. A bare `?`, or a named
   placeholder like `:name`, is caught by the database's own count of parameters. A false alarm, a

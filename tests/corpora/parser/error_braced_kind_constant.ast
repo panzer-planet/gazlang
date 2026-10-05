@@ -1,0 +1,1 @@
+Error: Undefined constant Price::CURENCY in "{Price::CURENCY}": declare it, or write \{Price::CURENCY} for the text at tests/corpora/parser/error_braced_kind_constant.gaz:5

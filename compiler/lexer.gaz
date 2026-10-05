@@ -68,7 +68,9 @@ pub kind Lexer {
     // [state, the line the string starts on, how many { are open inside it]:
     // "braces" is inside {$...}, where the } matching it resumes the string (a map literal or
     // block body inside has its own braces); "bare" means the next token is the $name of
-    // "Hi $name"; "after_bare" means that $name was read, so the string resumes
+    // "Hi $name"; "after_bare" means that $name was read, so the string resumes; "constant"
+    // means the next token is a part of the name in "{NAME}" or "{ns::NAME}", and
+    // "constant_colons" the :: after one; after the last part it is "braces"
     #interpolations = [];
     // Tokens already read that get_next_token() gives before reading more: the [key] of "$a[0]"
     #queued_tokens = [];
@@ -78,6 +80,9 @@ pub kind Lexer {
         "(" => "LEFT_PAREN", ")" => "RIGHT_PAREN", "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET",
         "," => "COMMA", ";" => "SEMICOLON", "~" => "BIT_NOT",
     };
+
+    // What a name is made of after its first character
+    const NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
 
     // Operators: the longest one that matches wins, so <=> before <= before <
     const OPERATORS = {
@@ -335,16 +340,17 @@ pub kind Lexer {
 
     // Letters, digits and underscores from the current character on
     fn read_word() {
-        return #read_while("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_");
+        return #read_while(#NAME_CHARS);
     }
 
     // The text of a double-quoted string, up to its closing quote or next interpolation
     //
     // Without interpolation a string is one STRING. With it, it is STRING_START (the text
     // before the first one), each interpolated expression's tokens, STRING_MIDDLE between them
-    // and STRING_END after the last. "$name" interpolates a variable and "{$...}", "{@...}" and
-    // "{#...}" an expression; the braces themselves give no tokens. $first is true at the
-    // opening quote, false when resuming after an interpolation.
+    // and STRING_END after the last. "$name" interpolates a variable, "{$...}", "{@...}" and
+    // "{#...}" an expression, and "{NAME}" a constant (the parser checks that it is one); the
+    // braces themselves give no tokens. $first is true at the opening quote, false when
+    // resuming after an interpolation.
     fn string_part($first) {
         if ($first) {
             // An unterminated string is reported where it starts
@@ -390,6 +396,11 @@ pub kind Lexer {
                 #interpolations[] = ["braces", $start_line, 0];
 
                 return Token($first ? "STRING_START" : "STRING_MIDDLE", $text);
+            } else if (#char == "{" && #at_braced_name()) {
+                #skip(1);
+                #interpolations[] = ["constant", $start_line, 0];
+
+                return Token($first ? "STRING_START" : "STRING_MIDDLE", $text);
             } else {
                 // A $ or { that is only text
                 $text ..= #char;
@@ -403,6 +414,30 @@ pub kind Lexer {
         #skip(1);
 
         return Token($first ? "STRING" : "STRING_END", $text);
+    }
+
+    /*
+     * Whether the text from the { on is a name in braces, "{NAME}", "{ns::NAME}" or
+     * "{Kind::NAME}": names joined by ::, then the } at once. Anything else, "{ X}", "{3}",
+     * "{X:1}" or "{}", is text, so JSON and CSS need no escaping.
+     */
+    fn at_braced_name() {
+        $i = #pos + 1;
+        while (#is_name_start(char_at(#text, $i))) {
+            while ($i < #length && contains(#NAME_CHARS, #text[$i])) {
+                $i++;
+            }
+            $next = char_at(#text, $i);
+            if ($next == "}") {
+                return true;
+            }
+            if ($next != ":" || char_at(#text, $i + 1) != ":") {
+                return false;
+            }
+            $i += 2;
+        }
+
+        return false;
     }
 
     // The one [key] PHP allows after a bare interpolated variable, at the [: the [, key and ]
@@ -622,6 +657,16 @@ pub kind Lexer {
             }
         } else if ($state == "after_bare") {
             $token = #string_part(false);
+        } else if ($state == "constant") {
+            // A part of the name in "{NAME}", a keyword too, so the parser reads it as a name
+            // and finds out whether it is a constant's; at the } the string resumes, as after
+            // "{$...}"
+            $token = Token("IDENTIFIER", #read_word());
+            #interpolations[$last][0] = #char == ":" ? "constant_colons" : "braces";
+        } else if ($state == "constant_colons") {
+            #skip(2);
+            $token = Token("DOUBLE_COLON", "::");
+            #interpolations[$last][0] = "constant";
         } else {
             #skip_ignored();
             #start = #pos;

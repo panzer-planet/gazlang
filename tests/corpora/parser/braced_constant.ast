@@ -1,0 +1,244 @@
+Compound
+  statements:
+@ "tests/corpora/parser/braced_constant.gaz"
+    0: KindDeclaration 7
+      name: "shop::Price"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"CURRENCY" => "pub", "show" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        show: FunctionDeclaration 10
+          name: "show"
+          params: ["\$amount"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 11
+                expr: BinOp 11
+                  left: BinOp 11
+                    left: BinOp 11
+                      left: BinOp 11
+                        left: BinOp 11
+                          left: String 11
+                            token: 11 STRING_START ""
+                            value: ""
+                          token: 11 CONCAT ..
+                          op: 11 CONCAT ..
+                          right: Variable 11
+                            token: 11 VAR_IDENTIFIER $amount
+                            value: "\$amount"
+                        token: 11 CONCAT ..
+                        op: 11 CONCAT ..
+                        right: String 11
+                          token: 11 STRING_MIDDLE " "
+                          value: " "
+                      token: 11 CONCAT ..
+                      op: 11 CONCAT ..
+                      right: Property 11
+                        target: This 11
+                        name: "CURRENCY"
+                        field: false
+                        constant: true
+                        value: "ZAR"
+                        static_name: null
+                    token: 11 CONCAT ..
+                    op: 11 CONCAT ..
+                    right: String 11
+                      token: 11 STRING_MIDDLE " "
+                      value: " "
+                  token: 11 CONCAT ..
+                  op: 11 CONCAT ..
+                  right: FunctionRef 11
+                    name: "shop::Price::CURRENCY"
+                    constant: true
+                    value: "ZAR"
+                    static_name: null
+                    braced: true
+          arity: 1
+          kind: "shop::Price"
+          abstract: false
+      constants:
+        CURRENCY: String 8
+          token: 8 STRING "ZAR"
+          value: "ZAR"
+      constant_lines: {"CURRENCY" => 8}
+      constant_owners: {"CURRENCY" => "shop::Price"}
+      layout: []
+      members: {"show" => "shop::Price"}
+      abstract_methods: []
+      slots: []
+      method_table: [["show", "shop::Price", "pub", "shop::Price"]]
+      owner_vis: {"CURRENCY" => "pub", "show" => "pub"}
+      declared_at: {"show" => "shop::Price"}
+      hidden: []
+      hidden_fields: []
+    1: FunctionDeclaration 15
+      name: "shop::tag"
+      params: ["\$strings", "\$values"]
+      defaults: [null, null]
+      body: Compound
+        statements:
+          0: ReturnStatement 16
+            expr: Variable 16
+              token: 16 VAR_IDENTIFIER $values
+              value: "\$values"
+      arity: 2
+      kind: null
+      abstract: false
+    2: Statement 19
+      expr: Assign 19
+        left: Variable 19
+          token: 19 VAR_IDENTIFIER $x
+          value: "\$x"
+        token: 19 ASSIGN =
+        right: Num 19
+          token: 19 INTEGER 1
+          value: 1
+    3: EchoStatement 20
+      expr: BinOp 20
+        left: BinOp 20
+          left: BinOp 20
+            left: BinOp 20
+              left: BinOp 20
+                left: BinOp 20
+                  left: BinOp 20
+                    left: BinOp 20
+                      left: BinOp 20
+                        left: BinOp 20
+                          left: BinOp 20
+                            left: String 20
+                              token: 20 STRING_START ""
+                              value: ""
+                            token: 20 CONCAT ..
+                            op: 20 CONCAT ..
+                            right: FunctionRef 20
+                              name: "shop::TAX"
+                              constant: true
+                              value: 15
+                              static_name: null
+                              braced: true
+                          token: 20 CONCAT ..
+                          op: 20 CONCAT ..
+                          right: String 20
+                            token: 20 STRING_MIDDLE " "
+                            value: " "
+                        token: 20 CONCAT ..
+                        op: 20 CONCAT ..
+                        right: FunctionRef 20
+                          name: "shop::TAX"
+                          constant: true
+                          value: 15
+                          static_name: null
+                          braced: true
+                      token: 20 CONCAT ..
+                      op: 20 CONCAT ..
+                      right: String 20
+                        token: 20 STRING_MIDDLE " "
+                        value: " "
+                    token: 20 CONCAT ..
+                    op: 20 CONCAT ..
+                    right: FunctionRef 20
+                      name: "shop::Price::CURRENCY"
+                      constant: true
+                      value: "ZAR"
+                      static_name: null
+                      braced: true
+                  token: 20 CONCAT ..
+                  op: 20 CONCAT ..
+                  right: String 20
+                    token: 20 STRING_MIDDLE " "
+                    value: " "
+                token: 20 CONCAT ..
+                op: 20 CONCAT ..
+                right: Variable 20
+                  token: 20 VAR_IDENTIFIER $x
+                  value: "\$x"
+              token: 20 CONCAT ..
+              op: 20 CONCAT ..
+              right: FunctionRef 20
+                name: "shop::TAX"
+                constant: true
+                value: 15
+                static_name: null
+                braced: true
+            token: 20 CONCAT ..
+            op: 20 CONCAT ..
+            right: Variable 20
+              token: 20 VAR_IDENTIFIER $x
+              value: "\$x"
+          token: 20 CONCAT ..
+          op: 20 CONCAT ..
+          right: String 20
+            token: 20 STRING_MIDDLE " "
+            value: " "
+        token: 20 CONCAT ..
+        op: 20 CONCAT ..
+        right: FunctionRef 20
+          name: "shop::LABEL"
+          constant: true
+          value: "tax 15%"
+          static_name: null
+          braced: true
+    4: EchoStatement 21
+      expr: String 21
+        token: 21 STRING "text: { TAX} {TAX } {3} {TAX:1} {} \{TAX} {\"a\": 1}"
+        value: "text: { TAX} {TAX } {3} {TAX:1} {} \{TAX} {\"a\": 1}"
+    5: EchoStatement 22
+      expr: FunctionCall 22
+        name: "shop::tag"
+        args:
+          0: ArrayLiteral 22
+            entries:
+              0:
+                0: null
+                1: String 22
+                  token: 22 STRING_START "rate "
+                  value: "rate "
+              1:
+                0: null
+                1: String 22
+                  token: 22 STRING_MIDDLE " and "
+                  value: " and "
+              2:
+                0: null
+                1: String 22
+                  token: 22 STRING_END ""
+                  value: ""
+            map: false
+          1: ArrayLiteral 22
+            entries:
+              0:
+                0: null
+                1: FunctionRef 22
+                  name: "shop::TAX"
+                  constant: true
+                  value: 15
+                  static_name: null
+                  braced: true
+              1:
+                0: null
+                1: Variable 22
+                  token: 22 VAR_IDENTIFIER $x
+                  value: "\$x"
+            map: false
+        tagged: true
+    6: EchoStatement 23
+      expr: BinOp 24
+        left: String 23
+          token: 23 STRING_START "the first line\nthen "
+          value: "the first line\nthen "
+        token: 24 CONCAT ..
+        op: 24 CONCAT ..
+        right: FunctionRef 24
+          name: "shop::TAX"
+          constant: true
+          value: 15
+          static_name: null
+          braced: true

@@ -1,0 +1,3 @@
+// Only a constant interpolates in bare braces
+kind Point {}
+echo "a {Point}";

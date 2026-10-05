@@ -859,8 +859,18 @@ Names are ASCII.
 - `\0` before a digit is a lexer error because it is octal in PHP and C.
 - Interpolation: the lexer emits `STRING_START`, the tokens, `STRING_MIDDLE`, `STRING_END`, with a stack
   so strings nest; the parser desugars to `..`, so the VM needs nothing.
+- **A constant's name alone in braces interpolates it** (`{NAME}`, `{ns::NAME}`, `{Kind::NAME}`,
+  the `}` right after the name), since a constant has no sigil, and without it `"{LIMIT}"` would
+  quietly be text. The shape is exact (`at_braced_name()` in `lexer.gaz`), so
+  `{ X}`, `{X:1}`, `{"a": 1}` and CSS stay text. The lexer gives each part as an `IDENTIFIER`, a
+  keyword too; an `IDENTIFIER` can start an interpolation only this way, so `interpolated_value()`
+  in `parser.gaz` marks the name `#braced`, and once the program is read anything but a
+  constant's is an error (`fail_braced_name()`): a misspelt constant names `\{` too, since the
+  text may have been meant. Any name, not only uppercase ones, since the language doesn't enforce
+  a constant's case. This broke `{word}` text in strings, which has no compatibility promise yet.
+  The bytecode loader still reads `"{X}"` in a `PUSH` as text; the compiler writes `\{`.
 - `quote()` in `value.c` is the exact inverse of a literal, and everything that shows a string
-  as source uses it.
+  as source uses it (a template's text too, which is how `{X}` in its HTML stays text).
 - **Tagged strings are parser sugar only**: the lexer gives a `TAG` token (the name) instead of
   `IDENTIFIER` when a non-keyword word touches `"`, the string's tokens following as usual, and
   `tagged_literal()` in `parser.gaz` makes an ordinary `FunctionCallAST` of two list literals (the

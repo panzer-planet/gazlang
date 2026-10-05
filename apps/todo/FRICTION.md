@@ -136,10 +136,10 @@ connection's address is the proxy's.
   table, a file or a store the library doesn't have, so the counting stays the app's. Lowering the
   Argon2id default for logins is the other lever (0.24s is the library's default, RFC 9106's second
   recommendation; on a pool this small it is a lever against the app).
-- **New, writing `client_address()`'s tests**: `"{CLIENT}"` with a constant is the text `{CLIENT}`,
-  not its value (interpolation is `{$...}` only), and nothing says so: two checks of malformed
-  `X-Forwarded-For` entries passed for the wrong reason until the header was written out. A lexer
-  warning for `{NAME}` where `NAME` is a declared constant, or constants in interpolation, would catch it.
+- **Resolved, found writing `client_address()`'s tests**: `"{CLIENT}"` with a constant was the
+  text `{CLIENT}`, and two checks of malformed `X-Forwarded-For` entries passed for the wrong reason.
+  A constant's name alone in braces now interpolates it, and a name there that isn't a constant is
+  an error when the program is read.
 
 ## 6. Calling a handler's helpers needs a test client that doesn't exist
 

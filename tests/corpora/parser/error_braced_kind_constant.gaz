@@ -1,0 +1,5 @@
+// A kind without the constant
+kind Price {
+    pub const CURRENCY = "ZAR";
+}
+echo "{Price::CURENCY}";

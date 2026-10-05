@@ -1,0 +1,2 @@
+// Only a constant interpolates in bare braces
+echo "{len}";

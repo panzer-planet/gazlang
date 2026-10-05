@@ -45,6 +45,6 @@ expect("email address", "me@example.com", "me" .. "@" .. "example.com");
 expect("brace before a space", "{ $name}", "{ Gaz}");
 expect("brace alone", "{}", "{" .. "}");
 expect("escaped dollar", "\$name", "$" .. "name");
-expect("escaped brace", "\{$name}", "{Gaz}");
+expect("escaped brace", "\{$name}", "\{Gaz}");
 expect("escaped both", "\{\$name}", "{" .. "$" .. "name}");
 expect("single quotes stay raw", '$name {$name}', "\$name \{\$name}");

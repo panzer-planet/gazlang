@@ -139,7 +139,7 @@ fn parse_config($text) {
     }
 }
 expect("valid config", parse_config("{\"debug\": true}"), {"ok" => true, "config" => {"debug" => true}});
-expect("invalid config", parse_config("{debug}")["ok"], false);
+expect("invalid config", parse_config("\{debug}")["ok"], false);
 
 // Error objects and typed catch clauses
 kind NotFound extends Error {

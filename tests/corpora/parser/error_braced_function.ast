@@ -1,0 +1,1 @@
+Error: Only a constant interpolates in bare braces, and total is a function: assign it to a $variable first, or join it with .. at tests/corpora/parser/error_braced_function.gaz:5

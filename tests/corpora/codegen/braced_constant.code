@@ -1,0 +1,89 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $x
+@ "braced_constant.gaz" 19
+PUSH 1
+STORE 0
+LOAD 0
+POP
+@ "braced_constant.gaz" 20
+PUSH ""
+PUSH 15
+CONCAT
+PUSH " "
+CONCAT
+PUSH 15
+CONCAT
+PUSH " "
+CONCAT
+PUSH "ZAR"
+CONCAT
+PUSH " "
+CONCAT
+LOAD 0
+CONCAT
+PUSH 15
+CONCAT
+LOAD 0
+CONCAT
+PUSH " "
+CONCAT
+PUSH "tax 15%"
+CONCAT
+PRINT
+@ "braced_constant.gaz" 21
+PUSH "text: { TAX} {TAX } {3} {TAX:1} {} \{TAX} {\"a\": 1}"
+PRINT
+@ "braced_constant.gaz" 22
+PUSH ["rate ", " and ", ""]
+NEW_ARRAY
+PUSH 15
+ARRAY_PUSH
+LOAD 0
+ARRAY_PUSH
+CALL shop::tag 2
+PRINT
+@ "braced_constant.gaz" 23
+PUSH "the first line\nthen "
+@ "braced_constant.gaz" 24
+PUSH 15
+CONCAT
+@ "braced_constant.gaz" 23
+PRINT
+
+fn shop::tag 2 2
+locals $strings $values
+@ "braced_constant.gaz" 16
+LOAD 1
+RET
+@ "braced_constant.gaz" 15
+PUSH null
+RET
+
+kind shop::Price
+method show shop::Price pub
+locals
+@ "braced_constant.gaz" 7
+LOAD_THIS
+RET
+
+fn shop::Price.show 1 1
+locals $amount
+@ "braced_constant.gaz" 11
+PUSH ""
+LOAD 0
+CONCAT
+PUSH " "
+CONCAT
+PUSH "ZAR"
+CONCAT
+PUSH " "
+CONCAT
+PUSH "ZAR"
+CONCAT
+RET
+@ "braced_constant.gaz" 10
+PUSH null
+RET

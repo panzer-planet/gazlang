@@ -1,0 +1,3 @@
+// A name in braces that is nothing: maybe the text was meant
+echo "first line
+{NOPE}";

@@ -1,0 +1,5 @@
+// A name in braces in a template's text is text, as in its HTML: only {{ }} interpolates
+import "./templates/braces.gazml";
+
+const NAME = "never";
+echo braces("x");

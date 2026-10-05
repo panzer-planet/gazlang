@@ -1,0 +1,5 @@
+// Only a constant interpolates in bare braces
+fn total() {
+    return 3;
+}
+echo "total {total}";

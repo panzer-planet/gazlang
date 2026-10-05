@@ -1,0 +1,24 @@
+// A constant's name in braces is its value; anything else in braces is text
+namespace shop;
+
+const TAX = 15;
+const LABEL = "tax {TAX}%";
+
+kind Price {
+    pub const CURRENCY = "ZAR";
+
+    pub fn show($amount) {
+        return "{$amount} {#CURRENCY} {Price::CURRENCY}";
+    }
+}
+
+fn tag($strings, $values) {
+    return $values;
+}
+
+$x = 1;
+echo "{TAX} {shop::TAX} {Price::CURRENCY} {$x}{TAX}$x {LABEL}";
+echo "text: { TAX} {TAX } {3} {TAX:1} {} \{TAX} {\"a\": 1}";
+echo tag"rate {TAX} and {$x}";
+echo "the first line
+then {TAX}";

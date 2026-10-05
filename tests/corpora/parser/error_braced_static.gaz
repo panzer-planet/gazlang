@@ -1,0 +1,5 @@
+// A static field is a slot, not a constant
+kind Counter {
+    pub static #count = 0;
+}
+echo "count {Counter::count}";

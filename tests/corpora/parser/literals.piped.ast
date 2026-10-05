@@ -33,8 +33,8 @@ Compound
         value: "raw \$x \{#y}"
     7: Statement 9
       expr: String 9
-        token: 9 STRING "escapes \n \$x {y} A é"
-        value: "escapes \n \$x {y} A é"
+        token: 9 STRING "escapes \n \$x \{y} A é"
+        value: "escapes \n \$x \{y} A é"
     8: Statement 10
       expr: Boolean 10
         token: 10 TRUE true

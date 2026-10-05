@@ -1,0 +1,28 @@
+ok a constant
+ok an int
+ok a float
+ok a bool
+ok null
+ok a list
+ok whatever its case
+ok inside another constant
+ok a kind's, by its name
+ok and in a method, by # too
+ok an imported one, qualified
+ok and by its use clause
+ok next to the other interpolations
+ok over lines
+ok a tag gets it as a value
+ok so web::html escapes it
+ok a space before the name
+ok a space after it
+ok a number
+ok a colon after it
+ok a :: with nothing after it
+ok JSON
+ok CSS
+ok a call
+ok empty braces
+ok an escaped brace
+ok single quotes
+ok text quoted back escapes the brace

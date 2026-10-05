@@ -33,9 +33,11 @@ expect("a comment at the end", shown("gaz", "1 /* x */"), ["num:1", "com:/* x */
 expect("a script's first line", shown("gaz", "#!/usr/bin/env gaz\necho 1;"), ["com:#!/usr/bin/env gaz", "kw:echo", "num:1", ":;"]);
 
 // Strings as they are written, escapes and interpolation included
-expect("escapes stay as written", shown("gaz", "\"a\\n\\u{e9}\\\"\" 'b\\'c'"), ["str:\"a\\n\\u{e9}\\\"\"", "str:'b\\'c'"]);
+expect("escapes stay as written", shown("gaz", "\"a\\n\\u\{e9}\\\"\" 'b\\'c'"), ["str:\"a\\n\\u\{e9}\\\"\"", "str:'b\\'c'"]);
 expect("an interpolation is its tokens", shown("gaz", "\"x {\$a.b} y \$c[0] z\""),
     ["str:\"x {", "var:\$a", "mem:.b", "str:} y ", "var:\$c[0]", "str: z\""]);
+expect("so is a constant's name in braces", shown("gaz", "\"x \{N} y \{k::M}\""),
+    ["str:\"x {", "ty:N", "str:} y {", ":k", "op:::", "ty:M", "str:}\""]);
 expect("a tag is a call, a keyword before a string still a keyword", shown("gaz", "echo\"a\" tag\"b {\$c}\" q::Sql\"d\";"),
     ["kw:echo", "str:\"a\"", "fn:tag", "str:\"b {", "var:\$c", "str:}\"", ":q", "op:::", "fn:Sql", "str:\"d\"", ":;"]);
 expect("a string in an interpolation", shown("gaz", "\"a {\$m[\"k\"]} b\""), ["str:\"a {", "var:\$m", ":[", "str:\"k\"", ":]", "str:} b\""]);

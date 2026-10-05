@@ -5,6 +5,12 @@
 import "std/test.gaz" use expect, throws;
 import "std/db.gaz";
 
+const LIMIT = 20;
+
+kind Page {
+    pub const SIZE = 50;
+}
+
 fn sqlite($sql) {
     return $sql.render($n -> "?");
 }
@@ -123,10 +129,11 @@ expect("a ? alone is text, for the driver to count", sqlite(db::sql"select ? whe
 expect("a ? before a letter too", sqlite(db::sql"select ?a"), ["select ?a", []]);
 
 throws("a call in braces is refused", () -> db::sql"select {db::ident($name)} from t",
-    'db::sql text holds {db::ident(...)}: only a variable is interpolated, so write $value = db::ident(...) first, then {$value}');
-throws("so is a plain one", () -> db::sql"select {upper($name)}", 'db::sql text holds {upper(...)}: only a variable is interpolated, so write $value = upper(...) first, then {$value}');
-throws("and a qualified name", () -> db::sql"select {Kind::NAME}", 'db::sql text holds {Kind::NAME}: only a variable is interpolated, so write $value = Kind::NAME first, then {$value}');
-expect("a word in braces is text", sqlite(db::sql"select '{a}', '{_x1,b}'"), ["select '{a}', '{_x1,b}'", []]);
+    'db::sql text holds {db::ident(...)}: only a variable or a constant is interpolated, so write $value = db::ident(...) first, then {$value}');
+throws("so is a plain one", () -> db::sql"select {upper($name)}", 'db::sql text holds {upper(...)}: only a variable or a constant is interpolated, so write $value = upper(...) first, then {$value}');
+expect("a constant in braces is a value, bound like a variable", sqlite(db::sql"select * from t limit {LIMIT}"), ["select * from t limit ?", [20]]);
+expect("and so is a kind's", postgres(db::sql"select * from t limit {Page::SIZE} offset {$id}"), ['select * from t limit $1 offset $2', [50, 7]]);
+expect("an escaped brace keeps a word in braces text", sqlite(db::sql"select '\{a}', '{_x1,b}'"), ["select '\{a}', '{_x1,b}'", []]);
 expect("an array literal is text", postgres(db::sql"select '{1,2}'::int[], '{a,b}'::text[], {$id}"), ["select '{1,2}'::int[], '{a,b}'::text[], \$1", [7]]);
 expect("so is JSON", postgres(db::sql"select '{\"k\": 1}'::json, '{}'::json"), ["select '{\"k\": 1}'::json, '{}'::json", []]);
 expect("a brace at the end is text", sqlite(db::sql"select '{'"), ["select '{'", []]);

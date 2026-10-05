@@ -1,0 +1,7 @@
+// A name in braces, qualified or not, is the name's tokens; any other brace is text
+"{X}" "{shop::TAX}" "{Kind::NAME}" "{a::b::C}" "{true}" "{_x9}";
+"{X}{$y} $z{Y}" tag"a {X} b";
+"{ X}" "{X }" "{3}" "{X:1}" "{X::}" "{::X}" "{\"a\": 1}" "body {color: red}" "{}" "\{X}" '{X}';
+"first line
+{X} on the second
+and {Kind::NAME} on the third";

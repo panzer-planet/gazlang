@@ -1,0 +1,64 @@
+/*
+ * A constant's name alone in braces, "{NAME}", "{ns::NAME}" or "{Kind::NAME}", interpolates its
+ * value; a brace before anything else is text, so JSON and CSS need no escaping.
+ */
+import "std/test.gaz" use expect;
+import "std/term.gaz" use RESET;
+import "std/web.gaz";
+
+const CLIENT = "203.0.113.5";
+const LIMIT = 20;
+const RATE = 1.5;
+const ON = true;
+const NOTHING = null;
+const SIZES = [1, 2];
+const lower_case = "any name";
+const GREETING = "hi {CLIENT}";
+const MARKUP = "<i>";
+
+kind Price {
+    pub const CURRENCY = "ZAR";
+
+    pub fn show($amount) {
+        return "{$amount} {Price::CURRENCY} {#CURRENCY}";
+    }
+}
+
+fn tag($strings, $values) {
+    return [$strings, $values];
+}
+
+$x = "x";
+
+// The value, converted as .. converts it
+expect("a constant", "client {CLIENT}", "client 203.0.113.5");
+expect("an int", "at most {LIMIT}", "at most 20");
+expect("a float", "{RATE}", "1.5");
+expect("a bool", "{ON}", "true");
+expect("null", "[{NOTHING}]", "[null]");
+expect("a list", "{SIZES}", "[1, 2]");
+expect("whatever its case", "{lower_case}", "any name");
+expect("inside another constant", GREETING, "hi 203.0.113.5");
+expect("a kind's, by its name", "{Price::CURRENCY}", "ZAR");
+expect("and in a method, by # too", Price().show(3), "3 ZAR ZAR");
+expect("an imported one, qualified", "{term::RESET}", RESET);
+expect("and by its use clause", "{RESET}", term::RESET);
+expect("next to the other interpolations", "{CLIENT}{$x} $x{LIMIT}", "203.0.113.5x x20");
+expect("over lines", "first
+{LIMIT}", "first\n20");
+expect("a tag gets it as a value", tag"limit {LIMIT} and {$x}", [["limit ", " and ", ""], [20, "x"]]);
+expect("so web::html escapes it", to_string(web::html"<b>{MARKUP}</b>"), "<b>&lt;i&gt;</b>");
+
+// Anything else in braces is text
+expect("a space before the name", "{ LIMIT}", "{" .. " LIMIT}");
+expect("a space after it", "{LIMIT }", "{" .. "LIMIT }");
+expect("a number", "{3}", "{" .. "3}");
+expect("a colon after it", "{LIMIT:1}", "{" .. "LIMIT:1}");
+expect("a :: with nothing after it", "{LIMIT::}", "{" .. "LIMIT::}");
+expect("JSON", "{\"a\": 1}", "{" .. "\"a\": 1}");
+expect("CSS", "body {color: red}", "body {" .. "color: red}");
+expect("a call", "{len(1)}", "{" .. "len(1)}");
+expect("empty braces", "{}", "{" .. "}");
+expect("an escaped brace", "\{LIMIT}", "{" .. "LIMIT}");
+expect("single quotes", '{LIMIT}', "{" .. "LIMIT}");
+expect("text quoted back escapes the brace", to_string(["\{LIMIT}"]), "[\"\\\{LIMIT}\"]");

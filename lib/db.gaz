@@ -16,8 +16,9 @@
  * other way, and building a fragment through `kind_of()` of one, since a constructor is always
  * reachable. The `db_run()` builtin underneath still takes a string and a list of parameters.
  *
- * Only `{$`, `{@` and `{#` start an interpolation, so a fragment or a name is put in a variable
- * first: `$column = db::ident("name");` then `{$column}`.
+ * Only `{$`, `{@`, `{#` and a constant's `{NAME}` start an interpolation, so a fragment or a name
+ * is put in a variable first: `$column = db::ident("name");` then `{$column}`. A constant is a
+ * value like a variable's, bound as a parameter.
  *
  * A row is a map from column name to value (a repeated name keeps the last); int, float, bool
  * (PostgreSQL only) and null come back as themselves and everything else as a string. Errors are
@@ -300,9 +301,9 @@ pub kind Ident {
  *
  * The text can't hold `$1` or `?1`: that is how PostgreSQL and SQLite number parameters, so it
  * would be read as whichever value has that number. Nor can it hold what looks like a call in
- * braces, `{db::ident($c)}`, which is text, since only `{$`, `{@` and `{#` start an
- * interpolation. Interpolate a variable instead; `db::raw()` is the way round a false alarm, such
- * as `$1` inside an SQL string literal or a `$$...$$` function body.
+ * braces, `{db::ident($c)}`, which is text, since only `{$`, `{@`, `{#` and a constant's
+ * `{NAME}` start an interpolation. Interpolate a variable instead; `db::raw()` is the way round a
+ * false alarm, such as `$1` inside an SQL string literal or a `$$...$$` function body.
  */
 pub fn sql(list $strings, list $values): Sql {
     foreach ($strings as $text) {
@@ -328,7 +329,8 @@ pub fn ident(string $name): Ident {
 
 /*
  * What the tag refuses in its text: a numbered placeholder, which the database would bind to
- * whichever value has that number, and a call written where only a variable is interpolated.
+ * whichever value has that number, and a call written where only a variable or a constant is
+ * interpolated.
  */
 fn check_text($text) {
     foreach (NUMBERED_PLACEHOLDERS as $mark) {
@@ -346,37 +348,35 @@ fn check_no_numbered_placeholder($text, $mark) {
     }
 }
 
-// `{db::ident($c)}` in the text is text: only `{$`, `{@` and `{#` start an interpolation
+/*
+ * `{db::ident($c)}` in the text is text: only `{$`, `{@`, `{#` and a constant's name alone,
+ * `{NAME}`, start an interpolation
+ */
 fn check_no_call($text) {
     foreach (positions($text, "{") as $at) {
         $call = call_at($text, $at + 1);
         if ($call != null) {
-            throw "db::sql text holds {" .. $call .. '}: only a variable is interpolated, so write $value = ' .. $call .. ' first, then {$value}';
+            throw "db::sql text holds {" .. $call .. '}: only a variable or a constant is interpolated, so write $value = ' .. $call .. ' first, then {$value}';
         }
     }
 }
 
 /*
- * What looks like a call written at $start, shown as `db::ident(...)`, `upper(...)` or
- * `Kind::NAME`: a name followed by `(`, or a qualified one. Null for anything else, so `'{1,2}'`,
- * `'{a,b}'` and `'{"k": 1}'` stay text.
+ * What looks like a call written at $start, shown as `db::ident(...)` or `upper(...)`: a name,
+ * qualified or not, followed by `(`. Null for anything else, so `'{1,2}'`, `'{a,b}'` and
+ * `'{"k": 1}'` stay text.
  */
 fn call_at($text, $start) {
     $at = $start;
-    $qualified = false;
     while (is_name_start(char_at($text, $at))) {
         $at += span($text, $at, is_name_char);
         if (!starts_with($text, "::", $at)) {
             break;
         }
         $at += 2;
-        $qualified = true;
     }
     if ($at > $start && char_at($text, $at) == "(") {
         return slice($text, $start, $at - $start) .. "(...)";
-    }
-    if ($qualified) {
-        return slice($text, $start, $at - $start);
     }
     return null;
 }

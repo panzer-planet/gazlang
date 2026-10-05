@@ -49,8 +49,9 @@ ok a ? alone is text, for the driver to count
 ok a ? before a letter too
 ok a call in braces is refused
 ok so is a plain one
-ok and a qualified name
-ok a word in braces is text
+ok a constant in braces is a value, bound like a variable
+ok and so is a kind's
+ok an escaped brace keeps a word in braces text
 ok an array literal is text
 ok so is JSON
 ok a brace at the end is text

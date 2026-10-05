@@ -1,0 +1,1 @@
+Error: Undefined constant NOPE in "{NOPE}": declare it, or write \{NOPE} for the text at tests/corpora/parser/error_braced_undefined.gaz:3

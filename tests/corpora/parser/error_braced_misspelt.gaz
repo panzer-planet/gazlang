@@ -1,0 +1,4 @@
+// A misspelt constant was text before; now it is an error
+const LIMIT = 10;
+echo "at most
+{LIMT} items";

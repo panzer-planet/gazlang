@@ -1,0 +1,142 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ "template_braces.gaz" 5
+PUSH "x"
+CALL braces 1
+PRINT
+
+fn Html::escape 1 1 in Html
+locals $value $text $#foreach_array_0 $#foreach_position_0 $#destructure_1 $from $to
+@ "<builtin>" 21
+LOAD 0
+CALL_BUILTIN type_of 1
+PUSH "object"
+EQUALS
+JZ AND_FALSE_1
+LOAD 0
+PUSH_KIND Html
+CALL_BUILTIN is_a 2
+JZ AND_FALSE_1
+PUSH true
+JMP AND_END_1
+LABEL AND_FALSE_1
+PUSH false
+LABEL AND_END_1
+JZ ELSE_0
+@ "<builtin>" 22
+LOAD 0
+GET_PROPERTY text
+RET
+@ "<builtin>" 21
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "<builtin>" 24
+LOAD 0
+CALL_BUILTIN to_string 1
+STORE 1
+LOAD 1
+POP
+@ "<builtin>" 25
+PUSH [["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["'", "&#39;"]]
+FOREACH_CHECK
+STORE 2
+PUSH 0
+STORE 3
+LABEL FOREACH_2
+FOREACH_NEXT 2 3 ENDFOREACH_2
+DESTRUCTURE 2
+STORE 4
+LOAD 4
+PUSH 0
+INDEX_GET
+STORE 5
+LOAD 5
+POP
+LOAD 4
+PUSH 1
+INDEX_GET
+STORE 6
+LOAD 6
+POP
+LOAD 4
+POP
+@ "<builtin>" 26
+LOAD 1
+LOAD 5
+LOAD 6
+CALL_BUILTIN replace 3
+STORE 1
+LOAD 1
+POP
+@ "<builtin>" 25
+JMP FOREACH_2
+LABEL ENDFOREACH_2
+@ "<builtin>" 29
+LOAD 1
+RET
+@ "<builtin>" 20
+PUSH null
+RET
+
+fn braces 1 1
+locals $x $#html
+@ "templates/braces.gazml" 1
+PUSH ""
+STORE 1
+LOAD 1
+POP
+@ "templates/braces.gazml" 2
+PUSH "<style>p {color: red}</style>\n"
+CONCAT_ASSIGN 1
+POP
+@ "templates/braces.gazml" 3
+PUSH "<p>\{NAME} \{Kind::NAME} "
+CONCAT_ASSIGN 1
+POP
+LOAD 0
+CALL Html::escape 1
+CONCAT_ASSIGN 1
+POP
+PUSH "\{X}</p>\n"
+CONCAT_ASSIGN 1
+POP
+@ "templates/braces.gazml" 4
+LOAD 1
+NEW Html 1
+RET
+@ "templates/braces.gazml" 1
+PUSH null
+RET
+
+kind Html
+field text Html pub
+method _ Html pub
+method to_string Html pub
+locals $#argument_0
+@ "<builtin>" 12
+CALL_CONSTRUCTOR Html
+POP
+LOAD_THIS
+RET
+
+fn Html._ 1 1
+locals $text
+@ "<builtin>" 13
+LOAD 0
+SET_FIELD text
+POP
+PUSH null
+RET
+
+fn Html.to_string 0 0
+locals
+@ "<builtin>" 16
+LOAD_FIELD text
+RET
+@ "<builtin>" 15
+PUSH null
+RET

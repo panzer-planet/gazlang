@@ -1,0 +1,1 @@
+Error: Only a constant interpolates in bare braces, and Counter::count is a static field: assign it to a $variable first, or join it with .. at tests/corpora/parser/error_braced_static.gaz:5

@@ -876,6 +876,7 @@ tests/corpora/bytecode/types.gzb
 tests/corpora/bytecode/unreachable_code_is_not_checked.gzb
 tests/corpora/bytecode/values.gzb
 tests/corpora/codegen/assignments.gaz
+tests/corpora/codegen/braced_constant.gaz
 tests/corpora/codegen/concat_assign_paths.gaz
 tests/corpora/codegen/expressions.gaz
 tests/corpora/codegen/functions.gaz
@@ -899,6 +900,7 @@ tests/corpora/codegen/statics.gaz
 tests/corpora/codegen/statics/counter.gaz
 tests/corpora/codegen/tagged.gaz
 tests/corpora/codegen/template.gaz
+tests/corpora/codegen/template_braces.gaz
 tests/corpora/codegen/template_namespace.gaz
 tests/corpora/codegen/templates/product.gaz
 tests/corpora/codegen/throw.gaz
@@ -914,6 +916,7 @@ tests/corpora/lexer/ternary.gaz
 tests/corpora/lexer/whitespace_crlf.gaz
 tests/corpora/parser/assign_to_path_from_call.gaz
 tests/corpora/parser/assignment.gaz
+tests/corpora/parser/braced_constant.gaz
 tests/corpora/parser/calls.gaz
 tests/corpora/parser/captures.gaz
 tests/corpora/parser/constant_edges.gaz
@@ -1135,6 +1138,7 @@ tests/gaz/site/round_trip_test.gaz
 tests/gaz/site/verify_test.gaz
 tests/gaz/sockets/peer_test.gaz
 tests/gaz/sockets/wait_test.gaz
+tests/gaz/strings/braced_constant_test.gaz
 tests/gaz/strings/interpolation_test.gaz
 tests/gaz/strings/tagged_test.gaz
 tests/gaz/strings/utf8_test.gaz
