@@ -1,0 +1,21 @@
+/*
+ * http::serve logs a handler's error with its causes in the shape gaz reports an uncaught error's
+ * (report() in vm/vm.c). Each program here prints the log's causes, then throws the same error:
+ * what it prints must be what standard error shows from the first cause on, byte for byte.
+ */
+import "std/test.gaz" use expect;
+
+const PROGRAMS = ["chain", "cap", "cycle", "values"];
+
+// Standard error from its first cause on
+fn causes_reported($stderr) {
+    $at = index_of($stderr, "\nCaused by: ");
+    return $at == null ? "" : slice($stderr, $at + 1);
+}
+
+foreach (PROGRAMS as $name) {
+    $result = run([program_path(), "tests/corpora/vm/uncaught_cause_$name.gaz"]);
+    expect("$name: it fails", $result["status"], 1);
+    expect("$name: it has causes", starts_with($result["stdout"], "Caused by: "), true);
+    expect("$name: the log shows them as gaz does", $result["stdout"], causes_reported($result["stderr"]));
+}

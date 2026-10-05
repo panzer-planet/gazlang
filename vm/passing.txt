@@ -1037,6 +1037,10 @@ tests/corpora/vm/throw.gaz
 tests/corpora/vm/to_string_errors.gaz
 tests/corpora/vm/types.gaz
 tests/corpora/vm/uncaught_bad_to_string.gaz
+tests/corpora/vm/uncaught_cause_cap.gaz
+tests/corpora/vm/uncaught_cause_chain.gaz
+tests/corpora/vm/uncaught_cause_cycle.gaz
+tests/corpora/vm/uncaught_cause_values.gaz
 tests/corpora/vm/uncaught_object.gaz
 tests/corpora/vm/uncaught_value.gaz
 tests/corpora/vm/visibility.gaz
@@ -1071,6 +1075,7 @@ tests/fixtures/test_library/failures.gaz
 tests/gaz/compiler/docblocks_test.gaz
 tests/gaz/compiler/lexer_test.gaz
 tests/gaz/compiler/parser_test.gaz
+tests/gaz/errors/cause_test.gaz
 tests/gaz/errors/trace_test.gaz
 tests/gaz/errors/try_catch_test.gaz
 tests/gaz/files/chdir_test.gaz
@@ -1091,6 +1096,7 @@ tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/fs_test.gaz
 tests/gaz/lib/functional_test.gaz
+tests/gaz/lib/http_causes_test.gaz
 tests/gaz/lib/http_client_address_test.gaz
 tests/gaz/lib/http_connection_test.gaz
 tests/gaz/lib/http_decode_test.gaz

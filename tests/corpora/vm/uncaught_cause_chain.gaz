@@ -1,0 +1,52 @@
+/*
+ * An uncaught error shows its causes under its trace, each with its own calls, a runtime error at
+ * the bottom of the chain. Standard output is http::serve's log of the same causes, which
+ * tests/gaz/lib/http_causes_test.gaz requires to be what standard error shows, byte for byte.
+ */
+namespace http;
+
+import "lib/http.gaz";
+
+kind QueryFailed extends Error {}
+
+kind NotSaved extends Error {
+    fn _($what, $cause) {
+        ##_("Could not save {$what}", $cause);
+    }
+}
+
+fn divide($n) {
+    return 1 / $n;
+}
+
+fn run_query($sql) {
+    try {
+        return divide(0);
+    } catch (Error $e) {
+        throw QueryFailed("Query failed: $sql", $e);
+    }
+}
+
+fn save() {
+    run_query("insert into todos");
+}
+
+fn respond() {
+    try {
+        save();
+    } catch (QueryFailed $e) {
+        throw NotSaved("the todo", $e);
+    }
+}
+
+fn failure() {
+    try {
+        respond();
+    } catch (NotSaved $e) {
+        return $e;
+    }
+}
+
+$e = failure();
+echo slice(describe_causes($e), 1);
+throw $e;

@@ -1,7 +1,7 @@
 Compound
   statements:
 @ "<builtin>"
-    0: KindDeclaration 9
+    0: KindDeclaration 13
       name: "Shared"
       parent: null
       abstract: false
@@ -12,26 +12,26 @@ Compound
       static_is_method: []
       vis: {"value" => "pub", "_" => "pub"}
       fields: {"value" => null}
-      field_lines: {"value" => 10}
+      field_lines: {"value" => 14}
       methods:
-        _: FunctionDeclaration 10
+        _: FunctionDeclaration 14
           name: "_"
           params: ["\$value"]
           defaults: [null]
           body: Compound
             statements:
-              0: Statement 10
-                expr: Assign 10
-                  left: Property 10
-                    target: This 10
+              0: Statement 14
+                expr: Assign 14
+                  left: Property 14
+                    target: This 14
                     name: "value"
                     field: true
                     constant: false
                     value: null
                     static_name: null
-                  token: 10 ASSIGN =
-                  right: Variable 10
-                    token: 10 VAR_IDENTIFIER $value
+                  token: 14 ASSIGN =
+                  right: Variable 14
+                    token: 14 VAR_IDENTIFIER $value
                     value: "\$value"
           arity: 1
           kind: "Shared"

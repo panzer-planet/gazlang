@@ -1,0 +1,14 @@
+/*
+ * A chain of causes that loops back ends at the first error it would show again, and the loop,
+ * a cycle of objects, is freed by the collector. Standard output is http::serve's log of the same
+ * causes (tests/gaz/lib/http_causes_test.gaz).
+ */
+namespace http;
+
+import "lib/http.gaz";
+
+$a = Error("a");
+$b = Error("b", $a);
+$a.cause = $b;
+echo slice(describe_causes($a), 1);
+throw $a;

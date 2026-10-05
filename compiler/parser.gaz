@@ -397,7 +397,11 @@ kind Parser {
     pub #file;
     pub #line;
     pub #trace;
-    fn _($message) { #message = $message; }
+    pub #cause = null;
+    fn _($message, $cause = null) {
+        #message = $message;
+        #cause = $cause;
+    }
     pub fn to_string() { return "{#message}"; }
 }
 kind Shared {

@@ -1,0 +1,14 @@
+Error: Could not save the todo
+Caused by: Query failed: insert into todos
+  http::run_query at tests/corpora/vm/uncaught_cause_chain.gaz:26
+  http::save at tests/corpora/vm/uncaught_cause_chain.gaz:31
+  http::respond at tests/corpora/vm/uncaught_cause_chain.gaz:36
+  http::failure at tests/corpora/vm/uncaught_cause_chain.gaz:44
+  top level at tests/corpora/vm/uncaught_cause_chain.gaz:50
+Caused by: Division by zero
+  http::divide at tests/corpora/vm/uncaught_cause_chain.gaz:19
+  http::run_query at tests/corpora/vm/uncaught_cause_chain.gaz:24
+  http::save at tests/corpora/vm/uncaught_cause_chain.gaz:31
+  http::respond at tests/corpora/vm/uncaught_cause_chain.gaz:36
+  http::failure at tests/corpora/vm/uncaught_cause_chain.gaz:44
+  top level at tests/corpora/vm/uncaught_cause_chain.gaz:50

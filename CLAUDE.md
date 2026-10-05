@@ -1022,6 +1022,16 @@ and methods a table in C.
   learn where they were called from through the instructions that can run program code (`PRINT`,
   `CONCAT`, `CONCAT_ASSIGN*`, `CALL_BUILTIN` and `CALL_VALUE` of a builtin), which say where they
   are; `trace_test.gaz` has a case for each, so one that forgets fails there.
+- **`#cause`** is a constructor argument (`Error($message, $cause = null)`) as well as a `pub`
+  field, so a wrap is one expression; untyped, since what a plain `catch` holds may be any value
+  and wrapping it must never fail while handling an error. The VM makes no new instruction for it:
+  `caught()` in `vm.c` sets it null on the Errors it builds itself, when the kind has the field
+  (bytecode from before it has none, and still loads). Uncaught, `report_causes()` prints each
+  cause as echo would, with its whole trace (a caught error's message never says where, so even
+  one call is shown), the first `MAX_CAUSES` (10) and a count of the rest, ending at an Error
+  already walked, since `$e.cause = $e` is a loop. `http.gaz`'s 500 log writes the same lines in
+  GazLang (`describe_causes()`); `tests/corpora/vm/uncaught_cause_*.gaz` print the log's version
+  and then die, and `http_causes_test.gaz` requires the two to agree byte for byte.
 - An unmatched error carries on unchanged.
 - **`finally`**: a return's value is worked out first; an error in it replaces what was in
   flight; `return`, `break` and `continue` can't leave it. A `try` needs a catch or a finally.

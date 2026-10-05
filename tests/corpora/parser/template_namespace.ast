@@ -1,52 +1,52 @@
 Compound
   statements:
 @ "<builtin>"
-    0: KindDeclaration 12
+    0: KindDeclaration 16
       name: "Html"
       parent: null
       abstract: false
       statics: []
       static_lines: []
       static_methods:
-        escape: FunctionDeclaration 20
+        escape: FunctionDeclaration 24
           name: "Html::escape"
           params: ["\$value"]
           defaults: [null]
           body: Compound
             statements:
-              0: IfStatement 21
-                condition: BinOp 21
-                  left: BinOp 21
-                    left: FunctionCall 21
+              0: IfStatement 25
+                condition: BinOp 25
+                  left: BinOp 25
+                    left: FunctionCall 25
                       name: "type_of"
                       args:
-                        0: Variable 21
-                          token: 21 VAR_IDENTIFIER $value
+                        0: Variable 25
+                          token: 25 VAR_IDENTIFIER $value
                           value: "\$value"
-                    token: 21 EQUALS ==
-                    op: 21 EQUALS ==
-                    right: String 21
-                      token: 21 STRING "object"
+                    token: 25 EQUALS ==
+                    op: 25 EQUALS ==
+                    right: String 25
+                      token: 25 STRING "object"
                       value: "object"
-                  token: 21 AND &&
-                  op: 21 AND &&
-                  right: FunctionCall 21
+                  token: 25 AND &&
+                  op: 25 AND &&
+                  right: FunctionCall 25
                     name: "is_a"
                     args:
-                      0: Variable 21
-                        token: 21 VAR_IDENTIFIER $value
+                      0: Variable 25
+                        token: 25 VAR_IDENTIFIER $value
                         value: "\$value"
-                      1: FunctionRef 21
+                      1: FunctionRef 25
                         name: "Html"
                         constant: false
                         value: null
                         static_name: null
                 if_body: Compound
                   statements:
-                    0: ReturnStatement 22
-                      expr: Property 22
-                        target: Variable 22
-                          token: 22 VAR_IDENTIFIER $value
+                    0: ReturnStatement 26
+                      expr: Property 26
+                        target: Variable 26
+                          token: 26 VAR_IDENTIFIER $value
                           value: "\$value"
                         name: "text"
                         field: false
@@ -55,129 +55,129 @@ Compound
                         static_name: null
                 else_if: null
                 else_body: null
-              1: Statement 24
-                expr: Assign 24
-                  left: Variable 24
-                    token: 24 VAR_IDENTIFIER $text
+              1: Statement 28
+                expr: Assign 28
+                  left: Variable 28
+                    token: 28 VAR_IDENTIFIER $text
                     value: "\$text"
-                  token: 24 ASSIGN =
-                  right: FunctionCall 24
+                  token: 28 ASSIGN =
+                  right: FunctionCall 28
                     name: "to_string"
                     args:
-                      0: Variable 24
-                        token: 24 VAR_IDENTIFIER $value
+                      0: Variable 28
+                        token: 28 VAR_IDENTIFIER $value
                         value: "\$value"
-              2: ForeachStatement 25
-                iterable: ArrayLiteral 25
+              2: ForeachStatement 29
+                iterable: ArrayLiteral 29
                   entries:
                     0:
                       0: null
-                      1: ArrayLiteral 25
+                      1: ArrayLiteral 29
                         entries:
                           0:
                             0: null
-                            1: String 25
-                              token: 25 STRING "&"
+                            1: String 29
+                              token: 29 STRING "&"
                               value: "&"
                           1:
                             0: null
-                            1: String 25
-                              token: 25 STRING "&amp;"
+                            1: String 29
+                              token: 29 STRING "&amp;"
                               value: "&amp;"
                         map: false
                     1:
                       0: null
-                      1: ArrayLiteral 25
+                      1: ArrayLiteral 29
                         entries:
                           0:
                             0: null
-                            1: String 25
-                              token: 25 STRING "<"
+                            1: String 29
+                              token: 29 STRING "<"
                               value: "<"
                           1:
                             0: null
-                            1: String 25
-                              token: 25 STRING "&lt;"
+                            1: String 29
+                              token: 29 STRING "&lt;"
                               value: "&lt;"
                         map: false
                     2:
                       0: null
-                      1: ArrayLiteral 25
+                      1: ArrayLiteral 29
                         entries:
                           0:
                             0: null
-                            1: String 25
-                              token: 25 STRING ">"
+                            1: String 29
+                              token: 29 STRING ">"
                               value: ">"
                           1:
                             0: null
-                            1: String 25
-                              token: 25 STRING "&gt;"
+                            1: String 29
+                              token: 29 STRING "&gt;"
                               value: "&gt;"
                         map: false
                     3:
                       0: null
-                      1: ArrayLiteral 25
+                      1: ArrayLiteral 29
                         entries:
                           0:
                             0: null
-                            1: String 25
-                              token: 25 STRING "\""
+                            1: String 29
+                              token: 29 STRING "\""
                               value: "\""
                           1:
                             0: null
-                            1: String 25
-                              token: 25 STRING "&quot;"
+                            1: String 29
+                              token: 29 STRING "&quot;"
                               value: "&quot;"
                         map: false
                     4:
                       0: null
-                      1: ArrayLiteral 25
+                      1: ArrayLiteral 29
                         entries:
                           0:
                             0: null
-                            1: String 25
-                              token: 25 STRING "'"
+                            1: String 29
+                              token: 29 STRING "'"
                               value: "'"
                           1:
                             0: null
-                            1: String 25
-                              token: 25 STRING "&#39;"
+                            1: String 29
+                              token: 29 STRING "&#39;"
                               value: "&#39;"
                         map: false
                   map: false
                 key: null
-                value: ListPattern 25
+                value: ListPattern 29
                   targets:
-                    0: Variable 25
-                      token: 25 VAR_IDENTIFIER $from
+                    0: Variable 29
+                      token: 29 VAR_IDENTIFIER $from
                       value: "\$from"
-                    1: Variable 25
-                      token: 25 VAR_IDENTIFIER $to
+                    1: Variable 29
+                      token: 29 VAR_IDENTIFIER $to
                       value: "\$to"
                 body: Compound
                   statements:
-                    0: Statement 26
-                      expr: Assign 26
-                        left: Variable 26
-                          token: 26 VAR_IDENTIFIER $text
+                    0: Statement 30
+                      expr: Assign 30
+                        left: Variable 30
+                          token: 30 VAR_IDENTIFIER $text
                           value: "\$text"
-                        token: 26 ASSIGN =
-                        right: FunctionCall 26
+                        token: 30 ASSIGN =
+                        right: FunctionCall 30
                           name: "replace"
                           args:
-                            0: Variable 26
-                              token: 26 VAR_IDENTIFIER $text
+                            0: Variable 30
+                              token: 30 VAR_IDENTIFIER $text
                               value: "\$text"
-                            1: Variable 26
-                              token: 26 VAR_IDENTIFIER $from
+                            1: Variable 30
+                              token: 30 VAR_IDENTIFIER $from
                               value: "\$from"
-                            2: Variable 26
-                              token: 26 VAR_IDENTIFIER $to
+                            2: Variable 30
+                              token: 30 VAR_IDENTIFIER $to
                               value: "\$to"
-              3: ReturnStatement 29
-                expr: Variable 29
-                  token: 29 VAR_IDENTIFIER $text
+              3: ReturnStatement 33
+                expr: Variable 33
+                  token: 33 VAR_IDENTIFIER $text
                   value: "\$text"
           arity: 1
           kind: "Html"
@@ -186,39 +186,39 @@ Compound
       static_is_method: {"escape" => true}
       vis: {"text" => "pub", "_" => "pub", "to_string" => "pub", "escape" => "pub"}
       fields: {"text" => null}
-      field_lines: {"text" => 13}
+      field_lines: {"text" => 17}
       methods:
-        _: FunctionDeclaration 13
+        _: FunctionDeclaration 17
           name: "_"
           params: ["\$text"]
           defaults: [null]
           body: Compound
             statements:
-              0: Statement 13
-                expr: Assign 13
-                  left: Property 13
-                    target: This 13
+              0: Statement 17
+                expr: Assign 17
+                  left: Property 17
+                    target: This 17
                     name: "text"
                     field: true
                     constant: false
                     value: null
                     static_name: null
-                  token: 13 ASSIGN =
-                  right: Variable 13
-                    token: 13 VAR_IDENTIFIER $text
+                  token: 17 ASSIGN =
+                  right: Variable 17
+                    token: 17 VAR_IDENTIFIER $text
                     value: "\$text"
           arity: 1
           kind: "Html"
           abstract: false
-        to_string: FunctionDeclaration 15
+        to_string: FunctionDeclaration 19
           name: "to_string"
           params: []
           defaults: []
           body: Compound
             statements:
-              0: ReturnStatement 16
-                expr: Property 16
-                  target: This 16
+              0: ReturnStatement 20
+                expr: Property 20
+                  target: This 20
                   name: "text"
                   field: true
                   constant: false
@@ -239,45 +239,45 @@ Compound
       declared_at: {"_" => "Html", "to_string" => "Html"}
       hidden: []
       hidden_fields: []
-    1: FunctionDeclaration 20
+    1: FunctionDeclaration 24
       name: "Html::escape"
       params: ["\$value"]
       defaults: [null]
       body: Compound
         statements:
-          0: IfStatement 21
-            condition: BinOp 21
-              left: BinOp 21
-                left: FunctionCall 21
+          0: IfStatement 25
+            condition: BinOp 25
+              left: BinOp 25
+                left: FunctionCall 25
                   name: "type_of"
                   args:
-                    0: Variable 21
-                      token: 21 VAR_IDENTIFIER $value
+                    0: Variable 25
+                      token: 25 VAR_IDENTIFIER $value
                       value: "\$value"
-                token: 21 EQUALS ==
-                op: 21 EQUALS ==
-                right: String 21
-                  token: 21 STRING "object"
+                token: 25 EQUALS ==
+                op: 25 EQUALS ==
+                right: String 25
+                  token: 25 STRING "object"
                   value: "object"
-              token: 21 AND &&
-              op: 21 AND &&
-              right: FunctionCall 21
+              token: 25 AND &&
+              op: 25 AND &&
+              right: FunctionCall 25
                 name: "is_a"
                 args:
-                  0: Variable 21
-                    token: 21 VAR_IDENTIFIER $value
+                  0: Variable 25
+                    token: 25 VAR_IDENTIFIER $value
                     value: "\$value"
-                  1: FunctionRef 21
+                  1: FunctionRef 25
                     name: "Html"
                     constant: false
                     value: null
                     static_name: null
             if_body: Compound
               statements:
-                0: ReturnStatement 22
-                  expr: Property 22
-                    target: Variable 22
-                      token: 22 VAR_IDENTIFIER $value
+                0: ReturnStatement 26
+                  expr: Property 26
+                    target: Variable 26
+                      token: 26 VAR_IDENTIFIER $value
                       value: "\$value"
                     name: "text"
                     field: false
@@ -286,129 +286,129 @@ Compound
                     static_name: null
             else_if: null
             else_body: null
-          1: Statement 24
-            expr: Assign 24
-              left: Variable 24
-                token: 24 VAR_IDENTIFIER $text
+          1: Statement 28
+            expr: Assign 28
+              left: Variable 28
+                token: 28 VAR_IDENTIFIER $text
                 value: "\$text"
-              token: 24 ASSIGN =
-              right: FunctionCall 24
+              token: 28 ASSIGN =
+              right: FunctionCall 28
                 name: "to_string"
                 args:
-                  0: Variable 24
-                    token: 24 VAR_IDENTIFIER $value
+                  0: Variable 28
+                    token: 28 VAR_IDENTIFIER $value
                     value: "\$value"
-          2: ForeachStatement 25
-            iterable: ArrayLiteral 25
+          2: ForeachStatement 29
+            iterable: ArrayLiteral 29
               entries:
                 0:
                   0: null
-                  1: ArrayLiteral 25
+                  1: ArrayLiteral 29
                     entries:
                       0:
                         0: null
-                        1: String 25
-                          token: 25 STRING "&"
+                        1: String 29
+                          token: 29 STRING "&"
                           value: "&"
                       1:
                         0: null
-                        1: String 25
-                          token: 25 STRING "&amp;"
+                        1: String 29
+                          token: 29 STRING "&amp;"
                           value: "&amp;"
                     map: false
                 1:
                   0: null
-                  1: ArrayLiteral 25
+                  1: ArrayLiteral 29
                     entries:
                       0:
                         0: null
-                        1: String 25
-                          token: 25 STRING "<"
+                        1: String 29
+                          token: 29 STRING "<"
                           value: "<"
                       1:
                         0: null
-                        1: String 25
-                          token: 25 STRING "&lt;"
+                        1: String 29
+                          token: 29 STRING "&lt;"
                           value: "&lt;"
                     map: false
                 2:
                   0: null
-                  1: ArrayLiteral 25
+                  1: ArrayLiteral 29
                     entries:
                       0:
                         0: null
-                        1: String 25
-                          token: 25 STRING ">"
+                        1: String 29
+                          token: 29 STRING ">"
                           value: ">"
                       1:
                         0: null
-                        1: String 25
-                          token: 25 STRING "&gt;"
+                        1: String 29
+                          token: 29 STRING "&gt;"
                           value: "&gt;"
                     map: false
                 3:
                   0: null
-                  1: ArrayLiteral 25
+                  1: ArrayLiteral 29
                     entries:
                       0:
                         0: null
-                        1: String 25
-                          token: 25 STRING "\""
+                        1: String 29
+                          token: 29 STRING "\""
                           value: "\""
                       1:
                         0: null
-                        1: String 25
-                          token: 25 STRING "&quot;"
+                        1: String 29
+                          token: 29 STRING "&quot;"
                           value: "&quot;"
                     map: false
                 4:
                   0: null
-                  1: ArrayLiteral 25
+                  1: ArrayLiteral 29
                     entries:
                       0:
                         0: null
-                        1: String 25
-                          token: 25 STRING "'"
+                        1: String 29
+                          token: 29 STRING "'"
                           value: "'"
                       1:
                         0: null
-                        1: String 25
-                          token: 25 STRING "&#39;"
+                        1: String 29
+                          token: 29 STRING "&#39;"
                           value: "&#39;"
                     map: false
               map: false
             key: null
-            value: ListPattern 25
+            value: ListPattern 29
               targets:
-                0: Variable 25
-                  token: 25 VAR_IDENTIFIER $from
+                0: Variable 29
+                  token: 29 VAR_IDENTIFIER $from
                   value: "\$from"
-                1: Variable 25
-                  token: 25 VAR_IDENTIFIER $to
+                1: Variable 29
+                  token: 29 VAR_IDENTIFIER $to
                   value: "\$to"
             body: Compound
               statements:
-                0: Statement 26
-                  expr: Assign 26
-                    left: Variable 26
-                      token: 26 VAR_IDENTIFIER $text
+                0: Statement 30
+                  expr: Assign 30
+                    left: Variable 30
+                      token: 30 VAR_IDENTIFIER $text
                       value: "\$text"
-                    token: 26 ASSIGN =
-                    right: FunctionCall 26
+                    token: 30 ASSIGN =
+                    right: FunctionCall 30
                       name: "replace"
                       args:
-                        0: Variable 26
-                          token: 26 VAR_IDENTIFIER $text
+                        0: Variable 30
+                          token: 30 VAR_IDENTIFIER $text
                           value: "\$text"
-                        1: Variable 26
-                          token: 26 VAR_IDENTIFIER $from
+                        1: Variable 30
+                          token: 30 VAR_IDENTIFIER $from
                           value: "\$from"
-                        2: Variable 26
-                          token: 26 VAR_IDENTIFIER $to
+                        2: Variable 30
+                          token: 30 VAR_IDENTIFIER $to
                           value: "\$to"
-          3: ReturnStatement 29
-            expr: Variable 29
-              token: 29 VAR_IDENTIFIER $text
+          3: ReturnStatement 33
+            expr: Variable 33
+              token: 33 VAR_IDENTIFIER $text
               value: "\$text"
       arity: 1
       kind: "Html"

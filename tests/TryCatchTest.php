@@ -50,7 +50,7 @@ class TryCatchTest extends GazLangTestCase
             'unknown catch kind' => ["try { }\ncatch (Nope \$e) { }", 'Undefined kind: Nope on line 2'],
             'function as a catch kind' => ['fn f() {} try { } catch (f $e) { }', 'f is a function, not a kind on line 1'],
             'declaring Error' => ['kind Error {}', 'Error is a builtin kind on line 1'],
-            'constructing Error without a message' => ['echo Error();', 'Kind Error expects 1 argument, 0 given on line 1'],
+            'constructing Error without a message' => ['echo Error();', 'Kind Error expects 1 to 2 arguments, 0 given on line 1'],
             'syntax errors are not caught' => ['try { echo ; } catch ($e) { }', "Unexpected ';'"],
         ];
     }
@@ -169,7 +169,7 @@ class TryCatchTest extends GazLangTestCase
             'an int' => ['throw 5;', '5'],
             'a list' => ['throw [1, "a"];', '[1, "a"]'],
             'an object without to_string' => ['kind P {} throw P();', 'P {}'],
-            'an Error whose message was never set' => ['kind Oops extends Error { fn _() {} } throw Oops();', 'Property message of Oops is not set at <builtin>:7'],
+            'an Error whose message was never set' => ['kind Oops extends Error { fn _() {} } throw Oops();', 'Property message of Oops is not set at <builtin>:11'],
         ];
     }
 

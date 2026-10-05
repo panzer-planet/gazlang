@@ -1,0 +1,4 @@
+Caused by: (a value whose to_string() failed)
+  http::fail at tests/corpora/vm/uncaught_cause_values.gaz:21
+  top level at tests/corpora/vm/uncaught_cause_values.gaz:25
+Caused by: [1, "two", http::Point {#x => 3, #y => 4}]

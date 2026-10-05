@@ -10,7 +10,7 @@ PRINT
 
 fn Html::escape 1 1 in Html
 locals $value $text $#foreach_array_0 $#foreach_position_0 $#destructure_1 $from $to
-@ "<builtin>" 21
+@ "<builtin>" 25
 LOAD 0
 CALL_BUILTIN type_of 1
 PUSH "object"
@@ -26,21 +26,21 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ELSE_0
-@ "<builtin>" 22
+@ "<builtin>" 26
 LOAD 0
 GET_PROPERTY text
 RET
-@ "<builtin>" 21
+@ "<builtin>" 25
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<builtin>" 24
+@ "<builtin>" 28
 LOAD 0
 CALL_BUILTIN to_string 1
 STORE 1
 LOAD 1
 POP
-@ "<builtin>" 25
+@ "<builtin>" 29
 PUSH [["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["'", "&#39;"]]
 FOREACH_CHECK
 STORE 2
@@ -64,7 +64,7 @@ LOAD 6
 POP
 LOAD 4
 POP
-@ "<builtin>" 26
+@ "<builtin>" 30
 LOAD 1
 LOAD 5
 LOAD 6
@@ -72,13 +72,13 @@ CALL_BUILTIN replace 3
 STORE 1
 LOAD 1
 POP
-@ "<builtin>" 25
+@ "<builtin>" 29
 JMP FOREACH_2
 LABEL ENDFOREACH_2
-@ "<builtin>" 29
+@ "<builtin>" 33
 LOAD 1
 RET
-@ "<builtin>" 20
+@ "<builtin>" 24
 PUSH null
 RET
 
@@ -117,7 +117,7 @@ field text Html pub
 method _ Html pub
 method to_string Html pub
 locals $#argument_0
-@ "<builtin>" 12
+@ "<builtin>" 16
 CALL_CONSTRUCTOR Html
 POP
 LOAD_THIS
@@ -125,7 +125,7 @@ RET
 
 fn Html._ 1 1
 locals $text
-@ "<builtin>" 13
+@ "<builtin>" 17
 LOAD 0
 SET_FIELD text
 POP
@@ -134,9 +134,9 @@ RET
 
 fn Html.to_string 0 0
 locals
-@ "<builtin>" 16
+@ "<builtin>" 20
 LOAD_FIELD text
 RET
-@ "<builtin>" 15
+@ "<builtin>" 19
 PUSH null
 RET

@@ -1,0 +1,18 @@
+/*
+ * A long chain of causes shows the first ten and counts the rest, stopping where the chain loops
+ * back to one already walked. Standard output is http::serve's log of the same causes
+ * (tests/gaz/lib/http_causes_test.gaz).
+ */
+namespace http;
+
+import "lib/http.gaz";
+
+$first = Error("cause 1");
+$e = $first;
+for ($i = 2; $i <= 14; $i++) {
+    $e = Error("cause $i", $e);
+}
+$first.cause = $e.cause.cause;
+$top = Error("the top", $e);
+echo slice(describe_causes($top), 1);
+throw $top;

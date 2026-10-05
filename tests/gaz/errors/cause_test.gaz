@@ -1,0 +1,75 @@
+/*
+ * An Error's #cause: the error that led to it, given to the constructor or set after. What an
+ * uncaught error prints with its causes is tests/corpora/vm/uncaught_cause_*.gaz.
+ */
+import "std/test.gaz" use expect;
+
+kind QueryFailed extends Error {}
+
+kind NotSaved extends Error {
+    fn _($what, $cause = null) {
+        ##_("Could not save {$what}", $cause);
+    }
+}
+
+kind Plain extends Error {
+    fn _($message) {
+        ##_($message);
+    }
+}
+
+fn query() {
+    throw QueryFailed("duplicate key");
+}
+
+fn save() {
+    try {
+        query();
+    } catch (QueryFailed $e) {
+        throw NotSaved("the todo", $e);
+    }
+}
+
+expect("no cause unless one is given", Error("alone").cause, null);
+expect("a child passing only the message has none", Plain("alone").cause, null);
+
+$inner = Error("inner");
+expect("given to the constructor", Error("outer", $inner).cause, $inner);
+$outer = Error("outer");
+$outer.cause = $inner;
+expect("or set after", $outer.cause, $inner);
+
+try {
+    save();
+} catch (NotSaved $e) {
+    expect("a child passes it on", kind_name(kind_of($e.cause)), "QueryFailed");
+    expect("the cause keeps its message", $e.cause.message, "duplicate key");
+    expect("and where it was thrown", $e.cause.trace[0], "query at tests/gaz/errors/cause_test.gaz:22");
+}
+
+expect("any value can be a cause", Error("outer", [1, "two"]).cause, [1, "two"]);
+
+try {
+    throw 5;
+} catch ($thrown) {
+    expect("even one thrown that isn't an Error", Error("wrapped", $thrown).cause, 5);
+}
+
+try {
+    1 / 0;
+} catch (Error $e) {
+    expect("a runtime error has no cause", $e.cause, null);
+    $e.cause = "set later";
+    expect("but can be given one", $e.cause, "set later");
+}
+
+try {
+    throw "a message";
+} catch (Error $e) {
+    expect("nor does a thrown string", $e.cause, null);
+}
+
+$a = Error("a");
+$b = Error("b", Error("c", $a));
+$a.cause = $b;
+expect("a chain of three", [$b.cause.message, $b.cause.cause.message, $b.cause.cause.cause.message], ["c", "a", "b"]);

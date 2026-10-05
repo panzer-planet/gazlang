@@ -195,12 +195,13 @@ static Object *object_new(Kind *c);
 /* What catch sees: an Error object for an error the program didn't throw itself, or the value
    it threw, given a file, line and trace if it is an Error that has none yet. Worked out once. */
 static Value caught(Error *e) {
-    static Str *message, *file, *line, *trace;
+    static Str *message, *file, *line, *trace, *cause;
     if (!message) {
         message = str_intern("message", 7);
         file = str_intern("file", 4);
         line = str_intern("line", 4);
         trace = str_intern("trace", 5);
+        cause = str_intern("cause", 5);
     }
     if (e->caught.type != T_UNSET) {
         incref(e->caught);
@@ -219,6 +220,10 @@ static Value caught(Error *e) {
         o->fields[kind_field(error_kind, file, NULL)] = path;
         o->fields[kind_field(error_kind, line, NULL)] = where;
         o->fields[kind_field(error_kind, trace, NULL)] = calls;
+        /* Made here, not by Error's constructor, so its default is set by hand. Bytecode
+           written before Error had a cause has no slot for one, and the loader takes it. */
+        int slot = kind_field(error_kind, cause, NULL);
+        if (slot >= 0) o->fields[slot] = v_null();
         e->caught = v_object(o);
     } else {
         Value v = e->value;
@@ -1485,8 +1490,115 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
 
 /* ---- main ------------------------------------------------------------------------------ */
 
-/* An uncaught error as the CLI reports it: the message, then the calls under it, indented */
-static void report(Error *e) {
+/* How many causes an uncaught error's report shows before saying how many more there are */
+#define MAX_CAUSES 10
+
+/* A trace's calls under the line they belong to, indented. Only strings: a cause's #trace is a
+   field a program can set to anything. */
+static void report_calls(Value trace) {
+    if (trace.type != T_LIST) return;
+    for (size_t i = 0; i < trace.l->len; i++) {
+        if (trace.l->items[i].type != T_STRING) continue;
+        Str *line = trace.l->items[i].s;
+        fputs("  ", stderr);
+        fwrite(line->data, 1, line->len, stderr);
+        fputc('\n', stderr);
+    }
+}
+
+/* The Error object a value is, or NULL: only an Error carries a cause */
+static Object *as_error(Value v) {
+    /* The type first: a file the loader refused is reported with no program */
+    if (v.type != T_OBJECT) return NULL;
+    Kind *error_kind = program->error_kind;
+    if (!error_kind || !kind_is_a(v.o->kind, error_kind)) return NULL;
+    return v.o;
+}
+
+/* An Error's #cause and #trace: unset when bytecode from before causes has no such field */
+static Value error_field(Object *o, const char *name) {
+    int slot = kind_field(o->kind, str_intern(name, strlen(name)), NULL);
+    return slot < 0 ? v_unset() : o->fields[slot];
+}
+
+/* One cause: "Caused by: " and the value as echo prints it, then an Error's calls. A caught
+   error's message never says where it happened, so its trace is shown even with one call. */
+static void report_cause(Value cause) {
+    fputs("Caused by: ", stderr);
+    Str *text;
+    if (to_string(cause, &text)) {
+        fwrite(text->data, 1, text->len, stderr);
+        decref(v_str(text));
+    } else {
+        /* Its to_string() failed: say so and carry on, since the report is what matters */
+        decref((Value){.type = T_ERROR, .e = vm_error});
+        vm_error = NULL;
+        fputs("(a value whose to_string() failed)", stderr);
+    }
+    fputc('\n', stderr);
+    Object *o = as_error(cause);
+    if (o) report_calls(error_field(o, "trace"));
+}
+
+/* Whether an Error object is one of the n already in seen */
+static bool seen_before(Object **seen, size_t n, Object *o) {
+    for (size_t i = 0; i < n; i++) {
+        if (seen[i] == o) return true;
+    }
+    return false;
+}
+
+/* Hold an Error in the list of those walked, with a reference of its own */
+static void remember(Object ***seen, size_t *n, size_t *cap, Object *o) {
+    if (*n == *cap) *seen = xrealloc(*seen, (*cap *= 2) * sizeof **seen);
+    (*seen)[(*n)++] = o;
+    incref(v_object(o));
+}
+
+/*
+ * The chain of causes under an uncaught Error: each cause in turn, until one that is null or
+ * not an Error, or one already walked, since a chain can loop back ($e.cause = $e). The first
+ * MAX_CAUSES are shown and the rest counted. Every Error walked is held in seen, with a
+ * reference, so a to_string() run here can't free one and have its address reused by another.
+ * ponytail: seen is searched from the start for each cause, so a chain of n causes costs n^2.
+ */
+static void report_causes(Object *top) {
+    size_t n = 0, cap = 16;
+    Object **seen = xmalloc(cap * sizeof *seen);
+    remember(&seen, &n, &cap, top);
+    int walked = 0;
+    bool loops = false;
+    Value cause = error_field(top, "cause");
+    while (cause.type != T_UNSET && cause.type != T_NULL) {
+        Object *o = as_error(cause);
+        if (o && seen_before(seen, n, o)) {
+            loops = true;
+            break;
+        }
+        if (o) remember(&seen, &n, &cap, o);
+        if (walked < MAX_CAUSES) {
+            /* Held while shown: its to_string() could set the field it is read from */
+            incref(cause);
+            report_cause(cause);
+            decref(cause);
+        }
+        walked++;
+        if (!o) break;
+        cause = error_field(o, "cause");
+    }
+    if (walked > MAX_CAUSES) {
+        int more = walked - MAX_CAUSES;
+        fprintf(stderr, "... %d more %s\n", more, more == 1 ? "cause" : "causes");
+    } else if (loops) {
+        fputs("Caused by: an error shown above, so the causes go round in a loop\n", stderr);
+    }
+    for (size_t i = 0; i < n; i++) decref(v_object(seen[i]));
+    free(seen);
+}
+
+/* An uncaught error as the CLI reports it: the message, then the calls under it, indented, then
+   what caused it when it is an Error that was thrown (thrown; unset otherwise) */
+static void report(Error *e, Value thrown) {
     Str *message = e->gaz ? error_message(e) : e->reason;
     if (!e->gaz) incref(v_str(message));
     flush_output();
@@ -1494,14 +1606,9 @@ static void report(Error *e) {
     fwrite(message->data, 1, message->len, stderr);
     fputc('\n', stderr);
     decref(v_str(message));
-    if (e->gaz && e->trace.type == T_LIST && e->trace.l->len > 1) {
-        for (size_t i = 0; i < e->trace.l->len; i++) {
-            Str *line = e->trace.l->items[i].s;
-            fputs("  ", stderr);
-            fwrite(line->data, 1, line->len, stderr);
-            fputc('\n', stderr);
-        }
-    }
+    if (e->gaz && e->trace.type == T_LIST && e->trace.l->len > 1) report_calls(e->trace);
+    Object *top = as_error(thrown);
+    if (top) report_causes(top);
 }
 
 static char *read_all(const char *path, size_t *len) {
@@ -1566,6 +1673,7 @@ static int run_program(bool check) {
         decref(returned);
     } else {
         Error *thrown = vm_error, *e = thrown;
+        Value value = v_unset();    /* the thrown value, once it has been shown */
         if (e->has_value) {
             /* Nothing caught it: only now is a thrown value turned into text, which can run
                its to_string() (and fail, which is then the error reported) */
@@ -1579,11 +1687,12 @@ static int run_program(bool check) {
                 shown->trace = e->trace;
                 incref(shown->trace);
                 e = shown;
+                value = thrown->value;
             } else {
                 e = vm_error;
             }
         }
-        report(e);
+        report(e, value);
         if (e != thrown) decref((Value){.type = T_ERROR, .e = e});
         decref((Value){.type = T_ERROR, .e = thrown});
         vm_error = NULL;
@@ -1629,7 +1738,7 @@ static int run_front_end(Job *job, const char *mode, char **text, size_t *len) {
     loaded = counted;
     program = load((const char *)compiler_gzb, compiler_gzb_size, "compiler/gazlang.gzb");
     if (!program) {
-        report(vm_error);
+        report(vm_error, v_unset());
         return 1;
     }
     char *args[] = {(char *)mode, (char *)job->path};
@@ -1694,7 +1803,7 @@ static void *run(void *arg) {
     loaded = counted;
     program = load(job->text, job->len, job->path);
     if (!program) {
-        report(vm_error);
+        report(vm_error, v_unset());
         /* The loader gives up at the first problem and drops nothing it built */
         if (getenv("GAZVM_STATS")) fputs("gazvm: leaks not checked: the program did not load\n", stderr);
         job->exit_code = 1;

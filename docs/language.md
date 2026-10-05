@@ -630,7 +630,7 @@ try {
 - Every runtime failure is catchable: a failed operator or builtin, an undefined variable or
   key, division by zero, running out of call depth. Syntax errors happen before the program
   runs and are not.
-- **`Error` is a builtin kind** with `#message`, `#file`, `#line` and `#trace`. Programs
+- **`Error` is a builtin kind** with `#message`, `#file`, `#line`, `#trace` and `#cause`. Programs
   extend it; `catch (Type $e)` matches a kind or a child kind, and an untyped `catch` must be
   last.
 - **`throw $value` raises any value.** A string becomes an `Error`'s message; anything else is
@@ -646,6 +646,48 @@ try {
   method `Kind.name`, a constructor `Kind._`, a lambda `->`. A deep trace keeps the innermost and
   outermost 10 around `... N more`. An uncaught error prints it under the message, unless it is a
   single call. `#file` is `null` for piped source.
+- **`#cause`** is the error that led to this one, so code that catches one error and throws its
+  own keeps the first: `Error($message, $cause)`, or `$e.cause = $first` later. It is `null`
+  unless given, and may be any value, so whatever a `catch` caught can be passed on. A kind with
+  a constructor of its own passes it to its parent's:
+
+  ```gaz
+  kind NotSaved extends Error {
+      fn _($what, $cause) { ##_("Could not save {$what}", $cause); }
+  }
+
+  fn insert($title) {
+      throw "duplicate key value violates unique constraint";
+  }
+
+  fn save($title) {
+      try {
+          insert($title);
+      } catch (Error $e) {
+          throw NotSaved("the todo", $e);
+      }
+  }
+
+  save("Write the VM");
+  ```
+
+  An uncaught error prints its causes under its trace, each with its own calls:
+
+  ```
+  Error: Could not save the todo
+    save at todo.gaz:13
+    top level at todo.gaz:17
+  Caused by: duplicate key value violates unique constraint
+    insert at todo.gaz:6
+    save at todo.gaz:11
+    top level at todo.gaz:17
+  ```
+
+  A cause is shown as `echo` shows it, and only an `Error` has a cause of its own to follow. The
+  first 10 are shown and the rest counted (`... 3 more causes`). A chain that loops back to an
+  error already shown ends with a line saying so; one that loops past the first 10 is counted to
+  where it comes round, each error once. `http::serve` logs a handler's error with its causes the same
+  way.
 - **`finally`** runs however the block is left, including on `return`, `break` and `continue`.
 - **`exit($code)`** ends the program at once with a code from 0 to 255, running no `finally`. It
   is not an error and `try` does not see it.

@@ -1,0 +1,30 @@
+/*
+ * A cause needn't be an Error: anything is shown as echo shows it, and ends the chain. One whose
+ * to_string() fails is said to, and the rest still shown. Standard output is http::serve's log
+ * of the same causes (tests/gaz/lib/http_causes_test.gaz).
+ */
+namespace http;
+
+import "lib/http.gaz";
+
+kind Broken extends Error {
+    pub fn to_string() {
+        throw "no words";
+    }
+}
+
+kind Point {
+    fn _(pub #x, pub #y) {}
+}
+
+fn fail() {
+    throw Broken("unseen", [1, "two", Point(3, 4)]);
+}
+
+try {
+    fail();
+} catch (Broken $e) {
+    $top = Error("the top", $e);
+}
+echo slice(describe_causes($top), 1);
+throw $top;

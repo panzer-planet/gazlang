@@ -1,0 +1,13 @@
+ok no cause unless one is given
+ok a child passing only the message has none
+ok given to the constructor
+ok or set after
+ok a child passes it on
+ok the cause keeps its message
+ok and where it was thrown
+ok any value can be a cause
+ok even one thrown that isn't an Error
+ok a runtime error has no cause
+ok but can be given one
+ok nor does a thrown string
+ok a chain of three

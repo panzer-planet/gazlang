@@ -27,7 +27,7 @@ kind Shared
 field value Shared pub
 method _ Shared pub
 locals $#argument_0
-@ "<builtin>" 9
+@ "<builtin>" 13
 CALL_CONSTRUCTOR Shared
 POP
 LOAD_THIS
@@ -35,7 +35,7 @@ RET
 
 fn Shared._ 1 1
 locals $value
-@ "<builtin>" 10
+@ "<builtin>" 14
 LOAD 0
 SET_FIELD value
 POP

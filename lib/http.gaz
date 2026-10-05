@@ -526,7 +526,8 @@ kind Refusal extends Error {
  *   version) without calling the handler. One with both Content-Length and Transfer-Encoding is
  *   refused too, as the way requests are smuggled past a proxy.
  * - A handler that raises, or returns what can't be written (a header with a line break in it, a
- *   Content-Length of its own), is answered 500, and the error goes to standard error.
+ *   Content-Length of its own), is answered 500, and the error goes to standard error with its
+ *   trace and its causes (`#cause`), as gaz shows an uncaught one.
  * - Content-Length and Date are written here, and so is Connection: close when the connection is
  *   about to close; a handler may ask for that with a Connection header of "close", and any other
  *   Connection header of its own is an error. No Content-Type unless given.
@@ -1038,13 +1039,81 @@ fn send_quietly($socket, $bytes) {
     return true;
 }
 
+// How many causes a 500's log shows before saying how many more there are, as gaz itself does
+const MAX_CAUSES = 10;
+
+/*
+ * A handler's error as the log shows it: the message and where, its calls, then what caused it,
+ * in the shape gaz gives an uncaught error's causes (report() in vm/vm.c), so a log reads as a
+ * crash does
+ */
 fn describe_error($e) {
     $where = $e.file == null ? "line {$e.line}" : "{$e.file}:{$e.line}";
-    $text = "{$e.message} at $where";
-    foreach ($e.trace as $call) {
-        $text ..= "\n    $call";
+    return "{$e.message} at $where" .. describe_calls($e.trace) .. describe_causes($e);
+}
+
+// A trace's calls, each on a line of its own, indented; only strings, as a program can set #trace
+fn describe_calls($trace) {
+    $text = "";
+    if (type_of($trace) != "list") {
+        return $text;
+    }
+    foreach ($trace as $call) {
+        if (type_of($call) == "string") {
+            $text ..= "\n  $call";
+        }
     }
     return $text;
+}
+
+/*
+ * The chain of causes under an error: each until one that is null or not an Error, or one
+ * already walked (a chain can loop back), the first MAX_CAUSES shown and the rest counted.
+ * ponytail: in_array() searches from the start for each cause, so a chain of n costs n^2.
+ */
+fn describe_causes($e) {
+    $seen = [$e];
+    $walked = 0;
+    $text = "";
+    $cause = $e.cause ?? null;
+    while ($cause != null) {
+        $is_error = is_error($cause);
+        if ($is_error && in_array($cause, $seen)) {
+            if ($walked <= MAX_CAUSES) {
+                $text ..= "\nCaused by: an error shown above, so the causes go round in a loop";
+            }
+            break;
+        }
+        if ($walked < MAX_CAUSES) {
+            $text ..= describe_cause($cause);
+        }
+        $walked++;
+        if (!$is_error) {
+            break;
+        }
+        $seen[] = $cause;
+        $cause = $cause.cause ?? null;
+    }
+    if ($walked > MAX_CAUSES) {
+        $more = $walked - MAX_CAUSES;
+        $text ..= "\n... $more more " .. ($more == 1 ? "cause" : "causes");
+    }
+    return $text;
+}
+
+// One cause: the value as echo prints it, then an Error's calls, even one, as no message says where
+fn describe_cause($cause) {
+    try {
+        $shown = to_string($cause);
+    } catch ($e) {
+        $shown = "(a value whose to_string() failed)";
+    }
+    $calls = is_error($cause) ? describe_calls($cause.trace ?? null) : "";
+    return "\nCaused by: $shown" .. $calls;
+}
+
+fn is_error($value) {
+    return type_of($value) == "object" && is_a($value, Error);
 }
 
 const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
