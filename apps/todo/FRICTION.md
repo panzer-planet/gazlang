@@ -144,10 +144,10 @@ connection's address is the proxy's.
 
 ## 6. Calling a handler's helpers needs a test client that doesn't exist  (open: [#48](https://github.com/panzer-planet/gazlang/issues/48))
 
-The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 122 lines with the test database): it builds
+The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 130 lines with the test database): it builds
 request maps, keeps the cookies a response sets, form-encodes bodies, and finds the CSRF token in a
-page. Every web app's tests will want this, and the request shape (`method`, `path`, `query`,
-lower-cased `headers`, `body`) is only written down in `http.gaz`'s source.
+page. Every web app's tests will want this. (The request shape, `method`, `path`, `query`,
+lower-cased `headers`, `body` and `remote_address`, is documented in `docs/language.md`.)
 
 - **Today**: `tests/support.gaz`.
 - **Options**: `http::client_for($handler)` giving something with `get`/`post`/cookies in the
@@ -198,9 +198,10 @@ have caught running out of call depth.
 
 - **Redirects** (resolved: `http::redirect($to, $status = 303)`): the router had a private one and
   every app would have written `{"status" => 303, "headers" => {"Location" => $to}, "body" => ""}` itself.
-- **PostgreSQL NOTICEs** go to standard error and can't be quieted: `create table if not exists`
-  and `truncate ... cascade` print a line each, on every start and between test checks.
-  The driver could set `client_min_messages = warning` on connect ([#52](https://github.com/panzer-planet/gazlang/issues/52)).
+- **PostgreSQL NOTICEs** go to standard error by default: `create table if not exists`
+  and `truncate ... cascade` print a line each, on every start and between test checks. A program
+  can quiet them (`set client_min_messages = warning`, or `options=-c client_min_messages=warning`
+  in the URL), but nothing tells it to. The driver could set `client_min_messages = warning` on connect ([#52](https://github.com/panzer-planet/gazlang/issues/52)).
 - **Timestamps** (resolved: `date::parse()`, `date::zone()` and `Zone.at()`) arrive as text in the
   server's time zone (`"2026-10-01 14:04:27.78+02"`), which `date.gaz` couldn't read or show in
   another zone. The todo list now shows when each was added, in the zone `TIME_ZONE` names.
