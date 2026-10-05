@@ -7,14 +7,25 @@
  *
  * Syntax: literal bytes, "." (any byte), "*" "+" "?" (repetition, greedy), "|" (alternation,
  * the first that matches wins), "(...)" (a group, which captures), "[...]" and "[^...]"
- * (character classes, with "a-z" ranges), "^" and "$" (start/end of string anchors), "\" to
- * escape a metacharacter. Which match is found is the leftmost, and of those the one
- * the greedy repetitions and the earlier alternatives give. No backreferences, no
- * "\d"/"\w"/"\s" shorthands (see lib/chars.gaz), no lookahead: patterns compile to a Thompson
+ * (character classes, with "a-z" ranges), "^" and "$" (start/end of string anchors).
+ *
+ * Escapes: "\" before anything but a letter or a digit is that byte ("\.", "\\", "\/");
+ * "\t", "\n" and "\r" are a tab, a newline and a carriage return; "\d" a digit, "\w" a word
+ * byte (a letter, a digit or "_") and "\s" a space (space, tab, newline or carriage return),
+ * with "\D", "\W" and "\S" anything else, on their own or inside "[...]" ("[\d_]", "[^\s]").
+ * The shorthands are std/chars.gaz's is_digit, is_alnum plus "_", and is_space, so they are
+ * ASCII and read bytes, as everything here does. Any other letter or digit after "\" is an
+ * error, so "\q" can't quietly mean "q". In a double-quoted string each "\" is written "\\";
+ * a single-quoted one keeps it as it is: '\d+\.\d+'.
+ *
+ * Which match is found is the leftmost, and of those the one the greedy repetitions and the
+ * earlier alternatives give. No backreferences, no lookahead: patterns compile to a Thompson
  * NFA (Pike's VM, each thread carrying where its groups started and ended; plain GazLang) and
  * run in time linear in the string for a given pattern, so there is no catastrophic backtracking.
  */
 namespace regex;
+
+import "std/chars.gaz";
 
 kind Parser {
     #pat;
@@ -101,15 +112,7 @@ kind Parser {
         if ($c == ".") { #advance(); return {"op" => "any"}; }
         if ($c == "^") { #advance(); return {"op" => "bol"}; }
         if ($c == "$") { #advance(); return {"op" => "eol"}; }
-        if ($c == "\\") {
-            #advance();
-            $e = #peek();
-            if ($e == null) {
-                throw "regex: dangling '\\' in /" .. #pat .. "/";
-            }
-            #advance();
-            return {"op" => "lit", "c" => ord($e)};
-        }
+        if ($c == "\\") { return #escape(); }
         #advance();
         return {"op" => "lit", "c" => ord($c)};
     }
@@ -123,35 +126,100 @@ kind Parser {
         }
         $ranges = [];
         $chars = [];
+        $sets = [];
         $first = true;
         while (#peek() != "]" || $first) {
             if (#peek() == null) {
                 throw "regex: unterminated '[' in /" .. #pat .. "/";
             }
             $first = false;
-            $lo = #class_char();
-            if (#peek() == "-") {
-                $save = #pos;
-                #advance();
-                if (#peek() == "]") {
-                    #pos = $save;
-                    $chars[] = $lo;
-                } else {
-                    $ranges[] = [$lo, #class_char()];
+            $at = #pos;
+            $lo = #class_item();
+            if ($lo["op"] == "class") {
+                if (#starts_range()) {
+                    #refuse_shorthand_range($at);
                 }
+                $sets[] = $lo["sets"][0];
+            } else if (#starts_range()) {
+                #advance(); // '-'
+                $hi_at = #pos;
+                $hi = #class_item();
+                if ($hi["op"] == "class") {
+                    #refuse_shorthand_range($hi_at);
+                }
+                if ($lo["c"] > $hi["c"]) {
+                    #refuse_backwards_range($at, $lo["c"], $hi["c"]);
+                }
+                $ranges[] = [$lo["c"], $hi["c"]];
             } else {
-                $chars[] = $lo;
+                $chars[] = $lo["c"];
             }
         }
         #advance(); // ']'
-        return {"op" => "class", "negate" => $negate, "ranges" => $ranges, "chars" => $chars};
+        return {"op" => "class", "negate" => $negate, "ranges" => $ranges, "chars" => $chars, "sets" => $sets};
     }
 
-    fn class_char() {
-        $c = #advance();
-        if ($c == "\\") { return ord(#advance()); }
-        return ord($c);
+    // Whether a "-" comes next with something after it other than the closing "]"
+    fn starts_range() {
+        $after = chars::char_at(#pat, #pos + 1);
+        return #peek() == "-" && $after != "]" && $after != "";
     }
+
+    // A shorthand is a set of bytes, so it can't be either end of a range
+    fn refuse_shorthand_range($at) {
+        $shorthand = slice(#pat, $at, 2);
+        throw "regex: a range can't start or end at '" .. $shorthand .. "' at " .. $at .. " in /" .. #pat .. "/";
+    }
+
+    // A range whose end comes before its start would match nothing, which is never what was meant
+    fn refuse_backwards_range($at, $lo, $hi) {
+        $written = chr($lo) .. "-" .. chr($hi);
+        $meant = chr($hi) .. "-" .. chr($lo);
+        throw "regex: the range '" .. $written .. "' at " .. $at .. " in /" .. #pat .. "/ is backwards: write '" .. $meant .. "'";
+    }
+
+    // One byte of a class, as a literal, or a shorthand as a class
+    fn class_item() {
+        if (#peek() == "\\") { return #escape(); }
+        return {"op" => "lit", "c" => ord(#advance())};
+    }
+
+    // What "\" and the byte after it mean, as a literal or a class of one shorthand
+    fn escape() {
+        $at = #pos;
+        #advance(); // '\'
+        $e = #peek();
+        if ($e == null) {
+            throw "regex: dangling '\\' in /" .. #pat .. "/";
+        }
+        #advance();
+        if (in_array($e, ["d", "D", "w", "W", "s", "S"])) {
+            $set = [shorthand($e), $e != lower($e)];
+            return {"op" => "class", "negate" => false, "ranges" => [], "chars" => [], "sets" => [$set]};
+        }
+        $control = {"t" => "\t", "n" => "\n", "r" => "\r"};
+        if (has_key($control, $e)) {
+            return {"op" => "lit", "c" => ord($control[$e])};
+        }
+        if (chars::is_alnum($e)) {
+            throw "regex: unknown escape '\\" .. $e .. "' at " .. $at .. " in /" .. #pat .. "/";
+        }
+        return {"op" => "lit", "c" => ord($e)};
+    }
+}
+
+// The predicate of a shorthand's lowercase letter, std/chars.gaz's own
+fn shorthand($letter) {
+    return match (lower($letter)) {
+        "d" => chars::is_digit,
+        "w" => is_word,
+        "s" => chars::is_space,
+    };
+}
+
+// A letter, a digit or "_": what a name is made of
+fn is_word($c) {
+    return chars::is_alnum($c) || $c == "_";
 }
 
 /*
@@ -176,10 +244,7 @@ kind Compiler {
         if ($op == "empty") { return; }
         if ($op == "lit") { #emit({"op" => "char", "c" => $node["c"]}); return; }
         if ($op == "any") { #emit({"op" => "any"}); return; }
-        if ($op == "class") {
-            #emit({"op" => "class", "negate" => $node["negate"], "ranges" => $node["ranges"], "chars" => $node["chars"]});
-            return;
-        }
+        if ($op == "class") { #emit($node); return; }
         if ($op == "bol") { #emit({"op" => "bol"}); return; }
         if ($op == "eol") { #emit({"op" => "eol"}); return; }
         if ($op == "concat") {
@@ -251,6 +316,9 @@ fn class_matches($instr, $byte) {
     }
     foreach ($instr["chars"] as $c) {
         if ($byte == $c) { $hit = true; }
+    }
+    foreach ($instr["sets"] as [$predicate, $negated]) {
+        if ($predicate(chr($byte)) != $negated) { $hit = true; }
     }
     if ($instr["negate"]) { return !$hit; }
     return $hit;
@@ -411,6 +479,11 @@ pub fn groups($s, $pattern) {
     if ($slots == null) {
         return null;
     }
+    return taken($s, $slots);
+}
+
+// What the match whose slots are $slots took, and each of its groups, as groups() gives them
+fn taken($s, $slots) {
     $taken = [];
     for ($group = 0; $group * 2 < len($slots); $group++) {
         $taken[] = captured($s, $slots, $group);
@@ -429,12 +502,28 @@ fn captured($s, $slots, $group) {
 }
 
 /**
- * $s with every match of $pattern replaced by $with, taken as it is (no "$1"), looking for the
- * next match where the last ended. An empty match replaces nothing and the search moves on a
- * byte: replace("abc", "x*", "-") is "-a-b-c-".
+ * $s with every match of $pattern replaced, looking for the next match where the last ended.
+ * An empty match replaces nothing and the search moves on a byte: replace("abc", "x*", "-") is
+ * "-a-b-c-".
+ *
+ * $with is a string or a function. In a string, "$0" is the whole match, "$1" to "$9" (and on,
+ * as many digits as follow) a group, numbered by its "(" from the left, and "$$" a "$"; a group
+ * that took no part gives "". A group the pattern hasn't got, or a "$" followed by anything
+ * else, is an error before anything is replaced:
+ *
+ *     regex::replace("2026-10-05", '(\d+)-(\d+)-(\d+)', "$3/$2/$1")   // "05/10/2026"
+ *     regex::replace("5", '\d', "$$$0")                               // "$5"
+ *
+ * A function is given each match's groups, as regex::groups() gives them, and returns the
+ * replacement, which must be a string:
+ *
+ *     regex::replace("a1b22", '\d+', $g -> to_string(to_int($g[0]) * 2))   // "a2b44"
  */
 pub fn replace($s, $pattern, $with) {
-    $matcher = Matcher(compile($pattern), len($s));
+    $compiled = compile($pattern);
+    [, $groups] = $compiled;
+    $replacement = replacement($with, $groups, $pattern);
+    $matcher = Matcher($compiled, len($s));
     $out = "";
     $at = 0;
     while ($at <= len($s)) {
@@ -443,7 +532,7 @@ pub fn replace($s, $pattern, $with) {
             break;
         }
         [$from, $to] = [$slots[0], $slots[1]];
-        $out ..= slice($s, $at, $from - $at) .. $with;
+        $out ..= slice($s, $at, $from - $at) .. $replacement(taken($s, $slots));
         if ($to == $from) {
             $out ..= slice($s, $from, 1);
             $to += 1;
@@ -455,4 +544,69 @@ pub fn replace($s, $pattern, $with) {
         return $out;
     }
     return $out .. slice($s, $at);
+}
+
+// $with as a function from a match's groups to its replacement, checked before any match
+fn replacement($with, $groups, $pattern) {
+    if (type_of($with) == "function") {
+        return $taken -> checked_text($with($taken));
+    }
+    if (type_of($with) != "string") {
+        throw "regex: replace() takes a string or a function, not " .. type_of($with);
+    }
+    $pieces = pieces($with, $groups, $pattern);
+    return $taken -> filled($pieces, $taken);
+}
+
+// A replacement's pieces with each group number replaced by what it took, "" for no part
+fn filled($pieces, $taken) {
+    $text = "";
+    foreach ($pieces as $piece) {
+        if (type_of($piece) == "int") {
+            $text ..= $taken[$piece] ?? "";
+        } else {
+            $text ..= $piece;
+        }
+    }
+    return $text;
+}
+
+// What a function given as $with returned, which must be a string
+fn checked_text($text) {
+    if (type_of($text) != "string") {
+        throw "regex: replace()'s function must return a string, not " .. type_of($text);
+    }
+    return $text;
+}
+
+/*
+ * A replacement string read once: its text and the group numbers in it, in order, each group
+ * one the pattern has.
+ */
+fn pieces($with, $groups, $pattern) {
+    $pieces = [];
+    $at = 0;
+    while (true) {
+        $dollar = index_of($with, "$", $at);
+        if ($dollar == null) {
+            $pieces[] = slice($with, $at);
+            return $pieces;
+        }
+        $pieces[] = slice($with, $at, $dollar - $at);
+        $at = $dollar + 1;
+        $digits = chars::span($with, $at, chars::is_digit);
+        if (chars::char_at($with, $at) == "$") {
+            $pieces[] = "$";
+            $at += 1;
+        } else if ($digits == 0) {
+            throw "regex: a '$' in a replacement names a group ($0, $1, ...): write $$ for a '$', at " .. $dollar .. " in \"" .. $with .. "\"";
+        } else {
+            $group = to_int(slice($with, $at, $digits));
+            if ($group > $groups) {
+                throw "regex: the replacement names group " .. $group .. ", and /" .. $pattern .. "/ has " .. $groups;
+            }
+            $pieces[] = $group;
+            $at += $digits;
+        }
+    }
 }

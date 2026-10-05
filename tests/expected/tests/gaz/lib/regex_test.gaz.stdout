@@ -63,7 +63,6 @@ ok replace a class
 ok replace an escaped dot
 ok replace without a match
 ok replace doesn't overlap
-ok replace takes $1 as it is
 ok replace with nothing
 ok replace at the start only
 ok replace at the end only
@@ -73,3 +72,62 @@ ok an empty string
 ok an empty pattern
 ok no catastrophic backtracking
 ok nor in replace
+ok an escaped backslash
+ok an escaped slash and dash
+ok \t, \n and \r
+ok \t in a class
+ok \t is not a t
+ok an unknown escape
+ok a digit escape
+ok an unknown escape in a class
+ok a dangling backslash
+ok a dangling backslash in a class
+ok /\d/ on every byte
+ok /[\d]/ on every byte
+ok /[^\D]/ on every byte
+ok /\D/ on every byte
+ok /[\D]/ on every byte
+ok /[^\d]/ on every byte
+ok /\w/ on every byte
+ok /[\w]/ on every byte
+ok /[^\W]/ on every byte
+ok /\W/ on every byte
+ok /[\W]/ on every byte
+ok /[^\w]/ on every byte
+ok /\s/ on every byte
+ok /[\s]/ on every byte
+ok /[^\S]/ on every byte
+ok /\S/ on every byte
+ok /[\S]/ on every byte
+ok /[^\s]/ on every byte
+ok a shorthand with more in its class
+ok two shorthands in a class
+ok a shorthand and its negation is everything
+ok a dash after a shorthand is a dash
+ok shorthands repeat
+ok a range can't start at a shorthand
+ok an unclosed class after a dash
+ok an unclosed class after a shorthand and a dash
+ok nor end at one
+ok a backwards range
+ok a range of one byte
+ok $1 is a group
+ok groups in any order
+ok $0 is the whole match
+ok $$ is a dollar
+ok $$1 is a dollar and a 1
+ok a group that took no part is empty
+ok a group repeated gives its last
+ok $10 is group 10
+ok a group the pattern hasn't got
+ok even with no match
+ok $1 followed by a digit is one number
+ok a $ before anything else
+ok a $ at the end
+ok a function of the match
+ok is given every group
+ok a group with no part is null there
+ok an empty match is replaced too
+ok its $ is text
+ok it must return a string
+ok a replacement is a string or a function

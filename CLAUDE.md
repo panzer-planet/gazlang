@@ -562,9 +562,8 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   each step only until something matched, which is what makes it leftmost. `groups` gives a group
   that took no part as null since `""` can't be told from an empty capture, a repeated one's last.
   `ponytail:` an empty iteration of a starred group dies at the loop, so `(a*)*` reports its group
-  as null where Perl says `""`; no `$1` in replacements or a function for `$with`, no
-  backreferences, no `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named functions);
-  the shorthands and `$1` are [#6](https://github.com/panzer-planet/gazlang/issues/6).
+  as null where Perl says `""`; no backreferences. The shorthands are `lib/chars.gaz`'s
+  predicates, called, so they can't disagree; see `docs/library.md` for escapes and `$1`.
 
 # The language
 

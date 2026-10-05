@@ -1,5 +1,6 @@
 import "std/test.gaz" use expect, throws;
 import "std/regex.gaz";
+import "std/chars.gaz";
 
 expect("literal match", regex::matches("cat", "cat"), true);
 expect("literal too long fails full match", regex::matches("cats", "cat"), false);
@@ -80,7 +81,6 @@ expect("replace a class", regex::replace("a1b22c333", "[0-9]+", "#"), "a#b#c#");
 expect("replace an escaped dot", regex::replace("a.b.c", "\\.", "::"), "a::b::c");
 expect("replace without a match", regex::replace("abc", "x", "y"), "abc");
 expect("replace doesn't overlap", regex::replace("aaaa", "aa", "b"), "bb");
-expect("replace takes $1 as it is", regex::replace("ab", "(a)", "$1"), "$1b");
 expect("replace with nothing", regex::replace("a-b-c", "-", ""), "abc");
 expect("replace at the start only", regex::replace("aaa", "^a", "b"), "baa");
 expect("replace at the end only", regex::replace("aaa", "a$", "b"), "aab");
@@ -92,3 +92,84 @@ expect("an empty pattern", regex::replace("ab", "", "."), ".a.b.");
 /* Linear time: what would take a backtracking engine 2^200 steps */
 expect("no catastrophic backtracking", regex::matches(repeat("a", 200), "(a*)*b"), false);
 expect("nor in replace", regex::replace(repeat("ab", 3), "(a*)*", "-"), "--b--b--b-");
+
+/* Escapes: a non-alphanumeric byte is itself, three control letters, and nothing else */
+expect("an escaped backslash", regex::matches("\\", "\\\\"), true);
+expect("an escaped slash and dash", regex::matches("/-", '\/\-'), true);
+expect("\\t, \\n and \\r", regex::matches("\t\n\r", '\t\n\r'), true);
+expect("\\t in a class", regex::groups("x\ty", '[ \t]'), ["\t"]);
+expect("\\t is not a t", regex::search("t", '\t'), false);
+throws("an unknown escape", () -> regex::matches("q", '\q'), "regex: unknown escape '\\q' at 0 in /\\q/");
+throws("a digit escape", () -> regex::matches("1", 'a\1'), "regex: unknown escape '\\1' at 1 in /a\\1/");
+throws("an unknown escape in a class", () -> regex::matches("q", '[a\q]'), "regex: unknown escape '\\q' at 2 in /[a\\q]/");
+throws("a dangling backslash", () -> regex::matches("a", "a\\"), "regex: dangling '\\' in /a\\/");
+throws("a dangling backslash in a class", () -> regex::matches("a", "[\\"), "regex: dangling '\\' in /[\\/");
+
+/* Shorthands: each, its negation, alone and in a class, against all 256 bytes as std/chars.gaz reads them */
+fn is_word($c) {
+    return chars::is_alnum($c) || $c == "_";
+}
+
+fn wrong_bytes($pattern, $predicate, $negated) {
+    $wrong = [];
+    for ($byte = 0; $byte < 256; $byte++) {
+        $c = chr($byte);
+        $expected = $predicate($c) != $negated;
+        if (regex::matches($c, $pattern) != $expected) {
+            $wrong[] = $byte;
+        }
+    }
+    return $wrong;
+}
+
+$shorthands = {"d" => chars::is_digit, "w" => is_word, "s" => chars::is_space};
+foreach ($shorthands as $letter => $predicate) {
+    $negation = upper($letter);
+    $forms = {
+        "\\" .. $letter => false,
+        "[\\" .. $letter .. "]" => false,
+        "[^\\" .. $negation .. "]" => false,
+        "\\" .. $negation => true,
+        "[\\" .. $negation .. "]" => true,
+        "[^\\" .. $letter .. "]" => true,
+    };
+    foreach ($forms as $pattern => $negated) {
+        expect("/$pattern/ on every byte", wrong_bytes($pattern, $predicate, $negated), []);
+    }
+}
+
+expect("a shorthand with more in its class", map(["_", "7", "a", "-"], $c -> regex::matches($c, '[\d_]')), [true, true, false, false]);
+expect("two shorthands in a class", map([" ", "x", "!"], $c -> regex::matches($c, '[\s\w]')), [true, true, false]);
+expect("a shorthand and its negation is everything", regex::matches("\0\xff!", '[\d\D]+'), true);
+expect("a dash after a shorthand is a dash", map(["-", "5"], $c -> regex::matches($c, '[\d-]')), [true, true]);
+expect("shorthands repeat", regex::groups("x = 42;", '(\w+)\s*=\s*(\d+)'), ["x = 42", "x", "42"]);
+throws("a range can't start at a shorthand", () -> regex::matches("a", '[\d-z]'), "regex: a range can't start or end at '\\d' at 1 in /[\\d-z]/");
+throws("an unclosed class after a dash", () -> regex::matches("a", '[a-'), "regex: unterminated '[' in /[a-/");
+throws("an unclosed class after a shorthand and a dash", () -> regex::matches("a", '[\d-'), "regex: unterminated '[' in /[\\d-/");
+throws("nor end at one", () -> regex::matches("a", '[a-\w]'), "regex: a range can't start or end at '\\w' at 3 in /[a-\\w]/");
+throws("a backwards range", () -> regex::matches("a", "[z-a]"), "regex: the range 'z-a' at 1 in /[z-a]/ is backwards: write 'a-z'");
+expect("a range of one byte", regex::matches("m", "[m-m]"), true);
+
+/* Group references in a replacement */
+expect("$1 is a group", regex::replace("ab", "(a)", "<$1>"), "<a>b");
+expect("groups in any order", regex::replace("2026-10-05", '(\d+)-(\d+)-(\d+)', "$3/$2/$1"), "05/10/2026");
+expect("$0 is the whole match", regex::replace("a1b22", '\d+', "[$0]"), "a[1]b[22]");
+expect("$$ is a dollar", regex::replace("5", '\d', "$$$0"), "$5");
+expect("$$1 is a dollar and a 1", regex::replace("ab", "(a)", "$$1"), "$1b");
+expect("a group that took no part is empty", regex::replace("a", "(x)?a", "[$1]"), "[]");
+expect("a group repeated gives its last", regex::replace("abc", "([a-c])+", "$1"), "c");
+expect("$10 is group 10", regex::replace("abcdefghij", "(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)", "$10$1"), "ja");
+throws("a group the pattern hasn't got", () -> regex::replace("ab", "(a)", "$2"), "regex: the replacement names group 2, and /(a)/ has 1");
+throws("even with no match", () -> regex::replace("zz", "a", "$1"), "regex: the replacement names group 1, and /a/ has 0");
+throws("$1 followed by a digit is one number", () -> regex::replace("ab", "(a)", "$10"), "regex: the replacement names group 10, and /(a)/ has 1");
+throws("a $ before anything else", () -> regex::replace("ab", "a", '$x'), 'regex: a \'$\' in a replacement names a group ($0, $1, ...): write $$ for a \'$\', at 0 in "$x"');
+throws("a $ at the end", () -> regex::replace("zz", "a", "costs 5$"), "regex: a '$' in a replacement names a group ($0, $1, ...): write $$ for a '$', at 7 in \"costs 5$\"");
+
+/* A function of the match's groups */
+expect("a function of the match", regex::replace("a1b22", '\d+', $g -> to_string(to_int($g[0]) * 2)), "a2b44");
+expect("is given every group", regex::replace("k=v", '(\w)=(\w)', $g -> to_string($g)), '["k=v", "k", "v"]');
+expect("a group with no part is null there", regex::replace("a", "(x)?a", $g -> type_of($g[1])), "null");
+expect("an empty match is replaced too", regex::replace("ab", "x*", $g -> "-"), "-a-b-");
+expect("its $ is text", regex::replace("ab", "a", $g -> "$1"), "$1b");
+throws("it must return a string", () -> regex::replace("ab", "a", $g -> 1), "regex: replace()'s function must return a string, not int");
+throws("a replacement is a string or a function", () -> regex::replace("ab", "a", null), "regex: replace() takes a string or a function, not null");

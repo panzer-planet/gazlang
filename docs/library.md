@@ -275,6 +275,19 @@ behind them:
   `round()` does and never by the platform's printf, which caps it at an int's worth of digits and
   18 decimals (`ponytail:`); every placeholder is read and the count checked before anything is
   formatted.
+- `regex.gaz`: **the shorthands are `chars.gaz`'s predicates**, called by the class that holds
+  them, so `\d`, `\w` and `\s` can't disagree with `chars::is_digit`, `is_alnum` and `is_space`;
+  ASCII bytes, so `\s` is space, tab, newline and carriage return, not a form feed. `\w` takes
+  `_` too, as every dialect's does and a name is made of. A shorthand can't end a range
+  (`[\d-z]`), being a set. **An escaped letter or digit is a shorthand, `\t`/`\n`/`\r`, or an
+  error**, so `\q` (or a future `\b`) can't quietly mean a letter; any other byte escaped is
+  itself. **`$N` in a replacement reads every digit that follows** (`$10` is group 10), and a
+  group the pattern hasn't got is an error, so `$1` and then a `0` is the function form's; a `$`
+  before anything but a digit or `$` is an error, never a literal. The replacement is read and
+  checked once, before the first match. **`$with` may be a function** of the match's groups (as
+  `regex::groups` gives them) that returns a string, for a replacement computed from the match;
+  its arity is the call's own error. Tested by `tests/gaz/lib/regex_test.gaz`, every shorthand in
+  each form against all 256 bytes.
 - `http.gaz`: the client and the server have [a page of their own](http.md).
 - `date.gaz` has no clock, since a program that asked one what day it is could not be recorded:
   every function is given the time.
