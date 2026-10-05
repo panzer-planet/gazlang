@@ -3,44 +3,37 @@
 [![CI](https://github.com/panzer-planet/gazlang/actions/workflows/ci.yml/badge.svg)](https://github.com/panzer-planet/gazlang/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
-**A scripting language that would rather stop than guess.**
-
-**Hostile input welcome.**
+**Gaz is a strict, self-hosting scripting language with SQL and HTML that can't be injected and regex that can't hang.**
 
 ```gaz
-kind NotFound extends Error {
-    fn _(pub string #item) {
-        ##_("no price for {$item}");
-    }
-}
+import "std/db.gaz";
+import "std/web.gaz";
+import "std/regex.gaz";
 
-fn price(map $prices, string $item): float {
-    return $prices[$item] ?? throw NotFound($item);
-}
+$db = db::open("sqlite::memory:");
+$db.run(db::sql"create table notes (body text)");
 
-fn label(float $amount): string {
-    return match {
-        $amount == 0.0 => "free",
-        $amount < 5    => "cheap",
-        default        => "$" .. $amount,
-    };
-}
+$hostile = "<script>alert(1)</script> '); drop table notes; --";
+$db.exec(db::sql"insert into notes (body) values ({$hostile})");
 
-$prices = {"coffee" => 4.5, "cake" => 6.0};
+$saved = $db.value(db::sql"select body from notes");
+echo web::html"<p>{$saved}</p>";
+echo $db.value(db::sql"select count(*) from notes") .. " note, table intact";
 
-foreach (["coffee", "cake", "tea"] as $item) {
-    try {
-        echo $item .. ": " .. (price($prices, $item) |> label);
-    } catch (NotFound $e) {
-        echo $e.message;
-    }
+echo regex::matches(repeat("a", 5000) .. "!", "(a+)+$");
+
+try {
+    echo "5" + 5;
+} catch (Error $e) {
+    echo $e.message;
 }
 ```
 
 ```
-coffee: cheap
-cake: $6.0
-no price for tea
+<p>&lt;script&gt;alert(1)&lt;/script&gt; &#39;); drop table notes; --</p>
+1 note, table intact
+false
+Cannot use + on string
 ```
 
 ## What's different
