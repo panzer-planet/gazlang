@@ -284,45 +284,36 @@ that must find nothing to do.
   way into `vm/build/std.c` (see `docs/library.md`): numbers only, so nothing to
   escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be.
 
-## Status and what is next
+## Open work is in GitHub Issues
+
+What is open lives in the repository's issues, not in these files: the roadmap, what waits for a
+program to ask for it, what isn't designed yet, known limits and the todo app's open friction.
+Each is one issue saying what is decided and what is open; the docs keep the rules and link the
+issue where a decided design waits to be built. `ponytail:` comments stay at the line they
+describe. To find it:
+
+```bash
+gh issue view 63                   # the pinned Roadmap: a checklist in build order
+gh issue list --label roadmap
+gh issue list --label limitation   # the kinds: roadmap, on-demand, not-designed, limitation, friction
+gh issue list --label http         # the topics: language, library, http, vm, tooling, todo-app
+```
+
+A new open item is filed as an issue with a topic and a kind label, never added as a list here;
+one on the roadmap goes on the Roadmap issue's checklist too.
+
+## Status
 
 - **The goal**: GazLang is the PHP Werner always wanted, for **web servers and CLI tools**, and
   the project succeeds when **one person besides him chooses to use it**. So work is ranked by
   what makes real web apps and CLI tools pleasant, then by what one stranger needs to find it,
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry and a playground wait for someone to ask).
-- **The roadmap**, in build order:
-  1. **Server-side TLS and HTTP/2** in `http::serve`, on its keep-alive.
-  2. **Regex shorthands and groups in a replacement**: `\d`, `\w`, `\s` and `$1` in `regex::replace`,
-     the two things every reader expects first. Still a Thompson NFA, so no backreferences or
-     lookaround.
-  3. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
-     original (`#cause`, printed under the trace).
-  4. **Interfaces**: `interface` and `implements` (reserved now), a parse-time check that a kind
-     has every method an interface names, with matching arities and types as an override's, and
-     `is_a($x, Shape)` true for an implementer. See "Decided, not built"; `final` follows with it
-     or after it.
-  5. **Enums**: a closed set of named values for a status or a kind of token, in place of string
-     constants that nothing checks. Not designed: whether a case is a value or an object, whether
-     it can carry data or methods, how `match` and `json::encode` see one, and what `type_of` says.
-     Typed fields and parameters (`Status $status`) should be the point, so a misspelt case is an
-     error when the program is read.
-  - **On demand**: dumping the raw bytes of a request that got a 500, to replay it (the small
-    version of record and replay); `parallel($thunks, $max)` over forked processes, giving plain
-    data only, its child raising `vm_process` as a worker does so the handles it inherited are
-    refused and abandoned (see `docs/http.md`); `std/money`, amounts as integer cents; shape
-    patterns in `match`, only with a syntax that can't be read as today's `==` arms (a map there
-    already means "equals this map"); `db::join($fragments, $separator)`, not designed yet, for a
-    bulk insert of many rows as one statement; lazy iteration (a
-    generator or an iterator protocol, so a large file or a result set needn't be a list first);
-    `multipart/form-data` for uploads (`http::form()` refuses anything but urlencoded); a child
-    process with pipes (`run()` waits for the end and returns everything); Unicode case mapping and
-    slicing by characters (`upper`/`lower` are ASCII, `len` counts bytes).
-  - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
-    `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
-    prevent the bug instead), contracts (types and a guard line cover them),
-    `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
-    and replay (for now).
+- **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
+  `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
+  prevent the bug instead), contracts (types and a guard line cover them),
+  `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
+  and replay (for now).
 - **`gaz test`** (`std/test.gaz`, `test::main()`): every check is one line, `ok ` or `FAIL `,
   which is what the runner counts, so a value's newlines on a FAIL line are escaped too.
   - **`throws` matches a kind exactly** (`kind_of($e) == $kind`), not by `is_a`: under `is_a`,
@@ -473,53 +464,13 @@ that must find nothing to do.
     is saved with a `.dir` file naming that directory, where `--shrink` runs it again. What a
     mutant imports is the files its bytecode's `@` lines name (as `gaz --watch` finds them, from
     an unsanitized `gaz -c`), not a regex following import lines.
-- **Known limits**:
-  - The self-hosted parser runs out of call depth on source nested past about 9000 levels
-    (recursive descent is about eleven calls a level), as an internal error. Its tree walks use
-    an explicit stack for that reason.
-  - A `make compiler` stage's own runtime errors name `vm/build/bootstrap/` as the source
-    directory, since bytecode paths resolve against the bytecode file; the lines are right.
-  - A main file given by an absolute path through a symlinked directory (macOS's `/var`) gives
-    import locations that climb to the root and back through the real path.
-  - The keyword hint misses `IF (1) { }`, where the error lands at the `{`, past the name.
-  - Naming a private INSTANCE method through a kind's name (`Tally::m()`, where `m` is a method
-    of `Counter` and not a static one) says `Counter::m is not pub`, when the real mistake is that
-    `m` is not a static member.
-- **Language gaps**, closed in the order real code shows what shape each needs:
-  - Appending to a list parameter changes only the call's copy. **A parameter whose every use
-    in the body is a write through an index is a parse error** (`fn add_to($l) { $l[] = 1; }`,
-    `check_lost_writes()` in `parser.gaz`, at the first such write), in functions, methods and
-    lambdas. Conservative on purpose: any other use (`return $l`, a read, a reassignment) lets it
-    pass, and a path with a field in it (`$bag.items[] = 1`, `$rows[0].n = 1`) is never noted,
-    since it could reach an object. `ponytail:` `$l[] = len($l);` with no other use still passes.
-    Mutable state belongs in an object, or, for closures, in a `shared` variable. Explicit
-    by-reference parameters stay refused ("values, not references": a parameter would alias the
-    caller's variable).
-  - A private field can't be set from outside its kind, so restoring saved state (a played match's
-    score, a league's fixtures) takes a static factory written in the kind (`Fixture::played()`,
-    `League::from_json()`); there is no way to construct an object with some fields already set.
-  - `$obj.$name` (dynamic member access; `lib/sorting.gaz` can sort maps but not objects).
-  - `kind_of` is strict, so a pass over a tree with absent children needs a `type_of` check
-    first; if that recurs, make it lenient.
-  - Scanning bytes: `$s[$i]` makes a one-byte string (shared in C) and there is no `byte_at` or
-    "index of the first byte in this set". `chars::span($s, $i, $predicate)` is "consume while
-    this holds" (the length of the run at `$i`, a GazLang loop calling the predicate) and
-    `starts_with($s, $prefix, $offset)` asks what is at a position without a slice. The
-    self-hosted lexer still spells out comparisons and walks local indexes; measure on the C VM
-    whether that still pays.
-  - `Error`'s members are reserved across its children, so a domain error can't declare its
-    own `#line` or `#message`.
-  - No copy-with-change for objects, no `catch (A | B $e)`.
-  - `match ($x)` is a linear chain of `EQUALS`; no jump table.
-  - No enum (roadmap item 5); the lexer's token types stay strings on purpose, being the
-    `--tokens` format.
 - **Before changing `lib/http.gaz` or `vm/workers.c`, read `docs/http.md`**: the HTTP client and
   server (prefork `workers()` processes, keep-alive and the idle connection's yield, the worker
   hand-over, decoding, routing, sessions, middleware) and the rules each keeps, such as refusing
   both `Content-Length` and `Transfer-Encoding`, and a handle made before `workers()` being
   abandoned, never closed, by the processes that inherit it.
-- **Decided, not built** (roadmap item 4): `interface`/`implements` (a parse-time check
-  that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
+- **Interfaces are decided, not built** ([#8](https://github.com/panzer-planet/gazlang/issues/8)): `interface`/`implements` (a
+  parse-time check that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
   bytecode, while a method block stays `Kind.method`, which is what lets the loader tell the two
   apart. Resolution is one pass before anything else is checked, so nothing below it knows
@@ -580,7 +531,7 @@ that must find nothing to do.
     `#NAME[0] = 1` is.
   - A bound static (`#next` as a value) would be the same value as `Counter::next` by another
     spelling, so it waits for a program that wants it.
-- **Packages: git only to begin, not built.** A package is a directory of GazLang source (no C,
+- **Packages: git only to begin, not built** ([#32](https://github.com/panzer-planet/gazlang/issues/32)). A package is a directory of GazLang source (no C,
   so one binary and a C compiler stay the whole install; no bytecode, which has no compatibility
   promise), a git repository with version tags. A project has `gaz.json` (its name and
   `"requires": {"router": "github.com/someone/gaz-router@1.2.0"}`), `gaz.lock` (the exact commit
@@ -604,12 +555,6 @@ that must find nothing to do.
   - **The binary is `gaz`**, built by `make` with `bin/gazlang` a link to it for old scripts. The
     language stays GazLang, and so do the compiler's own names (`namespace gazlang`,
     `compiler/gazlang.gaz`, `gazlang.gzb`).
-- **Not yet designed**, each built when real code shows what it needs: traits, late static
-  binding, operator overloading, `log`/`exp`/fractional powers (each wants an algorithm GazLang
-  defines, as `round` has), variadic parameters and spread in calls (pass a
-  list), `foreach` over a string (`split($s, "")`), `import "x" as ns` (renaming a namespace
-  where it is imported). A REPL is possible and wanted: see "A real
-  REPL" in `docs/vm.md`.
 - **Regular expressions**: `lib/regex.gaz`, a Thompson NFA (Pike's VM) so there is no
   backtracking and no ReDoS. **Perl's match**: threads run in priority order carrying their group
   slots (`save` instructions), and one reaching `match` drops the threads after it while those
@@ -618,8 +563,8 @@ that must find nothing to do.
   that took no part as null since `""` can't be told from an empty capture, a repeated one's last.
   `ponytail:` an empty iteration of a starred group dies at the loop, so `(a*)*` reports its group
   as null where Perl says `""`; no `$1` in replacements or a function for `$with`, no
-  backreferences, no `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named functions) —
-  add them if a program needs one.
+  backreferences, no `\d`/`\w`/`\s` shorthands (`lib/chars.gaz` has those as named functions);
+  the shorthands and `$1` are [#6](https://github.com/panzer-planet/gazlang/issues/6).
 
 # The language
 
@@ -743,6 +688,15 @@ Names are ASCII.
   name and argument count once the whole program is read, so the VM trusts calls. A default is
   evaluated inside the function, so it sees earlier parameters and a `[]` default is never
   shared; the arity is then `[required, total]`.
+- **Appending to a list parameter changes only the call's copy**, so a parameter whose every use
+  in the body is a write through an index is a parse error (`fn add_to($l) { $l[] = 1; }`,
+  `check_lost_writes()` in `parser.gaz`, at the first such write), in functions, methods and
+  lambdas. Conservative on purpose: any other use (`return $l`, a read, a reassignment) lets it
+  pass, and a path with a field in it (`$bag.items[] = 1`, `$rows[0].n = 1`) is never noted,
+  since it could reach an object. `ponytail:` `$l[] = len($l);` with no other use still passes
+  ([#39](https://github.com/panzer-planet/gazlang/issues/39)). Mutable state belongs in an object,
+  or, for closures, in a `shared` variable. Explicit by-reference parameters stay refused ("values,
+  not references": a parameter would alias the caller's variable).
 - `return` outside a function is a parse error; no return gives `null`. Variables holding `null`
   are still defined.
 - Calls are capped at 100000 deep (`MAX_CALL_DEPTH` in `gazvm.h`), a catchable GazLang error.

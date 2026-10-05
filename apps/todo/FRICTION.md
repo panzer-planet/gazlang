@@ -11,7 +11,8 @@ Ordered by how much each would matter to a stranger writing their first web app.
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
 (handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), and
 the redirect, the timestamps, the due dates and the CSRF field in 10. Half done: 9 (decoding needs no
-`try`; the request is still parsed twice). Open: 6, 7, 8, the rest of 9, and the rest of 10.
+`try`; the request is still parsed twice). Open: 6, 7, 8, the rest of 9, and the rest of 10, each
+linking the issue that tracks it (label `todo-app`).
 
 ## What worked, so it is not lost
 
@@ -99,7 +100,7 @@ on the shared socket.
   worker then left `http::serve()`, and the master was gone 3 seconds after the signal. Only a
   query still running when the 10 second grace ends is killed, which is what the grace is for.
   Still open: a master killed with SIGKILL leaves its workers running (macOS has no
-  `PR_SET_PDEATHSIG`).
+  `PR_SET_PDEATHSIG`; [#61](https://github.com/panzer-planet/gazlang/issues/61)).
 
 ## 4. No UTF-8 validation, and `len()` counts bytes (resolved)
 
@@ -130,7 +131,7 @@ connection's address is the proxy's.
   own email and address's failures, so a guesser can't reset its address's count by logging into an
   account of its own. The per-email limit is gone, and with it the lock-out a stranger could cause
   (`TRUSTED_PROXIES` names the proxies in front).
-- **Left**: many addresses against one email are slowed only by Argon2id (a slower per-email limit
+- **Left** ([#62](https://github.com/panzer-planet/gazlang/issues/62)): many addresses against one email are slowed only by Argon2id (a slower per-email limit
   or a captcha would close it); trusted proxies are exact addresses, no CIDR ranges.
   `http::rate_limit($key, $per_minute)` still needs shared state across workers, which means a
   table, a file or a store the library doesn't have, so the counting stays the app's. Lowering the
@@ -141,7 +142,7 @@ connection's address is the proxy's.
   A constant's name alone in braces now interpolates it, and a name there that isn't a constant is
   an error when the program is read.
 
-## 6. Calling a handler's helpers needs a test client that doesn't exist
+## 6. Calling a handler's helpers needs a test client that doesn't exist  (open: [#48](https://github.com/panzer-planet/gazlang/issues/48))
 
 The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 122 lines with the test database): it builds
 request maps, keeps the cookies a response sets, form-encodes bodies, and finds the CSRF token in a
@@ -152,7 +153,7 @@ lower-cased `headers`, `body`) is only written down in `http.gaz`'s source.
 - **Options**: `http::client_for($handler)` giving something with `get`/`post`/cookies in the
   library (`std/test.gaz` is the neighbour), and the request map documented in `docs/language.md`.
 
-## 7. Routes are wrapped one at a time
+## 7. Routes are wrapped one at a time  (open: [#49](https://github.com/panzer-planet/gazlang/issues/49))
 
 `authenticated($handlers.create)` is written on 6 of the 11 routes. `Router.use` applies to every
 route, so a group of routes with a requirement has no home.
@@ -161,7 +162,7 @@ route, so a group of routes with a requirement has no home.
 - **Options**: a second argument or a method on routes (`$app.get($path, $handler, [$middleware])`),
   or `$app.group($middleware, $routes)`. The wrapper is five words, so this is the least urgent.
 
-## 8. Files are found from the working directory, and a program can't ask where it is
+## 8. Files are found from the working directory, and a program can't ask where it is  (open: [#50](https://github.com/panzer-planet/gazlang/issues/50))
 
 An `import` is from the file's own directory or project root, but `read_file()`, `list_dir()` and `serve_static()` are
 relative to where the program was started, and nothing says where the main file is
@@ -190,7 +191,7 @@ have caught running out of call depth.
   error. Both wrappers are gone, and `http::csrf()` lost its own `try`. Checking the library for the
   same shape found `http::session()` decoding every cookie, so a stray `%` in any cookie on the
   domain made every request a 500; it now decodes only its own.
-- **Today**: parse twice.
+- **Today**: parse twice (open: [#51](https://github.com/panzer-planet/gazlang/issues/51)).
 - **Options**: the middleware stores `$request["form"]` once.
 
 ## 10. Smaller things
@@ -199,7 +200,7 @@ have caught running out of call depth.
   every app would have written `{"status" => 303, "headers" => {"Location" => $to}, "body" => ""}` itself.
 - **PostgreSQL NOTICEs** go to standard error and can't be quieted: `create table if not exists`
   and `truncate ... cascade` print a line each, on every start and between test checks.
-  The driver could set `client_min_messages = warning` on connect.
+  The driver could set `client_min_messages = warning` on connect ([#52](https://github.com/panzer-planet/gazlang/issues/52)).
 - **Timestamps** (resolved: `date::parse()`, `date::zone()` and `Zone.at()`) arrive as text in the
   server's time zone (`"2026-10-01 14:04:27.78+02"`), which `date.gaz` couldn't read or show in
   another zone. The todo list now shows when each was added, in the zone `TIME_ZONE` names.
@@ -211,36 +212,39 @@ have caught running out of call depth.
   $seconds)` every time a reading is (none, one or two), so the form resolves as an alarm clock would
   and says which happened. Still the app's: writing a time back as the field reads it
   (`date::iso($moment.days) .. "T" .. $moment.short_clock()`, with the seconds when there are some);
-  a `Moment.reading()` writer would be the pair to `parse_reading()` if a second form wants one.
+  a `Moment.reading()` writer would be the pair to `parse_reading()` if a second form wants one
+  ([#53](https://github.com/panzer-planet/gazlang/issues/53)).
 - **Timestamps go in and out of PostgreSQL by hand**: the driver has no time type, so a due time is
   written as `to_timestamp({$due_at})` and read as `floor(extract(epoch from due_at))::bigint`, where
   `created_at` is read as text and parsed. Either works; a column the driver turned into an int (or
-  a `Moment`) would remove the casts.
+  a `Moment`) would remove the casts ([#54](https://github.com/panzer-planet/gazlang/issues/54)).
 - **A page that depends on the time is tested around the clock, not with it**: the list reads
   `time()` once per request and passes it to the template, so overdue marking is tested by rendering
   the template with a fixed time, and through the router only with due dates far in the past or the
-  future. A clock in `Config` (a function, `time` by default) would let the router tests fix it too.
+  future. A clock in `Config` (a function, `time` by default) would let the router tests fix it too
+  ([#55](https://github.com/panzer-planet/gazlang/issues/55)).
 - **Database errors are strings**, so tests assert on their words
   (`postgres: duplicate key value violates unique constraint "users_email_key"`), which is fragile
-  across PostgreSQL versions and has no SQLSTATE to match on.
+  across PostgreSQL versions and has no SQLSTATE to match on ([#56](https://github.com/panzer-planet/gazlang/issues/56)).
 - **`@csrf`-shaped repetition in templates** (resolved: `web::csrf_field($csrf)`):
   `<input type="hidden" name="_csrf" value="{{ $csrf }}">` was written by hand in 7 places, two of
   them inside the todo list. Each form now writes `{{ web::csrf_field($csrf) }}`, so the field's name
   and escaping are the library's, and the app's test still checks each form carries the token. Still
   open: the filter's `<input type="hidden" name="show" ...>` repeats in the same three forms, since a
   redirect after a POST has nothing else to go back to, and a page of 40 todos still carries 82
-  tokens; a form that forgets the helper is still the template's mistake to make.
+  tokens; a form that forgets the helper is still the template's mistake to make ([#57](https://github.com/panzer-planet/gazlang/issues/57)).
 - **Every first visit gets a session cookie, even for the stylesheet or a 404.** `http::sessions()`
   creates the CSRF token as soon as a request has no cookie, and writes it back, so a visitor's
   first response always carries a `Set-Cookie` (checked: `/style.css`, `/login` and a 404 all do), and
   so does a bot's. A shared cache won't keep a response that sets a cookie. Options: make the token
   lazy, made only when a handler asks for it (so `$request["session"]` is read-only until something
-  needs a token, and only then written); or leave sessions off the static routes.
+  needs a token, and only then written); or leave sessions off the static routes ([#58](https://github.com/panzer-planet/gazlang/issues/58)).
 - **An attribute can't be left out by a value**: `{{ }}` writes a value, so the selected filter link
   is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
   is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute
-  would read better, and templates are frozen until the app has used them more.
-- **Static files** have no `Cache-Control`/`ETag`, so every page load refetches the stylesheet.
+  would read better, and templates are frozen until the app has used them more ([#59](https://github.com/panzer-planet/gazlang/issues/59)).
+- **Static files** have no `Cache-Control`/`ETag`, so every page load refetches the stylesheet
+  ([#60](https://github.com/panzer-planet/gazlang/issues/60)).
 - **No access log**: `http::serve` prints errors and nothing else (it is on the roadmap as a line per
   request "when a program asks"). Checking the live server, the only record of what was asked
-  and answered was the client's own; the server's side was silent unless something failed.
+  and answered was the client's own; the server's side was silent unless something failed ([#21](https://github.com/panzer-planet/gazlang/issues/21)).

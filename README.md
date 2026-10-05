@@ -309,8 +309,10 @@ Run `php vm/bench.php 7` to measure on your own machine.
   login and todos on PostgreSQL, with [a log of the friction](apps/todo/FRICTION.md).
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit together, the build,
   and how to work on them.
-- **[CLAUDE.md](CLAUDE.md)** — the rules, the reasons behind each design decision, and what is
-  still open. The most interesting file here if you like language design.
+- **[CLAUDE.md](CLAUDE.md)** — the rules and the reasons behind each design decision. The most
+  interesting file here if you like language design.
+- **[Issues](https://github.com/panzer-planet/gazlang/issues)** — what is still open, starting with
+  [the roadmap](https://github.com/panzer-planet/gazlang/issues/63).
 
 ## License
 

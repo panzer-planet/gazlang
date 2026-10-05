@@ -300,10 +300,3 @@ behind them:
   compares them; `tui.gaz` draws into a `Screen`, a grid that `render()` diffs against what it last
   drew, so a program redraws it all every frame and a test reads `lines()` without a terminal.
 - Scan long strings with `index_of`, not a character at a time.
-
-## Next, when a program asks
-
-- `quote($value)` as a builtin (`value.c` has the function): `text::quote()` in `lib/text.gaz`
-  is the idiom `slice(to_string([$x]), 1, -1)` with a name, used by the library, `lib/test.gaz`
-  and the compiler. A builtin takes its name from every program, so it waits for a program that
-  needs the speed or the bare name.

@@ -171,7 +171,7 @@ FFI, since converting values per call costs more than an instruction.
 
 ## A real REPL, not built
 
-**A real REPL is possible, not built**, and nothing decided rules it out; what stands in the way
+**A real REPL is possible, not built** ([#33](https://github.com/panzer-planet/gazlang/issues/33)), and nothing decided rules it out; what stands in the way
 is that everything assumes a whole program. It would take: a session mode in the compiler (the
 parser keeps its function, kind, constant and namespace tables between entries, the code
 generator keeps the top level's slot map and the global slots, and each entry compiles as a

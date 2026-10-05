@@ -12,7 +12,7 @@ linked by default and optional (`make TLS=0`), so the bootstrap still needs only
 Not curl through `run()`: a process per request, the headers visible in `ps`, and curl as a
 runtime dependency; not TLS of our own, which would be thousands of lines of crypto whose bugs
 no output shows. Client keep-alive, proxies, compression and HTTP/2 wait for a program that
-needs them.
+needs them ([#19](https://github.com/panzer-planet/gazlang/issues/19)).
 
 - `http.gaz`'s client: `HttpTest` runs it against `tests/fixtures/http_server.php`, over TCP and
   TLS, which writes framing out by hand so it can get it wrong on purpose; ports vary, so what it
@@ -143,12 +143,12 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
 
 ### Not built: jitter and a pool that grows
 
-- **`"max_requests"` jitter, not built**: workers under an evenly spread load retire together; the
+- **`"max_requests"` jitter, not built** ([#23](https://github.com/panzer-planet/gazlang/issues/23)): workers under an evenly spread load retire together; the
   hand-over means that no longer leaves the pool short, only their start-up work lands at once,
   which matters only to an app whose start-up is heavy. If wanted, it is library code:
   `"max_requests"` taking `[$min, $max]`, each worker drawing `rand_int($min, $max)` once (each is
   already reseeded from OS entropy by `fork_worker()`).
-- **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)**,
+- **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)** ([#24](https://github.com/panzer-planet/gazlang/issues/24)),
   the one real capability gap against FPM's process manager. The master knows only whether a
   worker is alive, has started or retires, not whether it is idle in `socket_accept()` or busy,
   since workers race to accept with no coordination through it. Scaling needs the `Slot` to hold
@@ -229,14 +229,5 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   is fixed; while workers drain, new connections queue in the listener's backlog (the master
   holds it too) and are reset when the program ends, where closing the listeners first would
   need `workers()` to know which sockets are listeners; a master killed with SIGKILL leaves its
-  workers running (Linux's `PR_SET_PDEATHSIG` would end them, macOS has nothing like it).
-
-## Next, when a program asks
-
-The order they would be built in:
-
-- A measurement against `php-fpm` behind nginx, with a real worker pool on either side (against
-  PHP's built-in server, `workers(1)`, gaz ties PHP with opcache and JIT except on a tight
-  arithmetic loop).
-- An access log line per request
-  (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
+  workers running (Linux's `PR_SET_PDEATHSIG` would end them, macOS has nothing like it;
+  [#61](https://github.com/panzer-planet/gazlang/issues/61)).

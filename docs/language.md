@@ -687,7 +687,7 @@ comment, it can't appear in a docblock's text.
 The keywords are `echo if else while for foreach as break continue fn return null delete match
 default const import try catch finally throw true false kind extends abstract namespace use pub
 kin static shared`. `interface`, `implements` and `final` are reserved for features decided but
-not built, and `include` stays a keyword so that writing it says to write `import`. Other
+not built ([interfaces](https://github.com/panzer-planet/gazlang/issues/8)), and `include` stays a keyword so that writing it says to write `import`. Other
 languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
