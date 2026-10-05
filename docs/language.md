@@ -31,12 +31,14 @@ multi-way branch — read as themselves rather than as nested calls or `if`/`els
   `to_int("0x1F")` are errors, as any other text that isn't decimal is.
 - **Floats**: `1.5`, `2e-3`, `3E+2`. Always finite; there is no INF or NAN. A float needs
   digits on both sides of the dot, so `1.` and `.5` are errors. Printing gives the shortest
-  digits that read back as the same float (`0.30000000000000004`, `1.0`, `-0.0`).
+  digits that read back as the same float (`0.30000000000000004`, `1.0`, `-0.0`). A result too
+  large to hold is a `Float overflow` error. A float can't be a key, an index or a string position.
 - **Strings**: byte strings, so `len("é")` is 2 and `upper` is ASCII. UTF-8 passes through
   untouched, and `utf8_valid`, `utf8_length` and `utf8_chars` read it as characters (see "Builtins").
 - **Booleans**: `true` and `false`. A bool is not a number: `true == 1` is false, and
   `true + 1` is an error. Use `to_int(true)`.
 - **`null`**: a keyword. It equals only itself, so `null == 0` and `null == false` are false.
+  Arithmetic, ordering and unary `-` on it are errors; `echo null` prints `null`.
 - **Lists, maps, functions, kinds and objects**, below.
 
 `type_of($x)` gives `int`, `float`, `string`, `bool`, `null`, `list`, `map`, `function`,
@@ -100,14 +102,20 @@ echo "{$user.name} owes {@total + 1}";
 Braces interpolate any expression that **starts with a sigil** — `{$…}`, `{@…}`, `{#…}`.
 Anything else is literal, so `{round($n, 2)}` prints as written; assign it to a variable first,
 or start the expression with a sigil and call from there (`{$o.shout() .. to_string($n)}`).
-A lone `$`, `$5` and `me@example.com` are all literal too.
+A lone `$`, `$5`, `me@example.com` and `{ $x}` are all literal too.
+
+The index after a bare name is `[0]`, `[-1]`, `[$i]` or `[key]`, read as the string `"key"`
+(`[01]` is the string `"01"`). `#` and a property path interpolate only inside braces, so
+`"#fff"` and `"$file.txt"` stay text, but `{#` starts an expression anywhere: outside a method,
+write `\{#` or use single quotes.
 
 The reason: `{` has to stay literal so a string holding JSON, CSS or braces needs no escaping,
 so only `{$`, `{@` and `{#` start an expression. Once one has started, anything goes inside the
 braces: `{$n + 1}` works.
 
 Escapes in `"..."`: `\n \t \r \v \f \e \0 \\ \" \$ \{`, `\xHH` (exactly two hex digits) and
-`\u{H…}` (1 to 6 hex digits, written out as UTF-8). Any other escape is an error.
+`\u{H…}` (1 to 6 hex digits, up to `10FFFF` and no surrogates, written out as UTF-8). Any other
+escape is an error, and so is `\0` right before a digit.
 
 `..` concatenates, converting each side the way `echo` does, so `"x" .. true` is `"xtrue"` and
 `1 .. 2` is `"12"`. `..=` appends.
@@ -235,14 +243,17 @@ and the right side of `??`, and its operand runs as far right as it can.
 - `**` raises to a power, by multiplying (square-and-multiply), never a library's `pow`, so every
   platform gives the same bits. An int to an int of 0 or more is an exact int, and `Integer
   overflow` when it doesn't fit, never a float. Otherwise the result is a float: a negative
-  exponent is one divided by the power (`2 ** -1` is `0.5`), and a float on either side works if
+  exponent is one divided by the power (`2 ** -1` is `0.5`, a power too small to hold is `0.0`,
+  and `0 ** -1` is `Division by zero`), and a float on either side works if
   the exponent is a whole number (`2 ** 3.0` is `8.0`); `4 ** 0.5` is an error, since a fractional
   power needs a defined algorithm GazLang doesn't have yet (`sqrt()` is the square root). It
   binds tighter than a unary operator on its left and looser than one on its right, and is right
   associative: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is
   `512`.
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
-  There is no `===`. Ordering a string against a number is an error.
+  There is no `===`. Ordering a string against a number is an error. Strings compare byte by
+  byte (`"10" < "9"`), and numbers by their exact value, so `9007199254740993 !=
+  9007199254740992.0`.
 - `<=>` gives -1, 0 or 1, for comparison functions.
 - Lists order element by element: the first pair that differs decides, and a shorter list the
   other starts with comes first (`[1, 2] < [1, 3]`, `[1] < [1, 0]`). That makes a sort by
@@ -250,10 +261,14 @@ and the right side of `??`, and its operand runs as far right as it can.
   way: `sort($teams, ($a, $b) -> [$b.points, $a.name] <=> [$a.points, $b.name])` is most points
   first, then by name. Maps can't be ordered.
 - `&& || !` short-circuit and return real booleans. A number is true unless it is zero, and a
-  string is true unless empty — so `"0"` is true.
+  string is true unless empty — so `"0"` is true. An empty list or map and `null` are false;
+  functions and objects are always true.
 - `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63.
+  `>>` keeps the sign, `~$x` is `-$x - 1`, and bits shifted off the top by `<<` are gone (`1 << 63`
+  is the smallest int). There is no `>>>`.
 - `$a ?? $b` gives `$a` unless it is null or missing; an undefined variable or a missing key on
-  its left is `null` rather than an error. `0`, `false` and `""` are kept.
+  its left is `null` rather than an error, and so is indexing something missing. `0`, `false` and
+  `""` are kept.
 - `|>` passes the value on its left to the call on its right, as the **first** argument:
   `$x |> f(a, b)` is `f($x, a, b)`, `$x |> f` is `f($x)`, and `$x |> $g` is `$g($x)`. Names with
   `::` and kinds work as their calls do (`$data |> json::encode`, `$x |> Point`), and a
@@ -300,7 +315,8 @@ $kind = match {
 ```
 
 Either way there is no fallthrough, arms are tried in order, only the values before the
-matching one are evaluated, and nothing matching with no `default` is an error. Written as a
+matching one are evaluated, and nothing matching with no `default` is an error (`No arm matches
+"x"`, or `No arm matched` without a subject). `default` must be the last arm. Written as a
 **statement**, an arm's body may be a block:
 
 ```gaz
@@ -594,10 +610,14 @@ try {
   lambda's body. Its operand is a whole expression and runs as far right as it can (`throw $a ??
   $b` throws whichever is there). As the operand of a tighter operator it needs parentheses:
   `$ok || (throw "failed")`.
-- **`#trace`** is the calls that were running, innermost first, as a list of strings. An
-  uncaught error prints it under the message.
+- **`#trace`** is the calls that were running, innermost first, as a list of strings, each the call
+  and where it was (`"inner at fib.gaz:3"`, `"top level at fib.gaz:7"`): a function by name, a
+  method `Kind.name`, a constructor `Kind._`, a lambda `->`. A deep trace keeps the innermost and
+  outermost 10 around `... N more`. An uncaught error prints it under the message, unless it is a
+  single call. `#file` is `null` for piped source.
 - **`finally`** runs however the block is left, including on `return`, `break` and `continue`.
-- **`exit($code)`** is not an error and `try` does not see it.
+- **`exit($code)`** ends the program at once with a code from 0 to 255, running no `finally`. It
+  is not an error and `try` does not see it.
 
 ## Comments
 
@@ -715,7 +735,7 @@ or a socket can hold any bytes, and a database or a JSON document refuses what i
 | `to_string($x)` | `$x` as text, as `echo` writes it |
 | `floor($x)` | The nearest whole number at or below `$x`, as a float |
 | `ceil($x)` | The nearest whole number at or above `$x`, as a float |
-| `round($x, $precision = 0)` | `$x` rounded to `$precision` decimal places, as a float |
+| `round($x, $precision = 0)` | `$x` rounded to `$precision` decimal places, as a float; halves round away from zero (`round(1.005, 2)` is `1.01`), and a negative precision rounds to tens, hundreds... |
 | `abs($x)` | `$x` without its sign, an int for an int and a float for a float |
 | `intdiv($a, $b)` | `$a` divided by `$b` as an int, the fraction dropped |
 | `sqrt($x)` | The square root, as a float |
@@ -730,7 +750,8 @@ that isn't a number, or a float too large for an int, is an error; with one, it 
 default: `to_int($arg, null) ?? 1`; a
 null, list or map is an error either way), `to_string`, `floor`, `ceil`, `round($x, $precision)`,
 `abs`, `intdiv`, `sqrt` (a float; a negative number is an error), `min($a, $b)`, `max($a, $b)`, and `min($list)`, `max($list)` and `sum($list)`
-over a list's or map's values (`sum([])` is 0; `min` and `max` of nothing is an error; `sum`
+over a list's or map's values (`sum([])` is 0; `min` and `max` take all numbers or all strings,
+a tie giving the first, and of nothing is an error; `sum`
 adds with `+`, so an int overflowing or a string in the list is `+`'s error).
 
 ### Lists and maps
@@ -1574,9 +1595,10 @@ resolved, since a namespace holds no namespace: inside `namespace gazlang`, `Tok
 `gazlang::Token::EOF`, while `json::decode` is already what it means.
 
 A namespace's own name wins over a builtin of that name inside it, so declaring
-`pub fn values()` in `namespace sorting` makes `values($x)` mean `sorting::values($x)` in that
-file and the files that import it; write `sorting.gaz`'s own calls to the builtin as they are
-meant, or pick another name.
+`pub fn values()` in `namespace sorting` makes `values($x)` mean `sorting::values($x)` in the
+namespace's own files (a file that imports it still gets the builtin, and writes
+`sorting::values`); write `sorting.gaz`'s own calls to the builtin as they are meant, or pick
+another name.
 
 `::` resolves a name and `.` goes through a value, so `json::decode` and `Token::EOF` are names
 the parser works out, and `$reader.decode` is a member of whatever `$reader` holds. A `:`
@@ -1695,10 +1717,14 @@ echo web::html"<a href=\"{$url}\">profile</a> <a href=\"/search?q={$tab}\">searc
 <a href="about:invalid#blocked">profile</a> <a href="/search?q=a%20b%26c">search</a>
 ```
 
-A value goes **nowhere else**: in an unquoted attribute, in `<script>` or `<style>` (or the other
-elements whose content is raw text), in an event handler (`onclick`) or a `style`, `srcdoc` or
-`srcset` attribute, in a tag or attribute name, right after a `<`, or in a URL that loads code or a
-document (`<script src>`, an svg `<script href>`, `<iframe src>`, `<link href>`, `<base href>`) is an error that says why, since
+A value goes **nowhere else**: in an unquoted attribute, in `<script>`, `<style>`, `<xmp>`,
+`<iframe>`, `<noembed>`, `<noframes>` or `<plaintext>`, in an event handler (`onclick`) or a
+`style`, `srcdoc`, `srcset` or `ping` attribute, in a tag or attribute name or between attributes,
+in an end tag or a declaration, right after a `<`, `</`, `<!` or `<!-`, inside the end tag of a
+`<textarea>` or `<title>`, in a URL whose text already starts with another scheme
+(`href="javascript:{$x}"`), or in a URL that loads code or a document (`<script src>`, an svg
+`<script href>`, `<iframe src>`, `<frame src>`, `<embed src>`, `<object data>`, `<link href>`,
+`<base href>`) is an error that says why, since
 HTML escaping doesn't make a value safe there. So is a value that could be part of a URL's scheme:
 text before it with no `/`, `?`, `#` or `:` between (`href="java{$x}"`), two values side by side at
 the start, or text right after a first value that begins with a `:` or an `&` (`href="{$scheme}:{$rest}"`,
@@ -1720,8 +1746,8 @@ checked by the program.
 no path to this repository: `import "std/json.gaz";`. A path that starts with `std/` is the
 library, not a directory (write `./std/x.gaz` for a directory of your own by that name). Every file
 in `lib/` declares a namespace, so its names are reached with `::`; everything in `lib/` is written in
-GazLang. A file of the library imports its neighbours as any file does (`import "./chars.gaz";`),
-and under `GAZLIB` a file of that directory is the library's own module however it is imported.
+GazLang. A file of the library imports its neighbours by their `std/` name (`import "std/chars.gaz";`), so
+a test that loads one by its path shares its imports with the built-in library; under `GAZLIB` a file of that directory is the library's own module however it is imported.
 Errors in it are located as `<std>/json.gaz:83`. While working on the library itself, `GAZLIB=lib`
 makes `std/` read that directory instead of the built-in copy, so an edit needs no rebuild.
 
@@ -1729,7 +1755,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | --- | --- |
 | `sorting.gaz` | `sorting::values`, `sorting::by` |
 | `lists.gaz` | Plain functions over plain lists, the list always first so each reads well after `\|>`; a key or predicate function is called once per element, with the element alone (`map()` and `filter()` pass an index too, these don't). `lists::flatten($lists)` (one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order), `lists::group_by($xs, $key)` (a map from each key, an int or a string, to the list of elements with it, in the order the keys first come), `lists::count_by($xs, $key)` (the same with counts), `lists::partition($xs, $predicate)` (`[$matching, $rest]`), `lists::chunk($xs, $size)`, `lists::zip($a, $b)` (pairs, as many as the shorter list has), `lists::take($xs, $n)` and `lists::drop($xs, $n)` (`$n` is 0 or more; more than the list has is fine), `lists::pluck($xs, $key)` (that key of each map), `lists::sum_by($xs, $key)`, `lists::avg($xs)` and `lists::avg_by($xs, $key)` (a float; an error for an empty list), `lists::first($xs)` (an error for an empty list, as `last()` is), `lists::find($xs, $predicate)` (the first element it is true for, or `null`) and `lists::contains_by($xs, $predicate)` |
-| `text.gaz` | `text::quote($value)`: a value as the literal that reads back as it, for a message (a string quoted, so a space or a NUL byte shows); `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input; `text::indentation($line)`: how many spaces and tabs a line starts with, and `text::unindented($line)` the line without them |
+| `text.gaz` | `text::quote($value)`: a value as the literal that reads back as it, for a message (a string quoted, so a space or a NUL byte shows); `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input; `text::indentation($line)`: how many spaces and tabs a line starts with, and `text::unindented($line)` the line without them; `text::trim_start($s, $chars)` and `text::trim_end($s, $chars)`, `trim()`'s two halves (whitespace unless `$chars` names the bytes) |
 | `json.gaz` | `json::decode`, `json::encode`; JSON is UTF-8, so decoding refuses a document that isn't well formed UTF-8 or that escapes half a surrogate pair, and encoding refuses a string or key that isn't well formed UTF-8; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)` and `db::ident($name)`; see "Databases" under Builtins |
@@ -1738,7 +1764,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `fs.gaz` | Files and directories for command line tools: `fs::copy($from, $to, $keep_time = false)` (the mode kept, and the modification time with `true`), `fs::copy_tree($from, $to)` (files, directories and their modes, and links as links; gives the paths of what is none of those, a pipe or a socket), `fs::walk($dir)` (every path below, links listed and never followed), `fs::glob($pattern)` (`*`, `?`, `[a-z]`, `**`), `fs::write_atomic($path, $data)` (synced, renamed into place and the directory synced, so it is the old file or the new one even after a power cut), `fs::remove_tree($path)`, `fs::touch($path)`, `fs::temp_dir($prefix)` (its owner's alone) and `fs::parent($path)` |
 | `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%o` (an int of 0 or more, octal, so a mode `0o755` is `755`), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f`, `%x` or `%o` can't take, and a placeholder it doesn't know are errors |
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
-| `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
+| `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, [$kind,] $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
 | `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough); see "Templates" |
 | `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a date is a plain number of days, so a program that needs today's date works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed dates |
