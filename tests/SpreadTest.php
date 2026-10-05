@@ -115,8 +115,7 @@ class SpreadTest extends GazLangTestCase
         return [
             'in a call' => ['echo len(...$a);', '... only spreads into a list or map literal, as in [...$a, 1] or {...$m, "k" => 1} on line 1'],
             'alone' => ['$x = ...$a;', '... only spreads into a list or map literal, as in [...$a, 1] or {...$m, "k" => 1} on line 1'],
-            'a rest pattern' => ['[$a, ...$b] = [1, 2];', "A pattern can't take the rest with ...: take the list apart with slice() on line 1"],
-            'a rest pattern in foreach' => ['foreach ([] as [...$b]) {}', "A pattern can't take the rest with ...: take the list apart with slice() on line 1"],
+            'nothing after it' => ['echo [1, ...];', 'Nothing after ...: write the list to spread, or in a pattern the target that takes the rest on line 1'],
             'a constant spreading a non-list' => ['const C = [..."s"];', 'Cannot spread string: only a list can be on line 1'],
             'a constant spreading a variable' => ['const C = [...$a];', "A constant's value can only use literals, operators and other constants on line 1"],
             'a constant map spreading a list' => ['const C = {...[1]};', 'Cannot spread list: only a map can be on line 1'],

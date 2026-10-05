@@ -1,1 +1,1 @@
-Error: Unexpected ']' at tests/corpora/parser/error_spread_nothing.gaz:1
+Error: Nothing after ...: write the list to spread, or in a pattern the target that takes the rest at tests/corpora/parser/error_spread_nothing.gaz:1

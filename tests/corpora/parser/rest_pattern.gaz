@@ -1,0 +1,11 @@
+// A rest takes a list of what the other targets leave, wherever it stands
+[$a,
+    ...$b] = [1, 2];
+[...$init,
+    $last] = [1, 2];
+[$first,
+    ...$middle,
+    $end] = [1, 2, 3];
+[, ...$only] = [1];
+$m = {};
+[$m["k"], ...$m["rest"]] = [1, 2];

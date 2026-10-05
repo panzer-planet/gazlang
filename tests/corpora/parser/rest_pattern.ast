@@ -1,0 +1,146 @@
+Compound
+  statements:
+@ "tests/corpora/parser/rest_pattern.gaz"
+    0: Statement 2
+      expr: Assign 3
+        left: ListPattern 2
+          targets:
+            0: Variable 2
+              token: 2 VAR_IDENTIFIER $a
+              value: "\$a"
+            1: Variable 3
+              token: 3 VAR_IDENTIFIER $b
+              value: "\$b"
+          rest: 1
+        token: 3 ASSIGN =
+        right: ArrayLiteral 3
+          entries:
+            0:
+              0: null
+              1: Num 3
+                token: 3 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 3
+                token: 3 INTEGER 2
+                value: 2
+          map: false
+    1: Statement 4
+      expr: Assign 5
+        left: ListPattern 4
+          targets:
+            0: Variable 4
+              token: 4 VAR_IDENTIFIER $init
+              value: "\$init"
+            1: Variable 5
+              token: 5 VAR_IDENTIFIER $last
+              value: "\$last"
+          rest: 0
+        token: 5 ASSIGN =
+        right: ArrayLiteral 5
+          entries:
+            0:
+              0: null
+              1: Num 5
+                token: 5 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 5
+                token: 5 INTEGER 2
+                value: 2
+          map: false
+    2: Statement 6
+      expr: Assign 8
+        left: ListPattern 6
+          targets:
+            0: Variable 6
+              token: 6 VAR_IDENTIFIER $first
+              value: "\$first"
+            1: Variable 7
+              token: 7 VAR_IDENTIFIER $middle
+              value: "\$middle"
+            2: Variable 8
+              token: 8 VAR_IDENTIFIER $end
+              value: "\$end"
+          rest: 1
+        token: 8 ASSIGN =
+        right: ArrayLiteral 8
+          entries:
+            0:
+              0: null
+              1: Num 8
+                token: 8 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 8
+                token: 8 INTEGER 2
+                value: 2
+            2:
+              0: null
+              1: Num 8
+                token: 8 INTEGER 3
+                value: 3
+          map: false
+    3: Statement 9
+      expr: Assign 9
+        left: ListPattern 9
+          targets:
+            0: null
+            1: Variable 9
+              token: 9 VAR_IDENTIFIER $only
+              value: "\$only"
+          rest: 1
+        token: 9 ASSIGN =
+        right: ArrayLiteral 9
+          entries:
+            0:
+              0: null
+              1: Num 9
+                token: 9 INTEGER 1
+                value: 1
+          map: false
+    4: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $m
+          value: "\$m"
+        token: 10 ASSIGN =
+        right: ArrayLiteral 10
+          entries: []
+          map: true
+    5: Statement 11
+      expr: Assign 11
+        left: ListPattern 11
+          targets:
+            0: Index 11
+              target: Variable 11
+                token: 11 VAR_IDENTIFIER $m
+                value: "\$m"
+              index: String 11
+                token: 11 STRING "k"
+                value: "k"
+            1: Index 11
+              target: Variable 11
+                token: 11 VAR_IDENTIFIER $m
+                value: "\$m"
+              index: String 11
+                token: 11 STRING "rest"
+                value: "rest"
+          rest: 1
+        token: 11 ASSIGN =
+        right: ArrayLiteral 11
+          entries:
+            0:
+              0: null
+              1: Num 11
+                token: 11 INTEGER 1
+                value: 1
+            1:
+              0: null
+              1: Num 11
+                token: 11 INTEGER 2
+                value: 2
+          map: false

@@ -1,0 +1,30 @@
+/*
+ * A rest compiles to DESTRUCTURE_REST, counting the other targets: those before it index from
+ * the start, the rest is a slice, and those after it index from the end
+ */
+[$a, ...$b] = [1, 2, 3];
+echo "{$a} {$b}";
+[...$c, $d] = [1, 2, 3];
+echo "{$c} {$d}";
+[$e, ...$f, $g] = [1, 2];
+echo "{$e} {$f} {$g}";
+[$h, , ...$i, , $j] = [1, 2, 3, 4, 5, 6];
+echo "{$h} {$i} {$j}";
+echo [...$all] = [];
+foreach ([[1], [2, 3]] as [$head, ...$tail]) {
+    echo "{$head} {$tail}";
+}
+fn tail([$first, ...$rest]) {
+    return $rest;
+}
+echo tail(["x", "y", "z"]);
+$init = ([...$most, $last]) -> $most;
+echo $init([1, 2, 3]);
+$m = {};
+[$m["one"], ...$m["more"]] = [1, 2, 3];
+echo $m;
+try {
+    [$x, $y, ...$z] = [1];
+} catch (Error $e) {
+    echo $e.message;
+}

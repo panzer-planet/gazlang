@@ -266,6 +266,9 @@ kind IncrementAST extends AST {
 // [$a, $b] on the left of = or in a foreach
 kind ListPatternAST extends AST {
     pub #targets;
+    // The index in #targets of the one written ...$rest, which takes a list of what the others
+    // leave; unset without one, so only a pattern with a rest dumps it
+    pub #rest;
 
     fn _($targets) {
         #targets = $targets;

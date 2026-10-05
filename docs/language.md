@@ -191,7 +191,19 @@ $moved = {...$player, "club" => "Harbour City"};
 
 A key already there keeps its place and takes the later value. Only a list spreads into a
 list and only a map into a map (anything else is an error at the `...`), and nowhere else:
-not into a call's arguments or a pattern.
+not into a call's arguments.
+
+A list pattern takes a list apart, its targets assigned left to right after the list is worked
+out, so `[$a, $b] = [$b, $a]` swaps. It needs exactly as many elements as it has targets, except
+that one target written `...$rest`, anywhere in it, takes as a list whatever the others leave:
+then the list needs at least as many elements as the other targets, and the rest may be empty.
+The same goes for a `foreach` value and a pattern parameter:
+
+```gaz
+[$first, ...$others] = ["a", "b", "c"];     // "a" and ["b", "c"]
+[...$init, $last] = [1, 2, 3];              // [1, 2] and 3
+[$head, ...$middle, $tail] = [1, 2];        // 1, [] and 2
+```
 
 A list index must be an int in range (no negative indexes); a map key must exist. Read through
 `??` to get `null` instead of an error. A compound assignment (`+=`, `..=`) needs the key to
@@ -360,8 +372,9 @@ fn add_to($list) { $list[] = 1; }                      // error: $list is a copy
 ```
 
 A parameter can be a list pattern, which takes its argument apart as `[$a, $b] = $x` would
-(exactly that many elements, or an error), in a lambda, a function or a method. A lambda whose
-only parameter is a pattern needs no parentheses, and an empty slot takes an element and ignores it:
+(exactly that many elements, or at least as many as the targets beside a `...$rest`, or an
+error), in a lambda, a function or a method. A lambda whose only parameter is a pattern needs no
+parentheses, and an empty slot takes an element and ignores it:
 
 ```gaz
 echo map($scores, [$name, $points] -> "{$name}: {$points}");

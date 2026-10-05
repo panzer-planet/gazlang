@@ -1,0 +1,3 @@
+// A lambda pattern parameter with a default, and an empty slot in it
+$f = ([$a, , ...$b] = [1, 2, 3]) -> [$a, $b];
+echo $f();

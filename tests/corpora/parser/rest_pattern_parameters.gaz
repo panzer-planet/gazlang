@@ -1,0 +1,6 @@
+// A pattern parameter's rest is the call's own, as its other variables are
+fn f([$head,
+    ...$tail]) { return $tail; }
+$g = ([...$init, $last]) -> $init;
+$h = [$x, ...$xs] -> $xs;
+$k = ([$y, ...$ys] = [1]) -> $ys;

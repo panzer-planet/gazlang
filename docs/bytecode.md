@@ -286,6 +286,7 @@ depth limit is reached.
 | `FOREACH_NEXT slot position label` | `-- v`, or `--` and a jump | Steps a `foreach`: pushes the element of the list or map in the first slot at or after the position in the second (an int, 0 at the start; a map's removed entries are skipped), and sets the position past it. When there are no more it puts null in the first slot, so the list or map isn't kept alive by it (a loop left early keeps it until the frame ends), and jumps to the label. Fails unless the first slot holds a list or map and the second an int of 0 or more. |
 | `FOREACH_NEXT_KEY slot position label` | `-- v k`, or `--` and a jump | The same, pushing the element's index or key above it. |
 | `DESTRUCTURE count` | `l -- l` | Fails unless the value is a list of that many elements. |
+| `DESTRUCTURE_REST count` | `l -- l` | Fails unless the value is a list of at least that many elements: a pattern with a rest (`[$a, ...$rest]`), the count being its other targets. |
 | `INDEX_GET` | `x k -- v` | Reads an element of a list, map or string. Fails on "Index out of range: 5", "Undefined key: \"k\"", or a bad target or key. |
 | `INDEX_GET_QUIET` | `x k -- v` | The same, but null when the target is null or the key is missing (the left of `??`). |
 | `INDEX_GET_EXISTING` | `x k -- v` | The same as `INDEX_GET`, for a compound update, which needs the key to exist. |

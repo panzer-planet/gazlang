@@ -1,0 +1,1 @@
+Error: Nothing after ...: write the list to spread, or in a pattern the target that takes the rest at tests/corpora/parser/error_rest_pattern_without_target.gaz:1

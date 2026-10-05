@@ -461,10 +461,8 @@ Compound
             statements:
               0: Statement 57
                 expr: Assign 57
-@ null
                   left: ListPattern 57
                     targets:
-@ "tests/corpora/parser/types.gaz"
                       0: Variable 57
                         token: 57 VAR_IDENTIFIER $a
                         value: "\$a"

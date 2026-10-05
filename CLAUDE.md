@@ -290,21 +290,20 @@ that must find nothing to do.
   install it, get a first program working and trust it; not by what would win many users
   (Windows, a registry and a playground wait for someone to ask).
 - **The roadmap**, in build order:
-  1. **Rest patterns** in destructuring, `[$first, ...$rest] = $list`, when JSON handling asks.
-  2. **Server-side TLS and HTTP/2** in `http::serve`, on its keep-alive.
-  3. **Dates from a clock**: `date.gaz` counts days and `time()` gives seconds, but nothing formats
+  1. **Server-side TLS and HTTP/2** in `http::serve`, on its keep-alive.
+  2. **Dates from a clock**: `date.gaz` counts days and `time()` gives seconds, but nothing formats
      a moment, parses ISO 8601 or knows a time zone (`apps/todo` shows timestamps as text). The rules
      are GazLang's, written out as `round()` is, never the platform's.
-  4. **Regex shorthands and groups in a replacement**: `\d`, `\w`, `\s` and `$1` in `regex::replace`,
+  3. **Regex shorthands and groups in a replacement**: `\d`, `\w`, `\s` and `$1` in `regex::replace`,
      the two things every reader expects first. Still a Thompson NFA, so no backreferences or
      lookaround.
-  5. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
+  4. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
      original (`#cause`, printed under the trace).
-  6. **Interfaces**: `interface` and `implements` (reserved now), a parse-time check that a kind
+  5. **Interfaces**: `interface` and `implements` (reserved now), a parse-time check that a kind
      has every method an interface names, with matching arities and types as an override's, and
      `is_a($x, Shape)` true for an implementer. See "Decided, not built"; `final` follows with it
      or after it.
-  7. **Enums**: a closed set of named values for a status or a kind of token, in place of string
+  6. **Enums**: a closed set of named values for a status or a kind of token, in place of string
      constants that nothing checks. Not designed: whether a case is a value or an object, whether
      it can carry data or methods, how `match` and `json::encode` see one, and what `type_of` says.
      Typed fields and parameters (`Status $status`) should be the point, so a misspelt case is an
@@ -513,7 +512,7 @@ that must find nothing to do.
     own `#line` or `#message`.
   - No copy-with-change for objects, no `catch (A | B $e)`.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
-  - No enum (roadmap item 7); the lexer's token types stay strings on purpose, being the
+  - No enum (roadmap item 6); the lexer's token types stay strings on purpose, being the
     `--tokens` format.
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
   linked by default and optional (`make TLS=0`), so the bootstrap still needs only a C compiler.
@@ -713,7 +712,7 @@ that must find nothing to do.
       arithmetic loop).
     - An access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
-- **Decided, not built** (roadmap item 6): `interface`/`implements` (a parse-time check
+- **Decided, not built** (roadmap item 5): `interface`/`implements` (a parse-time check
   that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
   bytecode, while a method block stays `Kind.method`, which is what lets the loader tell the two
@@ -887,9 +886,9 @@ Names are ASCII.
   method may still be named `delete`. No `pop` because a function can't change its argument.
 - Spread: `Cannot spread map: only a list can be` and `Cannot spread list: only a map can be`,
   raised before the entries after it run (a list's indexes as keys would be a silent surprise).
-  `MAP_EXTEND`, `map_set()`. `f(...$args)`, a bare `...$a` and a rest pattern are parse errors
-  that say so; each could be added later without breaking anything. `...` is one token (longest
-  match, so `.....` is `...` then `..`).
+  `MAP_EXTEND`, `map_set()`. `f(...$args)` and a bare `...$a` are parse errors that say so; each
+  could be added later without breaking anything. `...` is one token (longest match, so `.....`
+  is `...` then `..`).
 - `echo` prints them as literals; arithmetic and unary `-` on them throw.
 
 ## Statements, functions and scope
@@ -1407,6 +1406,10 @@ and methods a table in C.
   `null` target (`list_pattern()`, the code generator skips it); a literal that keeps one without
   becoming a pattern is an error once the program is read, and a pattern of empty slots alone has
   nothing to take apart.
+- **A rest** (`...$rest`, one per pattern, anywhere in it, as one in a list literal can be) is
+  lowered by the code generator: `DESTRUCTURE_REST` checks for at least the other targets, those
+  before it index from the start, the rest is `slice()`, and those after it index from `len()`.
+  An instruction for the check, since a thrown string would carry no location and no `Error`.
 - **A list pattern parameter is parser sugar**, like a promoted parameter (`pattern_parameter()`
   in `parser.gaz`): a hidden `$#pattern_N` parameter in its place and the destructuring prepended
   to the body, an expression body becoming a block that returns it, so the variables are the

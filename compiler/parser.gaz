@@ -1048,9 +1048,13 @@ kind Html {
                     #fail_at("A pattern parameter takes no type: it is already a list, and its variables are assigned by taking it apart", #file, $first.line);
                 }
                 // [$a, $b] or, with a default, [$a, $b] = [...], which parsed as taking a list apart
-                $pattern = is_a($item, ListPatternAST)
-                    ? ListPatternAST(map($item.targets, #parameter_target))
-                    : #list_pattern($item, #parameter_target);
+                $pattern = $item;
+                if (is_a($item, ListPatternAST)) {
+                    // An empty slot has no target to check
+                    $pattern.targets = map($item.targets, $target -> $target == null ? null : #parameter_target($target));
+                } else {
+                    $pattern = #list_pattern($item, #parameter_target);
+                }
                 $pattern.line = $item.line;
                 [$param, $statement] = #pattern_parameter($pattern, len($params));
                 $patterns[] = $statement;
@@ -1346,6 +1350,9 @@ kind Html {
                 // ...$a puts the elements of the list $a here
                 $spread = #current_token;
                 #eat("SPREAD");
+                if (#current_token.type == "COMMA" || #current_token.type == "RIGHT_BRACKET") {
+                    #fail("Nothing after ...: write the list to spread, or in a pattern the target that takes the rest");
+                }
                 $entries[] = [null, #at(SpreadAST(#expr()), $spread)];
             } else {
                 $entries[] = [null, #expr()];
@@ -1739,18 +1746,24 @@ kind Html {
             #fail_at("Nothing to take apart: write at least one target in [...]", #file, $literal.line);
         }
         #gaps = filter(#gaps, $gapped -> $gapped != $literal);
-        foreach ($literal.entries as $entry) {
-            if (is_a($entry[1], SpreadAST)) {
-                #fail_at("A pattern can't take the rest with ...: take the list apart with slice()", $entry[1].file, $entry[1].line);
-            }
-        }
         $targets = [];
-        foreach ($literal.entries as $entry) {
+        $rest = null;
+        foreach ($literal.entries as $i => [, $entry]) {
+            if (is_a($entry, SpreadAST)) {
+                if ($rest != null) {
+                    #fail_at("A pattern takes one rest: with two ..., nothing says where the first ends", $entry.file, $entry.line);
+                }
+                $rest = $i;
+                $entry = $entry.expr;
+            }
             // An empty slot has no target: the element is there, and nothing is done with it
-            $targets[] = $entry[1] == null ? null : $target($entry[1]);
+            $targets[] = $entry == null ? null : $target($entry);
         }
         $pattern = ListPatternAST($targets);
         [$pattern.line, $pattern.file] = [$literal.line, $literal.file];
+        if ($rest != null) {
+            $pattern.rest = $rest;
+        }
 
         return $pattern;
     }

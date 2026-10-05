@@ -946,16 +946,21 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         }
         case OP_DESTRUCTURE:
+        case OP_DESTRUCTURE_REST: {
+            // With a rest (...$rest) the count is the other targets, so at least that many will do
+            bool rest = op == OP_DESTRUCTURE_REST;
             a = TOP();
             if (a.type != T_LIST) {
                 raisef("Cannot destructure %s: only a list can be", type_name(a));
                 goto error;
             }
-            if (a.l->len != (size_t)in->a) {
-                raisef("Cannot destructure a list of %zu %s into %d", a.l->len, a.l->len == 1 ? "element" : "elements", in->a);
+            if (rest ? a.l->len < (size_t)in->a : a.l->len != (size_t)in->a) {
+                raisef("Cannot destructure a list of %zu %s into %s%d", a.l->len, a.l->len == 1 ? "element" : "elements",
+                       rest ? "at least " : "", in->a);
                 goto error;
             }
             break;
+        }
         case OP_INDEX_GET:
             a = sp[-2], b = sp[-1];
             if (a.type == T_LIST && b.type == T_INT && b.i >= 0 && (uint64_t)b.i < a.l->len) {

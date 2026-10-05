@@ -72,6 +72,47 @@ class DestructureTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_a_rest_takes_what_the_other_targets_leave()
+    {
+        $this->assertEquals("1 [2, 3]\n[1, 2] 3\n1 [] 2\n[]\n1 [3] 5\n", $this->executeCode(<<<'CODE'
+            [$first, ...$rest] = [1, 2, 3];
+            echo "{$first} {$rest}";
+            [...$init, $last] = [1, 2, 3];
+            echo "{$init} {$last}";
+            [$a, ...$middle, $z] = [1, 2];
+            echo "{$a} {$middle} {$z}";
+            [...$all] = [];
+            echo $all;
+            [$h, , ...$mid, , $end] = [1, 2, 3, 4, 5];
+            echo "{$h} {$mid} {$end}";
+            CODE));
+    }
+
+    public function test_a_rest_target_is_any_assignable_target_written_in_order()
+    {
+        // The list first, then each target's keys as it is written, left to right, the rest's included
+        $this->assertEquals("{\"a\" => 1, \"r\" => [2, 3], \"z\" => 4} [\"list\", \"a\", \"r\", \"z\"]\n", $this->executeCode(<<<'CODE'
+            fn key($name) { @order[] = $name; return $name; }
+            @order = [];
+            $m = {"a" => 0, "r" => 0, "z" => 0};
+            [$m[key("a")], ...$m[key("r")], $m[key("z")]] = [key("list") == "list" ? 1 : 0, 2, 3, 4];
+            echo "{$m} {@order}";
+            CODE));
+    }
+
+    public function test_a_rest_in_a_foreach_and_in_parameters()
+    {
+        $this->assertEquals("1 []\n2 [3]\n[\"y\"]\n[1, 2]\n", $this->executeCode(<<<'CODE'
+            foreach ([[1], [2, 3]] as [$head, ...$tail]) {
+                echo "{$head} {$tail}";
+            }
+            fn tail([$first, ...$rest]) { return $rest; }
+            echo tail(["x", "y"]);
+            $init = ([...$most, $last]) -> $most;
+            echo $init([1, 2, 3]);
+            CODE));
+    }
+
     #[DataProvider('runtimeErrors')]
     public function test_runtime_errors(string $code, string $message)
     {
@@ -87,6 +128,11 @@ class DestructureTest extends GazLangTestCase
             'a map' => ['[$a, $b] = {"a" => 1, "b" => 2};', 'Cannot destructure map: only a list can be on line 1'],
             'a string' => ['[$a, $b] = "ab";', 'Cannot destructure string: only a list can be on line 1'],
             'in foreach' => ['foreach ([[1, 2], [3]] as [$a, $b]) { echo $a; }', 'Cannot destructure a list of 1 element into 2 on line 1'],
+            'too few elements for a rest' => ["\n[\$a, \$b, ...\$c] = [1];", 'Cannot destructure a list of 1 element into at least 2 on line 2'],
+            'too few elements around a rest' => ['[$a, ...$b, $c] = [];', 'Cannot destructure a list of 0 elements into at least 2 on line 1'],
+            'a map with a rest' => ['[...$all] = {};', 'Cannot destructure map: only a list can be on line 1'],
+            'too few elements for a rest in foreach' => ['foreach ([[1, 2], []] as [$a, ...$b]) { echo $a; }', 'Cannot destructure a list of 0 elements into at least 1 on line 1'],
+            'too few elements for a rest parameter' => ['fn f([$a, ...$b]) { return $a; } f([]);', 'Cannot destructure a list of 0 elements into at least 1 on line 1'],
             'a bad target fails where it is written' => ['$l = []; [$a, $l[5]] = [1, 2];', 'Index out of range: 5 on line 1'],
         ];
     }
@@ -94,6 +140,7 @@ class DestructureTest extends GazLangTestCase
     public function test_a_failed_shape_writes_nothing()
     {
         $this->assertEquals("1\n", $this->executeCode('$a = 1; try { [$a, $b] = [9]; } catch ($e) {} echo $a;'));
+        $this->assertEquals("1\n", $this->executeCode('$a = 1; try { [$a, $b, ...$c] = [9]; } catch ($e) {} echo $a;'));
     }
 
     #[DataProvider('syntaxErrors')]
@@ -115,6 +162,11 @@ class DestructureTest extends GazLangTestCase
             'a foreach pattern of non-variables' => ['foreach ([] as [$a[0], $b]) {}', 'A foreach pattern takes variables only on line 1'],
             'a foreach key pattern' => ['foreach ({} as [$k] => $v) {}', 'A foreach key is a variable, not a pattern on line 1'],
             'an undeclared field target' => ['kind P { pub fn f() { [#nope] = [1]; } }', 'P has no member #nope on line 1'],
+            'two rests' => ['[$a, ...$b, ...$c] = [1];', 'A pattern takes one rest: with two ..., nothing says where the first ends on line 1'],
+            'a rest without a target' => ['[$a, ...] = [1];', 'Nothing after ...: write the list to spread, or in a pattern the target that takes the rest on line 1'],
+            'a rest of a literal' => ['[$a, ...[1]] = [1];', 'Can only use = on a variable, or an element or field of one on line 1'],
+            'a foreach rest of a non-variable' => ['foreach ([] as [$a, ...$b[0]]) {}', 'A foreach pattern takes variables only on line 1'],
+            'a parameter rest of a global' => ['fn f([$a, ...@b]) {}', 'A parameter pattern takes $variables only on line 1'],
             'a method target' => ['kind P { pub fn f() { [#f] = [1]; } }', 'Cannot assign to method #f on line 1'],
         ];
     }
@@ -124,6 +176,10 @@ class DestructureTest extends GazLangTestCase
         $this->assertEquals(
             "PUSH [1, 2]\nDESTRUCTURE 2\nSTORE 0\nLOAD 0\nPUSH 0\nINDEX_GET\nSTORE 1\nLOAD 1\nPOP\nLOAD 0\nPUSH 1\nINDEX_GET\nSTORE 2\nLOAD 2\nPOP\nLOAD 0\nPOP",
             $this->generateCode('[$a, $b] = [1, 2];')
+        );
+        $this->assertEquals(
+            "PUSH [1, 2]\nDESTRUCTURE_REST 1\nSTORE 0\nLOAD 0\nPUSH 0\nPUSH -1\nCALL_BUILTIN slice 3\nSTORE 1\nLOAD 1\nPOP\nLOAD 0\nLOAD 0\nCALL_BUILTIN len 1\nPUSH 1\nSUB\nINDEX_GET\nSTORE 2\nLOAD 2\nPOP\nLOAD 0\nPOP",
+            $this->generateCode('[...$a, $b] = [1, 2];')
         );
     }
 }

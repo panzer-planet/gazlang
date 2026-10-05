@@ -279,7 +279,11 @@ kind CodeGenerator {
 
     // Take apart the list on top of the stack into a pattern's targets, leaving the list there
     fn destructure($pattern) {
-        #emit("DESTRUCTURE", [len($pattern.targets)]);
+        if (($pattern.rest ?? null) == null) {
+            #emit("DESTRUCTURE", [len($pattern.targets)]);
+        } else {
+            #emit("DESTRUCTURE_REST", [len($pattern.targets) - 1]);
+        }
         $list = #hidden("\$#destructure_" .. #hidden_counter++);
         #emit_variable("STORE", $list);
         foreach ($pattern.targets as $i => $target) {
@@ -287,10 +291,35 @@ kind CodeGenerator {
             if ($target == null) {
                 continue;
             }
-            $element = IndexAST($list, NumAST(Token("INTEGER", $i)));
-            #visit(StatementAST(#assign($target, $element)));
+            #visit(StatementAST(#assign($target, #pattern_element($pattern, $list, $i))));
         }
         #emit_variable("LOAD", $list);
+    }
+
+    /*
+     * What target $i of a pattern takes from $list: the element at $i before a rest, the rest
+     * itself as a slice of what the other targets leave, and after it an element counted from
+     * the end. DESTRUCTURE_REST has checked there are enough elements for all of them.
+     */
+    fn pattern_element($pattern, $list, $i) {
+        $rest = $pattern.rest ?? null;
+        if ($rest == null || $i < $rest) {
+            return IndexAST($list, #integer($i));
+        }
+        $from_end = len($pattern.targets) - $i;
+        if ($i == $rest) {
+            $after = $from_end - 1;
+            $bounds = $after == 0 ? [#integer($rest)] : [#integer($rest), #integer(-$after)];
+
+            return FunctionCallAST("slice", [$list, ...$bounds]);
+        }
+        $length = FunctionCallAST("len", [$list]);
+
+        return IndexAST($list, BinOpAST($length, Token("MINUS", "-"), #integer($from_end)));
+    }
+
+    fn integer($value) {
+        return NumAST(Token("INTEGER", $value));
     }
 
     fn visit_increment($node) {

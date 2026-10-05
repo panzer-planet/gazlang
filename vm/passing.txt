@@ -62,6 +62,7 @@ snippet:0ae1c3a82191
 snippet:0b7d39a16f45
 snippet:0c04b9a880b1
 snippet:0d8a17d01ab6
+snippet:0db87c8e1304
 snippet:0df90d456213
 snippet:0dfee7b4102b
 snippet:0e67d88595a2
@@ -158,6 +159,7 @@ snippet:2d1135af1a92
 snippet:2d529dfa9d80
 snippet:2d72ef52de79
 snippet:2e06bbc9a855
+snippet:2e246ed26515
 snippet:2e317f86362d
 snippet:2eaccdf405ed
 snippet:2f145981c68d
@@ -209,6 +211,7 @@ snippet:3e988168a50b
 snippet:3f523d72d93e
 snippet:3f7690432a3f
 snippet:3f99ffb80574
+snippet:4042651c5e33
 snippet:40a59a6bb642
 snippet:40af1e6a7795
 snippet:410a2ac6461b
@@ -224,6 +227,7 @@ snippet:450127d2d6b2
 snippet:451e12b1dd16
 snippet:453cfd8bb719
 snippet:4585f45ad290
+snippet:45aa1880b3cc
 snippet:45f52646fe70
 snippet:4613a745884d
 snippet:4694e7247268
@@ -235,6 +239,7 @@ snippet:47a2a94e9cd2
 snippet:480ad3b5ad27
 snippet:482252e3f6ef
 snippet:48a27323c1f6
+snippet:4980faf1ae3e
 snippet:49a81625c16a
 snippet:49e7d85e2d73
 snippet:4a1a36b0d8af
@@ -443,6 +448,7 @@ snippet:9345cfade11e
 snippet:93ca29c49cd6
 snippet:9422ac96f890
 snippet:94cef872e79a
+snippet:95318171872a
 snippet:954ab24bd681
 snippet:95b881eddc9e
 snippet:965db313f0fe
@@ -468,6 +474,7 @@ snippet:9ac2eefddb76
 snippet:9b3d05d70fc4
 snippet:9b7705971df9
 snippet:9b98c45a96f6
+snippet:9c30a999c098
 snippet:9c650c324437
 snippet:9cb151a9a4a5
 snippet:9d36da4c2b3d
@@ -517,6 +524,7 @@ snippet:b28c0eac6e2d
 snippet:b2c6266f336a
 snippet:b2c965277b7b
 snippet:b39caeacdd46
+snippet:b3a4c441156f
 snippet:b3b2af1666a7
 snippet:b410f976b0ed
 snippet:b4a58abcc08f
@@ -573,6 +581,7 @@ snippet:c93e27f8192f
 snippet:c96015c3e7c8
 snippet:c989cee4862d
 snippet:c9be6bb1ca83
+snippet:ca00c3d7da96
 snippet:ca09a5c94a69
 snippet:ca3959d665aa
 snippet:ca99be1fc03c
@@ -882,6 +891,7 @@ tests/corpora/codegen/pattern_parameters.gaz
 tests/corpora/codegen/pipe.gaz
 tests/corpora/codegen/power.gaz
 tests/corpora/codegen/private_method_names_reused.gaz
+tests/corpora/codegen/rest_pattern.gaz
 tests/corpora/codegen/shared.gaz
 tests/corpora/codegen/statements.gaz
 tests/corpora/codegen/static_in_an_imported_file.gaz
@@ -917,6 +927,7 @@ tests/corpora/parser/kind_members_by_name.gaz
 tests/corpora/parser/kind_members_through_a_child.gaz
 tests/corpora/parser/kinds.gaz
 tests/corpora/parser/lambda_bare_list_pattern.gaz
+tests/corpora/parser/lambda_pattern_default_with_an_empty_slot.gaz
 tests/corpora/parser/lambdas.gaz
 tests/corpora/parser/list_pattern_empty_slots.gaz
 tests/corpora/parser/lists_and_maps.gaz
@@ -973,6 +984,9 @@ tests/corpora/parser/postfix.gaz
 tests/corpora/parser/power.gaz
 tests/corpora/parser/precedence.gaz
 tests/corpora/parser/promoted_fields.gaz
+tests/corpora/parser/rest_pattern.gaz
+tests/corpora/parser/rest_pattern_in_foreach.gaz
+tests/corpora/parser/rest_pattern_parameters.gaz
 tests/corpora/parser/shared.gaz
 tests/corpora/parser/shared_after_a_lambda_parameter_of_the_name.gaz
 tests/corpora/parser/shared_is_not_visible_in_a_function.gaz

@@ -1,0 +1,141 @@
+Compound
+  statements:
+@ null
+    0: FunctionDeclaration 2
+      name: "f"
+      params: ["$#pattern_0"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: Statement 2
+            expr: Assign 2
+              left: ListPattern 2
+                targets:
+                  0: Variable 2
+                    token: 2 VAR_IDENTIFIER $head
+                    value: "\$head"
+                  1: Variable 3
+                    token: 3 VAR_IDENTIFIER $tail
+                    value: "\$tail"
+                rest: 1
+              token: 2 ASSIGN =
+              right: Variable 2
+                token: 2 VAR_IDENTIFIER $#pattern_0
+                value: "$#pattern_0"
+          1: ReturnStatement 3
+            expr: Variable 3
+              token: 3 VAR_IDENTIFIER $tail
+              value: "\$tail"
+      arity: 1
+      kind: null
+      abstract: false
+    1: Statement 4
+      expr: Assign 4
+        left: Variable 4
+          token: 4 VAR_IDENTIFIER $g
+          value: "\$g"
+        token: 4 ASSIGN =
+        right: Lambda 4
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound 4
+            statements:
+              0: Statement 4
+                expr: Assign 4
+                  left: ListPattern 4
+                    targets:
+                      0: Variable 4
+                        token: 4 VAR_IDENTIFIER $init
+                        value: "\$init"
+                      1: Variable 4
+                        token: 4 VAR_IDENTIFIER $last
+                        value: "\$last"
+                    rest: 0
+                  token: 4 ASSIGN =
+                  right: Variable 4
+                    token: 4 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 4
+                expr: Variable 4
+                  token: 4 VAR_IDENTIFIER $init
+                  value: "\$init"
+          captures: []
+          self: null
+          owner: null
+    2: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $h
+          value: "\$h"
+        token: 5 ASSIGN =
+        right: Lambda 5
+          params: ["$#pattern_0"]
+          defaults: [null]
+          arity: 1
+          body: Compound 5
+            statements:
+              0: Statement 5
+                expr: Assign 5
+                  left: ListPattern 5
+                    targets:
+                      0: Variable 5
+                        token: 5 VAR_IDENTIFIER $x
+                        value: "\$x"
+                      1: Variable 5
+                        token: 5 VAR_IDENTIFIER $xs
+                        value: "\$xs"
+                    rest: 1
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 5
+                expr: Variable 5
+                  token: 5 VAR_IDENTIFIER $xs
+                  value: "\$xs"
+          captures: []
+          self: null
+          owner: null
+    3: Statement 6
+      expr: Assign 6
+        left: Variable 6
+          token: 6 VAR_IDENTIFIER $k
+          value: "\$k"
+        token: 6 ASSIGN =
+        right: Lambda 6
+          params: ["$#pattern_0"]
+          defaults:
+            0: ArrayLiteral 6
+              entries:
+                0:
+                  0: null
+                  1: Num 6
+                    token: 6 INTEGER 1
+                    value: 1
+              map: false
+          arity: [0, 1]
+          body: Compound 6
+            statements:
+              0: Statement 6
+                expr: Assign 6
+                  left: ListPattern 6
+                    targets:
+                      0: Variable 6
+                        token: 6 VAR_IDENTIFIER $y
+                        value: "\$y"
+                      1: Variable 6
+                        token: 6 VAR_IDENTIFIER $ys
+                        value: "\$ys"
+                    rest: 1
+                  token: 6 ASSIGN =
+                  right: Variable 6
+                    token: 6 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 6
+                expr: Variable 6
+                  token: 6 VAR_IDENTIFIER $ys
+                  value: "\$ys"
+          captures: []
+          self: null
+          owner: null

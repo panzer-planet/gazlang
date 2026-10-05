@@ -1,0 +1,72 @@
+Compound
+  statements:
+@ "tests/corpora/parser/lambda_pattern_default_with_an_empty_slot.gaz"
+    0: Statement 2
+      expr: Assign 2
+        left: Variable 2
+          token: 2 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 2 ASSIGN =
+        right: Lambda 2
+          params: ["$#pattern_0"]
+          defaults:
+            0: ArrayLiteral 2
+              entries:
+                0:
+                  0: null
+                  1: Num 2
+                    token: 2 INTEGER 1
+                    value: 1
+                1:
+                  0: null
+                  1: Num 2
+                    token: 2 INTEGER 2
+                    value: 2
+                2:
+                  0: null
+                  1: Num 2
+                    token: 2 INTEGER 3
+                    value: 3
+              map: false
+          arity: [0, 1]
+          body: Compound 2
+            statements:
+              0: Statement 2
+                expr: Assign 2
+                  left: ListPattern 2
+                    targets:
+                      0: Variable 2
+                        token: 2 VAR_IDENTIFIER $a
+                        value: "\$a"
+                      1: null
+                      2: Variable 2
+                        token: 2 VAR_IDENTIFIER $b
+                        value: "\$b"
+                    rest: 2
+                  token: 2 ASSIGN =
+                  right: Variable 2
+                    token: 2 VAR_IDENTIFIER $#pattern_0
+                    value: "$#pattern_0"
+              1: ReturnStatement 2
+                expr: ArrayLiteral 2
+                  entries:
+                    0:
+                      0: null
+                      1: Variable 2
+                        token: 2 VAR_IDENTIFIER $a
+                        value: "\$a"
+                    1:
+                      0: null
+                      1: Variable 2
+                        token: 2 VAR_IDENTIFIER $b
+                        value: "\$b"
+                  map: false
+          captures: []
+          self: null
+          owner: null
+    1: EchoStatement 3
+      expr: CallValue 3
+        callee: Variable 3
+          token: 3 VAR_IDENTIFIER $f
+          value: "\$f"
+        args: []

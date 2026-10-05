@@ -1,0 +1,1 @@
+Error: A pattern takes one rest: with two ..., nothing says where the first ends at tests/corpora/parser/error_rest_pattern_twice.gaz:3
