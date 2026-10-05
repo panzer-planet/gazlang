@@ -5,38 +5,7 @@
 
 **Gaz is a strict, self-hosting scripting language with SQL and HTML that can't be injected and regex that can't hang.**
 
-```gaz
-import "std/db.gaz";
-import "std/web.gaz";
-import "std/regex.gaz";
-
-$db = db::open("sqlite::memory:");
-$db.run(db::sql"create table notes (body text)");
-
-$hostile = "<script>alert(1)</script> '); drop table notes; --";
-$db.exec(db::sql"insert into notes (body) values ({$hostile})");
-
-$saved = $db.value(db::sql"select body from notes");
-echo web::html"<p>{$saved}</p>";
-echo $db.value(db::sql"select count(*) from notes") .. " note, table intact";
-
-echo regex::matches(repeat("a", 5000) .. "!", "(a+)+$");
-
-try {
-    echo "5" + 5;
-} catch (Error $e) {
-    echo $e.message;
-}
-```
-
-```
-<p>&lt;script&gt;alert(1)&lt;/script&gt; &#39;); drop table notes; --</p>
-1 note, table intact
-false
-Cannot use + on string
-```
-
-## What's different
+## What's different?
 
 Three things you won't find together elsewhere.
 
