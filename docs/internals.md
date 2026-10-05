@@ -39,8 +39,8 @@ itself needs neither.
 | Path | What it does |
 | --- | --- |
 | `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, `docblocks.gaz` (a file's declarations and their docblocks, for the website and the language server; the compiler never imports it), and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
-| `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what |
-| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and imported as `std/json.gaz` |
+| `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what; how it runs is [The C VM](vm.md) |
+| `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and imported as `std/json.gaz`; the rules behind it and the builtins are in [Builtins and the standard library](library.md), and its HTTP client and server in [HTTP](http.md) |
 | `examples/` | sample programs, which nothing tests |
 | `games/` | programs built on the language, each with tests of its own (`games/football/`: a terminal football manager: two divisions, tactics, transfers, saving) |
 | `apps/` | web apps built to find what hurts (`apps/todo/`: registration, login and todos on PostgreSQL, with `FRICTION.md`, what the library and language lack); their tests need a database, so CI doesn't run them |

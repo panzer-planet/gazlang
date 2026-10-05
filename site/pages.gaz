@@ -21,6 +21,9 @@ const SITE_SECTIONS = [
     ["library", "Library", "library/index.html"],
     ["bytecode", "Bytecode", "bytecode.html"],
     ["internals", "Internals", "internals.html"],
+    ["vm", "VM", "vm.html"],
+    ["http", "HTTP", "http.html"],
+    ["builtins", "Builtins", "builtins.html"],
 ];
 
 // The heading levels a document's sidebar lists, the first with the second under it
@@ -37,7 +40,8 @@ kind Page {
 
     /*
      * $section is which part of the site the page belongs to, so the site's navigation marks
-     * it: "home", "reference", "library", "bytecode" or "internals"
+     * it: "home", "reference", "library", "bytecode", "internals", "vm", "http" or
+     * "builtins"
      */
     fn _(pub string #path, pub string #section, pub string #title, pub string #description, pub Html #body) {}
 

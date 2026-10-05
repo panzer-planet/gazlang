@@ -34,7 +34,7 @@ class SiteTest extends GazLangTestCase
         $this->assertFileDoesNotExist(self::ROOT."/{$output}/reference/gone.html");
 
         $site = self::ROOT.'/'.$output;
-        foreach (['index.html', 'style.css', 'reference/index.html', 'library/index.html', 'bytecode.html', 'internals.html'] as $page) {
+        foreach (['index.html', 'style.css', 'reference/index.html', 'library/index.html', 'bytecode.html', 'internals.html', 'vm.html', 'http.html', 'builtins.html'] as $page) {
             $this->assertFileExists("{$site}/{$page}");
         }
         // A page for every file of the standard library, however many there are
@@ -92,6 +92,9 @@ class SiteTest extends GazLangTestCase
             'docs/language.md' => "# The language\n\nIntro.\n\n## Types <script>alert(3)</script>\n\nText.\n\n## Next\n\nMore.\n",
             'docs/bytecode.md' => "# Bytecode\n\n## A\n",
             'docs/internals.md' => "# Internals\n\n## B\n",
+            'docs/vm.md' => "# The C VM\n\n## C\n",
+            'docs/http.md' => "# HTTP\n\n## D\n",
+            'docs/library.md' => "# Builtins\n\n## E\n",
             'lib/hostile.gaz' => "/**\n * Hostile <script>alert(4)</script> summary, `code` and *really*.\n */\nnamespace hostile;\n\n"
                 ."/**\n * Does <b>things</b> & \"quotes\"\n */\npub fn f() {}\n",
         ]);

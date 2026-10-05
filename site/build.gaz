@@ -1,10 +1,10 @@
 /*
  * The website, built from the repository: the README as the home page, docs/language.md as the
  * language reference (a page for each of its sections), a page for each file of the standard
- * library (made from its pub names and the docblocks above them), and docs/bytecode.md and
- * docs/internals.md for contributors. Every page is checked before the build is done (links,
- * anchors, ids and tags, see verify.gaz), and so is every name of the library for a docblock; a
- * problem fails the build, naming the page and line.
+ * library (made from its pub names and the docblocks above them), and docs/bytecode.md,
+ * docs/internals.md, docs/vm.md, docs/http.md and docs/library.md for contributors. Every page
+ * is checked before the build is done (links, anchors, ids and tags, see verify.gaz), and so is
+ * every name of the library for a docblock; a problem fails the build, naming the page and line.
  *
  *   bin/gaz site/build.gaz [DIRECTORY] [--root DIR] [--repository OWNER/NAME] [--release TAG]
  *
@@ -37,11 +37,17 @@ const README = "README.md";
 const REFERENCE = "docs/language.md";
 const BYTECODE = "docs/bytecode.md";
 const INTERNALS = "docs/internals.md";
+const VM = "docs/vm.md";
+const HTTP = "docs/http.md";
+const BUILTINS = "docs/library.md";
 const DOCUMENT_PAGES = {
     README => "index.html",
     REFERENCE => "reference/index.html",
     BYTECODE => "bytecode.html",
     INTERNALS => "internals.html",
+    VM => "vm.html",
+    HTTP => "http.html",
+    BUILTINS => "builtins.html",
 };
 
 const LIBRARY_DIRECTORY = "lib";
@@ -93,6 +99,9 @@ kind Site {
         #reference($documents[REFERENCE]);
         #document_page($documents[BYTECODE][0], BYTECODE, "bytecode", "Bytecode", Html(""));
         #document_page($documents[INTERNALS][0], INTERNALS, "internals", "Internals", Html(""));
+        #document_page($documents[VM][0], VM, "vm", "The C VM", Html(""));
+        #document_page($documents[HTTP][0], HTTP, "http", "HTTP", Html(""));
+        #document_page($documents[BUILTINS][0], BUILTINS, "builtins", "Builtins", Html(""));
         #library();
     }
 
