@@ -20,4 +20,5 @@ ul.todos { list-style: none; padding: 0; }
 ul.todos li { display: flex; align-items: center; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid #8882; }
 ul.todos .title { flex: 1; }
 li.done .title { text-decoration: line-through; color: var(--muted); }
+ul.todos time { color: var(--muted); font-size: .875em; }
 .empty { color: var(--muted); }

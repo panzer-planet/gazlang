@@ -44,7 +44,7 @@ fn login_session(int $user_id, string $message): map {
 }
 
 kind Handlers {
-    fn _(#todos, #auth, #throttle) {}
+    fn _(#todos, #auth, #throttle, #zone) {}
 
     // --- Accounts ---
 
@@ -111,7 +111,7 @@ kind Handlers {
     fn list(map $request, TodoForm $form, map $errors, int $status): map {
         $todos = #todos.for_user($request["user"].id);
 
-        return render($request, "Your todos", todos_page(csrf_token($request), $todos, $form, $errors), $status);
+        return render($request, "Your todos", todos_page(csrf_token($request), $todos, $form, $errors, #zone), $status);
     }
 
     pub fn create(map $request): map {
@@ -173,7 +173,7 @@ kind Handlers {
 // The Router for the app, to be given to http::serve()
 pub fn build_app(Config $config, $db) {
     $users = Users($db);
-    $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db));
+    $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db), $config.time_zone);
     $app = http::Router();
     $app.use(http::security_headers());
     $app.use(http::sessions($config.secret, {"secure" => $config.secure_cookies}));

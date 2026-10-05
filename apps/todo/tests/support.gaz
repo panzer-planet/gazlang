@@ -8,6 +8,7 @@ namespace todo;
 import "std/http.gaz";
 import "std/regex.gaz";
 import "std/db.gaz";
+import "std/date.gaz";
 import "app.gaz";
 import "database.gaz";
 import "config.gaz";
@@ -15,6 +16,7 @@ import "config.gaz";
 const TEST_DATABASE = "postgres:///gaz_todo_test";
 const CHEAP_PASSWORDS = {"m" => 64, "t" => 1, "p" => 1};
 const TEST_SECRET = "a-secret-for-tests-that-is-long-enough";
+const TEST_OFFSET = 7200;   // the zone times are shown in, two hours ahead of UTC
 
 // The test database with the schema up to date and no rows
 fn fresh_database() {
@@ -26,7 +28,7 @@ fn fresh_database() {
 }
 
 fn test_config(): Config {
-    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS);
+    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET));
 }
 
 kind Browser {

@@ -1,6 +1,7 @@
 namespace todo;
 import "forms.gaz";
-@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors)
+import "std/date.gaz";
+@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors, date::Zone $zone)
 <h1>Your todos</h1>
 
 <form method="post" action="/todos" class="add">
@@ -36,6 +37,7 @@ import "forms.gaz";
                 </form>
 
                 <span class="title">{{ $todo.title }}</span>
+                <time datetime="{{ $todo.added_rfc3339() }}">{{ $todo.added_in($zone) }}</time>
                 <a href="/todos/{{ $todo.id }}/edit">Edit</a>
 
                 <form method="post" action="/todos/{{ $todo.id }}/delete" class="inline">

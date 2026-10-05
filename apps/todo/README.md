@@ -25,6 +25,7 @@ It migrates the schema, then listens on `http://127.0.0.1:8080`. The environment
 | `HOST`, `PORT` | where to listen | `127.0.0.1`, `8080` |
 | `WORKERS` | processes serving requests, each with a connection of its own | `4` |
 | `SECURE_COOKIES` | `1` marks the session cookie `Secure`, for use behind HTTPS | off |
+| `TIME_ZONE` | the zone times are shown in, e.g. `Africa/Johannesburg` (from the system's time zone database) | `UTC` |
 | `MIGRATIONS` | a directory of `.sql` files | `migrations` |
 
 Run it from this directory: the migrations and the stylesheet are found from where it was started.

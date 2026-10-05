@@ -1073,16 +1073,11 @@ pub fn redirect(string $to, int $status = 303): map {
  * Seconds since 1970 as HTTP writes a date: "Sat, 08 Aug 2026 14:02:09 GMT"
  */
 pub fn http_date($time) {
-    $days = intdiv($time, 86400);
-    $seconds = $time - $days * 86400;
-    if ($seconds < 0) {
-        $days--;
-        $seconds += 86400;
-    }
-    [$year, $month, $day] = date::civil($days);
-    $clock = map([intdiv($seconds, 3600), intdiv($seconds, 60) % 60, $seconds % 60], $n -> ($n < 10 ? "0" : "") .. $n);
-    return DAY_NAMES[date::weekday($days)] .. ", " .. ($day < 10 ? "0" : "") .. "$day "
-        .. MONTH_NAMES[$month - 1] .. " $year " .. join($clock, ":") .. " GMT";
+    $moment = date::utc().at($time);
+    $day = ($moment.day < 10 ? "0" : "") .. $moment.day;
+    $date = "{$day} " .. MONTH_NAMES[$moment.month - 1] .. " {$moment.year}";
+
+    return DAY_NAMES[$moment.weekday()] .. ", {$date} " .. $moment.clock() .. " GMT";
 }
 
 const CONTENT_TYPES = {

@@ -5,14 +5,29 @@
 namespace todo;
 
 import "std/db.gaz";
+import "std/date.gaz";
 
 const MAX_TITLE_LENGTH = 200;
 
 kind Todo {
-    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub string #created_at) {}
+    // $created_at is a time, seconds since 1970
+    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at) {}
 
+    // created_at arrives as PostgreSQL writes a timestamptz: "2026-10-01 14:04:27.78+02"
     pub static fn from_row(map $row): Todo {
-        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], $row["created_at"]);
+        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], date::parse($row["created_at"]).time);
+    }
+
+    // When it was added, as $zone's clocks showed it: "1 Oct, 14:04"
+    pub fn added_in(date::Zone $zone): string {
+        $moment = $zone.at(#created_at);
+
+        return date::short($moment.days) .. ", " .. $moment.short_clock();
+    }
+
+    // When it was added, for a <time> element: "2026-10-01T12:04:27Z"
+    pub fn added_rfc3339(): string {
+        return date::utc().at(#created_at).rfc3339();
     }
 }
 

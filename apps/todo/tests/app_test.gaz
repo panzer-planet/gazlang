@@ -7,6 +7,7 @@ namespace todo;
 
 import "std/test.gaz" use expect, throws;
 import "std/db.gaz";
+import "std/date.gaz";
 import "./support.gaz";
 
 $db = fresh_database();
@@ -58,6 +59,15 @@ expect("adding a todo goes home", [$added["status"], location_of($added)], [303,
 $list = text_of($browser.get("/"));
 expect("a todo is shown escaped", [contains($list, "&lt;script&gt;alert(1)&lt;/script&gt; write the app"), contains($list, "<script>alert(1)")], [true, false]);
 expect("the add is acknowledged", contains($list, "Added."), true);
+/*
+ * When it was added, from the text PostgreSQL gives, shown two hours ahead of UTC: the same as
+ * PostgreSQL's own count of seconds says
+ */
+$added_at = $db.value(db::sql"select floor(extract(epoch from created_at))::bigint from todos where title like '%write the app'");
+$shown = date::fixed(TEST_OFFSET).at($added_at);
+$utc_text = date::utc().at($added_at).rfc3339();
+$local_text = date::short($shown.days) .. ", " .. $shown.short_clock();
+expect("when it was added is shown in the app's zone", contains($list, "<time datetime=\"{$utc_text}\">{$local_text}</time>"), true);
 $blank = $browser.post("/todos", {"_csrf" => $token, "title" => "   "});
 expect("a blank todo is refused", [$blank["status"], contains(text_of($blank), "Write something to do")], [422, true]);
 $long = $browser.post("/todos", {"_csrf" => $token, "title" => repeat("x", 201)});

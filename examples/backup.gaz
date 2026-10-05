@@ -21,9 +21,6 @@ import "std/fs.gaz";
 
 const DEFAULT_KEEP = "5";
 const MANIFEST = "MANIFEST.txt";
-const SECONDS_PER_DAY = 86400;
-const SECONDS_PER_HOUR = 3600;
-const SECONDS_PER_MINUTE = 60;
 const STAMP_LENGTH = 17;           // "2026-10-02T143005"
 
 kind Manifest {
@@ -60,16 +57,9 @@ kind Manifest {
 
 // "2026-10-02T143005", in UTC: names that sort in the order they were made
 fn stamp(int $now): string {
-    $seconds = $now % SECONDS_PER_DAY;
-    $hours = intdiv($seconds, SECONDS_PER_HOUR);
-    $minutes = intdiv($seconds % SECONDS_PER_HOUR, SECONDS_PER_MINUTE);
+    $moment = date::utc().at($now);
 
-    return date::iso(intdiv($now, SECONDS_PER_DAY)) .. "T" .. two_digits($hours)
-        .. two_digits($minutes) .. two_digits($seconds % SECONDS_PER_MINUTE);
-}
-
-fn two_digits(int $n): string {
-    return format::pad_left($n, 2, "0");
+    return date::iso($moment.days) .. "T" .. replace($moment.clock(), ":", "");
 }
 
 fn back_up(string $source, string $target): Manifest {

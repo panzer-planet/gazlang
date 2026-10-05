@@ -1,12 +1,25 @@
 /**
- * Calendar dates, as whole numbers of days: date::days(2026, 8, 8) is a number a program can add to,
- * compare and count with, and date::civil() and date::format() turn it back into a year, month and
- * day. Day 0 is 1 January 1970 (the proleptic Gregorian calendar, so any year is fine), which is only
- * a starting point: there is no time of day and no zone. Today, in UTC, is intdiv(time(), 86400), but
- * a program that asks the clock prints something different each day, so one that must print the same
- * every run, a game with a seed, keeps its own date.
+ * Calendar dates and times of day, in two kinds of whole number and the zones that join them.
+ *
+ * A date is a number of days: date::days(2026, 8, 8) is a number a program can add to, compare
+ * and count with, and date::civil() and date::format() turn it back into a year, month and day.
+ * Day 0 is 1 January 1970, in the proleptic Gregorian calendar, so any year is fine.
+ *
+ * A time is a number of seconds since 1970 began in UTC, as time() and file_info() give it, with
+ * no leap seconds. A Zone says what the clocks show at a time (Zone.at() gives a Moment, which
+ * formats itself) and which time a date and a clock reading there are (Zone.time()). Zones are
+ * date::utc(), date::fixed() for an offset, and date::zone() for a named one from the system's
+ * time zone database. date::parse() reads an RFC 3339 time, such as "2026-08-08T14:02:09+02:00".
+ *
+ * Nothing here reads the clock: a function is given the time, so the same arguments always give
+ * the same answer and a program's tests can use fixed times. Today, in UTC, is
+ * intdiv(time(), 86400); a program that must print the same every run, a game with a seed, keeps
+ * its own date.
  */
 namespace date;
+
+import "std/chars.gaz" use is_digit, is_alpha, is_alnum;
+import "std/text.gaz" use quote;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -131,4 +144,1022 @@ pub fn iso($days) {
     [$year, $month, $day] = civil($days);
 
     return "{$year}-" .. ($month < 10 ? "0" : "") .. $month .. "-" .. ($day < 10 ? "0" : "") .. $day;
+}
+
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3600;
+const SECONDS_PER_DAY = 86400;
+const ZONEINFO = "/usr/share/zoneinfo";
+const RESOLUTIONS = ["reject", "earlier", "later", "compatible"];
+const LAST_RFC3339_YEAR = 9999;
+const MOST_OFFSET_HOURS = 24;       // in a rule, as POSIX allows
+const MOST_CHANGE_HOURS = 167;      // a rule's change of clocks, as RFC 8536 allows
+const DEFAULT_CHANGE_TIME = 7200;   // 02:00, when a rule doesn't say
+const LEAST_TZIF_OFFSET = -89999;   // the offsets RFC 8536 allows a TZif file
+const MOST_TZIF_OFFSET = 93599;
+const TZIF_COUNTS = 6;
+const TZIF_RESERVED = 15;
+
+/**
+ * The seconds after midnight of a time of day, $hour 0 to 23, $minute and $second 0 to 59: what
+ * Zone.time() takes with a day number
+ */
+pub fn time_of_day(int $hour, int $minute, int $second = 0): int {
+    if ($hour < 0 || $hour > 23) {
+        throw "There is no hour {$hour}";
+    }
+    if ($minute < 0 || $minute > 59) {
+        throw "There is no minute {$minute}";
+    }
+    if ($second < 0 || $second > 59) {
+        throw "There is no second {$second}";
+    }
+
+    return $hour * SECONDS_PER_HOUR + $minute * SECONDS_PER_MINUTE + $second;
+}
+
+/**
+ * The zone of UTC itself, whose clocks show the times as they are
+ */
+pub fn utc(): Zone {
+    return Zone("UTC", [], Offset(0, false, "UTC"), null);
+}
+
+/**
+ * A zone always $seconds ahead of UTC (behind it when negative), under a day either way, named
+ * and abbreviated as its offset is written: date::fixed(7200) is "+02:00"
+ */
+pub fn fixed(int $seconds): Zone {
+    if (abs($seconds) >= SECONDS_PER_DAY) {
+        throw "An offset from UTC is under a day, not {$seconds} seconds";
+    }
+    $name = offset_text($seconds);
+
+    return Zone($name, [], Offset($seconds, false, $name), null);
+}
+
+/**
+ * The time zone named $name in the time zone database, such as "Africa/Johannesburg" or
+ * "Europe/London", from the TZif file (RFC 8536) of that name under $directory, where the system
+ * keeps its copy unless a program brings its own.
+ *
+ * Every change of offset the file lists is followed, and the rule at its end for the times after
+ * them. A name that isn't in the database is an error, and so is a file that isn't TZif. Reading
+ * one takes a few milliseconds, so a program loads each zone it needs once and keeps it.
+ */
+pub fn zone(string $name, string $directory = ZONEINFO): Zone {
+    check_zone_name($name);
+    $path = $directory .. "/" .. $name;
+    if (!file_exists($path) || is_dir($path)) {
+        throw "There is no time zone {$name} in {$directory}";
+    }
+
+    return tzif($name, read_file($path));
+}
+
+/**
+ * The zone that $bytes, the contents of a TZif file (RFC 8536), describe, called $name: for a
+ * file that date::zone() can't find by name, such as /etc/localtime
+ */
+pub fn tzif(string $name, string $bytes): Zone {
+    return TzifReader(Bytes($name, $bytes)).zone();
+}
+
+/**
+ * The Moment that an RFC 3339 time writes, at the offset it gives: "2026-08-08T14:02:09+02:00"
+ * or "2026-08-08T12:02:09Z". A space may stand for the T, a fraction of a second may follow the
+ * seconds (it is dropped, since a time is whole seconds), and the offset may be hours alone
+ * ("+02") or have seconds ("-00:01:15", as Moment.rfc3339() writes one that has them), so the
+ * text PostgreSQL gives a timestamptz reads too. A leap second, a date or time that doesn't exist
+ * (30 February, hour 24), or anything else is an error saying what is wrong, unless $default is
+ * given, which is then returned instead.
+ */
+pub fn parse(string $text, $default = NoDefault()) {
+    try {
+        return read_moment(Cursor($text));
+    } catch (Unreadable $e) {
+        if (is_a($default, NoDefault)) {
+            throw "Can't read " .. quote($text) .. " as a date and time: " .. $e.message;
+        }
+
+        return $default;
+    }
+}
+
+/**
+ * The day number of a date written "2026-08-08", as a form sends one: anything else, or a date
+ * that doesn't exist, is an error saying what is wrong, unless $default is given, which is then
+ * returned instead
+ */
+pub fn parse_date(string $text, $default = NoDefault()) {
+    try {
+        $cursor = Cursor($text);
+        $days = read_date($cursor);
+        $cursor.expect_end();
+
+        return $days;
+    } catch (Unreadable $e) {
+        if (is_a($default, NoDefault)) {
+            throw "Can't read " .. quote($text) .. " as a date: " .. $e.message;
+        }
+
+        return $default;
+    }
+}
+
+/**
+ * A time zone: the offsets from UTC its clocks have kept, and when each began. Made by
+ * date::utc(), date::fixed(), date::zone() and date::tzif().
+ */
+pub kind Zone {
+    /**
+     * A zone called $name, with $first in force before the first of $transitions (in order of
+     * time) and $rule, if there is one, after the last
+     */
+    fn _(pub string #name, list #transitions, Offset #first, ?Rule #rule) {}
+
+    /**
+     * What the zone's clocks show at $time, in seconds since 1970 in UTC
+     */
+    pub fn at(int $time): Moment {
+        return Moment($time, #offset_at($time));
+    }
+
+    /**
+     * The time at which the zone's clocks show day number $days and $seconds after midnight
+     * (date::time_of_day() counts those).
+     *
+     * When the clocks go back, an hour of readings happens twice, and when they go forward, an
+     * hour never happens. $resolve says what to do then, each choice being one of the two times
+     * the reading is with the offsets before and after the change:
+     *
+     * - "reject", unless another is given: an error saying which happened
+     * - "earlier": the earlier time; when the clocks went back, the first time the reading was
+     *   shown, and when they went forward, a time they show as that much earlier
+     * - "later": the later time; the second time it was shown, or a time the clocks show as that
+     *   much later
+     * - "compatible": "earlier" when the clocks went back and "later" when they went forward,
+     *   which is when an alarm set for that reading goes off
+     */
+    pub fn time(int $days, int $seconds, string $resolve = "reject"): int {
+        if (!in_array($resolve, RESOLUTIONS)) {
+            throw "Zone.time() resolves by " .. join(map(RESOLUTIONS, quote), ", ") .. ", not " .. quote($resolve);
+        }
+        if ($seconds < 0 || $seconds >= SECONDS_PER_DAY) {
+            throw "A time of day is 0 to 86399 seconds after midnight, not {$seconds}";
+        }
+        $wall = $days * SECONDS_PER_DAY + $seconds;
+        $readings = #readings($wall);
+        $fitting = filter($readings, $time -> #offset_at($time).seconds == $wall - $time);
+        if (len($fitting) == 1) {
+            return $fitting[0];
+        }
+
+        return #resolve($readings, len($fitting) > 1, $resolve, $wall);
+    }
+
+    /*
+     * The times a reading of the clocks is with the offsets a day before and a day after it, in
+     * order: one when the two are the same. ponytail: two changes of offset within two days
+     * (none in the database yet) would hide the first
+     */
+    fn readings(int $wall): list {
+        $before = $wall - #offset_at($wall - SECONDS_PER_DAY).seconds;
+        $after = $wall - #offset_at($wall + SECONDS_PER_DAY).seconds;
+        if ($before == $after) {
+            return [$before];
+        }
+
+        return [min($before, $after), max($before, $after)];
+    }
+
+    fn resolve(list $readings, bool $twice, string $resolve, int $wall): int {
+        $earlier = $readings[0];
+        $later = last($readings);
+
+        return match ($resolve) {
+            "earlier" => $earlier,
+            "later" => $later,
+            "compatible" => $twice ? $earlier : $later,
+            "reject" => throw #ambiguity($twice, $wall),
+        };
+    }
+
+    fn ambiguity(bool $twice, int $wall): string {
+        $reading = utc().at($wall);
+        $shown = iso($reading.days) .. " " .. $reading.clock();
+        if ($twice) {
+            return "{$shown} happens twice in {#name}, as the clocks go back: say \"earlier\" or \"later\"";
+        }
+
+        return "{$shown} never happens in {#name}, as the clocks go forward: say \"earlier\", \"later\" or \"compatible\"";
+    }
+
+    fn offset_at(int $time): Offset {
+        $count = len(#transitions);
+        if ($count > 0 && $time < #transitions[0].time) {
+            return #first;
+        }
+        if ($count == 0 || $time > #transitions[$count - 1].time) {
+            return #after_transitions($time);
+        }
+
+        return #transitions[#index_at($time)].offset;
+    }
+
+    fn after_transitions(int $time): Offset {
+        if (#rule != null) {
+            return #rule.offset_at($time);
+        }
+        if (len(#transitions) == 0) {
+            return #first;
+        }
+
+        return last(#transitions).offset;
+    }
+
+    // The last transition at or before $time, which is at or after the first
+    fn index_at(int $time): int {
+        $low = 0;
+        $high = len(#transitions) - 1;
+        while ($low < $high) {
+            $middle = intdiv($low + $high + 1, 2);
+            if (#transitions[$middle].time <= $time) {
+                $low = $middle;
+            } else {
+                $high = $middle - 1;
+            }
+        }
+
+        return $low;
+    }
+}
+
+/**
+ * A time as a zone's clocks show it, from Zone.at() or date::parse(): its date, its time of day,
+ * and the offset from UTC the clocks kept then. #time is the time itself.
+ */
+pub kind Moment {
+    /**
+     * The date, as a day number
+     */
+    pub int #days;
+
+    /**
+     * The year of the date
+     */
+    pub int #year;
+
+    /**
+     * The month of the date, 1 to 12
+     */
+    pub int #month;
+
+    /**
+     * The day of the month
+     */
+    pub int #day;
+
+    /**
+     * The hour of the day, 0 to 23
+     */
+    pub int #hour;
+
+    /**
+     * The minute of the hour, 0 to 59
+     */
+    pub int #minute;
+
+    /**
+     * The second of the minute, 0 to 59
+     */
+    pub int #second;
+
+    /**
+     * How many seconds ahead of UTC the clocks were, negative when they were behind
+     */
+    pub int #offset;
+
+    /**
+     * Whether the offset was daylight saving time; false for a parsed Moment, which knows only its
+     * offset
+     */
+    pub bool #dst;
+
+    /**
+     * What the zone calls the offset: "SAST", "BST", or an offset such as "+0330" where the zone
+     * has no name for it; for a parsed Moment, "UTC" for a "Z" and the offset otherwise
+     */
+    pub string #abbreviation;
+
+    /**
+     * $time as the clocks show it at $offset
+     */
+    fn _(pub int #time, Offset $offset) {
+        #offset = $offset.seconds;
+        #dst = $offset.dst;
+        #abbreviation = $offset.abbreviation;
+        $wall = $time + #offset;
+        #days = floor_div($wall, SECONDS_PER_DAY);
+        [#year, #month, #day] = civil(#days);
+        $seconds = $wall - #days * SECONDS_PER_DAY;
+        #hour = intdiv($seconds, SECONDS_PER_HOUR);
+        #minute = intdiv($seconds, SECONDS_PER_MINUTE) % 60;
+        #second = $seconds % SECONDS_PER_MINUTE;
+    }
+
+    /**
+     * The weekday: 0 is Monday and 6 Sunday
+     */
+    pub fn weekday(): int {
+        return weekday(#days);
+    }
+
+    /**
+     * "14:02:09"
+     */
+    pub fn clock(): string {
+        return #short_clock() .. ":" .. two_digits(#second);
+    }
+
+    /**
+     * "14:02"
+     */
+    pub fn short_clock(): string {
+        return two_digits(#hour) .. ":" .. two_digits(#minute);
+    }
+
+    /**
+     * The offset from UTC: "+02:00", "-05:00", or "-00:01:15" for one with seconds
+     */
+    pub fn offset_text(): string {
+        return offset_text(#offset);
+    }
+
+    /**
+     * The time as RFC 3339 writes it, "2026-08-08T14:02:09+02:00", with a "Z" for an offset of
+     * 0. An offset with seconds is written with them, which RFC 3339 has no room for, though
+     * date::parse() reads it back; a year before 0 or after 9999 is an error.
+     */
+    pub fn rfc3339(): string {
+        if (#year < 0 || #year > LAST_RFC3339_YEAR) {
+            throw "RFC 3339 writes the years 0 to 9999, not {#year}";
+        }
+        $year = slice("000" .. #year, -4);
+        $offset = #offset == 0 ? "Z" : #offset_text();
+
+        return "{$year}-" .. two_digits(#month) .. "-" .. two_digits(#day) .. "T" .. #clock() .. $offset;
+    }
+}
+
+/*
+ * An offset from UTC that a zone's clocks keep for a while: $seconds ahead of UTC, whether it is
+ * daylight saving time, and what the zone calls it
+ */
+kind Offset {
+    fn _(pub int #seconds, pub bool #dst, pub string #abbreviation) {}
+}
+
+// The moment a zone's clocks change to an offset
+kind Transition {
+    fn _(pub int #time, pub Offset #offset) {}
+}
+
+// What reading a date, a time or a zone's rule stops with on text it can't read
+kind Unreadable extends Error {
+    fn _($message) {
+        ##_($message);
+    }
+}
+
+// A $default's own default: only this file can make one, so no value a caller passes is one
+kind NoDefault {}
+
+// Two digits, for a number of 0 to 99: "07"
+fn two_digits(int $n): string {
+    return ($n < 10 ? "0" : "") .. $n;
+}
+
+// $a divided by $b, which is positive, rounded down rather than towards zero
+fn floor_div(int $a, int $b): int {
+    $quotient = intdiv($a, $b);
+    if ($quotient * $b > $a) {
+        $quotient--;
+    }
+
+    return $quotient;
+}
+
+// "+02:00", "-05:00", "+05:30", or "-00:01:15" when the offset has seconds
+fn offset_text(int $seconds): string {
+    $sign = $seconds < 0 ? "-" : "+";
+    $size = abs($seconds);
+    $text = $sign .. two_digits(intdiv($size, SECONDS_PER_HOUR)) .. ":" .. two_digits(intdiv($size, SECONDS_PER_MINUTE) % 60);
+    if ($size % SECONDS_PER_MINUTE != 0) {
+        $text ..= ":" .. two_digits($size % SECONDS_PER_MINUTE);
+    }
+
+    return $text;
+}
+
+// A name in the time zone database: words of letters, digits, "_", "+" and "-" between slashes
+fn check_zone_name(string $name): null {
+    foreach (split($name, "/") as $word) {
+        if (!is_zone_word($word)) {
+            throw "Not a time zone name: " .. quote($name);
+        }
+    }
+}
+
+fn is_zone_word(string $word): bool {
+    if ($word == "") {
+        return false;
+    }
+    foreach (split($word, "") as $c) {
+        if (!is_alnum($c) && !in_array($c, ["_", "+", "-"])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*
+ * Text read a character at a time, for date::parse() and the rule at the end of a TZif file: what
+ * it can't read is an Unreadable saying what was expected and what was there
+ */
+kind Cursor {
+    int #at = 0;
+
+    fn _(string #text) {}
+
+    pub fn done(): bool {
+        return #at >= len(#text);
+    }
+
+    // The next character, or "" at the end
+    pub fn peek(): string {
+        return #done() ? "" : #text[#at];
+    }
+
+    pub fn next(): string {
+        $c = #peek();
+        #at++;
+
+        return $c;
+    }
+
+    // Whether the text goes on with $expected, which is then read
+    pub fn take(string $expected): bool {
+        if (!starts_with(#text, $expected, #at)) {
+            return false;
+        }
+        #at += len($expected);
+
+        return true;
+    }
+
+    pub fn expect(string $expected, string $where): null {
+        if (!#take($expected)) {
+            throw Unreadable("expected " .. quote($expected) .. " " .. $where .. #found());
+        }
+    }
+
+    pub fn expect_end(): null {
+        if (!#done()) {
+            throw Unreadable("expected nothing more" .. #found());
+        }
+    }
+
+    // A number of $fewest to $most digits, described as $what when they aren't there
+    pub fn number(int $fewest, int $most, string $what): int {
+        $start = #at;
+        while (#at - $start < $most && is_digit(#peek())) {
+            #at++;
+        }
+        if (#at - $start < $fewest) {
+            #at = $start;
+            throw Unreadable("expected " .. $what .. #found());
+        }
+
+        return to_int(slice(#text, $start, #at - $start));
+    }
+
+    // One or more digits, however many, described as $what when there are none
+    pub fn skip_digits(string $what): null {
+        $start = #at;
+        while (is_digit(#peek())) {
+            #at++;
+        }
+        if (#at == $start) {
+            throw Unreadable("expected " .. $what .. #found());
+        }
+    }
+
+    // ", found "x"" or ", found the end"
+    pub fn found(): string {
+        return #done() ? ", found the end" : ", found " .. quote(#peek());
+    }
+}
+
+// A date, "2026-08-08", as a day number
+fn read_date(Cursor $cursor): int {
+    $year = $cursor.number(4, 4, "a four-digit year");
+    $cursor.expect("-", "after the year");
+    $month = $cursor.number(2, 2, "a two-digit month");
+    $cursor.expect("-", "after the month");
+    $day = $cursor.number(2, 2, "a two-digit day");
+    if ($month < 1 || $month > 12) {
+        throw Unreadable("there is no month {$month}");
+    }
+    $length = days_in_month($year, $month);
+    if ($day < 1 || $day > $length) {
+        throw Unreadable("there is no day {$day} in " .. MONTHS[$month - 1] .. " {$year}, which has {$length}");
+    }
+
+    return days($year, $month, $day);
+}
+
+// A time of day, "14:02:09" and any fraction of a second, as seconds after midnight
+fn read_clock(Cursor $cursor): int {
+    $hour = $cursor.number(2, 2, "a two-digit hour");
+    $cursor.expect(":", "after the hour");
+    $minute = $cursor.number(2, 2, "two digits of minutes");
+    $cursor.expect(":", "after the minutes");
+    $second = $cursor.number(2, 2, "two digits of seconds");
+    if ($cursor.take(".")) {
+        // ponytail: dropped, as a time is whole seconds; a Moment with nanoseconds would keep it
+        $cursor.skip_digits("digits after the \".\"");
+    }
+    if ($hour > 23) {
+        throw Unreadable("there is no hour {$hour}");
+    }
+    if ($minute > 59) {
+        throw Unreadable("there is no minute {$minute}");
+    }
+    if ($second == 60) {
+        throw Unreadable("second 60 is a leap second, which times since 1970 leave out");
+    }
+    if ($second > 59) {
+        throw Unreadable("there is no second {$second}");
+    }
+
+    return time_of_day($hour, $minute, $second);
+}
+
+// An offset, "Z", "+02:00", "+02" or "-00:01:15"
+fn read_offset(Cursor $cursor): Offset {
+    if ($cursor.take("Z") || $cursor.take("z")) {
+        return Offset(0, false, "UTC");
+    }
+    $sign = 0;
+    if ($cursor.take("+")) {
+        $sign = 1;
+    } else if ($cursor.take("-")) {
+        $sign = -1;
+    } else {
+        throw Unreadable("expected \"Z\" or an offset such as \"+02:00\" after the time" .. $cursor.found());
+    }
+    $hours = $cursor.number(2, 2, "two digits of hours in the offset");
+    $minutes = 0;
+    $seconds = 0;
+    if ($cursor.take(":")) {
+        $minutes = $cursor.number(2, 2, "two digits of minutes in the offset");
+        if ($cursor.take(":")) {
+            $seconds = $cursor.number(2, 2, "two digits of seconds in the offset");
+        }
+    }
+    if ($hours > 23 || $minutes > 59 || $seconds > 59) {
+        throw Unreadable("an offset's hours are 0 to 23, and its minutes and seconds 0 to 59");
+    }
+    $offset = $sign * ($hours * SECONDS_PER_HOUR + $minutes * SECONDS_PER_MINUTE + $seconds);
+
+    return Offset($offset, false, offset_text($offset));
+}
+
+fn read_moment(Cursor $cursor): Moment {
+    $days = read_date($cursor);
+    if (!$cursor.take("T") && !$cursor.take("t") && !$cursor.take(" ")) {
+        throw Unreadable("expected \"T\" between the date and the time" .. $cursor.found());
+    }
+    $seconds = read_clock($cursor);
+    $offset = read_offset($cursor);
+    $cursor.expect_end();
+
+    return Moment($days * SECONDS_PER_DAY + $seconds - $offset.seconds, $offset);
+}
+
+/*
+ * The bytes of a TZif file, read in order: numbers are big-endian, so each is built a byte at a
+ * time, whatever the machine's own order
+ */
+kind Bytes {
+    int #at = 0;
+
+    fn _(pub string #name, string #data) {}
+
+    pub fn byte(): int {
+        return ord(#text(1));
+    }
+
+    pub fn unsigned(int $size): int {
+        $value = 0;
+        for ($i = 0; $i < $size; $i++) {
+            $value = $value * 256 + #byte();
+        }
+
+        return $value;
+    }
+
+    // Two's complement: the first byte's top bit counts negatively
+    pub fn signed(int $size): int {
+        $value = #byte();
+        if ($value >= 128) {
+            $value -= 256;
+        }
+        for ($i = 1; $i < $size; $i++) {
+            $value = $value * 256 + #byte();
+        }
+
+        return $value;
+    }
+
+    pub fn text(int $size): string {
+        if ($size > len(#data) - #at) {
+            throw "{#name} is not a TZif file: it ends too early";
+        }
+        $text = slice(#data, #at, $size);
+        #at += $size;
+
+        return $text;
+    }
+
+    // The bytes before the next newline, which is read too
+    pub fn line(): string {
+        $end = index_of(#data, "\n", #at);
+        if ($end == null) {
+            throw "{#name} is not a TZif file: its rule has no newline after it";
+        }
+        $line = #text($end - #at);
+        #at++;
+
+        return $line;
+    }
+
+    pub fn done(): bool {
+        return #at == len(#data);
+    }
+}
+
+// A TZif file's header: its version, and how many of each part its data has
+kind Header {
+    fn _(pub int #version, pub int #utc_count, pub int #standard_count, pub int #leap_count, pub int #transition_count, pub int #type_count, pub int #char_count) {}
+
+    // The length of the data after the header, when each time takes $time_size bytes
+    pub fn data_length(int $time_size): int {
+        $transitions = #transition_count * ($time_size + 1);
+        $leap_seconds = #leap_count * ($time_size + 4);
+
+        return $transitions + #type_count * 6 + #char_count + $leap_seconds + #standard_count + #utc_count;
+    }
+}
+
+// A local time type as a TZif file has it, before its abbreviation is looked up
+kind TimeType {
+    fn _(pub int #seconds, pub int #dst, pub int #abbreviation_index) {}
+}
+
+/*
+ * A TZif file read into a Zone, as RFC 8536 lays one out: a header and data with 32-bit times,
+ * then, from version 2, a header and data with 64-bit times, which are the ones read, and the
+ * POSIX TZ rule for the times after its transitions
+ */
+kind TzifReader {
+    fn _(Bytes #bytes) {}
+
+    pub fn zone(): Zone {
+        $header = #header();
+        $time_size = 4;
+        if ($header.version >= 2) {
+            #bytes.text($header.data_length($time_size));
+            $header = #header();
+            $time_size = 8;
+        }
+        $times = #times($header, $time_size);
+        $indexes = #type_indexes($header);
+        $offsets = #offsets($header);
+        #bytes.text($header.standard_count + $header.utc_count);
+        $rule = $header.version >= 2 ? #rule() : null;
+        if (!#bytes.done()) {
+            throw #refusal("there is more after its end");
+        }
+        $transitions = [];
+        foreach ($times as $i => $time) {
+            $transitions[] = Transition($time, $offsets[$indexes[$i]]);
+        }
+
+        return Zone(#bytes.name, $transitions, $offsets[0], $rule);
+    }
+
+    fn header(): Header {
+        if (#bytes.text(4) != "TZif") {
+            throw #refusal("it doesn't start with \"TZif\"");
+        }
+        $version = #version(#bytes.text(1));
+        #bytes.text(TZIF_RESERVED);
+        $counts = [];
+        for ($i = 0; $i < TZIF_COUNTS; $i++) {
+            $counts[] = #bytes.unsigned(4);
+        }
+        [$utc, $standard, $leap, $transitions, $types, $chars] = $counts;
+        if ($types == 0 || $chars == 0) {
+            throw #refusal("it has no local time types");
+        }
+        if (($utc != 0 && $utc != $types) || ($standard != 0 && $standard != $types)) {
+            throw #refusal("its indicators don't match its local time types");
+        }
+        if ($leap > 0) {
+            throw "{#bytes.name} counts leap seconds, which times since 1970 leave out";
+        }
+
+        return Header($version, $utc, $standard, $leap, $transitions, $types, $chars);
+    }
+
+    fn version(string $byte): int {
+        if ($byte == "\0") {
+            return 1;
+        }
+        if (!is_digit($byte) || $byte < "2") {
+            throw #refusal("its version is " .. quote($byte));
+        }
+
+        return to_int($byte);
+    }
+
+    fn times(Header $header, int $time_size): list {
+        $times = [];
+        for ($i = 0; $i < $header.transition_count; $i++) {
+            $time = #bytes.signed($time_size);
+            if ($i > 0 && $time <= last($times)) {
+                throw #refusal("its transitions are out of order");
+            }
+            $times[] = $time;
+        }
+
+        return $times;
+    }
+
+    fn type_indexes(Header $header): list {
+        $indexes = [];
+        for ($i = 0; $i < $header.transition_count; $i++) {
+            $index = #bytes.byte();
+            if ($index >= $header.type_count) {
+                throw #refusal("a transition is to local time type {$index}, which it doesn't have");
+            }
+            $indexes[] = $index;
+        }
+
+        return $indexes;
+    }
+
+    fn offsets(Header $header): list {
+        $types = [];
+        for ($i = 0; $i < $header.type_count; $i++) {
+            $types[] = TimeType(#bytes.signed(4), #bytes.byte(), #bytes.byte());
+        }
+        $chars = #bytes.text($header.char_count);
+
+        return map($types, $type -> #offset($type, $chars));
+    }
+
+    fn offset(TimeType $type, string $chars): Offset {
+        if ($type.seconds < LEAST_TZIF_OFFSET || $type.seconds > MOST_TZIF_OFFSET) {
+            throw #refusal("an offset of {$type.seconds} seconds is out of range");
+        }
+        if ($type.dst > 1) {
+            throw #refusal("a daylight saving time flag is {$type.dst}");
+        }
+        $start = $type.abbreviation_index;
+        $end = $start < len($chars) ? index_of($chars, "\0", $start) : null;
+        if ($end == null) {
+            throw #refusal("an abbreviation doesn't end within its characters");
+        }
+
+        return Offset($type.seconds, $type.dst == 1, slice($chars, $start, $end - $start));
+    }
+
+    fn rule(): ?Rule {
+        if (#bytes.text(1) != "\n") {
+            throw #refusal("its rule doesn't start with a newline");
+        }
+        $text = #bytes.line();
+        if ($text == "") {
+            return null;
+        }
+        try {
+            return read_rule(Cursor($text));
+        } catch (Unreadable $e) {
+            throw #refusal("can't read its rule " .. quote($text) .. ": " .. $e.message);
+        }
+    }
+
+    fn refusal(string $reason): string {
+        return "{#bytes.name} is not a TZif file: {$reason}";
+    }
+}
+
+/*
+ * A POSIX TZ rule, such as "GMT0BST,M3.5.0/1,M10.5.0", for the times after a TZif file's
+ * transitions: the standard time, and the daylight saving time and when it starts and ends, if
+ * the zone has one
+ */
+kind Rule {
+    fn _(Offset #standard, ?Offset #daylight, ?Change #start, ?Change #end) {}
+
+    pub fn offset_at(int $time): Offset {
+        if (#daylight == null) {
+            return #standard;
+        }
+        $year = year(floor_div($time + #standard.seconds, SECONDS_PER_DAY));
+        $latest = null;
+        for ($y = $year - 1; $y <= $year + 1; $y++) {
+            /*
+             * A year's end before its start, so a start at the same moment as the year before's
+             * end wins: a rule for daylight saving time all year writes it that way
+             */
+            $changes = [Transition(#end.time_in($y, #daylight), #standard), Transition(#start.time_in($y, #standard), #daylight)];
+            foreach ($changes as $change) {
+                if ($change.time <= $time && ($latest == null || $change.time >= $latest.time)) {
+                    $latest = $change;
+                }
+            }
+        }
+
+        return $latest.offset;
+    }
+}
+
+/*
+ * A rule: a name, then the offset, which counts hours west of UTC ("EST5" is five hours behind),
+ * then for daylight saving time a name, an offset (an hour ahead of standard time unless it
+ * says) and when it starts and ends
+ */
+fn read_rule(Cursor $cursor): Rule {
+    $name = read_rule_name($cursor);
+    $standard = Offset(-read_rule_time($cursor, MOST_OFFSET_HOURS), false, $name);
+    if ($cursor.done()) {
+        return Rule($standard, null, null, null);
+    }
+    $name = read_rule_name($cursor);
+    $seconds = $standard.seconds + SECONDS_PER_HOUR;
+    if (!$cursor.done() && $cursor.peek() != ",") {
+        $seconds = -read_rule_time($cursor, MOST_OFFSET_HOURS);
+    }
+    $daylight = Offset($seconds, true, $name);
+    $cursor.expect(",", "before daylight saving time's start");
+    $start = read_change($cursor);
+    $cursor.expect(",", "before daylight saving time's end");
+    $end = read_change($cursor);
+    $cursor.expect_end();
+
+    return Rule($standard, $daylight, $start, $end);
+}
+
+// Three or more letters, or between < and > three or more letters, digits, "+" and "-"
+fn read_rule_name(Cursor $cursor): string {
+    $quoted = $cursor.take("<");
+    $name = "";
+    while (is_rule_name_char($cursor.peek(), $quoted)) {
+        $name ..= $cursor.next();
+    }
+    if (len($name) < 3) {
+        throw Unreadable("expected a name of three or more characters" .. $cursor.found());
+    }
+    if ($quoted) {
+        $cursor.expect(">", "after a name");
+    }
+
+    return $name;
+}
+
+fn is_rule_name_char(string $c, bool $quoted): bool {
+    if ($quoted) {
+        return is_alnum($c) || $c == "+" || $c == "-";
+    }
+
+    return is_alpha($c);
+}
+
+// [+|-]hh[:mm[:ss]], hours being at most $most_hours, as signed seconds
+fn read_rule_time(Cursor $cursor, int $most_hours): int {
+    $sign = 1;
+    if ($cursor.take("-")) {
+        $sign = -1;
+    } else {
+        $cursor.take("+");
+    }
+    $hours = $cursor.number(1, 3, "a number of hours");
+    $minutes = 0;
+    $seconds = 0;
+    if ($cursor.take(":")) {
+        $minutes = $cursor.number(2, 2, "two digits of minutes");
+        if ($cursor.take(":")) {
+            $seconds = $cursor.number(2, 2, "two digits of seconds");
+        }
+    }
+    if ($hours > $most_hours || $minutes > 59 || $seconds > 59) {
+        throw Unreadable("hours are at most {$most_hours} here, and minutes and seconds at most 59");
+    }
+
+    return $sign * ($hours * SECONDS_PER_HOUR + $minutes * SECONDS_PER_MINUTE + $seconds);
+}
+
+// "Mmonth.week.weekday", "Jday" or "day", then "/time" unless it is 02:00
+fn read_change(Cursor $cursor): Change {
+    if ($cursor.take("M")) {
+        $month = read_rule_number($cursor, "month", 1, 12);
+        $cursor.expect(".", "after the month");
+        $week = read_rule_number($cursor, "week", 1, 5);
+        $cursor.expect(".", "after the week");
+        $weekday = read_rule_number($cursor, "weekday", 0, 6);
+
+        return MonthChange($month, $week, $weekday, read_change_time($cursor));
+    }
+    if ($cursor.take("J")) {
+        return JulianChange(read_rule_number($cursor, "day", 1, 365), read_change_time($cursor));
+    }
+
+    return YearDayChange(read_rule_number($cursor, "day", 0, 365), read_change_time($cursor));
+}
+
+fn read_rule_number(Cursor $cursor, string $what, int $least, int $most): int {
+    $number = $cursor.number(1, len(to_string($most)), "a {$what}");
+    if ($number < $least || $number > $most) {
+        throw Unreadable("a {$what} is {$least} to {$most}, not {$number}");
+    }
+
+    return $number;
+}
+
+fn read_change_time(Cursor $cursor): int {
+    if (!$cursor.take("/")) {
+        return DEFAULT_CHANGE_TIME;
+    }
+
+    return read_rule_time($cursor, MOST_CHANGE_HOURS);
+}
+
+// When in a year a rule's clocks change: a day, and a time on it in the offset being left
+abstract kind Change {
+    fn _(int #time) {}
+
+    kin abstract fn day_in(int $year): int;
+
+    // When the change happens in $year, as a time, while the clocks keep $offset
+    pub fn time_in(int $year, Offset $offset): int {
+        return #day_in($year) * SECONDS_PER_DAY + #time - $offset.seconds;
+    }
+}
+
+// "Mmonth.week.weekday": a weekday (0 Sunday to 6 Saturday) of week 1 to 4 of the month, or 5, the last
+kind MonthChange extends Change {
+    fn _(int #month, int #week, int #weekday, int $time) {
+        ##_($time);
+    }
+
+    kin fn day_in(int $year): int {
+        $first = days($year, #month, 1);
+        $first_weekday = (weekday($first) + 1) % 7;
+        $day = $first + (#weekday - $first_weekday + 7) % 7 + (#week - 1) * 7;
+        $last = $first + days_in_month($year, #month) - 1;
+        while ($day > $last) {
+            $day -= 7;
+        }
+
+        return $day;
+    }
+}
+
+// "Jday": 1 to 365, never counting 29 February, so "J60" is always 1 March
+kind JulianChange extends Change {
+    fn _(int #day, int $time) {
+        ##_($time);
+    }
+
+    kin fn day_in(int $year): int {
+        $leap_day = is_leap($year) && #day >= 60 ? 1 : 0;
+
+        return days($year, 1, 1) + #day - 1 + $leap_day;
+    }
+}
+
+// "day": 0 to 365, counting 29 February
+kind YearDayChange extends Change {
+    fn _(int #day, int $time) {
+        ##_($time);
+    }
+
+    kin fn day_in(int $year): int {
+        return days($year, 1, 1) + #day;
+    }
 }
