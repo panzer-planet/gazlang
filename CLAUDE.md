@@ -123,8 +123,8 @@ composer ci                         # what CI runs, cold: phpstan with no result
   PostgreSQL database and run from the app's directory, so CI doesn't: `cd apps/todo &&
   ../../bin/gaz test tests`.
 - `gaz.json` (`{"name": "..."}`) marks a project's root: the repository's, `apps/todo`'s and
-  `games/football`'s. Nothing reads one yet; `import` will resolve paths from it
-  (`docs/design/modules.md`).
+  `games/football`'s. A root-relative `import` resolves from the nearest one above the module, and
+  the compiler refuses any key but `"name"` (see "Modules and namespaces").
 - `editors/`: TextMate grammars, `gaz/gaz.tmLanguage` for source, `gzb/gzb.tmLanguage` for
   bytecode and `gazml/gazml.tmLanguage` for templates (HTML with GazLang embedded: `{{ }}`,
   `{!! !!}`, the directive lines and the `import` lines before them, also inside tags and attribute
@@ -724,7 +724,7 @@ that must find nothing to do.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
   bytecode, while a method block stays `Kind.method`, which is what lets the loader tell the two
   apart. Resolution is one pass before anything else is checked, so nothing below it knows
-  modules or namespaces exist. `docs/design/modules.md` is the design.
+  modules or namespaces exist.
   - **A file sees what it declares and what it imports, and no further**, so a module checked
     alone gives the answer it gives in every program that contains it; `import` only at the top
     so a file's first lines say what it depends on, for a reader, the language server and the
@@ -784,7 +784,8 @@ that must find nothing to do.
 - **Not yet designed**, each built when real code shows what it needs: traits, late static
   binding, operator overloading, `log`/`exp`/fractional powers (each wants an algorithm GazLang
   defines, as `round` has), variadic parameters and spread in calls (pass a
-  list), `foreach` over a string (`split($s, "")`). A REPL is possible and wanted: see "A real
+  list), `foreach` over a string (`split($s, "")`), `import "x" as ns` (renaming a namespace
+  where it is imported). A REPL is possible and wanted: see "A real
   REPL" under the C VM.
 - **Regular expressions**: `lib/regex.gaz`, a Thompson NFA (Pike's VM) so there is no
   backtracking and no ReDoS. **Perl's match**: threads run in priority order carrying their group
