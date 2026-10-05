@@ -101,3 +101,7 @@ throws("parts must be a list", () -> web::html("a", []), "web::html() expects \$
 $fragment = web::html"<i>{$name}</i>";
 throws("..", () -> $fragment .. "!", "Cannot concatenate Html: build it with web::html\"...\", or use .text for its markup as a plain string");
 expect(".text", $fragment.text .. "!", "<i>&lt;Ann&gt;</i>!");
+
+/* The CSRF field, its token escaped as any attribute value is */
+expect("csrf_field", web::csrf_field("a\"b<c").text, "<input type=\"hidden\" name=\"_csrf\" value=\"a&quot;b&lt;c\">");
+expect("csrf_field with its field named", web::csrf_field("t", "token").text, "<input type=\"hidden\" name=\"token\" value=\"t\">");

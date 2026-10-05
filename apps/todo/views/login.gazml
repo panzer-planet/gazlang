@@ -1,10 +1,11 @@
 namespace todo;
+import "std/web.gaz";
 import "forms.gaz";
 @template login_page(string $csrf, LoginForm $form, map $errors)
 <h1>Log in</h1>
 
 <form method="post" action="/login" novalidate>
-    <input type="hidden" name="_csrf" value="{{ $csrf }}">
+    {{ web::csrf_field($csrf) }}
 
     @if (has_key($errors, "login"))
         <p class="error">{{ $errors["login"] }}</p>

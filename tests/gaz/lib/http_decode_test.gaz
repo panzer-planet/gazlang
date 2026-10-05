@@ -1,4 +1,4 @@
-import "std/test.gaz" use expect;
+import "std/test.gaz" use expect, throws;
 import "std/http.gaz";
 
 /* url_decode(): percent-escapes only, as RFC 3986 has them */
@@ -66,3 +66,34 @@ expect("a body that isn't a form", $failures, [
     "http::form() needs a body sent as application/x-www-form-urlencoded, not \"application/json\"",
     "http::form() needs a body sent as application/x-www-form-urlencoded, not \"multipart/form-data; boundary=x\"",
 ]);
+
+/* Given a default, input a client controls that can't be decoded gives it instead of an error */
+$bad_escape = {"query" => "show=%zz", "headers" => {"content-type" => "application/x-www-form-urlencoded"}, "body" => "show=%zz"};
+$not_a_form = {"query" => "", "headers" => {"content-type" => "application/json"}, "body" => "show=open"};
+expect("query, a bad escape", [http::query($bad_escape, {}), http::query_all($bad_escape, {})], [{}, {}]);
+expect("form, a bad escape", [http::form($bad_escape, {}), http::form_all($bad_escape, {})], [{}, {}]);
+expect("form, not a form", [http::form($not_a_form, {}), http::form_all($not_a_form, {})], [{}, {}]);
+expect("url_decode, a bad escape", http::url_decode("100%", "?"), "?");
+expect("cookies, a bad escape", http::cookies({"headers" => {"cookie" => "a=1; b=50%"}}, {}), {});
+expect("a null default", [http::query($bad_escape, null), http::form($not_a_form, null), http::url_decode("%zz", null)], [null, null, null]);
+expect("a good request ignores it", [http::query($request, {}), http::form($form, {}), http::form_all($form, {})["likes"]], [
+    http::query($request), {"name" => "Wérner", "likes" => "gaz"}, ["php", "gaz"],
+]);
+expect("cookies decoded", http::cookies({"headers" => {"cookie" => "a=x%20y; b=2"}}, {}), {"a" => "x y", "b" => "2"});
+
+/* Without one, each says what is wrong, as before */
+throws("query without a default", () -> http::query($bad_escape), "bad percent-escape \"%zz\" at 0");
+throws("query_all without a default", () -> http::query_all($bad_escape), "bad percent-escape \"%zz\" at 0");
+throws("form_all without a default", () -> http::form_all($not_a_form), "http::form() needs a body sent as application/x-www-form-urlencoded, not \"application/json\"");
+throws("cookies without a default", () -> http::cookies({"headers" => {"cookie" => "b=50%"}}), "bad percent-escape \"%\" at 2");
+
+/* A default doesn't hide the program's own mistakes */
+throws("a request that isn't a map", () -> http::query("show=open", {}), "String positions must be int, got string");
+throws("a request with no query", () -> http::query({"headers" => {}}, {}), "Undefined key: \"query\"");
+
+/* A stray cookie the session didn't set can't end it, or make the request an error */
+$secret = repeat("k", 32);
+$signed = http::session_cookie({}, {"user" => 7}, $secret)["headers"]["Set-Cookie"][0];
+$session_value = split(split($signed, ";")[0], "=", 2)[1];
+expect("a session beside a bad cookie", http::session({"headers" => {"cookie" => "other=50%; session=" .. $session_value}}, $secret), {"user" => 7});
+expect("a session cookie with a bad escape", http::session({"headers" => {"cookie" => "session=%zz"}}, $secret), {});

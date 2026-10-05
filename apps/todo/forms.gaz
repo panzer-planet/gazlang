@@ -22,24 +22,6 @@ const FILTERS = {"all" => "All", "open" => "Open", "done" => "Done"};
 const EMPTY_LISTS = {"all" => "Nothing to do. Enjoy it.", "open" => "Nothing left to do.", "done" => "Nothing done yet."};
 const SHOW_ALL = "all";
 
-// The fields of a form body, or none if the body isn't one
-fn form_fields(map $request): map {
-    try {
-        return http::form($request);
-    } catch (Error $e) {
-        return {};
-    }
-}
-
-// The fields of the query string, or none if it can't be decoded
-fn query_fields(map $request): map {
-    try {
-        return http::query($request);
-    } catch (Error $e) {
-        return {};
-    }
-}
-
 fn field(map $fields, string $name): string {
     $value = $fields[$name] ?? "";
 
@@ -71,7 +53,7 @@ kind RegistrationForm {
     fn _(pub string #email, pub string #password, pub string #confirmation) {}
 
     pub static fn from_request(map $request): RegistrationForm {
-        $fields = form_fields($request);
+        $fields = http::form($request, {});
 
         return RegistrationForm(lower(trim(field($fields, "email"))), field($fields, "password"), field($fields, "confirmation"));
     }
@@ -123,7 +105,7 @@ kind LoginForm {
     fn _(pub string #email, pub string #password) {}
 
     pub static fn from_request(map $request): LoginForm {
-        $fields = form_fields($request);
+        $fields = http::form($request, {});
 
         return LoginForm(lower(trim(field($fields, "email"))), field($fields, "password"));
     }
@@ -146,7 +128,7 @@ kind TodoForm {
     fn _(pub string #title, pub string #due = "") {}
 
     pub static fn from_request(map $request): TodoForm {
-        $fields = form_fields($request);
+        $fields = http::form($request, {});
 
         return TodoForm(trim(field($fields, "title")), trim(field($fields, "due")));
     }
@@ -242,11 +224,11 @@ kind TodoFilter {
     }
 
     pub static fn from_query(map $request): TodoFilter {
-        return TodoFilter(field(query_fields($request), "show"));
+        return TodoFilter(field(http::query($request, {}), "show"));
     }
 
     pub static fn from_form(map $request): TodoFilter {
-        return TodoFilter(field(form_fields($request), "show"));
+        return TodoFilter(field(http::form($request, {}), "show"));
     }
 
     // The list's address with this filter: "/" or "/?show=open"

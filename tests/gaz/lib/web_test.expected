@@ -27,3 +27,5 @@ ok too few text parts
 ok parts must be a list
 ok ..
 ok .text
+ok csrf_field
+ok csrf_field with its field named

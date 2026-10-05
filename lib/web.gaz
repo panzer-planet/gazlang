@@ -100,6 +100,19 @@ pub fn html(list $strings, list $values): Html {
     return Html($text);
 }
 
+/**
+ * The hidden field that carries a form's CSRF token, for `http::csrf()` to check, written once
+ * here rather than by hand in every form:
+ *
+ *   <form method="post" action="/logout">
+ *       {{ web::csrf_field($csrf) }}
+ *
+ * $field is the name `http::csrf()` was given as its `"field"` option, `_csrf` unless it said.
+ */
+pub fn csrf_field(string $token, string $field = "_csrf"): Html {
+    return html"<input type=\"hidden\" name=\"{$field}\" value=\"{$token}\">";
+}
+
 // A value as its place needs it
 fn written($value, $placement) {
     return match ($placement) {

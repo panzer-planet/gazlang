@@ -13,3 +13,19 @@ ok no query
 ok form
 ok form_all
 ok a body that isn't a form
+ok query, a bad escape
+ok form, a bad escape
+ok form, not a form
+ok url_decode, a bad escape
+ok cookies, a bad escape
+ok a null default
+ok a good request ignores it
+ok cookies decoded
+ok query without a default
+ok query_all without a default
+ok form_all without a default
+ok cookies without a default
+ok a request that isn't a map
+ok a request with no query
+ok a session beside a bad cookie
+ok a session cookie with a bad escape

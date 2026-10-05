@@ -1,10 +1,11 @@
 namespace todo;
+import "std/web.gaz";
 import "forms.gaz";
 @template edit_page(string $csrf, int $id, TodoForm $form, map $errors)
 <h1>Edit todo</h1>
 
 <form method="post" action="/todos/{{ $id }}" class="add">
-    <input type="hidden" name="_csrf" value="{{ $csrf }}">
+    {{ web::csrf_field($csrf) }}
     <input
         type="text"
         name="title"

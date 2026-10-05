@@ -1369,11 +1369,7 @@ fn segments($path) {
 
 // A request path's segments, each percent-decoded, or null when an escape is bad
 fn decoded_segments($path) {
-    try {
-        return map(segments($path), url_decode);
-    } catch (Error $e) {
-        return null;
-    }
+    return decoded(() -> map(segments($path), percent_decode), null);
 }
 
 fn is_param($segment) {
@@ -1438,19 +1434,11 @@ const HEX = "0123456789ABCDEF";
 
 /**
  * $text with its percent-escapes undone (%20 is a space), as RFC 3986 has them: a + stays a +.
- * A % that isn't followed by two hex digits is an error.
+ * A % that isn't followed by two hex digits is an error, unless $default is given, which is then
+ * returned instead.
  */
-pub fn url_decode($text) {
-    $decoded = "";
-    $at = 0;
-    while (true) {
-        $percent = index_of($text, "%", $at);
-        if ($percent == null) {
-            return $decoded .. slice($text, $at);
-        }
-        $decoded ..= slice($text, $at, $percent - $at) .. escaped_byte($text, $percent);
-        $at = $percent + 3;
-    }
+pub fn url_decode($text, $default = NoDefault()) {
+    return decoded(() -> percent_decode($text), $default);
 }
 
 /**
@@ -1472,36 +1460,79 @@ pub fn url_encode($text) {
 
 /**
  * The request's query string as a map of strings, decoded: + is a space, as HTML forms send it,
- * and a key given twice keeps its last value (query_all() has them all)
+ * and a key given twice keeps its last value (query_all() has them all). A bad percent-escape is
+ * an error, unless $default is given, which is then returned instead: the query string is the
+ * client's, so `http::query($request, {})` reads one that can't be decoded as an empty one.
  */
-pub fn query($request) {
-    return last_values(query_all($request));
+pub fn query($request, $default = NoDefault()) {
+    return decoded(() -> last_values(decode_pairs($request["query"])), $default);
 }
 
 /**
  * The request's query string as a map from each key to the list of every value it was given, in
- * order
+ * order; a bad percent-escape is an error, unless $default is given, as query() has it
  */
-pub fn query_all($request) {
-    return decode_pairs($request["query"]);
+pub fn query_all($request, $default = NoDefault()) {
+    return decoded(() -> decode_pairs($request["query"]), $default);
 }
 
 /**
  * A form body (Content-Type application/x-www-form-urlencoded) as a map of strings, as query()
- * reads a query string; a body of another type is an error
+ * reads a query string. A body of another type, or a bad percent-escape, is an error, unless
+ * $default is given, which is then returned instead: `http::form($request, {})` reads a request
+ * that isn't a form as one with no fields.
  */
-pub fn form($request) {
-    return last_values(form_all($request));
+pub fn form($request, $default = NoDefault()) {
+    return decoded(() -> last_values(form_pairs($request)), $default);
 }
 
 /**
  * A form body as a map from each key to the list of every value it was given, as query_all()
- * reads a query string
+ * reads a query string; a body of another type, or a bad percent-escape, is an error, unless
+ * $default is given, as form() has it
  */
-pub fn form_all($request) {
-    check_form_type($request);
+pub fn form_all($request, $default = NoDefault()) {
+    return decoded(() -> form_pairs($request), $default);
+}
 
-    return decode_pairs($request["body"]);
+// What a client sent that can't be decoded: a bad percent-escape, or a body that isn't a form
+kind Undecodable extends Error {
+    fn _($message) {
+        ##_($message);
+    }
+}
+
+// A $default's own default: only this file can make one, so no value a caller passes is one
+kind NoDefault {}
+
+/*
+ * What $decode returns, or $default if what it decodes is Undecodable; with no $default given that
+ * is an error with its message. Only Undecodable is caught, so a program's own mistake (a request
+ * that isn't a map) and running out of call depth are still errors.
+ */
+fn decoded($decode, $default) {
+    try {
+        return $decode();
+    } catch (Undecodable $e) {
+        if (is_a($default, NoDefault)) {
+            throw $e.message;
+        }
+
+        return $default;
+    }
+}
+
+fn percent_decode($text) {
+    $decoded = "";
+    $at = 0;
+    while (true) {
+        $percent = index_of($text, "%", $at);
+        if ($percent == null) {
+            return $decoded .. slice($text, $at);
+        }
+        $decoded ..= slice($text, $at, $percent - $at) .. escaped_byte($text, $percent);
+        $at = $percent + 3;
+    }
 }
 
 // The byte the escape at $percent stands for: "%41" is "A"
@@ -1509,7 +1540,7 @@ fn escaped_byte($text, $percent) {
     $digits = slice($text, $percent + 1, 2);
     if (len($digits) < 2 || !is_hex_digit($digits[0]) || !is_hex_digit($digits[1])) {
         $escape = slice($text, $percent, 3);
-        throw "bad percent-escape " .. quote($escape) .. " at $percent";
+        throw Undecodable("bad percent-escape " .. quote($escape) .. " at $percent");
     }
 
     return chr(hex_digit($digits[0]) * 16 + hex_digit($digits[1]));
@@ -1556,18 +1587,20 @@ fn key_and_value($piece) {
 
 // A form's text: + is a space, then percent-escapes
 fn form_decode($text) {
-    return url_decode(replace($text, "+", " "));
+    return percent_decode(replace($text, "+", " "));
 }
 
 fn last_values($all) {
     return map($all, $values -> last($values));
 }
 
-fn check_form_type($request) {
+fn form_pairs($request) {
     if (media_type($request) != FORM_TYPE) {
         $type = $request["headers"]["content-type"] ?? "";
-        throw "http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. quote($type);
+        throw Undecodable("http::form() needs a body sent as " .. FORM_TYPE .. ", not " .. quote($type));
     }
+
+    return decode_pairs($request["body"]);
 }
 
 // The request's Content-Type without its parameters, lowercased
@@ -1583,9 +1616,16 @@ const SESSION_COOKIE = "session";
 const COOKIE_OPTIONS = {"path" => "/", "http_only" => true, "secure" => false, "same_site" => "Lax", "max_age" => null};
 
 /**
- * The request's Cookie header as a map from each cookie's name to its value, url_decode()d
+ * The request's Cookie header as a map from each cookie's name to its value, url_decode()d. A
+ * value with a bad percent-escape is an error, unless $default is given, which is then returned
+ * instead.
  */
-pub fn cookies($request) {
+pub fn cookies($request, $default = NoDefault()) {
+    return decoded(() -> map(sent_cookies($request), percent_decode), $default);
+}
+
+// The request's Cookie header as a map from each cookie's name to its value as sent
+fn sent_cookies($request) {
     $header = $request["headers"]["cookie"] ?? "";
     $cookies = {};
     foreach (split($header, ";") as $pair) {
@@ -1594,7 +1634,7 @@ pub fn cookies($request) {
         if ($pair == "" || $equals == null) {
             continue;
         }
-        $cookies[trim(slice($pair, 0, $equals))] = url_decode(trim(slice($pair, $equals + 1)));
+        $cookies[trim(slice($pair, 0, $equals))] = trim(slice($pair, $equals + 1));
     }
 
     return $cookies;
@@ -1673,7 +1713,12 @@ fn with_defaults($who, $options, $defaults) {
  * a forged, tampered or expired cookie is routine, not an error a handler must catch
  */
 pub fn session($request, $secret) {
-    $signed = cookies($request)[SESSION_COOKIE] ?? null;
+    // Only the session's own cookie is decoded, so another site's cookie on the domain can't end it
+    $sent = sent_cookies($request)[SESSION_COOKIE] ?? null;
+    if ($sent == null) {
+        return {};
+    }
+    $signed = url_decode($sent, null);
     if ($signed == null) {
         return {};
     }
@@ -1910,18 +1955,12 @@ fn from_this_site($request, $field) {
     return verify_csrf($request["session"], $submitted) && same_origin($request);
 }
 
-// A form's field, or null for a body that isn't a form, so a hostile request is refused, not a 500
+/*
+ * A form's field, or null for a body that isn't a form or can't be decoded, so a hostile request
+ * is refused, not a 500
+ */
 fn form_field($request, $field) {
-    if (media_type($request) != FORM_TYPE) {
-        return null;
-    }
-    try {
-        $fields = form($request);
-    } catch (Error $e) {
-        return null;      // a bad percent-escape
-    }
-
-    return $fields[$field] ?? null;
+    return form($request, {})[$field] ?? null;
 }
 
 // Whether the Origin the browser sent, if it sent one, is the host it sent the request to

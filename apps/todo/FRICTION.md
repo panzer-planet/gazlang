@@ -2,16 +2,16 @@
 
 Each entry says what hurt, what the app does about it today, and the options for fixing it in the
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
-logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 877
-lines of GazLang, 220 of templates, 23 of SQL, and 532 of tests (204 checks). It was written by someone who knows the language, working from the library's own
+logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 859
+lines of GazLang, 225 of templates, 23 of SQL, and 532 of tests (204 checks). It was written by someone who knows the language, working from the library's own
 documentation, and it has been changed since only by moving what it needed into the library.
 
 Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
-(handles across `workers()`), 4 (UTF-8), and the redirect, the timestamps and the due dates in 10.
-Half done: 5 (`socket_peer()` exists; handlers can't see it yet). Open: the rate limit in 5, 6, 7, 8,
-9, and the rest of 10.
+(handles across `workers()`), 4 (UTF-8), and the redirect, the timestamps, the due dates and the CSRF field in 10.
+Half done: 5 (`socket_peer()` exists; handlers can't see it yet) and 9 (decoding needs no `try`; the
+request is still parsed twice). Open: the rate limit in 5, 6, 7, 8, the rest of 9, and the rest of 10.
 
 ## What worked, so it is not lost
 
@@ -162,20 +162,23 @@ relative to where the program was started, and nothing says where the main file 
 ## 9. The request is a plain map, so each helper parses it again
 
 `http::form($request)` decodes the body each time: `http::csrf()` does, then the handler's form kind
-does. It is cheap here (a few fields). The library's `csrf()` now checks the Content-Type first and
-wraps only the bad-escape case, so it catches no more than it means to; the app's own `form_fields()`
-(`forms.gaz`) still turns the error a non-form body raises into "no fields" with a
-`try`/`catch (Error)`, since `form()` raises a string and the caller can't tell a hostile request from
-a bug otherwise, and that `catch (Error)` would also catch running out of call depth.
+does. It is cheap here (a few fields).
 
-`http::query()` has the same shape: `?show=%zz` raised, so the list page was a 500 for a link anyone
-can write, found by the hostile-filter test. The app's `query_fields()` is a second copy of the same
-`try`/`catch (Error)`.
+Decoding also needed a `try` (resolved: `http::form($request, $default)` and
+`http::query($request, $default)`). `form()` raised a string for a body that wasn't a form or had a
+bad percent-escape, and `query()` for `?show=%zz`, so the list page was a 500 for a link anyone can
+write, found by the hostile-filter test. The app carried two `try`/`catch (Error)` wrappers,
+`form_fields()` and `query_fields()`, which couldn't tell a hostile request from a bug and would also
+have caught running out of call depth.
 
-- **Today**: parse twice; `try`/`catch (Error)` in the app's `form_fields()` and `query_fields()`.
-- **Options**: the middleware stores `$request["form"]` once; or `http::form($request, $default)` and
-  `http::query($request, $default)` (as `to_int($x, $default)` and `date::parse($text, $default)` do)
-  so bad input needs no `try`, which would remove both `catch`es.
+- **Resolved** by an optional `$default` on `http::query()`, `query_all()`, `form()`, `form_all()`,
+  `url_decode()` and `cookies()`, as `to_int($x, $default)` and `date::parse($text, $default)` have
+  one: given one, input the client controls that can't be decoded gives it, and a bug is still an
+  error. Both wrappers are gone, and `http::csrf()` lost its own `try`. Checking the library for the
+  same shape found `http::session()` decoding every cookie, so a stray `%` in any cookie on the
+  domain made every request a 500; it now decodes only its own.
+- **Today**: parse twice.
+- **Options**: the middleware stores `$request["form"]` once.
 
 ## 10. Smaller things
 
@@ -207,11 +210,13 @@ can write, found by the hostile-filter test. The app's `query_fields()` is a sec
 - **Database errors are strings**, so tests assert on their words
   (`postgres: duplicate key value violates unique constraint "users_email_key"`), which is fragile
   across PostgreSQL versions and has no SQLSTATE to match on.
-- **`@csrf`-shaped repetition in templates**: `<input type="hidden" name="_csrf" value="{{ $csrf }}">`
-  appears in 7 places in the templates, two of them inside the todo list, so a page of 40 todos
-  carries 82 tokens. The filter added a second such field, `<input type="hidden" name="show" ...>`,
-  to the same three forms, since a redirect after a POST has nothing else to go back to. A `@csrf` directive, or a `form` helper, would remove it (and is a thing a
-  template can get wrong; this app's test checks each form).
+- **`@csrf`-shaped repetition in templates** (resolved: `web::csrf_field($csrf)`):
+  `<input type="hidden" name="_csrf" value="{{ $csrf }}">` was written by hand in 7 places, two of
+  them inside the todo list. Each form now writes `{{ web::csrf_field($csrf) }}`, so the field's name
+  and escaping are the library's, and the app's test still checks each form carries the token. Still
+  open: the filter's `<input type="hidden" name="show" ...>` repeats in the same three forms, since a
+  redirect after a POST has nothing else to go back to, and a page of 40 todos still carries 82
+  tokens; a form that forgets the helper is still the template's mistake to make.
 - **Every first visit gets a session cookie, even for the stylesheet or a 404.** `http::sessions()`
   creates the CSRF token as soon as a request has no cookie, and writes it back, so a visitor's
   first response always carries a `Set-Cookie` (checked: `/style.css`, `/login` and a 404 all do), and

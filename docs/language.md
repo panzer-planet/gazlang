@@ -1779,7 +1779,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, [$kind,] $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
-| `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough); see "Templates" |
+| `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough), and `web::csrf_field($token, $field = "_csrf")`, the hidden field carrying a form's token for `http::csrf()`; see "Templates" |
 | `date.gaz` | Dates as whole numbers of days: `date::days($year, $month, $day)` (day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). Times as whole seconds since 1970 in UTC, as `time()` gives them, and the zones that show them: `date::utc()`, `date::fixed($seconds)` and `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone database, daylight saving time and all), or `date::tzif($name, $bytes)`; `$zone.at($time)` is a `date::Moment` (its date, time of day, offset and abbreviation there, with `rfc3339()`, `clock()`, `short_clock()` and `offset_text()`), and `$zone.time($days, $seconds, $resolve = "reject")` the time its clocks show a date and `date::time_of_day($hour, $minute, $second = 0)` (`$zone.occurrences($days, $seconds)` every such time: none, one or two); `date::parse($text, $default)` reads RFC 3339, `date::parse_date($text, $default)` a `2026-08-08` and `date::parse_reading($text, $default)` a `2026-08-08T14:02` with no offset (a `date::Reading`, its `#days` and `#seconds`). Nothing reads the clock: a program that needs today works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed times; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
@@ -2013,6 +2013,12 @@ Decoding what a request carries, when a handler asks:
   is an error otherwise.
 - `http::url_decode($text)` undoes percent-escapes (`%20` is a space, and `+` stays `+`), and a
   `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`.
+- Each of these takes an optional `$default` last, as `to_int($x, $default)` does, given back
+  instead of an error for what the client sent that can't be decoded (a bad percent-escape, or a
+  body that isn't a form), so a handler needs no `try`: `http::form($request, {})` reads a request
+  that isn't a form as one with no fields, and `http::query($request, {})` a query string like
+  `?show=%zz` as an empty one. A mistake of the program's (a request that isn't a map) is still an
+  error.
   `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
 
 **Cookies and signed sessions**, on `crypto::sign`, `crypto::equals` and `crypto::token`:
@@ -2023,7 +2029,9 @@ $session["user_id"] = 7;
 $response = http::session_cookie({"body" => "..."}, $session, SECRET);
 ```
 
-- `http::cookies($request)` is the `Cookie` header as a map, each value `url_decode`d.
+- `http::cookies($request, $default)` is the `Cookie` header as a map, each value `url_decode`d,
+  and `$default` instead of an error if one has a bad escape. `http::session()` decodes only its
+  own cookie, so a stray `%` in another one leaves the session alone.
 - `http::set_cookie($response, $name, $value, $options = {})` adds a `Set-Cookie` header to
   (a copy of) `$response`, url-encoding `$value`. A response can carry several: `write_response()`
   writes a header whose value is a list as that many lines, not joined with a comma, since

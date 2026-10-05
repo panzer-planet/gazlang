@@ -651,7 +651,11 @@ that must find nothing to do.
     `Get` against the full list, not PHP's `tag[]` convention, where a key's type would depend on
     what the client sent). A bad escape is an error, not passed through as PHP and browsers do, so a
     mangled value can't arrive looking valid. `form()` refuses another Content-Type rather than
-    giving `{}`. Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value
+    giving `{}`. **A `$default` (`form($request, {})`) is given back instead** for what the client
+    sent that can't be decoded, as `to_int($x, $default)` does, so a handler needs no `try`, whose
+    `catch (Error)` would also catch a bug and running out of call depth: only the private
+    `Undecodable` kind turns into it, and with no default its message is thrown as a string, as
+    before. Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value
     of `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`, and end to end by `HttpServerTest`.
   - **Routing is `http::Router()`, in `http.gaz` itself**, not a `router.gaz` read as
     `router::Router()`, one namespace naming the other redundantly, for a program already reaching
