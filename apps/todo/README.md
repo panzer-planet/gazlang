@@ -26,6 +26,7 @@ It migrates the schema, then listens on `http://127.0.0.1:8080`. The environment
 | `HOST`, `PORT` | where to listen | `127.0.0.1`, `8080` |
 | `WORKERS` | processes serving requests, each with a connection of its own | `4` |
 | `SECURE_COOKIES` | `1` marks the session cookie `Secure`, for use behind HTTPS | off |
+| `TRUSTED_PROXIES` | the addresses of the proxies in front, separated by commas, whose `X-Forwarded-For` says who the client is (see `http::client_address()`); without it the connection's own address is the client's | none |
 | `TIME_ZONE` | the zone times are shown in and due dates are read in, e.g. `Africa/Johannesburg` (from the system's time zone database) | `UTC` |
 | `MIGRATIONS` | a directory of `.sql` files | `migrations` |
 
@@ -63,7 +64,7 @@ done ones, and marks an open todo whose time has passed as overdue.
 | `app.gaz` | the pages and what they do (`Handlers`), and `build_app()`, which wires them to the router |
 | `middleware.gaz` | who is logged in, and the routes that need someone to be (the security headers, the session and the CSRF and `Origin` checks are the library's, added in `build_app()`) |
 | `forms.gaz` | what a form or the query string sends, read and checked: well-formed text on one line, its length in characters, a due date in the app's zone, and which todos the list shows (`?show=open`) |
-| `auth.gaz`, `throttle.gaz` | registering and logging in; refusing the sixth wrong password for an email |
+| `auth.gaz`, `throttle.gaz` | registering and logging in; refusing a login after 5 wrong passwords for an email from one address, or 20 from one address |
 | `users.gaz`, `todos.gaz` | the rows as kinds, and the queries (every todo query names its owner) |
 | `database.gaz`, `migrations/` | opening the database; the schema as numbered `.sql` files, each applied once |
 | `views/` | the pages as `.gazml` templates, escaped by default |
@@ -76,5 +77,7 @@ form without the session's CSRF token, or from another origin, is a 403; a login
 session, so one planted before it is no use; an email nobody has costs a login the same as one that is
 real, and a todo that isn't yours is a 404, as one that doesn't exist is; the list's filter is one of three
 names or nothing, so a redirect that keeps it never leaves the site; the stylesheet is served from a
-directory with nothing else in it. `ponytail:` the login limit is per email, not per
-client, so it can be used to lock an email out (see FRICTION.md, 5).
+directory with nothing else in it. Wrong logins are counted per client address, so a stranger can't
+lock an email out, and `X-Forwarded-For` is believed only from a proxy `TRUSTED_PROXIES` names, so a
+client can't choose its own address. `ponytail:` many addresses against one email are slowed only by
+Argon2id (see FRICTION.md, 5).

@@ -9,6 +9,7 @@ import "std/test.gaz" use expect, throws;
 import "std/db.gaz";
 import "std/date.gaz";
 import "./support.gaz";
+import "config.gaz";
 import "todos.gaz";
 import "forms.gaz";
 import "views/todos.gazml";
@@ -135,25 +136,101 @@ expect("logging out goes to the login page", [$out["status"], location_of($out)]
 expect("and the home page asks again", location_of($caller.get("/")), "/login");
 expect("logging out needs the token too", $caller.post("/logout", {})["status"], 403);
 
-/* --- Guessing: five wrong passwords lock an email for a while, whoever is right --- */
-$guesser = Browser($db, $config);
+/* --- Guessing: five wrong passwords for an email from one address lock that pair for a while --- */
+$guesser_address = "198.51.100.1";
+$guesser = Browser($db, $config, $guesser_address);
 $guess_token = token_in($guesser.get("/login"));
 foreach ([1, 2, 3, 4, 5] as $attempt) {
     expect("wrong password number {$attempt}", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "ada@example.com", "password" => "guess {$attempt} guess"})["status"], 401);
 }
 $locked = $guesser.post("/login", {"_csrf" => $guess_token, "email" => "ada@example.com", "password" => $password});
 expect("the sixth attempt is refused, even with the right password", [$locked["status"], contains(text_of($locked), "Too many attempts")], [429, true]);
-expect("other emails are not locked", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "bob@example.com", "password" => "another long password"})["status"], 303);
-$stranger = Browser($db, $config);
+expect("other emails are not locked from that address", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "bob@example.com", "password" => "another long password"})["status"], 303);
+$elsewhere = Browser($db, $config, "198.51.100.2");
+expect("and the email isn't locked from another address", $elsewhere.post("/login", {"_csrf" => token_in($elsewhere.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 303);
+$again = Browser($db, $config, $guesser_address);
+expect("which leaves the guesser's pair locked", $again.post("/login", {"_csrf" => token_in($again.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 429);
+$stranger = Browser($db, $config, "198.51.100.3");
 $counted = $db.value(db::sql"select count(*) from login_failures where email = 'nobody@example.com'");
 expect("an email nobody has is counted too, so it can't be told apart", [
     $stranger.post("/login", {"_csrf" => token_in($stranger.get("/login")), "email" => "nobody@example.com", "password" => "x"})["status"],
     $db.value(db::sql"select count(*) from login_failures where email = 'nobody@example.com'") - $counted,
 ], [401, 1]);
 $db.exec(db::sql"update login_failures set failed_at = now() - interval '16 minutes' where email = 'ada@example.com'");
-$returning = Browser($db, $config);
-expect("after the window the email can log in again", $returning.post("/login", {"_csrf" => token_in($returning.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 303);
-expect("and a good login clears the count", $db.value(db::sql"select count(*) from login_failures where email = 'ada@example.com'"), 0);
+$returning = Browser($db, $config, $guesser_address);
+expect("after the window the pair can log in again", $returning.post("/login", {"_csrf" => token_in($returning.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 303);
+expect("and a good login clears the pair's count", $db.value(db::sql"select count(*) from login_failures where email = 'ada@example.com' and address = {$guesser_address}"), 0);
+
+/* --- Twenty wrong logins from one address, whatever the emails, lock the address --- */
+$sprayer_address = "198.51.100.4";
+$sprayer = Browser($db, $config, $sprayer_address);
+$spray_token = token_in($sprayer.get("/login"));
+$sprayed = [];
+for ($n = 1; $n <= 20; $n++) {
+    $sprayed[] = $sprayer.post("/login", {"_csrf" => $spray_token, "email" => "user{$n}@example.com", "password" => "a guess"})["status"];
+}
+expect("twenty wrong logins on twenty emails are each a 401", filter($sprayed, $status -> $status != 401), []);
+expect("the twenty-first, on an email it never tried, is refused", $sprayer.post("/login", {"_csrf" => $spray_token, "email" => "bob@example.com", "password" => "another long password"})["status"], 429);
+$neighbour = Browser($db, $config, "198.51.100.5");
+expect("another address is not locked", $neighbour.post("/login", {"_csrf" => token_in($neighbour.get("/login")), "email" => "bob@example.com", "password" => "another long password"})["status"], 303);
+
+/* --- A good login clears its own pair's failures, never the rest of the address's --- */
+$owner_address = "198.51.100.6";
+register(Browser($db, $config, $owner_address), "eve@example.com", $password);
+$eve = Browser($db, $config, $owner_address);
+$eve_token = token_in($eve.get("/login"));
+for ($n = 1; $n <= 2; $n++) {
+    $eve.post("/login", {"_csrf" => $eve_token, "email" => "eve@example.com", "password" => "typo {$n} typo"});
+}
+for ($n = 1; $n <= 17; $n++) {
+    $eve.post("/login", {"_csrf" => $eve_token, "email" => "victim{$n}@example.com", "password" => "a guess"});
+}
+expect("nineteen failures from the address", $db.value(db::sql"select count(*) from login_failures where address = {$owner_address}"), 19);
+expect("logging into its own account works", $eve.post("/login", {"_csrf" => $eve_token, "email" => "eve@example.com", "password" => $password})["status"], 303);
+expect("and clears only that pair's", [
+    $db.value(db::sql"select count(*) from login_failures where address = {$owner_address} and email = 'eve@example.com'"),
+    $db.value(db::sql"select count(*) from login_failures where address = {$owner_address}"),
+], [0, 17]);
+$eve = Browser($db, $config, $owner_address);
+$eve_token = token_in($eve.get("/login"));
+for ($n = 18; $n <= 20; $n++) {
+    $eve.post("/login", {"_csrf" => $eve_token, "email" => "victim{$n}@example.com", "password" => "a guess"});
+}
+expect("so three more guesses still reach the address's limit", $eve.post("/login", {"_csrf" => $eve_token, "email" => "victim21@example.com", "password" => "a guess"})["status"], 429);
+
+/* --- An address nobody knows is a bucket of its own, not a way round the limit --- */
+$unknown_peer = Browser($db, $config, null);
+$unknown_token = token_in($unknown_peer.get("/login"));
+for ($n = 1; $n <= 5; $n++) {
+    $unknown_peer.post("/login", {"_csrf" => $unknown_token, "email" => "ada@example.com", "password" => "guess {$n} guess"});
+}
+expect("an unknown peer is locked out too", $unknown_peer.post("/login", {"_csrf" => $unknown_token, "email" => "ada@example.com", "password" => $password})["status"], 429);
+expect("and its failures are counted under unknown", $db.value(db::sql"select count(*) from login_failures where address = 'unknown'"), 5);
+
+/* --- Behind a trusted proxy, X-Forwarded-For says who the client is --- */
+expect("TRUSTED_PROXIES unset or empty is none", [trusted_proxies(""), trusted_proxies(" , ")], [[], []]);
+expect("TRUSTED_PROXIES is split on commas", trusted_proxies("10.0.0.1, ::1,"), ["10.0.0.1", "::1"]);
+$proxy_address = "10.0.0.1";
+$proxied = proxied_config($proxy_address);
+$first = Browser($db, $proxied, $proxy_address);
+$first_token = token_in($first.get("/login"));
+for ($n = 1; $n <= 5; $n++) {
+    $first.post("/login", {"_csrf" => $first_token, "email" => "ada@example.com", "password" => "guess {$n} guess"}, {"x-forwarded-for" => "203.0.113.1"});
+}
+expect("one client behind the proxy is locked", $first.post("/login", {"_csrf" => $first_token, "email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.1"})["status"], 429);
+expect("its failures are under its own address", $db.value(db::sql"select count(*) from login_failures where address = '203.0.113.1'"), 5);
+$second = Browser($db, $proxied, $proxy_address);
+expect("another client behind the same proxy is not", $second.post("/login", {"_csrf" => token_in($second.get("/login")), "email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.2"})["status"], 303);
+
+/* --- Without trust in the proxy, a client's own X-Forwarded-For changes nothing --- */
+$spoofer_address = "10.0.0.9";
+$spoofer = Browser($db, $config, $spoofer_address);
+$spoof_token = token_in($spoofer.get("/login"));
+for ($n = 1; $n <= 5; $n++) {
+    $spoofer.post("/login", {"_csrf" => $spoof_token, "email" => "ada@example.com", "password" => "guess {$n} guess"}, {"x-forwarded-for" => "203.0.113.{$n}"});
+}
+expect("a new X-Forwarded-For each time is still one client", $spoofer.post("/login", {"_csrf" => $spoof_token, "email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.99"})["status"], 429);
+expect("counted under the connection's address", $db.value(db::sql"select count(*) from login_failures where address = {$spoofer_address}"), 5);
 
 /* --- Hostile requests --- */
 $evil = Browser($db, $config);

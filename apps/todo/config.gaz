@@ -1,6 +1,7 @@
 /*
  * What the app is told by its environment: where the database is, the secret that signs sessions,
- * how to listen, and the time zone to show times in. Nothing is read anywhere else, so a test builds a Config by hand.
+ * how to listen, the time zone to show times in, and the proxies in front of it. Nothing is read
+ * anywhere else, so a test builds a Config by hand.
  */
 namespace todo;
 
@@ -11,7 +12,7 @@ const DEFAULT_WORKERS = 4;
 const MINIMUM_SECRET_LENGTH = 32;
 
 kind Config {
-    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}, pub date::Zone #time_zone = date::utc()) {}
+    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}, pub date::Zone #time_zone = date::utc(), pub list #trusted_proxies = []) {}
 
     // The Config the environment describes, or an error saying what is missing
     pub static fn from_environment(): Config {
@@ -27,6 +28,15 @@ kind Config {
         $time_zone = getenv("TIME_ZONE");
         $zone = $time_zone == null ? date::utc() : date::zone($time_zone);
 
-        return Config($database_url, $secret, $host, $port, $workers, getenv("SECURE_COOKIES") == "1", {}, $zone);
+        $proxies = trusted_proxies(getenv("TRUSTED_PROXIES") ?? "");
+
+        return Config($database_url, $secret, $host, $port, $workers, getenv("SECURE_COOKIES") == "1", {}, $zone, $proxies);
     }
+}
+
+// TRUSTED_PROXIES's addresses: separated by commas, with spaces and empty entries left out
+fn trusted_proxies(string $text): list {
+    $addresses = map(split($text, ","), trim);
+
+    return filter($addresses, $address -> $address != "");
 }

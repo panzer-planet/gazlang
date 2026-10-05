@@ -1,0 +1,34 @@
+ok the connection's address
+ok a spoofed header is ignored
+ok and ignored from an untrusted proxy too
+ok even when the header names a trusted proxy
+ok one trusted proxy
+ok a chain of two
+ok the client's own entries on the left are passed over
+ok a spoofed trusted address on the left can't skip the real client
+ok spaces around entries
+ok IPv6
+ok IPv6 holding IPv4
+ok every entry trusted gives the leftmost
+ok no header gives the proxy
+ok an empty header gives the proxy
+ok a header of spaces gives the proxy
+ok a word
+ok an empty entry
+ok a trailing comma
+ok a port after IPv4
+ok a number past 255
+ok three numbers
+ok a sign
+ok a bracketed IPv6
+ok an IPv6 zone
+ok too long
+ok garbage to the left of the client doesn't matter
+ok repeated headers read as one list
+ok and the connection's address without trust
+ok an unknown peer
+ok an unknown peer, with a proxy trusted
+ok trusted proxies as a string
+ok trusted proxies as a map
+ok a proxy that isn't a string
+ok a bad list is refused even when it wouldn't be read

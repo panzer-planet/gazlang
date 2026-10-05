@@ -664,6 +664,12 @@ that must find nothing to do.
     `$request["params"]`, so a handler keeps one argument and tests with a plain map. First match
     wins (Express's rule: nothing to rank). The 308 is so a link works either way and a page has one
     URL. Tested by `tests/gaz/lib/router_test.gaz`.
+  - **`http::client_address()` reads `X-Forwarded-For` only when `remote_address` is a trusted
+    proxy**, so the default (none) can't be spoofed by a client's own header, and it walks the header
+    from the right, since every entry left of the last trusted hop is the client's to write; an entry
+    that isn't an address ends the walk at the last vouched-for hop rather than guessing. Trusted
+    proxies are exact strings (`ponytail:` no CIDR, no IPv6 canonicalisation). Tested by
+    `tests/gaz/lib/http_client_address_test.gaz`.
   - **`http::redirect()`** is public because every handler that answers a form needs one (the
     router's own 308 is a separate private function). Tested by
     `tests/gaz/lib/http_redirect_test.gaz`.

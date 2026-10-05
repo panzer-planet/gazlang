@@ -2,16 +2,16 @@
 
 Each entry says what hurt, what the app does about it today, and the options for fixing it in the
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
-logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 859
-lines of GazLang, 225 of templates, 23 of SQL, and 532 of tests (204 checks). It was written by someone who knows the language, working from the library's own
+logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 889
+lines of GazLang, 225 of templates, 26 of SQL, and 617 of tests (222 checks). It was written by someone who knows the language, working from the library's own
 documentation, and it has been changed since only by moving what it needed into the library.
 
 Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
-(handles across `workers()`), 4 (UTF-8), and the redirect, the timestamps, the due dates and the CSRF field in 10.
-Half done: 5 (`socket_peer()` exists; handlers can't see it yet) and 9 (decoding needs no `try`; the
-request is still parsed twice). Open: the rate limit in 5, 6, 7, 8, the rest of 9, and the rest of 10.
+(handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), and
+the redirect, the timestamps, the due dates and the CSRF field in 10. Half done: 9 (decoding needs no
+`try`; the request is still parsed twice). Open: 6, 7, 8, the rest of 9, and the rest of 10.
 
 ## What worked, so it is not lost
 
@@ -112,21 +112,34 @@ characters" its real meaning: `len()` counts bytes, so a title of 200 emoji was 
   `forms.gaz` calls; strings stay bytes. `json::encode` and `json::decode` became strict about
   UTF-8 at the same time, since the same bytes wrote invalid JSON.
 
-## 5. No rate limiting, and no client address
+## 5. No rate limiting, and no client address  (resolved: `http::client_address()`, a per-client limit)
 
 Argon2id makes a login cost 0.24s of a worker. Eight concurrent wrong logins on 2 workers made a
 plain stylesheet wait 0.39s behind them, so on a fixed pool anyone can saturate the app with a few
 requests a second. The app counts failures per email in a table and refuses the sixth without
 hashing; that stops a guesser on one email and not one trying many, and lets anyone lock a known
-email out for 15 minutes. A per-client limit needs the client's address, which a handler can't see
-(`socket_peer()` now exists; handing it to a handler as part of the request is the next step).
+email out for 15 minutes. A per-client limit needed the client's address, and behind a proxy the
+connection's address is the proxy's.
 
-- **Today**: `throttle.gaz`, per email, in the database so every worker agrees.
-- **Options**: `$request["remote_address"]` from `socket_peer()`, with the proxy's
-  `X-Forwarded-For` left to the app; a `http::rate_limit($key, $per_minute)` needs shared state
-  across workers, which means a table, a file or a store the library doesn't have, so it should
-  probably stay the app's. Lowering the Argon2id default for logins is the other lever (0.24s is the library's
-  default, RFC 9106's second recommendation; on a pool this small it is a lever against the app).
+- **Done**: handlers already had `$request["remote_address"]`, the connection's peer, which behind a
+  proxy is the proxy. `http::client_address($request, $trusted_proxies = [])` gives the client's:
+  the connection's address unless it is one of `$trusted_proxies`, and only then `X-Forwarded-For`,
+  read from the right past the trusted hops, so a client's own header is never believed and the
+  default is safe. `throttle.gaz` now counts per client: 5 failures for an email from one address, or
+  20 from one address over any emails, refuse the login without hashing; a good login clears only its
+  own email and address's failures, so a guesser can't reset its address's count by logging into an
+  account of its own. The per-email limit is gone, and with it the lock-out a stranger could cause
+  (`TRUSTED_PROXIES` names the proxies in front).
+- **Left**: many addresses against one email are slowed only by Argon2id (a slower per-email limit
+  or a captcha would close it); trusted proxies are exact addresses, no CIDR ranges.
+  `http::rate_limit($key, $per_minute)` still needs shared state across workers, which means a
+  table, a file or a store the library doesn't have, so the counting stays the app's. Lowering the
+  Argon2id default for logins is the other lever (0.24s is the library's default, RFC 9106's second
+  recommendation; on a pool this small it is a lever against the app).
+- **New, writing `client_address()`'s tests**: `"{CLIENT}"` with a constant is the text `{CLIENT}`,
+  not its value (interpolation is `{$...}` only), and nothing says so: two checks of malformed
+  `X-Forwarded-For` entries passed for the wrong reason until the header was written out. A lexer
+  warning for `{NAME}` where `NAME` is a declared constant, or constants in interpolation, would catch it.
 
 ## 6. Calling a handler's helpers needs a test client that doesn't exist
 

@@ -1202,7 +1202,7 @@ A server listens and accepts:
   IPv4 address. A listener has no peer, and a closed socket is an error; ask right after
   `socket_accept()`, since a client that has gone may no longer be known to the system. Behind a
   proxy the address is the proxy's: the client's is in its `X-Forwarded-For` header, which the program
-  decides whether to trust.
+  decides whether to trust (`http::client_address()`).
 - `socket_wait($sockets, $seconds)` — waits until one of a list of up to 16 sockets has something
   to read, and gives the index of the first in the list that has: data, or the end, on a connection;
   a connection waiting to be accepted on a listener. Nothing is read, so the next `socket_read()` or
@@ -1822,6 +1822,22 @@ as in a response; the path and query are as the client sent them, not decoded.
 already gone and the system no longer knows). Behind a proxy it is the proxy's: the client's is in the
 `X-Forwarded-For` header the proxy adds, and whether to believe that header is the program's
 decision, since a client can send one of its own.
+
+`http::client_address($request, $trusted_proxies = [])` gives the client's address, or `null` when
+`"remote_address"` is. With no `$trusted_proxies` it is `"remote_address"` itself and
+`X-Forwarded-For` is never read, so the default can't be fooled by a client sending the header. When
+`"remote_address"` is one of `$trusted_proxies` (a list of addresses, compared as text), the header is
+read from the right, the end the proxies added to, and the first entry that isn't a trusted proxy is
+the client: the entries to its left are whatever the client sent. An entry that is empty or isn't an
+address stops the walk at the last hop a trusted proxy vouched for, as does a missing header or one
+whose every entry is trusted. A `$trusted_proxies` that isn't a list of strings is an error.
+
+```gaz
+// nginx on the same machine, with proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+$address = http::client_address($request, ["127.0.0.1"]);
+```
+
+There are no address ranges (`10.0.0.0/8`), and IPv6 text is compared as written.
 
 To send the client somewhere else a handler returns `http::redirect($to, $status = 303)`: 303 See
 Other by default, which a browser follows with a GET, as a form's POST wants; 301 and 308 are the

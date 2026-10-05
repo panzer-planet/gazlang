@@ -1088,6 +1088,7 @@ tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/fs_test.gaz
 tests/gaz/lib/functional_test.gaz
+tests/gaz/lib/http_client_address_test.gaz
 tests/gaz/lib/http_connection_test.gaz
 tests/gaz/lib/http_decode_test.gaz
 tests/gaz/lib/http_redirect_test.gaz

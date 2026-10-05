@@ -17,6 +17,7 @@ const TEST_DATABASE = "postgres:///gaz_todo_test";
 const CHEAP_PASSWORDS = {"m" => 64, "t" => 1, "p" => 1};
 const TEST_SECRET = "a-secret-for-tests-that-is-long-enough";
 const TEST_OFFSET = 7200;   // the zone times are shown in, two hours ahead of UTC
+const BROWSER_ADDRESS = "192.0.2.1";   // where a Browser's requests come from unless it says
 
 // The test database with the schema up to date and no rows
 fn fresh_database() {
@@ -31,6 +32,11 @@ fn test_config(): Config {
     return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET));
 }
 
+// The test Config behind a proxy at $proxy, whose X-Forwarded-For it trusts
+fn proxied_config(string $proxy): Config {
+    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET), [$proxy]);
+}
+
 // The same in a zone whose clocks change, from the system's time zone database
 fn london_config(): Config {
     return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::zone("Europe/London"));
@@ -40,7 +46,8 @@ kind Browser {
     #handler;
     #cookies = {};
 
-    fn _($db, Config $config) {
+    // $address is the connection's, as the server gives it (null: a client the system no longer knows)
+    fn _($db, Config $config, ?string #address = BROWSER_ADDRESS) {
         #handler = build_app($config, $db).handler();
     }
 
@@ -67,7 +74,8 @@ kind Browser {
             $body = join(map(keys($fields), $name -> http::url_encode($name) .. "=" .. http::url_encode($fields[$name])), "&");
         }
         $handler = #handler;
-        $response = $handler({"method" => $method, "path" => $path, "query" => $query, "headers" => $headers, "body" => $body});
+        $request = {"method" => $method, "path" => $path, "query" => $query, "headers" => $headers, "body" => $body, "remote_address" => #address};
+        $response = $handler($request);
         #keep_cookies($response);
 
         return $response;

@@ -49,7 +49,7 @@ fn login_session(int $user_id, string $message): map {
 }
 
 kind Handlers {
-    fn _(#todos, #auth, #throttle, #zone) {}
+    fn _(#todos, #auth, #throttle, #zone, #trusted_proxies) {}
 
     // --- Accounts ---
 
@@ -86,17 +86,18 @@ kind Handlers {
     pub fn login(map $request): map {
         $form = LoginForm::from_request($request);
         $errors = $form.errors();
-        if (len($errors) == 0 && #throttle.blocked($form.email)) {
+        $address = http::client_address($request, #trusted_proxies);
+        if (len($errors) == 0 && #throttle.blocked($form.email, $address)) {
             return render($request, "Log in", login_page(csrf_token($request), $form, {"login" => "Too many attempts. Try again in a few minutes."}), 429);
         }
         if (len($errors) == 0) {
             $user = #auth.authenticate($form);
             if ($user != null) {
-                #throttle.clear($form.email);
+                #throttle.clear($form.email, $address);
 
                 return http::with_session(http::redirect("/"), login_session($user.id, "You are logged in."));
             }
-            #throttle.record_failure($form.email);
+            #throttle.record_failure($form.email, $address);
             $errors["login"] = "Wrong email or password";
         }
 
@@ -193,7 +194,7 @@ kind Handlers {
 // The Router for the app, to be given to http::serve()
 pub fn build_app(Config $config, $db) {
     $users = Users($db);
-    $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db), $config.time_zone);
+    $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db), $config.time_zone, $config.trusted_proxies);
     $app = http::Router();
     $app.use(http::security_headers());
     $app.use(http::sessions($config.secret, {"secure" => $config.secure_cookies}));

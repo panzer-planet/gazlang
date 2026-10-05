@@ -510,10 +510,12 @@ kind Refusal extends Error {
  * The server: http::serve($listener, $handler, $options = {}) answers connections on a
  * socket_listen() listener for ever, each request by calling $handler($request) with
  *
- *   {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => ""}
+ *   {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => "",
+ *    "remote_address" => "192.0.2.7"}
  *
  * (header names lowercased, a repeated header's values joined with ", ", the path and query as they
- * came, not decoded) and writing what it returns, a map of "status" (200 if left out), "headers"
+ * came, not decoded; "remote_address" the connection's peer, or null if it is no longer known,
+ * which behind a proxy is the proxy: see client_address()) and writing what it returns, a map of "status" (200 if left out), "headers"
  * and "body" (a string, "" if left out, or a template's Html, which is text/html unless a
  * Content-Type says otherwise). A header's value is a string, or a list of strings to write it as
  * that many lines (Set-Cookie, which RFC 6265 forbids joining with a comma). With workers() first,
@@ -1608,6 +1610,119 @@ fn media_type($request) {
     $type = $request["headers"]["content-type"] ?? "";
 
     return lower(trim(split($type, ";")[0]));
+}
+
+// Who the client is, behind proxies the program trusts
+
+const MAX_ADDRESS_LENGTH = 45;   // the longest IPv6 text, an IPv4 address in its last 32 bits
+
+/**
+ * The address of the client that made $request, as text, or null when the connection's peer
+ * isn't known. Without $trusted_proxies it is the request's "remote_address", the other end of
+ * the connection, and the X-Forwarded-For header is never read: any client can send one, so
+ * believing it by default would let a client choose its own address.
+ *
+ * Behind a proxy, name it: $trusted_proxies is a list of addresses, compared as text with the
+ * connection's address and with the header's entries. When the connection comes from one of them,
+ * X-Forwarded-For is read from the right, the end the proxy added to, and the first entry that
+ * isn't a trusted proxy is the client. The entries to its left are whatever the client sent
+ * before any proxy saw it, so reading from the left would believe the client again. An entry
+ * that is empty or isn't an address ends the walk at the last hop a trusted proxy vouched for,
+ * and so does a missing header, or one whose every entry is trusted.
+ *
+ * With nginx on the same machine in front of the app, adding the address it sees to the header
+ * (`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`), the app asks
+ *
+ *     $address = http::client_address($request, ["127.0.0.1"]);
+ *
+ * A request from 127.0.0.1 with `X-Forwarded-For: 10.9.9.9, 203.0.113.5` gives "203.0.113.5",
+ * the address nginx saw, and not "10.9.9.9", which the client wrote itself. A request from
+ * anywhere else gives its own address, whatever its header says.
+ *
+ * A $trusted_proxies that isn't a list of strings is an error.
+ *
+ * ponytail: addresses only, compared as text: no CIDR ranges ("10.0.0.0/8") and no canonical form
+ * for IPv6, so "::1" and "0:0:0:0:0:0:0:1" are different entries. A range type and an address
+ * parser would lift both.
+ */
+pub fn client_address($request, $trusted_proxies = []) {
+    check_trusted_proxies($trusted_proxies);
+    $vouched = $request["remote_address"];
+    if ($vouched == null || !in_array($vouched, $trusted_proxies)) {
+        return $vouched;
+    }
+    foreach (reverse(forwarded_hops($request)) as $hop) {
+        if (!is_address($hop)) {
+            return $vouched;
+        }
+        if (!in_array($hop, $trusted_proxies)) {
+            return $hop;
+        }
+        $vouched = $hop;
+    }
+
+    return $vouched;
+}
+
+fn check_trusted_proxies($trusted_proxies) {
+    if (type_of($trusted_proxies) != "list") {
+        throw "http::client_address() expects a list of addresses, got " .. type_of($trusted_proxies);
+    }
+    foreach ($trusted_proxies as $proxy) {
+        if (type_of($proxy) != "string") {
+            throw "http::client_address() expects each trusted proxy to be a string, got " .. type_of($proxy);
+        }
+    }
+}
+
+// X-Forwarded-For's entries, left to right; repeated headers were joined with ", " when read
+fn forwarded_hops($request) {
+    $header = $request["headers"]["x-forwarded-for"] ?? "";
+    if (trim($header) == "") {
+        return [];
+    }
+
+    return map(split($header, ","), trim);
+}
+
+// Whether $text could be an address: four dotted numbers, or IPv6's hex digits and colons
+fn is_address($text) {
+    if ($text == "" || len($text) > MAX_ADDRESS_LENGTH) {
+        return false;
+    }
+    if (contains($text, ":")) {
+        return is_ipv6_text($text);
+    }
+
+    return is_ipv4($text);
+}
+
+fn is_ipv4($text) {
+    $parts = split($text, ".");
+    if (len($parts) != 4) {
+        return false;
+    }
+    foreach ($parts as $part) {
+        if ($part == "" || len($part) > 3 || !all_digits($part) || to_int($part) > 255) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Only the characters and at least the two colons IPv6 text has; not a full parse
+fn is_ipv6_text($text) {
+    if (len(split($text, ":")) < 3) {
+        return false;
+    }
+    foreach (split($text, "") as $c) {
+        if (!is_hex_digit($c) && $c != ":" && $c != ".") {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 // Cookies, and signed sessions built on them

@@ -1,0 +1,75 @@
+/*
+ * http::client_address(): the connection's own address unless it is a trusted proxy, and then
+ * X-Forwarded-For read from the right, past the proxies that are trusted
+ */
+import "std/test.gaz" use expect, throws;
+import "std/http.gaz";
+
+const PROXY = "10.0.0.1";
+const INNER_PROXY = "10.0.0.2";
+const CLIENT = "203.0.113.5";
+
+// A request from $address, with an X-Forwarded-For header unless $forwarded is null
+fn from(?string $address, ?string $forwarded = null): map {
+    $headers = {"host" => "example.test"};
+    if ($forwarded != null) {
+        $headers["x-forwarded-for"] = $forwarded;
+    }
+
+    return {"method" => "GET", "path" => "/", "query" => "", "headers" => $headers, "body" => "", "remote_address" => $address};
+}
+
+/* --- No proxies: the header is never read --- */
+expect("the connection's address", http::client_address(from(CLIENT)), CLIENT);
+expect("a spoofed header is ignored", http::client_address(from(CLIENT, "1.2.3.4")), CLIENT);
+expect("and ignored from an untrusted proxy too", http::client_address(from(PROXY, CLIENT), [INNER_PROXY]), PROXY);
+expect("even when the header names a trusted proxy", http::client_address(from(CLIENT, PROXY), [PROXY]), CLIENT);
+
+/* --- Behind proxies --- */
+expect("one trusted proxy", http::client_address(from(PROXY, CLIENT), [PROXY]), CLIENT);
+expect("a chain of two", http::client_address(from(PROXY, "203.0.113.5, 10.0.0.2"), [PROXY, INNER_PROXY]), CLIENT);
+expect("the client's own entries on the left are passed over", http::client_address(from(PROXY, "6.6.6.6, 7.7.7.7, 203.0.113.5"), [PROXY]), CLIENT);
+expect("a spoofed trusted address on the left can't skip the real client", http::client_address(from(PROXY, "10.0.0.2, 203.0.113.5"), [PROXY, INNER_PROXY]), CLIENT);
+expect("spaces around entries", http::client_address(from(PROXY, "  203.0.113.5 ,10.0.0.2  "), [PROXY, INNER_PROXY]), CLIENT);
+expect("IPv6", http::client_address(from("::1", "2001:db8::7"), ["::1"]), "2001:db8::7");
+expect("IPv6 holding IPv4", http::client_address(from(PROXY, "::ffff:192.0.2.1"), [PROXY]), "::ffff:192.0.2.1");
+
+/* --- Nothing past the proxies --- */
+expect("every entry trusted gives the leftmost", http::client_address(from(PROXY, INNER_PROXY), [PROXY, INNER_PROXY]), INNER_PROXY);
+expect("no header gives the proxy", http::client_address(from(PROXY), [PROXY]), PROXY);
+expect("an empty header gives the proxy", http::client_address(from(PROXY, ""), [PROXY]), PROXY);
+expect("a header of spaces gives the proxy", http::client_address(from(PROXY, "   "), [PROXY]), PROXY);
+
+/* --- What isn't an address ends the walk at the last vouched-for hop --- */
+expect("a word", http::client_address(from(PROXY, "unknown"), [PROXY]), PROXY);
+expect("an empty entry", http::client_address(from(PROXY, "203.0.113.5, , 10.0.0.2"), [PROXY, INNER_PROXY]), INNER_PROXY);
+expect("a trailing comma", http::client_address(from(PROXY, "203.0.113.5,"), [PROXY]), PROXY);
+expect("a port after IPv4", http::client_address(from(PROXY, "203.0.113.5:8080"), [PROXY]), PROXY);
+expect("a number past 255", http::client_address(from(PROXY, "203.0.113.256"), [PROXY]), PROXY);
+expect("three numbers", http::client_address(from(PROXY, "203.0.113"), [PROXY]), PROXY);
+expect("a sign", http::client_address(from(PROXY, "+3.0.113.5"), [PROXY]), PROXY);
+expect("a bracketed IPv6", http::client_address(from(PROXY, "[2001:db8::7]"), [PROXY]), PROXY);
+expect("an IPv6 zone", http::client_address(from(PROXY, "fe80::1%eth0"), [PROXY]), PROXY);
+expect("too long", http::client_address(from(PROXY, "1" .. repeat(":a", 30)), [PROXY]), PROXY);
+expect("garbage to the left of the client doesn't matter", http::client_address(from(PROXY, "<script>, 203.0.113.5"), [PROXY]), CLIENT);
+
+/* --- Repeated headers, joined when the request was read --- */
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+socket_write($client, "GET / HTTP/1.1\r\nHost: example.test\r\nX-Forwarded-For: 6.6.6.6\r\nX-Forwarded-For: 203.0.113.5\r\nConnection: close\r\n\r\n");
+shared $seen = null;
+http::handle(socket_accept($listener), $request -> {
+    $seen = $request;
+
+    return {"body" => "ok"};
+});
+expect("repeated headers read as one list", http::client_address($seen, ["127.0.0.1"]), CLIENT);
+expect("and the connection's address without trust", http::client_address($seen), "127.0.0.1");
+
+/* --- Unknown peers and bad arguments --- */
+expect("an unknown peer", http::client_address(from(null, CLIENT)), null);
+expect("an unknown peer, with a proxy trusted", http::client_address(from(null, CLIENT), [PROXY]), null);
+throws("trusted proxies as a string", () -> http::client_address(from(PROXY), PROXY), "http::client_address() expects a list of addresses, got string");
+throws("trusted proxies as a map", () -> http::client_address(from(PROXY), {"a" => PROXY}), "http::client_address() expects a list of addresses, got map");
+throws("a proxy that isn't a string", () -> http::client_address(from(PROXY), [PROXY, 7]), "http::client_address() expects each trusted proxy to be a string, got int");
+throws("a bad list is refused even when it wouldn't be read", () -> http::client_address(from(null), [null]), "http::client_address() expects each trusted proxy to be a string, got null");
