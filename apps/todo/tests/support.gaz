@@ -31,6 +31,11 @@ fn test_config(): Config {
     return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET));
 }
 
+// The same in a zone whose clocks change, from the system's time zone database
+fn london_config(): Config {
+    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::zone("Europe/London"));
+}
+
 kind Browser {
     #handler;
     #cookies = {};
@@ -97,6 +102,13 @@ fn text_of(map $response): string {
 
 fn location_of(map $response): ?string {
     return $response["headers"]["Location"] ?? null;
+}
+
+// The titles of the todos a page lists, in order
+fn titles_in(map $response): list {
+    $pieces = slice(split(text_of($response), "<span class=\"title\">"), 1);
+
+    return map($pieces, $piece -> split($piece, "</span>")[0]);
 }
 
 // The CSRF token a page's forms carry

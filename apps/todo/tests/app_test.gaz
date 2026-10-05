@@ -9,6 +9,9 @@ import "std/test.gaz" use expect, throws;
 import "std/db.gaz";
 import "std/date.gaz";
 import "./support.gaz";
+import "todos.gaz";
+import "forms.gaz";
+import "views/todos.gazml";
 
 $db = fresh_database();
 $config = test_config();
@@ -18,6 +21,11 @@ fn register($browser, $email, $password) {
     $form = $browser.get("/register");
 
     return $browser.post("/register", {"_csrf" => token_in($form), "email" => $email, "password" => $password, "confirmation" => $password});
+}
+
+// When the todo called $title is due, as PostgreSQL counts seconds since 1970
+fn due_of($db, string $title): ?int {
+    return $db.value(db::sql"select floor(extract(epoch from due_at))::bigint from todos where title = {$title}");
 }
 
 /* --- Anyone arriving is sent to log in, and every page carries a fresh CSRF token and the security headers --- */
@@ -161,5 +169,107 @@ expect("a body that isn't a form", Browser($db, $config).post("/login", {}, {"co
 expect("a path out of the static directory", Browser($db, $config).get("/..%2fmain.gaz")["status"], 404);
 expect("the stylesheet", [Browser($db, $config).get("/style.css")["status"], Browser($db, $config).get("/style.css")["headers"]["Content-Type"]], [200, "text/css"]);
 expect("a page that doesn't exist", Browser($db, $config).get("/nothing-here")["status"], 404);
+
+/*
+ * --- Due dates, read and shown in the app's zone, London's here, whose clocks change. Dates in 2099
+ * stay in the future, so nothing is overdue that a check doesn't make so ---
+ */
+$cleo = Browser($db, london_config());
+register($cleo, "cleo@example.com", "a third long password");
+$token = token_in($cleo.get("/"));
+$due = $cleo.post("/todos", {"_csrf" => $token, "title" => "dentist", "due" => "2099-10-05T14:30"});
+expect("adding a todo with a due date", [$due["status"], location_of($due), due_of($db, "dentist")], [303, "/", date::parse("2099-10-05T14:30:00+01:00").time]);
+$list = text_of($cleo.get("/"));
+expect("it is shown in London's time, and in UTC for machines", contains($list, "Due <time datetime=\"2099-10-05T13:30:00Z\">5 Oct, 14:30</time>"), true);
+expect("with seconds too", [$cleo.post("/todos", {"_csrf" => $token, "title" => "to the second", "due" => "2026-10-05T14:30:15"})["status"], due_of($db, "to the second")], [303, date::parse("2026-10-05T13:30:15Z").time]);
+$no_due = $cleo.post("/todos", {"_csrf" => $token, "title" => "someday", "due" => ""});
+expect("a due date is optional", [$no_due["status"], due_of($db, "someday")], [303, null]);
+expect("a missing due field is none", [$cleo.post("/todos", {"_csrf" => $token, "title" => "no field"})["status"], due_of($db, "no field")], [303, null]);
+
+$malformed = $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => "tomorrow"});
+expect("a due date that isn't one", [$malformed["status"], contains(text_of($malformed), "Give the date and time it is due, such as 2026-10-05T14:30")], [422, true]);
+expect("and what was typed is kept", contains(text_of($malformed), "value=\"tomorrow\""), true);
+foreach (["2026-02-30T10:00", "2026-10-05T25:00", "2026-10-05T14:30+01:00", "2026-10-05"] as $text) {
+    expect("not a due date: " .. $text, $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => $text})["status"], 422);
+}
+$far = $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => "3000-01-01T00:00"});
+expect("a due date too far away", [$far["status"], contains(text_of($far), "Choose a date between 1970 and 2999")], [422, true]);
+expect("nor too long ago", $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => "1969-12-31T23:59"})["status"], 422);
+expect("none of them was saved", $db.value(db::sql"select count(*) from todos where title = 'soon'"), 0);
+
+$skipped = $cleo.post("/todos", {"_csrf" => $token, "title" => "skipped", "due" => "2026-03-29T01:30"});
+$cleo_home = text_of($cleo.get("/"));
+expect("a time the clocks skip is due when an alarm would ring, an hour on", [$skipped["status"], due_of($db, "skipped")], [303, date::parse("2026-03-29T02:30:00+01:00").time]);
+expect("and the user is told", contains($cleo_home, "Added. The clocks in Europe/London skip that time as they go forward, so it is due at 02:30 BST on 29 Mar."), true);
+$twice = $cleo.post("/todos", {"_csrf" => $token, "title" => "twice", "due" => "2026-10-25T01:30"});
+$cleo_home = text_of($cleo.get("/"));
+expect("a time the clocks show twice is due the first time", [$twice["status"], due_of($db, "twice")], [303, date::parse("2026-10-25T01:30:00+01:00").time]);
+expect("and the user is told", contains($cleo_home, "Added. The clocks in Europe/London show that time twice as they go back, so it is due the first time, 01:30 BST on 25 Oct."), true);
+
+/* Editing a due date, and clearing it */
+$dentist = $db.value(db::sql"select id from todos where title = 'dentist'");
+expect("the edit page holds the due date as the field reads it", contains(text_of($cleo.get("/todos/{$dentist}/edit")), "name=\"due\" value=\"2099-10-05T14:30\""), true);
+$second_id = $db.value(db::sql"select id from todos where title = 'to the second'");
+expect("with its seconds when it has them", contains(text_of($cleo.get("/todos/{$second_id}/edit")), "name=\"due\" value=\"2026-10-05T14:30:15\""), true);
+$moved = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => "2026-12-01T09:00"});
+expect("moving it", [$moved["status"], due_of($db, "dentist")], [303, date::parse("2026-12-01T09:00:00Z").time]);
+$bad_edit = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => "next week"});
+expect("a bad due date on edit", [$bad_edit["status"], contains(text_of($bad_edit), "Give the date and time it is due"), due_of($db, "dentist")], [422, true, date::parse("2026-12-01T09:00:00Z").time]);
+$moved_twice = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => "2026-10-25T01:15"});
+expect("an edit says so when the clocks show it twice", [$moved_twice["status"], contains(text_of($cleo.get("/")), "Saved. The clocks in Europe/London show that time twice")], [303, true]);
+$cleared = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => ""});
+expect("clearing it removes the due date", [$cleared["status"], due_of($db, "dentist")], [303, null]);
+expect("so the edit page has none", contains(text_of($cleo.get("/todos/{$dentist}/edit")), "name=\"due\" value=\"\""), true);
+
+/* The order: open and due soonest first, then open and not due, newest first, then done */
+$db.exec(db::sql"delete from todos where user_id = (select id from users where email = 'cleo@example.com')");
+foreach ({"later" => "2099-11-01T09:00", "not due, older" => "", "soonest" => "2099-10-06T09:00", "done and due first" => "2099-10-05T09:00", "not due, newer" => "", "middle" => "2099-10-20T09:00", "done, not due" => ""} as $title => $when) {
+    $cleo.post("/todos", {"_csrf" => $token, "title" => $title, "due" => $when});
+}
+foreach (["done and due first", "done, not due"] as $title) {
+    $cleo.post("/todos/" .. $db.value(db::sql"select id from todos where title = {$title}") .. "/toggle", {"_csrf" => $token});
+}
+expect("the list's order", titles_in($cleo.get("/")), ["soonest", "middle", "later", "not due, newer", "not due, older", "done, not due", "done and due first"]);
+
+/* Overdue: what isn't done and was due before now; the page is given now, so a fixed one shows it */
+$db.exec(db::sql"update todos set due_at = '2001-01-01T00:00:00Z' where title in ('soonest', 'done and due first')");
+$home = text_of($cleo.get("/"));
+expect("an open todo due in the past is overdue", contains($home, "<li class=\"open overdue\">"), true);
+expect("and says so in words", contains($home, "Overdue <time datetime=\"2001-01-01T00:00:00Z\">1 Jan, 00:00</time>"), true);
+expect("a done one isn't", [contains($home, "<li class=\"done overdue\">"), len(split($home, "overdue\">")) - 1], [false, 1]);
+$at = date::parse("2026-10-05T12:00:00Z").time;
+$todos = [Todo(1, 1, "due at noon", false, 0, $at), Todo(2, 1, "done", true, 0, $at - 1), Todo(3, 1, "never due", false, 0)];
+fn rendered(list $todos, int $now): string {
+    return todos_page("token", $todos, TodoForm(""), {}, date::utc(), TodoFilter("all"), $now).text;
+}
+expect("at the moment it is due, not yet overdue", contains(rendered($todos, $at), "overdue"), false);
+expect("a second later it is", [contains(rendered($todos, $at + 1), "<li class=\"open overdue\">"), len(split(rendered($todos, $at + 1), "class=\"open overdue\"")) - 1], [true, 1]);
+expect("the overdue rule itself", [Todo(1, 1, "x", false, 0, 10).is_overdue(11), Todo(1, 1, "x", false, 0, 10).is_overdue(10), Todo(1, 1, "x", true, 0, 10).is_overdue(11), Todo(1, 1, "x", false, 0).is_overdue(11)], [true, false, false, false]);
+
+/* --- Showing all, open or done todos, and coming back to the same --- */
+$open_page = $cleo.get("/?show=open");
+expect("only the open ones", titles_in($open_page), ["soonest", "middle", "later", "not due, newer", "not due, older"]);
+expect("only the done ones", titles_in($cleo.get("/?show=done")), ["done, not due", "done and due first"]);
+expect("all of them", len(titles_in($cleo.get("/?show=all"))), 7);
+expect("the filter shown is the one selected", [contains(text_of($open_page), "<a href=\"/?show=open\" aria-current=\"page\">Open</a>"), contains(text_of($open_page), "<a href=\"/\" aria-current=\"false\">All</a>")], [true, true]);
+expect("the forms carry it", len(split(text_of($open_page), "name=\"show\" value=\"open\"")) - 1, 11);
+$middle = $db.value(db::sql"select id from todos where title = 'middle'");
+expect("toggling goes back to the same filter", location_of($cleo.post("/todos/{$middle}/toggle", {"_csrf" => $token, "show" => "open"})), "/?show=open");
+expect("and so does adding", location_of($cleo.post("/todos", {"_csrf" => $token, "title" => "filtered", "show" => "done"})), "/?show=done");
+$failed = $cleo.post("/todos", {"_csrf" => $token, "title" => "", "show" => "done"});
+expect("a refused add shows the same filter again", [$failed["status"], contains(text_of($failed), "<a href=\"/?show=done\" aria-current=\"page\">Done</a>")], [422, true]);
+$filtered = $db.value(db::sql"select id from todos where title = 'filtered'");
+expect("and deleting", location_of($cleo.post("/todos/{$filtered}/delete", {"_csrf" => $token, "show" => "open"})), "/?show=open");
+expect("all goes back to the plain list", location_of($cleo.post("/todos/{$middle}/toggle", {"_csrf" => $token, "show" => "all"})), "/");
+
+/* Hostile filters: anything unknown shows all, and a redirect only ever goes to the list */
+foreach (["//evil.example", "https://evil.example/", "%zz", "open%0d%0aLocation:%20http://evil.example", "OPEN", "open ", "", "x=1&show"] as $show) {
+    $hostile = $cleo.get("/?show=" .. $show);
+    expect("an unknown filter shows everything: " .. $show, [$hostile["status"], len(titles_in($hostile)), contains(text_of($hostile), "<a href=\"/\" aria-current=\"page\">All</a>")], [200, 7, true]);
+}
+expect("a filter given twice keeps the last", titles_in($cleo.get("/?show=open&show=done")), ["done, not due", "done and due first"]);
+foreach (["//evil.example", "https://evil.example/", "/\\evil.example", "open\r\nLocation: http://evil.example", "open?x"] as $show) {
+    expect("a redirect stays on the list: " .. slice(to_string([$show]), 1, -1), location_of($cleo.post("/todos/{$middle}/toggle", {"_csrf" => $token, "show" => $show})), "/");
+}
 
 test::done();

@@ -7,9 +7,10 @@ main { max-width: 36rem; margin: 0 auto; padding: 1rem; }
 form.inline { display: inline; }
 .who { color: var(--muted); margin-right: .5rem; }
 label { display: block; margin: .75rem 0; }
-input[type=text], input[type=email], input[type=password] { display: block; width: 100%; padding: .5rem; margin-top: .25rem; font: inherit; }
+input[type=text], input[type=email], input[type=password], input[type=datetime-local] { display: block; width: 100%; padding: .5rem; margin-top: .25rem; font: inherit; }
 form.add { display: flex; gap: .5rem; }
 form.add input { margin-top: 0; }
+form.add input[type=datetime-local] { width: auto; }
 button { font: inherit; padding: .4rem .9rem; cursor: pointer; }
 button.link { background: none; border: 0; color: var(--accent); padding: 0; text-decoration: underline; }
 button.danger { color: var(--danger); }
@@ -22,3 +23,7 @@ ul.todos .title { flex: 1; }
 li.done .title { text-decoration: line-through; color: var(--muted); }
 ul.todos time { color: var(--muted); font-size: .875em; }
 .empty { color: var(--muted); }
+ul.todos .due { font-size: .875em; }
+li.overdue .due, li.overdue .due time { color: var(--danger); font-weight: 600; }
+nav.filters { display: flex; gap: 1rem; margin: 1rem 0 0; }
+nav.filters a[aria-current=page] { font-weight: 700; text-decoration: none; color: inherit; }

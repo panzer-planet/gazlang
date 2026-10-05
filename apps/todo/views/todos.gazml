@@ -1,11 +1,12 @@
 namespace todo;
 import "forms.gaz";
 import "std/date.gaz";
-@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors, date::Zone $zone)
+@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors, date::Zone $zone, TodoFilter $filter, int $now)
 <h1>Your todos</h1>
 
 <form method="post" action="/todos" class="add">
     <input type="hidden" name="_csrf" value="{{ $csrf }}">
+    <input type="hidden" name="show" value="{{ $filter.name }}">
     <input
         type="text"
         name="title"
@@ -14,21 +15,32 @@ import "std/date.gaz";
         placeholder="What needs doing?"
         required
     >
+    <input type="datetime-local" name="due" value="{{ $form.due }}" aria-label="Due (optional)">
     <button type="submit">Add</button>
 </form>
 
 @if (has_key($errors, "title"))
     <p class="error">{{ $errors["title"] }}</p>
 @endif
+@if (has_key($errors, "due"))
+    <p class="error">{{ $errors["due"] }}</p>
+@endif
+
+<nav class="filters" aria-label="Show">
+    @foreach (FILTERS as $name => $label)
+        <a href="{{ TodoFilter($name).path() }}" aria-current="{{ $name == $filter.name ? "page" : "false" }}">{{ $label }}</a>
+    @endforeach
+</nav>
 
 @if (len($todos) == 0)
-    <p class="empty">Nothing to do. Enjoy it.</p>
+    <p class="empty">{{ $filter.empty_text() }}</p>
 @else
     <ul class="todos">
         @foreach ($todos as $todo)
-            <li class="{{ $todo.done ? "done" : "open" }}">
+            <li class="{{ $todo.done ? "done" : "open" }}{{ $todo.is_overdue($now) ? " overdue" : "" }}">
                 <form method="post" action="/todos/{{ $todo.id }}/toggle" class="inline">
                     <input type="hidden" name="_csrf" value="{{ $csrf }}">
+                    <input type="hidden" name="show" value="{{ $filter.name }}">
                     <button
                         type="submit"
                         class="check"
@@ -37,11 +49,15 @@ import "std/date.gaz";
                 </form>
 
                 <span class="title">{{ $todo.title }}</span>
+                @if ($todo.due_at != null)
+                    <span class="due">{{ $todo.is_overdue($now) ? "Overdue" : "Due" }} <time datetime="{{ $todo.due_rfc3339() }}">{{ $todo.due_in($zone) }}</time></span>
+                @endif
                 <time datetime="{{ $todo.added_rfc3339() }}">{{ $todo.added_in($zone) }}</time>
                 <a href="/todos/{{ $todo.id }}/edit">Edit</a>
 
                 <form method="post" action="/todos/{{ $todo.id }}/delete" class="inline">
                     <input type="hidden" name="_csrf" value="{{ $csrf }}">
+                    <input type="hidden" name="show" value="{{ $filter.name }}">
                     <button type="submit" class="link danger">Delete</button>
                 </form>
             </li>

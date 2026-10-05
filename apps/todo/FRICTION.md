@@ -2,15 +2,16 @@
 
 Each entry says what hurt, what the app does about it today, and the options for fixing it in the
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
-logout, and per-user todos, on PostgreSQL: 656 lines of GazLang, 120 of templates, 22 of SQL, and 360
-of tests (119 checks). It was written by someone who knows the language, working from the library's own
+logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 877
+lines of GazLang, 220 of templates, 23 of SQL, and 532 of tests (204 checks). It was written by someone who knows the language, working from the library's own
 documentation, and it has been changed since only by moving what it needed into the library.
 
 Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
-(handles across `workers()`), 4 (UTF-8), and the redirect in 10. Half done: 5 (`socket_peer()` exists;
-handlers can't see it yet). Open: the rate limit in 5, 6, 7, 8, 9, and the rest of 10.
+(handles across `workers()`), 4 (UTF-8), and the redirect, the timestamps and the due dates in 10.
+Half done: 5 (`socket_peer()` exists; handlers can't see it yet). Open: the rate limit in 5, 6, 7, 8,
+9, and the rest of 10.
 
 ## What worked, so it is not lost
 
@@ -129,7 +130,7 @@ email out for 15 minutes. A per-client limit needs the client's address, which a
 
 ## 6. Calling a handler's helpers needs a test client that doesn't exist
 
-The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 106 lines with the test database): it builds
+The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 122 lines with the test database): it builds
 request maps, keeps the cookies a response sets, form-encodes bodies, and finds the CSRF token in a
 page. Every web app's tests will want this, and the request shape (`method`, `path`, `query`,
 lower-cased `headers`, `body`) is only written down in `http.gaz`'s source.
@@ -167,9 +168,14 @@ wraps only the bad-escape case, so it catches no more than it means to; the app'
 `try`/`catch (Error)`, since `form()` raises a string and the caller can't tell a hostile request from
 a bug otherwise, and that `catch (Error)` would also catch running out of call depth.
 
-- **Today**: parse twice; `try`/`catch (Error)` in the app's `form_fields()`.
-- **Options**: the middleware stores `$request["form"]` once; or `http::form($request, $default)`
-  (as `to_int($x, $default)` does) so bad input needs no `try`, which would remove the last `catch`.
+`http::query()` has the same shape: `?show=%zz` raised, so the list page was a 500 for a link anyone
+can write, found by the hostile-filter test. The app's `query_fields()` is a second copy of the same
+`try`/`catch (Error)`.
+
+- **Today**: parse twice; `try`/`catch (Error)` in the app's `form_fields()` and `query_fields()`.
+- **Options**: the middleware stores `$request["form"]` once; or `http::form($request, $default)` and
+  `http::query($request, $default)` (as `to_int($x, $default)` and `date::parse($text, $default)` do)
+  so bad input needs no `try`, which would remove both `catch`es.
 
 ## 10. Smaller things
 
@@ -181,12 +187,30 @@ a bug otherwise, and that `catch (Error)` would also catch running out of call d
 - **Timestamps** (resolved: `date::parse()`, `date::zone()` and `Zone.at()`) arrive as text in the
   server's time zone (`"2026-10-01 14:04:27.78+02"`), which `date.gaz` couldn't read or show in
   another zone. The todo list now shows when each was added, in the zone `TIME_ZONE` names.
+- **Due dates from a form** (resolved: `date::parse_reading()` and `Zone.occurrences()`): a
+  `datetime-local` field sends `2026-10-05T14:30`, seconds optional and no offset, which
+  `date::parse()` refuses, and `Zone.time()` could only reject a reading the clocks skip or show twice
+  with a string, so telling the two apart meant matching its words. `date::parse_reading($text,
+  $default)` gives a `date::Reading` (`#days`, `#seconds`) for `Zone.time()`, and `$zone.occurrences($days,
+  $seconds)` every time a reading is (none, one or two), so the form resolves as an alarm clock would
+  and says which happened. Still the app's: writing a time back as the field reads it
+  (`date::iso($moment.days) .. "T" .. $moment.short_clock()`, with the seconds when there are some);
+  a `Moment.reading()` writer would be the pair to `parse_reading()` if a second form wants one.
+- **Timestamps go in and out of PostgreSQL by hand**: the driver has no time type, so a due time is
+  written as `to_timestamp({$due_at})` and read as `floor(extract(epoch from due_at))::bigint`, where
+  `created_at` is read as text and parsed. Either works; a column the driver turned into an int (or
+  a `Moment`) would remove the casts.
+- **A page that depends on the time is tested around the clock, not with it**: the list reads
+  `time()` once per request and passes it to the template, so overdue marking is tested by rendering
+  the template with a fixed time, and through the router only with due dates far in the past or the
+  future. A clock in `Config` (a function, `time` by default) would let the router tests fix it too.
 - **Database errors are strings**, so tests assert on their words
   (`postgres: duplicate key value violates unique constraint "users_email_key"`), which is fragile
   across PostgreSQL versions and has no SQLSTATE to match on.
 - **`@csrf`-shaped repetition in templates**: `<input type="hidden" name="_csrf" value="{{ $csrf }}">`
   appears in 7 places in the templates, two of them inside the todo list, so a page of 40 todos
-  carries 82 tokens. A `@csrf` directive, or a `form` helper, would remove it (and is a thing a
+  carries 82 tokens. The filter added a second such field, `<input type="hidden" name="show" ...>`,
+  to the same three forms, since a redirect after a POST has nothing else to go back to. A `@csrf` directive, or a `form` helper, would remove it (and is a thing a
   template can get wrong; this app's test checks each form).
 - **Every first visit gets a session cookie, even for the stylesheet or a 404.** `http::sessions()`
   creates the CSRF token as soon as a request has no cookie, and writes it back, so a visitor's
@@ -194,6 +218,10 @@ a bug otherwise, and that `catch (Error)` would also catch running out of call d
   so does a bot's. A shared cache won't keep a response that sets a cookie. Options: make the token
   lazy, made only when a handler asks for it (so `$request["session"]` is read-only until something
   needs a token, and only then written); or leave sessions off the static routes.
+- **An attribute can't be left out by a value**: `{{ }}` writes a value, so the selected filter link
+  is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
+  is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute
+  would read better, and templates are frozen until the app has used them more.
 - **Static files** have no `Cache-Control`/`ETag`, so every page load refetches the stylesheet.
 - **No access log**: `http::serve` prints errors and nothing else (it is on the roadmap as a line per
   request "when a program asks"). Checking the live server, the only record of what was asked

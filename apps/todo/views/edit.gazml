@@ -13,11 +13,15 @@ import "forms.gaz";
         required
         autofocus
     >
+    <input type="datetime-local" name="due" value="{{ $form.due }}" aria-label="Due (optional)">
     <button type="submit">Save</button>
 </form>
 
 @if (has_key($errors, "title"))
     <p class="error">{{ $errors["title"] }}</p>
+@endif
+@if (has_key($errors, "due"))
+    <p class="error">{{ $errors["due"] }}</p>
 @endif
 
 <p><a href="/">Back to the list</a></p>

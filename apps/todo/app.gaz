@@ -38,6 +38,11 @@ fn not_found(map $request): map {
     return render($request, "Not found", web::html"<h1>Not found</h1><p><a href=\"/\">Back to your todos</a></p>", 404);
 }
 
+// A flash message, with what the user should be told about the todo's due time after it
+fn with_note(string $message, ?string $note): string {
+    return $note == null ? $message : $message .. " " .. $note;
+}
+
 // A new session for a user who has just proved who they are: nothing of the old one is kept
 fn login_session(int $user_id, string $message): map {
     return {"user_id" => $user_id, "csrf_token" => crypto::token(), "flash" => $message};
@@ -105,38 +110,47 @@ kind Handlers {
     // --- Todos ---
 
     pub fn home(map $request): map {
-        return #list($request, TodoForm(""), {}, 200);
+        return #list($request, TodoForm(""), {}, 200, TodoFilter::from_query($request));
     }
 
-    fn list(map $request, TodoForm $form, map $errors, int $status): map {
-        $todos = #todos.for_user($request["user"].id);
+    // The list as $filter shows it, with what is overdue marked against the time now
+    fn list(map $request, TodoForm $form, map $errors, int $status, TodoFilter $filter): map {
+        $todos = filter(#todos.for_user($request["user"].id), $todo -> $filter.shows($todo));
+        $page = todos_page(csrf_token($request), $todos, $form, $errors, #zone, $filter, time());
 
-        return render($request, "Your todos", todos_page(csrf_token($request), $todos, $form, $errors, #zone), $status);
+        return render($request, "Your todos", $page, $status);
     }
 
+    // The forms on the list send its filter, so each goes back to the list as it was
     pub fn create(map $request): map {
         $form = TodoForm::from_request($request);
+        $filter = TodoFilter::from_form($request);
         $errors = $form.errors();
         if (len($errors) > 0) {
-            return #list($request, $form, $errors, 422);
+            return #list($request, $form, $errors, 422, $filter);
         }
-        #todos.add($request["user"].id, $form.title);
+        #todos.add($request["user"].id, $form.title, $form.due_at(#zone));
+        $message = with_note("Added.", $form.due_note(#zone));
 
-        return http::with_session(http::redirect("/"), http::flash($request, "Added."));
+        return http::with_session(http::redirect($filter.path()), http::flash($request, $message));
     }
 
     pub fn toggle(map $request): map {
         $id = #todo_id($request);
         $todo = $id == null ? null : #todos.toggle($request["user"].id, $id);
 
-        return $todo == null ? not_found($request) : http::redirect("/");
+        return $todo == null ? not_found($request) : http::redirect(TodoFilter::from_form($request).path());
     }
 
     pub fn remove(map $request): map {
         $id = #todo_id($request);
         $removed = $id != null && #todos.remove($request["user"].id, $id);
+        if (!$removed) {
+            return not_found($request);
+        }
+        $back = http::redirect(TodoFilter::from_form($request).path());
 
-        return $removed ? http::with_session(http::redirect("/"), http::flash($request, "Deleted.")) : not_found($request);
+        return http::with_session($back, http::flash($request, "Deleted."));
     }
 
     pub fn edit_form(map $request): map {
@@ -146,7 +160,9 @@ kind Handlers {
             return not_found($request);
         }
 
-        return render($request, "Edit todo", edit_page(csrf_token($request), $todo.id, TodoForm($todo.title), {}));
+        $form = TodoForm($todo.title, $todo.due_field(#zone));
+
+        return render($request, "Edit todo", edit_page(csrf_token($request), $todo.id, $form, {}));
     }
 
     pub fn update(map $request): map {
@@ -159,9 +175,13 @@ kind Handlers {
         if (len($errors) > 0) {
             return render($request, "Edit todo", edit_page(csrf_token($request), $id, $form, $errors), 422);
         }
-        $todo = #todos.rename($request["user"].id, $id, $form.title);
+        $todo = #todos.change($request["user"].id, $id, $form.title, $form.due_at(#zone));
+        if ($todo == null) {
+            return not_found($request);
+        }
+        $message = with_note("Saved.", $form.due_note(#zone));
 
-        return $todo == null ? not_found($request) : http::with_session(http::redirect("/"), http::flash($request, "Saved."));
+        return http::with_session(http::redirect("/"), http::flash($request, $message));
     }
 
     // The id in the path, or null if it isn't a whole number

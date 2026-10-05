@@ -9,7 +9,8 @@
  * no leap seconds. A Zone says what the clocks show at a time (Zone.at() gives a Moment, which
  * formats itself) and which time a date and a clock reading there are (Zone.time()). Zones are
  * date::utc(), date::fixed() for an offset, and date::zone() for a named one from the system's
- * time zone database. date::parse() reads an RFC 3339 time, such as "2026-08-08T14:02:09+02:00".
+ * time zone database. date::parse() reads an RFC 3339 time, such as "2026-08-08T14:02:09+02:00",
+ * and date::parse_reading() a date and a clock reading with no offset, as a form sends one.
  *
  * Nothing here reads the clock: a function is given the time, so the same arguments always give
  * the same answer and a program's tests can use fixed times. Today, in UTC, is
@@ -247,6 +248,30 @@ pub fn parse(string $text, $default = NoDefault()) {
 }
 
 /**
+ * The Reading that a date and a time of day with no offset write, as a form's datetime-local field
+ * sends one: "2026-08-08T14:02", or with seconds, "2026-08-08T14:02:09", and a space may stand for
+ * the T. With no offset it is no time yet: a zone's Zone.time() or Zone.occurrences() says which time it
+ * is there. A fraction of a second is dropped, as date::parse() drops it. A leap second, a date or
+ * time that doesn't exist, or anything else is an error saying what is wrong, unless $default is
+ * given, which is then returned instead.
+ */
+pub fn parse_reading(string $text, $default = NoDefault()) {
+    try {
+        $cursor = Cursor($text);
+        $reading = read_reading($cursor, false);
+        $cursor.expect_end();
+
+        return $reading;
+    } catch (Unreadable $e) {
+        if (is_a($default, NoDefault)) {
+            throw "Can't read " .. quote($text) .. " as a date and time: " .. $e.message;
+        }
+
+        return $default;
+    }
+}
+
+/**
  * The day number of a date written "2026-08-08", as a form sends one: anything else, or a date
  * that doesn't exist, is an error saying what is wrong, unless $default is given, which is then
  * returned instead
@@ -305,17 +330,28 @@ pub kind Zone {
         if (!in_array($resolve, RESOLUTIONS)) {
             throw "Zone.time() resolves by " .. join(map(RESOLUTIONS, quote), ", ") .. ", not " .. quote($resolve);
         }
+        $fitting = #occurrences($days, $seconds);
+        if (len($fitting) == 1) {
+            return $fitting[0];
+        }
+        $wall = $days * SECONDS_PER_DAY + $seconds;
+
+        return #resolve(#readings($wall), len($fitting) > 1, $resolve, $wall);
+    }
+
+    /**
+     * Every time at which the zone's clocks show day number $days and $seconds after midnight, in
+     * order: one for most readings, two for one that happens twice as the clocks go back, and
+     * none for one they skip as they go forward. For telling those apart, where Zone.time() is
+     * for picking one.
+     */
+    pub fn occurrences(int $days, int $seconds): list {
         if ($seconds < 0 || $seconds >= SECONDS_PER_DAY) {
             throw "A time of day is 0 to 86399 seconds after midnight, not {$seconds}";
         }
         $wall = $days * SECONDS_PER_DAY + $seconds;
-        $readings = #readings($wall);
-        $fitting = filter($readings, $time -> #offset_at($time).seconds == $wall - $time);
-        if (len($fitting) == 1) {
-            return $fitting[0];
-        }
 
-        return #resolve($readings, len($fitting) > 1, $resolve, $wall);
+        return filter(#readings($wall), $time -> #offset_at($time).seconds == $wall - $time);
     }
 
     /*
@@ -512,6 +548,17 @@ pub kind Moment {
     }
 }
 
+/**
+ * A date and a time of day with no offset, as date::parse_reading() reads one: no time until a
+ * zone says which (Zone.time() takes the two)
+ */
+pub kind Reading {
+    /**
+     * The date as a day number, and the seconds after midnight
+     */
+    fn _(pub int #days, pub int #seconds) {}
+}
+
 /*
  * An offset from UTC that a zone's clocks keep for a while: $seconds ahead of UTC, whether it is
  * daylight saving time, and what the zone calls it
@@ -680,16 +727,22 @@ fn read_date(Cursor $cursor): int {
     return days($year, $month, $day);
 }
 
-// A time of day, "14:02:09" and any fraction of a second, as seconds after midnight
-fn read_clock(Cursor $cursor): int {
+/*
+ * A time of day, "14:02:09" and any fraction of a second, as seconds after midnight; "14:02" too,
+ * unless $needs_seconds
+ */
+fn read_clock(Cursor $cursor, bool $needs_seconds): int {
     $hour = $cursor.number(2, 2, "a two-digit hour");
     $cursor.expect(":", "after the hour");
     $minute = $cursor.number(2, 2, "two digits of minutes");
-    $cursor.expect(":", "after the minutes");
-    $second = $cursor.number(2, 2, "two digits of seconds");
-    if ($cursor.take(".")) {
-        // ponytail: dropped, as a time is whole seconds; a Moment with nanoseconds would keep it
-        $cursor.skip_digits("digits after the \".\"");
+    $second = 0;
+    if ($needs_seconds || $cursor.peek() == ":") {
+        $cursor.expect(":", "after the minutes");
+        $second = $cursor.number(2, 2, "two digits of seconds");
+        if ($cursor.take(".")) {
+            // ponytail: dropped, as a time is whole seconds; a Moment with nanoseconds would keep it
+            $cursor.skip_digits("digits after the \".\"");
+        }
     }
     if ($hour > 23) {
         throw Unreadable("there is no hour {$hour}");
@@ -737,16 +790,22 @@ fn read_offset(Cursor $cursor): Offset {
     return Offset($offset, false, offset_text($offset));
 }
 
-fn read_moment(Cursor $cursor): Moment {
+// A date and a time of day, "2026-08-08T14:02:09", whose seconds may be left out unless $needs_seconds
+fn read_reading(Cursor $cursor, bool $needs_seconds): Reading {
     $days = read_date($cursor);
     if (!$cursor.take("T") && !$cursor.take("t") && !$cursor.take(" ")) {
         throw Unreadable("expected \"T\" between the date and the time" .. $cursor.found());
     }
-    $seconds = read_clock($cursor);
+
+    return Reading($days, read_clock($cursor, $needs_seconds));
+}
+
+fn read_moment(Cursor $cursor): Moment {
+    $reading = read_reading($cursor, true);
     $offset = read_offset($cursor);
     $cursor.expect_end();
 
-    return Moment($days * SECONDS_PER_DAY + $seconds - $offset.seconds, $offset);
+    return Moment($reading.days * SECONDS_PER_DAY + $reading.seconds - $offset.seconds, $offset);
 }
 
 /*

@@ -116,3 +116,22 @@ ok refused: 29 February 2026
 ok refused: a time after it
 ok refused: 8 August
 ok with a default, bad text gives it
+ok a reading as a datetime-local field sends it
+ok with seconds, a fraction and a space
+ok a zone says which time it is
+ok refused reading: "2026-10-05T14:30Z"
+ok refused reading: "2026-10-05T14:30:00+02:00"
+ok refused reading: "2026-10-05T14"
+ok refused reading: "2026-10-05T14:3"
+ok refused reading: "2026-10-05T14:30:"
+ok refused reading: "2026-10-05T24:00"
+ok refused reading: "2016-12-31T23:59:60"
+ok refused reading: "2026-02-29T10:00"
+ok refused reading: "2026-10-05"
+ok refused reading: ""
+ok with a default, a bad reading gives it
+ok a parse still needs its seconds
+ok a reading that happens once is one time
+ok one the clocks skip is none
+ok one that happens twice is two, in order
+ok seconds past the day here too

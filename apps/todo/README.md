@@ -1,6 +1,7 @@
 # Todo
 
-A small web app on GazLang: register, log in, keep a list of todos. It exists to find out what a
+A small web app on GazLang: register, log in, keep a list of todos, each with a due date and time if
+you like, and show all of them, the open ones or the done ones. It exists to find out what a
 real web app is like to write, so [FRICTION.md](FRICTION.md) is the part to read; this file is how to
 run it. Like `games/`, it lives in this repository so that a change to the library or the VM goes in
 the same commit as the app code that needed it.
@@ -25,7 +26,7 @@ It migrates the schema, then listens on `http://127.0.0.1:8080`. The environment
 | `HOST`, `PORT` | where to listen | `127.0.0.1`, `8080` |
 | `WORKERS` | processes serving requests, each with a connection of its own | `4` |
 | `SECURE_COOKIES` | `1` marks the session cookie `Secure`, for use behind HTTPS | off |
-| `TIME_ZONE` | the zone times are shown in, e.g. `Africa/Johannesburg` (from the system's time zone database) | `UTC` |
+| `TIME_ZONE` | the zone times are shown in and due dates are read in, e.g. `Africa/Johannesburg` (from the system's time zone database) | `UTC` |
 | `MIGRATIONS` | a directory of `.sql` files | `migrations` |
 
 Run it from this directory: the migrations and the stylesheet are found from where it was started.
@@ -45,6 +46,15 @@ createdb gaz_todo_test
 They drive the real router through a `Browser` that keeps cookies (`tests/support.gaz`), so a test
 reads like a person using the site, with no server running.
 
+## Due dates
+
+A due date is typed into a `datetime-local` field, which sends a date and a clock reading with no zone,
+so it is read as the clocks in `TIME_ZONE` show it and stored as a `timestamptz`. A reading the
+clocks skip when they go forward is due when an alarm set for it would ring, the hour after; one they
+show twice when they go back is due the first time. Either way the message after saving says so.
+The list puts open todos that are due first, soonest first, then the open ones that aren't, then the
+done ones, and marks an open todo whose time has passed as overdue.
+
 ## What is where
 
 | File | What it does |
@@ -52,7 +62,7 @@ reads like a person using the site, with no server running.
 | `main.gaz` | reads the environment, migrates, listens, and gives each worker its own connection |
 | `app.gaz` | the pages and what they do (`Handlers`), and `build_app()`, which wires them to the router |
 | `middleware.gaz` | who is logged in, and the routes that need someone to be (the security headers, the session and the CSRF and `Origin` checks are the library's, added in `build_app()`) |
-| `forms.gaz` | what a form sends, read and checked: well-formed text on one line, its length in characters |
+| `forms.gaz` | what a form or the query string sends, read and checked: well-formed text on one line, its length in characters, a due date in the app's zone, and which todos the list shows (`?show=open`) |
 | `auth.gaz`, `throttle.gaz` | registering and logging in; refusing the sixth wrong password for an email |
 | `users.gaz`, `todos.gaz` | the rows as kinds, and the queries (every todo query names its owner) |
 | `database.gaz`, `migrations/` | opening the database; the schema as numbered `.sql` files, each applied once |
@@ -64,6 +74,7 @@ Every value reaches SQL through `db::sql"..."`, so none is read as SQL; pages ar
 templates; text must be well-formed UTF-8 on one line, because the database refuses anything else; a
 form without the session's CSRF token, or from another origin, is a 403; a login changes the
 session, so one planted before it is no use; an email nobody has costs a login the same as one that is
-real, and a todo that isn't yours is a 404, as one that doesn't exist is; the stylesheet is served
-from a directory with nothing else in it. `ponytail:` the login limit is per email, not per
+real, and a todo that isn't yours is a 404, as one that doesn't exist is; the list's filter is one of three
+names or nothing, so a redirect that keeps it never leaves the site; the stylesheet is served from a
+directory with nothing else in it. `ponytail:` the login limit is per email, not per
 client, so it can be used to lock an email out (see FRICTION.md, 5).

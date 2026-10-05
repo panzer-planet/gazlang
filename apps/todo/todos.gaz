@@ -9,25 +9,64 @@ import "std/date.gaz";
 
 const MAX_TITLE_LENGTH = 200;
 
-kind Todo {
-    // $created_at is a time, seconds since 1970
-    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at) {}
+// A time as $zone's clocks show it: "1 Oct, 14:04"
+fn shown_in(date::Zone $zone, int $time): string {
+    $moment = $zone.at($time);
 
-    // created_at arrives as PostgreSQL writes a timestamptz: "2026-10-01 14:04:27.78+02"
+    return date::short($moment.days) .. ", " .. $moment.short_clock();
+}
+
+// A time for a <time> element's datetime: "2026-10-01T12:04:27Z"
+fn rfc3339_in_utc(int $time): string {
+    return date::utc().at($time).rfc3339();
+}
+
+kind Todo {
+    // $created_at and $due_at are times, seconds since 1970; a todo needn't be due
+    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at, pub ?int #due_at = null) {}
+
+    /*
+     * created_at arrives as PostgreSQL writes a timestamptz, "2026-10-01 14:04:27.78+02", and
+     * due_at as seconds since 1970, or null
+     */
     pub static fn from_row(map $row): Todo {
-        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], date::parse($row["created_at"]).time);
+        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], date::parse($row["created_at"]).time, $row["due_at"]);
     }
 
     // When it was added, as $zone's clocks showed it: "1 Oct, 14:04"
     pub fn added_in(date::Zone $zone): string {
-        $moment = $zone.at(#created_at);
-
-        return date::short($moment.days) .. ", " .. $moment.short_clock();
+        return shown_in($zone, #created_at);
     }
 
     // When it was added, for a <time> element: "2026-10-01T12:04:27Z"
     pub fn added_rfc3339(): string {
-        return date::utc().at(#created_at).rfc3339();
+        return rfc3339_in_utc(#created_at);
+    }
+
+    // When it is due, as $zone's clocks show it: "5 Oct, 14:30"
+    pub fn due_in(date::Zone $zone): string {
+        return shown_in($zone, #due_at);
+    }
+
+    // When it is due, for a <time> element: "2026-10-05T12:30:00Z"
+    pub fn due_rfc3339(): string {
+        return rfc3339_in_utc(#due_at);
+    }
+
+    // When it is due as a datetime-local field shows it in $zone, "2026-10-05T14:30", or "" if it isn't
+    pub fn due_field(date::Zone $zone): string {
+        if (#due_at == null) {
+            return "";
+        }
+        $moment = $zone.at(#due_at);
+        $clock = $moment.second == 0 ? $moment.short_clock() : $moment.clock();
+
+        return date::iso($moment.days) .. "T" .. $clock;
+    }
+
+    // Whether it is still to do and was due before $now, a time
+    pub fn is_overdue(int $now): bool {
+        return !#done && #due_at != null && #due_at < $now;
     }
 }
 
@@ -35,12 +74,13 @@ kind Todos {
     fn _(#db) {}
 
     fn columns() {
-        return db::raw("id, user_id, title, done, created_at::text as created_at");
+        return db::raw("id, user_id, title, done, created_at::text as created_at, floor(extract(epoch from due_at))::bigint as due_at");
     }
 
+    // A user's todos: the open ones due soonest first, then those not due, then the done ones, each newest first
     pub fn for_user(int $user_id): list {
         $columns = #columns();
-        $rows = #db.query(db::sql"select {$columns} from todos where user_id = {$user_id} order by done, created_at desc, id desc");
+        $rows = #db.query(db::sql"select {$columns} from todos where user_id = {$user_id} order by done, case when done then null else due_at end nulls last, created_at desc, id desc");
 
         return map($rows, $row -> Todo::from_row($row));
     }
@@ -52,10 +92,10 @@ kind Todos {
         return $row == null ? null : Todo::from_row($row);
     }
 
-    pub fn add(int $user_id, string $title): Todo {
+    pub fn add(int $user_id, string $title, ?int $due_at): Todo {
         $columns = #columns();
 
-        return Todo::from_row(#db.row(db::sql"insert into todos (user_id, title) values ({$user_id}, {$title}) returning {$columns}"));
+        return Todo::from_row(#db.row(db::sql"insert into todos (user_id, title, due_at) values ({$user_id}, {$title}, to_timestamp({$due_at})) returning {$columns}"));
     }
 
     // The todo with its done flag turned over, or null if the user has no such todo
@@ -66,9 +106,10 @@ kind Todos {
         return $row == null ? null : Todo::from_row($row);
     }
 
-    pub fn rename(int $user_id, int $id, string $title): ?Todo {
+    // The todo with its title and due time changed, or null if the user has no such todo
+    pub fn change(int $user_id, int $id, string $title, ?int $due_at): ?Todo {
         $columns = #columns();
-        $row = #db.row(db::sql"update todos set title = {$title} where user_id = {$user_id} and id = {$id} returning {$columns}");
+        $row = #db.row(db::sql"update todos set title = {$title}, due_at = to_timestamp({$due_at}) where user_id = {$user_id} and id = {$id} returning {$columns}");
 
         return $row == null ? null : Todo::from_row($row);
     }

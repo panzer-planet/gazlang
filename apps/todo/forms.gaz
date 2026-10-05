@@ -1,23 +1,40 @@
 /*
- * What a form sends, read and checked: a kind for each form, built from the request, with errors()
- * giving a map of field to message, empty when the form is good. A request that isn't a form at
- * all reads as one with every field blank, so it fails the same checks and nothing else.
+ * What a form or a query string sends, read and checked: a kind for each form, built from the
+ * request, with errors() giving a map of field to message, empty when the form is good. A request
+ * that isn't a form at all reads as one with every field blank, so it fails the same checks and
+ * nothing else; a query string that can't be decoded reads as an empty one.
  */
 namespace todo;
 
 import "std/http.gaz";
 import "std/regex.gaz";
+import "std/date.gaz";
 import "todos.gaz";
 
 const MINIMUM_PASSWORD_LENGTH = 10;
 const MAXIMUM_PASSWORD_LENGTH = 256;
 const MAXIMUM_EMAIL_LENGTH = 254;
 const EMAIL_PATTERN = '[^@ ]+@[^@ ]+\.[^@ ]+';
+// Far enough for a todo, and near enough that the page can write the time in UTC whatever the zone
+const FIRST_DUE_YEAR = 1970;
+const LAST_DUE_YEAR = 2999;
+const FILTERS = {"all" => "All", "open" => "Open", "done" => "Done"};
+const EMPTY_LISTS = {"all" => "Nothing to do. Enjoy it.", "open" => "Nothing left to do.", "done" => "Nothing done yet."};
+const SHOW_ALL = "all";
 
 // The fields of a form body, or none if the body isn't one
 fn form_fields(map $request): map {
     try {
         return http::form($request);
+    } catch (Error $e) {
+        return {};
+    }
+}
+
+// The fields of the query string, or none if it can't be decoded
+fn query_fields(map $request): map {
+    try {
+        return http::query($request);
     } catch (Error $e) {
         return {};
     }
@@ -121,21 +138,132 @@ kind LoginForm {
     }
 }
 
+/*
+ * A todo as the add and edit forms send it: a title, and when it is due as a datetime-local field
+ * sends it ("2026-10-05T14:30", or "" for not due), read as the clocks of the app's zone show it
+ */
 kind TodoForm {
-    fn _(pub string #title) {}
+    fn _(pub string #title, pub string #due = "") {}
 
     pub static fn from_request(map $request): TodoForm {
-        return TodoForm(trim(field(form_fields($request), "title")));
+        $fields = form_fields($request);
+
+        return TodoForm(trim(field($fields, "title")), trim(field($fields, "due")));
     }
 
     pub fn errors(): map {
-        if (#title == "") {
-            return {"title" => "Write something to do"};
+        $errors = {};
+        $title = #title_error();
+        if ($title != null) {
+            $errors["title"] = $title;
         }
-        if (!is_plain_text(#title) || longer_than(#title, MAX_TITLE_LENGTH)) {
-            return {"title" => "Keep it to " .. MAX_TITLE_LENGTH .. " characters on one line"};
+        $due = #due_error();
+        if ($due != null) {
+            $errors["due"] = $due;
         }
 
-        return {};
+        return $errors;
+    }
+
+    fn title_error(): ?string {
+        if (#title == "") {
+            return "Write something to do";
+        }
+        if (!is_plain_text(#title) || longer_than(#title, MAX_TITLE_LENGTH)) {
+            return "Keep it to " .. MAX_TITLE_LENGTH .. " characters on one line";
+        }
+
+        return null;
+    }
+
+    fn due_error(): ?string {
+        if (#due == "") {
+            return null;
+        }
+        $reading = #reading();
+        if ($reading == null) {
+            return "Give the date and time it is due, such as 2026-10-05T14:30";
+        }
+        $year = date::year($reading.days);
+        if ($year < FIRST_DUE_YEAR || $year > LAST_DUE_YEAR) {
+            return "Choose a date between " .. FIRST_DUE_YEAR .. " and " .. LAST_DUE_YEAR;
+        }
+
+        return null;
+    }
+
+    fn reading(): ?date::Reading {
+        return date::parse_reading(#due, null);
+    }
+
+    /*
+     * When it is due, as a time, or null if it isn't, for a form without errors. A reading the
+     * clocks skip or show twice is when an alarm set for it would go off: the time after the
+     * skip, or the first of the two (due_note() says which happened)
+     */
+    pub fn due_at(date::Zone $zone): ?int {
+        if (#due == "") {
+            return null;
+        }
+        $reading = #reading();
+
+        return $zone.time($reading.days, $reading.seconds, "compatible");
+    }
+
+    // What a person should be told about when it is due, if the clocks skip it or show it twice
+    pub fn due_note(date::Zone $zone): ?string {
+        if (#due == "") {
+            return null;
+        }
+        $reading = #reading();
+        $times = $zone.occurrences($reading.days, $reading.seconds);
+        if (len($times) == 1) {
+            return null;
+        }
+        $due = $zone.at(#due_at($zone));
+        $when = $due.short_clock() .. " " .. $due.abbreviation .. " on " .. date::short($due.days);
+        if (len($times) == 0) {
+            return "The clocks in {$zone.name} skip that time as they go forward, so it is due at {$when}.";
+        }
+
+        return "The clocks in {$zone.name} show that time twice as they go back, so it is due the first time, {$when}.";
+    }
+}
+
+/*
+ * Which todos the list shows: "all", "open" or "done", from the list's ?show= or a form's "show"
+ * field. Anything else is "all", so path(), where a redirect goes, only ever names one of the three.
+ */
+kind TodoFilter {
+    pub string #name;
+
+    fn _(string $name) {
+        #name = has_key(FILTERS, $name) ? $name : SHOW_ALL;
+    }
+
+    pub static fn from_query(map $request): TodoFilter {
+        return TodoFilter(field(query_fields($request), "show"));
+    }
+
+    pub static fn from_form(map $request): TodoFilter {
+        return TodoFilter(field(form_fields($request), "show"));
+    }
+
+    // The list's address with this filter: "/" or "/?show=open"
+    pub fn path(): string {
+        return #name == SHOW_ALL ? "/" : "/?show=" .. #name;
+    }
+
+    pub fn shows(Todo $todo): bool {
+        return match (#name) {
+            "open" => !$todo.done,
+            "done" => $todo.done,
+            default => true,
+        };
+    }
+
+    // What the list says when it shows nothing
+    pub fn empty_text(): string {
+        return EMPTY_LISTS[#name];
     }
 }

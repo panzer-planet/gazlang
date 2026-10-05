@@ -221,3 +221,33 @@ throws("refused: 29 February 2026", () -> date::parse_date("2026-02-29"), "Can't
 throws("refused: a time after it", () -> date::parse_date("2026-02-28T00:00:00Z"), "Can't read \"2026-02-28T00:00:00Z\" as a date: expected nothing more, found \"T\"");
 throws("refused: 8 August", () -> date::parse_date("8 Aug 2026"), "Can't read \"8 Aug 2026\" as a date: expected a four-digit year, found \"8\"");
 expect("with a default, bad text gives it", [date::parse_date("2026-02-29", null), date::parse_date("", 0)], [null, 0]);
+
+/* Reading a date and a time of day with no offset */
+$reading = date::parse_reading("2026-10-05T14:30");
+expect("a reading as a datetime-local field sends it", [$reading.days, $reading.seconds], [date::days(2026, 10, 5), date::time_of_day(14, 30)]);
+$with_seconds = date::parse_reading("2026-10-05 14:30:15.250");
+expect("with seconds, a fraction and a space", [$with_seconds.days, $with_seconds.seconds], [date::days(2026, 10, 5), date::time_of_day(14, 30, 15)]);
+expect("a zone says which time it is", $london.time($reading.days, $reading.seconds), date::parse("2026-10-05T14:30:00+01:00").time);
+$wrong_readings = {
+    "2026-10-05T14:30Z" => "expected nothing more, found \"Z\"",
+    "2026-10-05T14:30:00+02:00" => "expected nothing more, found \"+\"",
+    "2026-10-05T14" => "expected \":\" after the hour, found the end",
+    "2026-10-05T14:3" => "expected two digits of minutes, found \"3\"",
+    "2026-10-05T14:30:" => "expected two digits of seconds, found the end",
+    "2026-10-05T24:00" => "there is no hour 24",
+    "2016-12-31T23:59:60" => "second 60 is a leap second, which times since 1970 leave out",
+    "2026-02-29T10:00" => "there is no day 29 in Feb 2026, which has 28",
+    "2026-10-05" => "expected \"T\" between the date and the time, found the end",
+    "" => "expected a four-digit year, found the end",
+};
+foreach ($wrong_readings as $text => $reason) {
+    throws("refused reading: " .. quote($text), () -> date::parse_reading($text), "Can't read " .. quote($text) .. " as a date and time: " .. $reason);
+}
+expect("with a default, a bad reading gives it", [date::parse_reading("2026-02-29T10:00", null), date::parse_reading("soon", "never")], [null, "never"]);
+expect("a parse still needs its seconds", date::parse("2026-10-05T14:30Z", null), null);
+
+/* Every time a reading is */
+expect("a reading that happens once is one time", $london.occurrences(date::days(2026, 1, 15), date::time_of_day(9, 0)), [date::parse("2026-01-15T09:00:00Z").time]);
+expect("one the clocks skip is none", $london.occurrences(date::days(2026, 3, 29), date::time_of_day(1, 30)), []);
+expect("one that happens twice is two, in order", $london.occurrences(date::days(2026, 10, 25), date::time_of_day(1, 30)), [date::parse("2026-10-25T01:30:00+01:00").time, date::parse("2026-10-25T01:30:00Z").time]);
+throws("seconds past the day here too", () -> $london.occurrences(20000, 86400), "A time of day is 0 to 86399 seconds after midnight, not 86400");
