@@ -291,19 +291,16 @@ that must find nothing to do.
   (Windows, a registry and a playground wait for someone to ask).
 - **The roadmap**, in build order:
   1. **Server-side TLS and HTTP/2** in `http::serve`, on its keep-alive.
-  2. **Dates from a clock**: `date.gaz` counts days and `time()` gives seconds, but nothing formats
-     a moment, parses ISO 8601 or knows a time zone (`apps/todo` shows timestamps as text). The rules
-     are GazLang's, written out as `round()` is, never the platform's.
-  3. **Regex shorthands and groups in a replacement**: `\d`, `\w`, `\s` and `$1` in `regex::replace`,
+  2. **Regex shorthands and groups in a replacement**: `\d`, `\w`, `\s` and `$1` in `regex::replace`,
      the two things every reader expects first. Still a Thompson NFA, so no backreferences or
      lookaround.
-  4. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
+  3. **A cause on `Error`**, so code that catches a database error and throws its own keeps the
      original (`#cause`, printed under the trace).
-  5. **Interfaces**: `interface` and `implements` (reserved now), a parse-time check that a kind
+  4. **Interfaces**: `interface` and `implements` (reserved now), a parse-time check that a kind
      has every method an interface names, with matching arities and types as an override's, and
      `is_a($x, Shape)` true for an implementer. See "Decided, not built"; `final` follows with it
      or after it.
-  6. **Enums**: a closed set of named values for a status or a kind of token, in place of string
+  5. **Enums**: a closed set of named values for a status or a kind of token, in place of string
      constants that nothing checks. Not designed: whether a case is a value or an object, whether
      it can carry data or methods, how `match` and `json::encode` see one, and what `type_of` says.
      Typed fields and parameters (`Status $status`) should be the point, so a misspelt case is an
@@ -512,7 +509,7 @@ that must find nothing to do.
     own `#line` or `#message`.
   - No copy-with-change for objects, no `catch (A | B $e)`.
   - `match ($x)` is a linear chain of `EQUALS`; no jump table.
-  - No enum (roadmap item 6); the lexer's token types stay strings on purpose, being the
+  - No enum (roadmap item 5); the lexer's token types stay strings on purpose, being the
     `--tokens` format.
 - **HTTP is HTTP/1.1 in GazLang (`lib/http.gaz`) on socket builtins, TLS through OpenSSL**,
   linked by default and optional (`make TLS=0`), so the bootstrap still needs only a C compiler.
@@ -712,7 +709,7 @@ that must find nothing to do.
       arithmetic loop).
     - An access log line per request
       (`http::http_date(time())`, method, path, status, bytes, `monotonic_time()` for how long).
-- **Decided, not built** (roadmap item 5): `interface`/`implements` (a parse-time check
+- **Decided, not built** (roadmap item 4): `interface`/`implements` (a parse-time check
   that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
   bytecode, while a method block stays `Kind.method`, which is what lets the loader tell the two
@@ -1163,7 +1160,26 @@ be redeclared, compile to `CALL_BUILTIN name argc`, and check argument types by 
   - `http.gaz`'s client: `HttpTest` runs it against `tests/fixtures/http_server.php`, over TCP and
     TLS, which writes framing out by hand so it can get it wrong on purpose; ports vary, so what it
     prints is checked by shape, not recorded. The server and `http::Router`: see "Serving HTTP".
-  - `date.gaz` has no clock, since a program that asked one what day it is could not be recorded.
+  - `date.gaz` has no clock, since a program that asked one what day it is could not be recorded:
+    every function is given the time.
+    - **A time is an int**, seconds since 1970 in UTC without leap seconds, as `time()` and
+      `file_info()` give it, so it compares, sorts and is stored as a number; a `Moment` is one
+      read in a zone, for its fields and formatting, made when shown rather than passed around,
+      since a kind is a handle. Formatting is named pieces (`rfc3339()`, `clock()`,
+      `date::format()`), not a format string to learn.
+    - **Named zones are TZif files read in GazLang** (RFC 8536), the system's
+      `/usr/share/zoneinfo` unless a program names a directory, never libc's `localtime()`, whose
+      answer depends on `TZ` and the platform. The POSIX TZ rule at a file's end is written out
+      (`Rule`, `Change`), with RFC 8536's hours from -167 to 167; files counting leap seconds are
+      refused. Tests read `tests/fixtures/zoneinfo`, never the machine's; `DateTest` compares with
+      PHP's own database, on zones whose rules the two copies agree on.
+    - **A clock reading that happens twice or never is an error unless the call says**
+      (`"earlier"`, `"later"`, `"compatible"`): the two candidates are the reading at the offsets a
+      day before and after it. `ponytail:` two changes within two days would hide the first.
+    - **`parse()` is RFC 3339 and what PostgreSQL writes** (a space for the `T`, `+02`); a leap
+      second is refused and a fraction dropped (`ponytail:`, until times have nanoseconds). Its
+      `$default` is told from none by a private kind (`NoDefault`), as a parameter can't say
+      whether it was passed, and only `Unreadable` is caught, so running out of call depth isn't.
   - `term.gaz`'s drawing functions return their sequence, so a program prints them and a test
     compares them; `tui.gaz` draws into a `Screen`, a grid that `render()` diffs against what it last
     drew, so a program redraws it all every frame and a test reads `lines()` without a terminal.

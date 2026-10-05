@@ -1,15 +1,17 @@
 /*
  * What the app is told by its environment: where the database is, the secret that signs sessions,
- * and how to listen. Nothing is read anywhere else, so a test builds a Config by hand.
+ * how to listen, and the time zone to show times in. Nothing is read anywhere else, so a test builds a Config by hand.
  */
 namespace todo;
+
+import "std/date.gaz";
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_WORKERS = 4;
 const MINIMUM_SECRET_LENGTH = 32;
 
 kind Config {
-    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}) {}
+    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}, pub date::Zone #time_zone = date::utc()) {}
 
     // The Config the environment describes, or an error saying what is missing
     pub static fn from_environment(): Config {
@@ -22,6 +24,9 @@ kind Config {
         $port = to_int(getenv("PORT") ?? DEFAULT_PORT, null) ?? throw "PORT is not a whole number";
         $workers = to_int(getenv("WORKERS") ?? DEFAULT_WORKERS, null) ?? throw "WORKERS is not a whole number";
 
-        return Config($database_url, $secret, $host, $port, $workers, getenv("SECURE_COOKIES") == "1");
+        $time_zone = getenv("TIME_ZONE");
+        $zone = $time_zone == null ? date::utc() : date::zone($time_zone);
+
+        return Config($database_url, $secret, $host, $port, $workers, getenv("SECURE_COOKIES") == "1", {}, $zone);
     }
 }

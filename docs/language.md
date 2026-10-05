@@ -1780,7 +1780,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, [$kind,] $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
 | `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough); see "Templates" |
-| `date.gaz` | `date::days($year, $month, $day)` (a date as a whole number of days, day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). There is no `today()`: a date is a plain number of days, so a program that needs today's date works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed dates |
+| `date.gaz` | Dates as whole numbers of days: `date::days($year, $month, $day)` (day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). Times as whole seconds since 1970 in UTC, as `time()` gives them, and the zones that show them: `date::utc()`, `date::fixed($seconds)` and `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone database, daylight saving time and all), or `date::tzif($name, $bytes)`; `$zone.at($time)` is a `date::Moment` (its date, time of day, offset and abbreviation there, with `rfc3339()`, `clock()`, `short_clock()` and `offset_text()`), and `$zone.time($days, $seconds, $resolve = "reject")` the time its clocks show a date and `date::time_of_day($hour, $minute, $second = 0)`; `date::parse($text, $default)` reads RFC 3339 and `date::parse_date($text, $default)` a `2026-08-08`. Nothing reads the clock: a program that needs today works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed times; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with` as it is, so `"$1"` is two bytes; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`, `\` escapes; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
 | `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
@@ -1872,6 +1872,36 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   `worker_recycle()`. Without `workers()` it calls `worker_recycle()` at once.
 - It returns when its worker is asked to stop, after answering the request in hand.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
+
+**Dates and times**, with `std/date.gaz`:
+
+```gaz
+$zone = date::zone("Europe/London");
+$moment = $zone.at(1786197729);                  // a time, as time() gives one
+echo $moment.rfc3339();                          // 2026-08-08T15:02:09+01:00
+echo date::format($moment.days) .. ", " .. $moment.short_clock() .. " " .. $moment.abbreviation;
+                                                 // Sat 8 Aug 2026, 15:02 BST
+$meeting = $zone.time(date::days(2026, 10, 25), date::time_of_day(9, 30));
+echo date::parse("2026-08-08T14:02:09+02:00").time;  // 1786190529
+```
+
+- A time is an int, seconds since 1970 began in UTC, counting no leap seconds, so it is compared,
+  sorted, stored and subtracted as one. A `Moment` is a time as a zone's clocks show it: `#days`
+  (a day number), `#year`, `#month`, `#day`, `#hour`, `#minute`, `#second`, `#offset` (seconds
+  ahead of UTC), `#dst` and `#abbreviation`, and `#time` itself.
+- `date::zone()` reads the system's time zone database unless given a directory, and follows every
+  change of offset in it, and the rule at its end for times after them. A name it doesn't have is
+  an error. Load a zone once and keep it.
+- When the clocks go back an hour happens twice, and when they go forward an hour never happens, so
+  `$zone.time()` is an error for such a reading unless its `$resolve` says what to do: `"earlier"`
+  or `"later"` of the two times it is with the offsets either side of the change, or
+  `"compatible"`, the earlier when it happens twice and the later when it never happens, which is
+  when an alarm set for it goes off.
+- `date::parse()` reads `2026-08-08T14:02:09+02:00`, `...Z`, a space for the `T`, a fraction of a
+  second (dropped), and an offset of hours alone (`+02`, as PostgreSQL writes a `timestamptz`);
+  `rfc3339()` writes what it reads. Anything else, a leap second or a date that doesn't exist is an
+  error saying what is wrong, unless a `$default` is given, which is then returned instead, as
+  `to_int($text, $default)` does.
 
 **Command line arguments**, with `std/cli.gaz`:
 

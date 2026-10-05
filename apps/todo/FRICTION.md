@@ -178,8 +178,9 @@ a bug otherwise, and that `catch (Error)` would also catch running out of call d
 - **PostgreSQL NOTICEs** go to standard error and can't be quieted: `create table if not exists`
   and `truncate ... cascade` print a line each, on every start and between test checks.
   The driver could set `client_min_messages = warning` on connect.
-- **Timestamps** arrive as text in the server's time zone (`"2026-10-01 14:04:27.78+02"`). The app
-  never shows them; it would parse them, and `date.gaz` has no clock and no parser.
+- **Timestamps** (resolved: `date::parse()`, `date::zone()` and `Zone.at()`) arrive as text in the
+  server's time zone (`"2026-10-01 14:04:27.78+02"`), which `date.gaz` couldn't read or show in
+  another zone. The todo list now shows when each was added, in the zone `TIME_ZONE` names.
 - **Database errors are strings**, so tests assert on their words
   (`postgres: duplicate key value violates unique constraint "users_email_key"`), which is fragile
   across PostgreSQL versions and has no SQLSTATE to match on.

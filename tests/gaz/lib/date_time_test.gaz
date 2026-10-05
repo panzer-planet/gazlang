@@ -1,0 +1,223 @@
+/*
+ * date.gaz's times, zones, formatting and parsing. Zones come from the TZif files checked in under
+ * tests/fixtures/zoneinfo, never the machine's own, and the rules at a file's end from small TZif
+ * files made here; DateTest compares the zones with PHP's on many more times.
+ */
+import "std/test.gaz" use expect, throws;
+import "std/date.gaz";
+import "std/text.gaz" use quote;
+
+const ZONEINFO = "tests/fixtures/zoneinfo";
+
+// A time as RFC 3339 writes it in $zone, with what the zone calls its offset then
+fn shown(date::Zone $zone, int $time): string {
+    $moment = $zone.at($time);
+
+    return $moment.rfc3339() .. " " .. $moment.abbreviation .. ($moment.dst ? " dst" : "");
+}
+
+// The time $zone's clocks show $year-$month-$day $hour:$minute, as RFC 3339 writes it there
+fn at_clock(date::Zone $zone, list $date, list $clock, string $resolve = "reject"): string {
+    [$year, $month, $day] = $date;
+    [$hour, $minute] = $clock;
+    $time = $zone.time(date::days($year, $month, $day), date::time_of_day($hour, $minute), $resolve);
+
+    return $zone.at($time).rfc3339();
+}
+
+// Four bytes of a two's complement number, most significant first, as TZif writes one
+fn four_bytes(int $n): string {
+    $unsigned = $n < 0 ? $n + 4294967296 : $n;
+
+    return join(map([24, 16, 8, 0], $shift -> chr(($unsigned >> $shift) & 255)), "");
+}
+
+/*
+ * A TZif file with no transitions, one local time type ($offset, called $abbreviation) and
+ * $rule at its end: version 2, so a header and data for 32-bit times and the same for 64-bit
+ * ones, which with no transitions are the same bytes. $leap_seconds counts leap seconds in the
+ * header without any data for them, which is refused before the data is read.
+ */
+fn tzif_bytes(string $rule, int $offset = 0, string $abbreviation = "LMT", int $leap_seconds = 0): string {
+    $counts = [0, 0, $leap_seconds, 0, 1, len($abbreviation) + 1];
+    $header = "TZif2" .. repeat("\0", 15) .. join(map($counts, four_bytes), "");
+    $data = four_bytes($offset) .. "\0\0" .. $abbreviation .. "\0";
+
+    return $header .. $data .. $header .. $data .. "\n" .. $rule .. "\n";
+}
+
+// The same as version 1 wrote it: one header and data, with no rule after it
+fn tzif_version_1_bytes(int $offset, string $abbreviation): string {
+    $counts = [0, 0, 0, 0, 1, len($abbreviation) + 1];
+
+    return "TZif\0" .. repeat("\0", 15) .. join(map($counts, four_bytes), "") .. four_bytes($offset) .. "\0\0" .. $abbreviation .. "\0";
+}
+
+fn rule_zone(string $rule): date::Zone {
+    return date::tzif("Test/Rule", tzif_bytes($rule));
+}
+
+$utc = date::utc();
+$london = date::zone("Europe/London", ZONEINFO);
+
+/* Times in UTC */
+expect("time 0 is the start of 1970, a Thursday", [shown($utc, 0), $utc.at(0).weekday()], ["1970-01-01T00:00:00Z UTC", 3]);
+expect("a second before is the end of 1969", shown($utc, -1), "1969-12-31T23:59:59Z UTC");
+$moment = $utc.at(1786197729);
+expect("a moment's parts", [$moment.time, $moment.days, $moment.year, $moment.month, $moment.day, $moment.hour, $moment.minute, $moment.second, $moment.offset, $moment.dst, $moment.abbreviation], [1786197729, 20673, 2026, 8, 8, 14, 2, 9, 0, false, "UTC"]);
+expect("its clocks and offset", [$moment.clock(), $moment.short_clock(), $moment.offset_text()], ["14:02:09", "14:02", "+00:00"]);
+expect("the end of a year and the start of the next", [shown($utc, 1798761599), shown($utc, 1798761600)], ["2026-12-31T23:59:59Z UTC", "2027-01-01T00:00:00Z UTC"]);
+expect("leap days: 29 February 2000 and 2024, and 1 March 1900, which has none", [shown($utc, 951782400), shown($utc, 1709164800), shown($utc, -2203891200)], ["2000-02-29T00:00:00Z UTC", "2024-02-29T00:00:00Z UTC", "1900-03-01T00:00:00Z UTC"]);
+expect("long before 1970, to the first year and year 0", [shown($utc, -10000000000), shown($utc, -62135596800), shown($utc, -62167219200)], ["1653-02-10T06:13:20Z UTC", "0001-01-01T00:00:00Z UTC", "0000-01-01T00:00:00Z UTC"]);
+expect("a year before 0 still has its parts", [$utc.at(-62167219201).year, $utc.at(-62167219201).month, $utc.at(-62167219201).day], [-1, 12, 31]);
+throws("which RFC 3339 can't write", () -> $utc.at(-62167219201).rfc3339(), "RFC 3339 writes the years 0 to 9999, not -1");
+throws("nor year 10000", () -> $utc.at(253402300800).rfc3339(), "RFC 3339 writes the years 0 to 9999, not 10000");
+expect("but 9999's last second it can", shown($utc, 253402300799), "9999-12-31T23:59:59Z UTC");
+
+/* A time of day */
+expect("a time of day is seconds after midnight", [date::time_of_day(0, 0), date::time_of_day(14, 2), date::time_of_day(14, 2, 9), date::time_of_day(23, 59, 59)], [0, 50520, 50529, 86399]);
+throws("no hour 24", () -> date::time_of_day(24, 0), "There is no hour 24");
+throws("no minute 60", () -> date::time_of_day(1, 60), "There is no minute 60");
+throws("no second -1", () -> date::time_of_day(1, 0, -1), "There is no second -1");
+
+/* Fixed offsets */
+$india = date::fixed(19800);
+expect("a fixed offset is named as it is written", [$india.name, shown($india, 0), shown(date::fixed(-12600), 0), shown(date::fixed(0), 0)], ["+05:30", "1970-01-01T05:30:00+05:30 +05:30", "1969-12-31T20:30:00-03:30 -03:30", "1970-01-01T00:00:00Z +00:00"]);
+expect("and every reading of it happens once", at_clock($india, [2026, 3, 29], [1, 30]), "2026-03-29T01:30:00+05:30");
+throws("a day or more is no offset", () -> date::fixed(86400), "An offset from UTC is under a day, not 86400 seconds");
+
+/* A named zone with daylight saving time */
+expect("London in winter and in summer", [shown($london, 1767225600), shown($london, 1782914529)], ["2026-01-01T00:00:00Z GMT", "2026-07-01T15:02:09+01:00 BST dst"]);
+expect("the clocks go forward at 01:00 UTC on the last Sunday in March", [shown($london, 1774745999), shown($london, 1774746000)], ["2026-03-29T00:59:59Z GMT", "2026-03-29T02:00:00+01:00 BST dst"]);
+expect("and back at 01:00 UTC on the last Sunday in October", [shown($london, 1792889999), shown($london, 1792890000)], ["2026-10-25T01:59:59+01:00 BST dst", "2026-10-25T01:00:00Z GMT"]);
+expect("in 1970 Britain kept summer time all year", shown($london, 0), "1970-01-01T01:00:00+01:00 BST");
+expect("before 1847 the clocks kept local mean time, 75 seconds behind", [shown($london, -5000000000), $london.at(-5000000000).offset], ["1811-07-23T15:05:25-00:01:15 LMT", -75]);
+expect("after the file's last transition, in 2037, its rule goes on", [shown($london, 2531433600), shown($london, 2547158400)], ["2050-03-21T00:00:00Z GMT", "2050-09-19T01:00:00+01:00 BST dst"]);
+expect("and changes the clocks on the right Sundays", [shown($london, 2531955599), shown($london, 2531955600), shown($london, 2550704399), shown($london, 2550704400)], ["2050-03-27T00:59:59Z GMT", "2050-03-27T02:00:00+01:00 BST dst", "2050-10-30T01:59:59+01:00 BST dst", "2050-10-30T01:00:00Z GMT"]);
+
+/* Clock readings into times */
+expect("a reading that happens once", [at_clock($london, [2026, 1, 15], [9, 0]), at_clock($london, [2026, 7, 15], [9, 0])], ["2026-01-15T09:00:00Z", "2026-07-15T09:00:00+01:00"]);
+throws("one the clocks skip is an error unless said otherwise", () -> at_clock($london, [2026, 3, 29], [1, 30]), "2026-03-29 01:30:00 never happens in Europe/London, as the clocks go forward: say \"earlier\", \"later\" or \"compatible\"");
+expect("skipped: earlier, later and compatible", [at_clock($london, [2026, 3, 29], [1, 30], "earlier"), at_clock($london, [2026, 3, 29], [1, 30], "later"), at_clock($london, [2026, 3, 29], [1, 30], "compatible")], ["2026-03-29T00:30:00Z", "2026-03-29T02:30:00+01:00", "2026-03-29T02:30:00+01:00"]);
+expect("either edge of the skipped hour happens once", [at_clock($london, [2026, 3, 29], [0, 59]), at_clock($london, [2026, 3, 29], [2, 0])], ["2026-03-29T00:59:00Z", "2026-03-29T02:00:00+01:00"]);
+throws("one that happens twice is an error unless said otherwise", () -> at_clock($london, [2026, 10, 25], [1, 30]), "2026-10-25 01:30:00 happens twice in Europe/London, as the clocks go back: say \"earlier\" or \"later\"");
+expect("twice: earlier, later and compatible", [at_clock($london, [2026, 10, 25], [1, 30], "earlier"), at_clock($london, [2026, 10, 25], [1, 30], "later"), at_clock($london, [2026, 10, 25], [1, 30], "compatible")], ["2026-10-25T01:30:00+01:00", "2026-10-25T01:30:00Z", "2026-10-25T01:30:00+01:00"]);
+expect("01:00 happens twice and 02:00 once", [at_clock($london, [2026, 10, 25], [1, 0], "later"), at_clock($london, [2026, 10, 25], [2, 0])], ["2026-10-25T01:00:00Z", "2026-10-25T02:00:00Z"]);
+expect("under the rule, in 2050, too", [at_clock($london, [2050, 3, 27], [1, 30], "compatible"), at_clock($london, [2050, 10, 30], [1, 30], "later")], ["2050-03-27T02:30:00+01:00", "2050-10-30T01:30:00Z"]);
+throws("an unknown way to resolve", () -> $london.time(20000, 0, "first"), "Zone.time() resolves by \"reject\", \"earlier\", \"later\", \"compatible\", not \"first\"");
+throws("seconds past the day", () -> $london.time(20000, 86400), "A time of day is 0 to 86399 seconds after midnight, not 86400");
+
+/* Other zones */
+$johannesburg = date::zone("Africa/Johannesburg", ZONEINFO);
+expect("Johannesburg keeps SAST, and kept summer time in the war", [shown($johannesburg, 1786197729), shown($johannesburg, -852076800)], ["2026-08-08T16:02:09+02:00 SAST", "1943-01-01T03:00:00+03:00 SAST dst"]);
+expect("India is five and a half hours ahead", shown(date::zone("Asia/Kolkata", ZONEINFO), 1786197729), "2026-08-08T19:32:09+05:30 IST");
+$new_york = date::zone("America/New_York", ZONEINFO);
+expect("New York, behind UTC, under its rule in 2050", [shown($new_york, 2524608000), shown($new_york, 2539987200)], ["2049-12-31T19:00:00-05:00 EST", "2050-06-27T20:00:00-04:00 EDT dst"]);
+$lord_howe = date::zone("Australia/Lord_Howe", ZONEINFO);
+expect("Lord Howe's clocks go forward half an hour in October", [shown($lord_howe, 1791041399), shown($lord_howe, 1791041400)], ["2026-10-04T01:59:59+10:30 +1030", "2026-10-04T02:30:00+11:00 +11 dst"]);
+expect("so half an hour never happens", [at_clock($lord_howe, [2026, 10, 4], [2, 15], "earlier"), at_clock($lord_howe, [2026, 10, 4], [2, 15], "later")], ["2026-10-04T01:45:00+10:30", "2026-10-04T02:45:00+11:00"]);
+$apia = date::zone("Pacific/Apia", ZONEINFO);
+expect("Samoa skipped 30 December 2011", [shown($apia, 1325239199), shown($apia, 1325239200)], ["2011-12-29T23:59:59-10:00 -10 dst", "2011-12-31T00:00:00+14:00 +14 dst"]);
+throws("so none of it happened", () -> at_clock($apia, [2011, 12, 30], [12, 0]), "2011-12-30 12:00:00 never happens in Pacific/Apia, as the clocks go forward: say \"earlier\", \"later\" or \"compatible\"");
+expect("Sao Paulo has kept no summer time since 2019", [shown(date::zone("America/Sao_Paulo", ZONEINFO), 2547158400)], ["2050-09-18T21:00:00-03:00 -03"]);
+
+/* The rules at the end of a TZif file */
+$eastern = rule_zone("EST5EDT,M3.2.0,M11.1.0");
+expect("the second Sunday in March to the first in November, at 02:00", [shown($eastern, 1772953199), shown($eastern, 1772953200), shown($eastern, 1793512799), shown($eastern, 1793512800)], ["2026-03-08T01:59:59-05:00 EST", "2026-03-08T03:00:00-04:00 EDT dst", "2026-11-01T01:59:59-04:00 EDT dst", "2026-11-01T01:00:00-05:00 EST"]);
+$southern = rule_zone("AEST-10AEDT,M10.1.0,M4.1.0/3");
+expect("south of the equator, summer time spans the new year", [shown($southern, 1767225600), shown($southern, 1782914529)], ["2026-01-01T11:00:00+11:00 AEDT dst", "2026-07-02T00:02:09+10:00 AEST"]);
+expect("a quoted name and an offset with minutes", shown(rule_zone("<+0330>-3:30"), 0), "1970-01-01T03:30:00+03:30 +0330");
+$julian = rule_zone("XXX0YYY,J60/0,J300/0");
+expect("J60 is 1 March, in a leap year too", [shown($julian, 1709251199), shown($julian, 1709251200), shown($julian, 1740787200)], ["2024-02-29T23:59:59Z XXX", "2024-03-01T01:00:00+01:00 YYY dst", "2025-03-01T01:00:00+01:00 YYY dst"]);
+$counted = rule_zone("XXX0YYY,59/0,300/0");
+expect("day 59 counts 29 February", [shown($counted, 1709164799), shown($counted, 1709164800), shown($counted, 1740787199)], ["2024-02-28T23:59:59Z XXX", "2024-02-29T01:00:00+01:00 YYY dst", "2025-02-28T23:59:59Z XXX"]);
+$always = rule_zone("EST5EDT,0/0,J365/25");
+expect("summer time all year, written as a start at the year before's end", [shown($always, 1767225600), shown($always, 1767243600), shown($always, 1782914529), shown($always, 1798775999)], ["2025-12-31T20:00:00-04:00 EDT dst", "2026-01-01T01:00:00-04:00 EDT dst", "2026-07-01T10:02:09-04:00 EDT dst", "2026-12-31T23:59:59-04:00 EDT dst"]);
+$nuuk = rule_zone("<-02>2<-01>,M3.5.0/-1,M10.5.0/0");
+expect("a change at a negative hour is the day before", [shown($nuuk, 1774746000 - 1), shown($nuuk, 1774746000)], ["2026-03-28T22:59:59-02:00 -02", "2026-03-29T00:00:00-01:00 -01 dst"]);
+expect("a daylight offset of its own", shown(rule_zone("XXX-1YYY-3,M3.5.0,M10.5.0"), 1782914529), "2026-07-01T17:02:09+03:00 YYY dst");
+throws("a rule needs an offset", () -> rule_zone("EST"), "Test/Rule is not a TZif file: can't read its rule \"EST\": expected a number of hours, found the end");
+throws("summer time needs a rule", () -> rule_zone("EST5EDT"), "Test/Rule is not a TZif file: can't read its rule \"EST5EDT\": expected \",\" before daylight saving time's start, found the end");
+throws("a name has three letters or more", () -> rule_zone("ES5"), "Test/Rule is not a TZif file: can't read its rule \"ES5\": expected a name of three or more characters, found \"5\"");
+throws("a quoted name ends with >", () -> rule_zone("<+03-3"), "Test/Rule is not a TZif file: can't read its rule \"<+03-3\": expected \">\" after a name, found the end");
+throws("there is no month 13", () -> rule_zone("EST5EDT,M13.1.0,M11.1.0"), "Test/Rule is not a TZif file: can't read its rule \"EST5EDT,M13.1.0,M11.1.0\": a month is 1 to 12, not 13");
+throws("nor week 6", () -> rule_zone("EST5EDT,M3.6.0,M11.1.0"), "Test/Rule is not a TZif file: can't read its rule \"EST5EDT,M3.6.0,M11.1.0\": a week is 1 to 5, not 6");
+throws("nor J0", () -> rule_zone("EST5EDT,J0,J300"), "Test/Rule is not a TZif file: can't read its rule \"EST5EDT,J0,J300\": a day is 1 to 365, not 0");
+throws("an offset is 24 hours at most", () -> rule_zone("EST25"), "Test/Rule is not a TZif file: can't read its rule \"EST25\": hours are at most 24 here, and minutes and seconds at most 59");
+throws("nothing after the end", () -> rule_zone("EST5EDT,M3.2.0,M11.1.0,"), "Test/Rule is not a TZif file: can't read its rule \"EST5EDT,M3.2.0,M11.1.0,\": expected nothing more, found \",\"");
+expect("a version 1 file has no rule", shown(date::tzif("Test/Old", tzif_version_1_bytes(-18000, "EST")), 0), "1969-12-31T19:00:00-05:00 EST");
+expect("an empty rule keeps the last offset", shown(date::tzif("Test/Empty", tzif_bytes("", 3600, "XXX")), 1782914529), "2026-07-01T15:02:09+01:00 XXX");
+
+/* Finding a zone, and files that aren't TZif */
+throws("a zone that isn't there", () -> date::zone("Mars/Olympus_Mons", ZONEINFO), "There is no time zone Mars/Olympus_Mons in tests/fixtures/zoneinfo");
+throws("a directory isn't a zone", () -> date::zone("Europe", ZONEINFO), "There is no time zone Europe in tests/fixtures/zoneinfo");
+foreach (["", "../etc/passwd", "/etc/passwd", "Europe//London", "Europe/./London", "Europe/London ", "Europe\\London"] as $name) {
+    throws("not a name: " .. quote($name), () -> date::zone($name, ZONEINFO), "Not a time zone name: " .. quote($name));
+}
+$london_bytes = read_file(ZONEINFO .. "/Europe/London");
+expect("a TZif file read from its bytes", shown(date::tzif("Here", $london_bytes), 1782914529), "2026-07-01T15:02:09+01:00 BST dst");
+throws("not TZif", () -> date::tzif("Here", "hello, world"), "Here is not a TZif file: it doesn't start with \"TZif\"");
+throws("cut short", () -> date::tzif("Here", slice($london_bytes, 0, 2000)), "Here is not a TZif file: it ends too early");
+throws("with more after its end", () -> date::tzif("Here", $london_bytes .. "x"), "Here is not a TZif file: there is more after its end");
+throws("with no newline after its rule", () -> date::tzif("Here", slice($london_bytes, 0, -1)), "Here is not a TZif file: its rule has no newline after it");
+throws("of an unknown version", () -> date::tzif("Here", "TZif1" .. slice($london_bytes, 5)), "Here is not a TZif file: its version is \"1\"");
+throws("counting leap seconds", () -> date::tzif("Here", tzif_bytes("UTC0", 0, "UTC", 1)), "Here counts leap seconds, which times since 1970 leave out");
+throws("an offset over a day", () -> date::tzif("Here", tzif_bytes("", 100000, "XXX")), "Here is not a TZif file: an offset of 100000 seconds is out of range");
+
+/* Reading RFC 3339 */
+$parsed = date::parse("2026-08-08T14:02:09+02:00");
+expect("a time with an offset", [$parsed.time, $parsed.rfc3339(), $parsed.offset, $parsed.abbreviation, $parsed.dst], [1786190529, "2026-08-08T14:02:09+02:00", 7200, "+02:00", false]);
+expect("Z is UTC, in either case", [date::parse("2026-08-08T12:02:09Z").time, date::parse("2026-08-08t12:02:09z").abbreviation], [1786190529, "UTC"]);
+expect("as PostgreSQL writes a timestamptz: a space, a fraction, hours alone", date::parse("2026-10-01 14:04:27.78+02").rfc3339(), "2026-10-01T14:04:27+02:00");
+expect("before 1970, and behind UTC", [date::parse("1969-12-31T23:59:59Z").time, date::parse("1969-12-31T19:00:00-05:00").time], [-1, 0]);
+expect("an offset with seconds reads back as it is written", date::parse($london.at(-5000000000).rfc3339()).time, -5000000000);
+expect("year 0 and -00:00", [date::parse("0000-01-01T00:00:00Z").time, date::parse("2026-01-01T00:00:00-00:00").time], [-62167219200, 1767225600]);
+expect("every hour of a year round-trips through RFC 3339 in London", (round_trips($london)), true);
+fn round_trips(date::Zone $zone): bool {
+    for ($time = 1767225600; $time < 1798761600; $time += 3600) {
+        if (date::parse($zone.at($time).rfc3339()).time != $time) {
+            return false;
+        }
+    }
+
+    return true;
+}
+$wrong = {
+    "2026-02-30T00:00:00Z" => "there is no day 30 in Feb 2026, which has 28",
+    "2024-02-30T00:00:00Z" => "there is no day 30 in Feb 2024, which has 29",
+    "2026-04-31T00:00:00Z" => "there is no day 31 in Apr 2026, which has 30",
+    "2026-01-00T00:00:00Z" => "there is no day 0 in Jan 2026, which has 31",
+    "2026-13-01T00:00:00Z" => "there is no month 13",
+    "2026-00-01T00:00:00Z" => "there is no month 0",
+    "2026-01-01T24:00:00Z" => "there is no hour 24",
+    "2026-01-01T23:60:00Z" => "there is no minute 60",
+    "2016-12-31T23:59:60Z" => "second 60 is a leap second, which times since 1970 leave out",
+    "2026-01-01T23:59:61Z" => "there is no second 61",
+    "2026-01-01T00:00:00" => "expected \"Z\" or an offset such as \"+02:00\" after the time, found the end",
+    "2026-01-01T00:00:00+24:00" => "an offset's hours are 0 to 23, and its minutes and seconds 0 to 59",
+    "2026-01-01T00:00:00+02:60" => "an offset's hours are 0 to 23, and its minutes and seconds 0 to 59",
+    "2026-01-01T00:00:00+2:00" => "expected two digits of hours in the offset, found \"2\"",
+    "2026-01-01T00:00:00+0200" => "expected nothing more, found \"0\"",
+    "2026-01-01" => "expected \"T\" between the date and the time, found the end",
+    "2026-01-01X00:00:00Z" => "expected \"T\" between the date and the time, found \"X\"",
+    "26-01-01T00:00:00Z" => "expected a four-digit year, found \"2\"",
+    "20260-01-01T00:00:00Z" => "expected \"-\" after the year, found \"0\"",
+    "2026-1-01T00:00:00Z" => "expected a two-digit month, found \"1\"",
+    "2026-01-01T00:00Z" => "expected \":\" after the minutes, found \"Z\"",
+    "2026-01-01T00:00:00.Z" => "expected digits after the \".\", found \"Z\"",
+    "2026-01-01T00:00:00Z " => "expected nothing more, found \" \"",
+    " 2026-01-01T00:00:00Z" => "expected a four-digit year, found \" \"",
+    "" => "expected a four-digit year, found the end",
+};
+foreach ($wrong as $text => $reason) {
+    throws("refused: " .. quote($text), () -> date::parse($text), "Can't read " .. quote($text) .. " as a date and time: " .. $reason);
+}
+expect("with a default, bad text gives it", [date::parse("2026-02-30T00:00:00Z", null), date::parse("soon", "never"), date::parse("2026-08-08T12:02:09Z", null).time], [null, "never", 1786190529]);
+throws("text that isn't a string is a mistake, not bad text", () -> date::parse(5, null), "date::parse() expects \$text to be string, got int");
+
+/* Reading a date */
+expect("a date as a form sends it", [date::parse_date("2026-08-08"), date::parse_date("1969-12-31"), date::parse_date("2024-02-29")], [20673, -1, 19782]);
+throws("refused: 29 February 2026", () -> date::parse_date("2026-02-29"), "Can't read \"2026-02-29\" as a date: there is no day 29 in Feb 2026, which has 28");
+throws("refused: a time after it", () -> date::parse_date("2026-02-28T00:00:00Z"), "Can't read \"2026-02-28T00:00:00Z\" as a date: expected nothing more, found \"T\"");
+throws("refused: 8 August", () -> date::parse_date("8 Aug 2026"), "Can't read \"8 Aug 2026\" as a date: expected a four-digit year, found \"8\"");
+expect("with a default, bad text gives it", [date::parse_date("2026-02-29", null), date::parse_date("", 0)], [null, 0]);

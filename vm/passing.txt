@@ -1083,6 +1083,7 @@ tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/cli_test.gaz
 tests/gaz/lib/crypto_test.gaz
 tests/gaz/lib/date_test.gaz
+tests/gaz/lib/date_time_test.gaz
 tests/gaz/lib/db_test.gaz
 tests/gaz/lib/format_test.gaz
 tests/gaz/lib/fs_test.gaz

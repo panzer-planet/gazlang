@@ -1,0 +1,118 @@
+ok time 0 is the start of 1970, a Thursday
+ok a second before is the end of 1969
+ok a moment's parts
+ok its clocks and offset
+ok the end of a year and the start of the next
+ok leap days: 29 February 2000 and 2024, and 1 March 1900, which has none
+ok long before 1970, to the first year and year 0
+ok a year before 0 still has its parts
+ok which RFC 3339 can't write
+ok nor year 10000
+ok but 9999's last second it can
+ok a time of day is seconds after midnight
+ok no hour 24
+ok no minute 60
+ok no second -1
+ok a fixed offset is named as it is written
+ok and every reading of it happens once
+ok a day or more is no offset
+ok London in winter and in summer
+ok the clocks go forward at 01:00 UTC on the last Sunday in March
+ok and back at 01:00 UTC on the last Sunday in October
+ok in 1970 Britain kept summer time all year
+ok before 1847 the clocks kept local mean time, 75 seconds behind
+ok after the file's last transition, in 2037, its rule goes on
+ok and changes the clocks on the right Sundays
+ok a reading that happens once
+ok one the clocks skip is an error unless said otherwise
+ok skipped: earlier, later and compatible
+ok either edge of the skipped hour happens once
+ok one that happens twice is an error unless said otherwise
+ok twice: earlier, later and compatible
+ok 01:00 happens twice and 02:00 once
+ok under the rule, in 2050, too
+ok an unknown way to resolve
+ok seconds past the day
+ok Johannesburg keeps SAST, and kept summer time in the war
+ok India is five and a half hours ahead
+ok New York, behind UTC, under its rule in 2050
+ok Lord Howe's clocks go forward half an hour in October
+ok so half an hour never happens
+ok Samoa skipped 30 December 2011
+ok so none of it happened
+ok Sao Paulo has kept no summer time since 2019
+ok the second Sunday in March to the first in November, at 02:00
+ok south of the equator, summer time spans the new year
+ok a quoted name and an offset with minutes
+ok J60 is 1 March, in a leap year too
+ok day 59 counts 29 February
+ok summer time all year, written as a start at the year before's end
+ok a change at a negative hour is the day before
+ok a daylight offset of its own
+ok a rule needs an offset
+ok summer time needs a rule
+ok a name has three letters or more
+ok a quoted name ends with >
+ok there is no month 13
+ok nor week 6
+ok nor J0
+ok an offset is 24 hours at most
+ok nothing after the end
+ok a version 1 file has no rule
+ok an empty rule keeps the last offset
+ok a zone that isn't there
+ok a directory isn't a zone
+ok not a name: ""
+ok not a name: "../etc/passwd"
+ok not a name: "/etc/passwd"
+ok not a name: "Europe//London"
+ok not a name: "Europe/./London"
+ok not a name: "Europe/London "
+ok not a name: "Europe\\London"
+ok a TZif file read from its bytes
+ok not TZif
+ok cut short
+ok with more after its end
+ok with no newline after its rule
+ok of an unknown version
+ok counting leap seconds
+ok an offset over a day
+ok a time with an offset
+ok Z is UTC, in either case
+ok as PostgreSQL writes a timestamptz: a space, a fraction, hours alone
+ok before 1970, and behind UTC
+ok an offset with seconds reads back as it is written
+ok year 0 and -00:00
+ok every hour of a year round-trips through RFC 3339 in London
+ok refused: "2026-02-30T00:00:00Z"
+ok refused: "2024-02-30T00:00:00Z"
+ok refused: "2026-04-31T00:00:00Z"
+ok refused: "2026-01-00T00:00:00Z"
+ok refused: "2026-13-01T00:00:00Z"
+ok refused: "2026-00-01T00:00:00Z"
+ok refused: "2026-01-01T24:00:00Z"
+ok refused: "2026-01-01T23:60:00Z"
+ok refused: "2016-12-31T23:59:60Z"
+ok refused: "2026-01-01T23:59:61Z"
+ok refused: "2026-01-01T00:00:00"
+ok refused: "2026-01-01T00:00:00+24:00"
+ok refused: "2026-01-01T00:00:00+02:60"
+ok refused: "2026-01-01T00:00:00+2:00"
+ok refused: "2026-01-01T00:00:00+0200"
+ok refused: "2026-01-01"
+ok refused: "2026-01-01X00:00:00Z"
+ok refused: "26-01-01T00:00:00Z"
+ok refused: "20260-01-01T00:00:00Z"
+ok refused: "2026-1-01T00:00:00Z"
+ok refused: "2026-01-01T00:00Z"
+ok refused: "2026-01-01T00:00:00.Z"
+ok refused: "2026-01-01T00:00:00Z "
+ok refused: " 2026-01-01T00:00:00Z"
+ok refused: ""
+ok with a default, bad text gives it
+ok text that isn't a string is a mistake, not bad text
+ok a date as a form sends it
+ok refused: 29 February 2026
+ok refused: a time after it
+ok refused: 8 August
+ok with a default, bad text gives it
