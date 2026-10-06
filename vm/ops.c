@@ -372,9 +372,17 @@ static Kind *kind_hides(Kind *c, Str *name, Vis *vis) {
     return NULL;
 }
 
+/* Whether a kind is the ancestor or extends it, or implements it when it is an interface. An
+   interface is no kind's parent, so asking about one walks the parents first and finds nothing:
+   the list after them costs a kind's own check nothing until it has failed. */
 bool kind_is_a(Kind *c, Kind *ancestor) {
-    for (; c; c = c->parent) {
-        if (c == ancestor) return true;
+    for (Kind *k = c; k; k = k->parent) {
+        if (k == ancestor) return true;
+    }
+    if (ancestor->interface && c) {
+        for (int i = 0; i < c->ninterfaces; i++) {
+            if (c->interfaces[i] == ancestor) return true;
+        }
     }
     return false;
 }
@@ -425,7 +433,7 @@ bool type_has(TypeSpec *t, Type type) {
 }
 
 /* Strict, never converting, with one exception: an int where float is asked is widened, and
-   arrives as a float. A kind admits its children, as is_a does. */
+   arrives as a float. A kind admits its children, and an interface its implementers, as is_a does. */
 bool type_admits(TypeSpec *t, Value *v) {
     for (int i = 0; i < t->n; i++) {
         if (v->type != t->alts[i].type) continue;
@@ -439,9 +447,11 @@ bool type_admits(TypeSpec *t, Value *v) {
 }
 
 /* What a type error says it got: an object by its kind, since "object" would leave out the
-   one thing the check was about */
+   one thing the check was about, and an interface as one, though type_of() calls it a kind */
 const char *describe_type(Value v) {
-    return v.type == T_OBJECT ? v.o->kind->name->data : type_name(v);
+    if (v.type == T_OBJECT) return v.o->kind->name->data;
+    if (v.type == T_KIND && v.k->interface) return "interface";
+    return type_name(v);
 }
 
 bool check_field_type(Object *o, int field, Value *v) {
@@ -453,7 +463,7 @@ bool check_field_type(Object *o, int field, Value *v) {
 
 /* $obj.name: a field's value or a bound method; quiet reads an unset field as null */
 bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out) {
-    if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
+    if (target.type != T_OBJECT) return raisef("Cannot use . on %s", describe_type(target));
     Object *o = target.o;
     int f = kind_field(o->kind, name, asking);
     if (f >= 0) {
@@ -491,7 +501,7 @@ static int check_field(Object *o, Str *name, Kind *asking) {
 
 /* A field a compound update reads, which must be set */
 bool property_existing(Value target, Str *name, Kind *asking, Value *out) {
-    if (target.type != T_OBJECT) return raisef("Cannot use . on %s", type_name(target));
+    if (target.type != T_OBJECT) return raisef("Cannot use . on %s", describe_type(target));
     int f = check_field(target.o, name, asking);
     if (f < 0) return false;
     if (target.o->fields[f].type == T_UNSET) return raise_not_set(target.o, name);
@@ -535,7 +545,7 @@ static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Valu
         if (!exists) return missing_object ? raise_not_set(missing_object, missing_field) : raise_undefined_key(missing_key);
         typed_object = NULL;
         if (step->kind == S_FIELD) {
-            if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
+            if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", describe_type(*cur));
             Object *o = cur->o;
             int f = check_field(o, step->name, asking);
             if (f < 0) return false;
@@ -629,7 +639,7 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *aski
         PathStep *step = &path->steps[s];
         bool last = s == path->nsteps - 1;
         if (step->kind == S_FIELD) {
-            if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", type_name(*cur));
+            if (cur->type != T_OBJECT) return raisef("Cannot use . on %s", describe_type(*cur));
             Object *o = cur->o;
             int f = check_field(o, step->name, asking);
             if (f < 0) return false;

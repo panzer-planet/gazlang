@@ -1,0 +1,9 @@
+interface Shape {
+    fn area();
+}
+
+kind Base {
+    fn area() {}
+}
+
+kind Square extends Base implements Shape {}

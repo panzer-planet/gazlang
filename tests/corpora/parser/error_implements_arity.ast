@@ -1,0 +1,1 @@
+Error: Method Square.scale must accept every argument count Shape.scale does (1 to 2) at tests/corpora/parser/error_implements_arity.gaz:6

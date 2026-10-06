@@ -1,0 +1,1 @@
+Error: Method Square.scale must take $by as float, as Shape.scale does: an implementation keeps the interface's types on line 6

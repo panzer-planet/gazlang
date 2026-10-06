@@ -758,6 +758,7 @@ static void read_code(Block *b) {
             }
             fail("Unknown instruction '%s'", w.w[0]);
         }
+        if (b->kind == B_INTERFACE) fail("An interface has no code, but '%s' is an instruction", w.w[0]);
         const InstrInfo *info = &INFO[op];
         RawInstr r = {0};
         r.op = op;
@@ -901,6 +902,16 @@ static Block *read_block(const char *header) {
         buf_add_str(&k, b->name);
         b->key = str_intern(k.data, k.len);
         free(k.data);
+    } else if (!strcmp(block_word, "interface")) {
+        /* A record and nothing else: the methods an implementer must have */
+        b->kind = B_INTERFACE;
+        if (w.n != 2 || b->owner_name) fail("Expected 'interface Name'");
+        b->name = intern(w.w[1]);
+        Buf k = {0};
+        buf_adds(&k, "interface ");
+        buf_add_str(&k, b->name);
+        b->key = str_intern(k.data, k.len);
+        free(k.data);
     } else if (!strcmp(block_word, "lambda")) {
         b->kind = B_LAMBDA;
         b->index = count(w.n > 1 ? w.w[1] : "");
@@ -951,6 +962,19 @@ static Block *read_block(const char *header) {
             n = b->nmethods;
             b->method_declarers = push_name(b->method_declarers, &n, declarer);
             b->method_definers = push_name(b->method_definers, &b->nmethods, definer);
+        } else if (!strcmp(first, "implements") && b->kind == B_KIND) {
+            if (w.n != 2) fail("Expected 'implements Interface'");
+            b->implements = push_name(b->implements, &b->nimplements, intern(w.w[1]));
+        } else if (!strcmp(first, "method") && b->kind == B_INTERFACE) {
+            /* A method an implementer must have, pub, and the arity it must accept */
+            Str *name = intern(word(&w, 1));
+            int lo, hi;
+            read_arity(&w, 2, &lo, &hi);
+            b->sig_lo = xrealloc(b->sig_lo, (size_t)(b->nsigs + 1) * sizeof(int));
+            b->sig_hi = xrealloc(b->sig_hi, (size_t)(b->nsigs + 1) * sizeof(int));
+            b->sig_lo[b->nsigs] = lo;
+            b->sig_hi[b->nsigs] = hi;
+            b->sig_names = push_name(b->sig_names, &b->nsigs, name);
         } else if (!strcmp(first, "capture") && b->kind == B_LAMBDA) {
             const char *where = word(&w, 2);
             if (strcmp(where, "local") && strcmp(where, "captured")) fail("Expected 'local' or 'captured'");
@@ -1002,6 +1026,19 @@ static Kind *find_kind(Str *name) {
     return NULL;
 }
 
+static Kind *find_interface(Str *name) {
+    for (int i = 0; i < prog->ninterfaces; i++) {
+        if (prog->interfaces[i].name == name) return &prog->interfaces[i];
+    }
+    return NULL;
+}
+
+/* What a type or PUSH_KIND may name: a kind, or an interface */
+static Kind *find_kind_or_interface(Str *name) {
+    Kind *c = find_kind(name);
+    return c ? c : find_interface(name);
+}
+
 static Lambda *find_lambda(int index) {
     for (int i = prog->nlambdas - 1; i >= 0; i--) {
         if (prog->lambdas[i].index == index) return &prog->lambdas[i];
@@ -1019,12 +1056,12 @@ static Str *method_key(Str *cls, Str *method) {
     return key;
 }
 
-/* Every part of a type's text is a type_of() name or a kind the file declares */
+/* Every part of a type's text is a type_of() name, or a kind or interface the file declares */
 static void check_type_text(Str *text, const char *where) {
     TypeParts parts;
     split_type(text, &parts);
     for (int i = 0; i < parts.n; i++) {
-        if (type_word(parts.parts[i]) < 0 && !find_kind(parts.parts[i])) {
+        if (type_word(parts.parts[i]) < 0 && !find_kind_or_interface(parts.parts[i])) {
             fail_at(false, "Undefined kind '%s' in type '%s' %s", parts.parts[i]->data, text->data, where);
         }
     }
@@ -1040,7 +1077,7 @@ static TypeSpec *read_type(Str *text) {
     for (int i = 0; i < parts.n; i++) {
         int w = type_word(parts.parts[i]);
         t->alts[i].type = w >= 0 ? TYPE_WORDS[w].type : T_OBJECT;
-        t->alts[i].kind = w >= 0 ? NULL : find_kind(parts.parts[i]);
+        t->alts[i].kind = w >= 0 ? NULL : find_kind_or_interface(parts.parts[i]);
     }
     return t;
 }
@@ -1071,6 +1108,24 @@ static void check_record(Block *b) {
         }
         if (!find_kind(b->method_declarers[i])) {
             fail_at(false, "Method %s is declared by undefined kind '%s' in kind %s", b->method_names[i]->data, b->method_declarers[i]->data, name);
+        }
+    }
+    for (int i = 0; i < b->nimplements; i++) {
+        if (!find_interface(b->implements[i])) fail_at(false, "Undefined interface '%s' in kind %s", b->implements[i]->data, name);
+        for (int j = 0; j < i; j++) {
+            if (b->implements[j] == b->implements[i]) fail_at(false, "Kind %s implements %s twice", name, b->implements[i]->data);
+        }
+    }
+}
+
+/* An interface's record: one name, which no kind or other interface has, and each method once */
+static void check_interface(Block *b) {
+    const char *name = b->name->data;
+    if (find_kind(b->name)) fail_at(false, "%s is both a kind and an interface", name);
+    if (find_interface(b->name) != &prog->interfaces[b->index]) fail_at(false, "Interface %s is declared twice", name);
+    for (int i = 0; i < b->nsigs; i++) {
+        for (int j = 0; j < i; j++) {
+            if (b->sig_names[j] == b->sig_names[i]) fail_at(false, "Interface %s names method %s twice", name, b->sig_names[i]->data);
         }
     }
 }
@@ -1217,7 +1272,8 @@ static void check_block(Block *b) {
                     if (builtin_find(name->data, name->len) < 0) FAIL("Undefined builtin '%s'", name->data);
                     break;
                 case K_KIND:
-                    if (!find_kind(name)) FAIL("Undefined kind '%s'", name->data);
+                    /* An interface is a value too, but nothing else can be done with one */
+                    if (!(r->op == OP_PUSH_KIND ? find_kind_or_interface(name) : find_kind(name))) FAIL("Undefined kind '%s'", name->data);
                     break;
                 case K_LAMBDA:
                     if (!find_lambda(n)) FAIL("Undefined lambda %d", n);
@@ -1319,6 +1375,56 @@ static void check_block(Block *b) {
 
 /* ---- Linking --------------------------------------------------------------------------- */
 
+/* A kind's interfaces: its parent's, then the ones it claims itself that the parent's don't
+   already include, worked out once so is_a and a type check need only read the list */
+static void flatten_interfaces(Kind *c, bool *flattened) {
+    if (flattened[c - prog->kinds]) return;
+    flattened[c - prog->kinds] = true;
+    int n = 0;
+    if (c->parent) {
+        flatten_interfaces(c->parent, flattened);
+        n = c->parent->ninterfaces;
+    }
+    c->interfaces = xmalloc((size_t)(n + c->block->nimplements) * sizeof(Kind *) + 1);
+    if (n) memcpy(c->interfaces, c->parent->interfaces, (size_t)n * sizeof(Kind *));
+    for (int i = 0; i < c->block->nimplements; i++) {
+        Kind *interface = find_interface(c->block->implements[i]);
+        bool known = false;
+        for (int j = 0; j < n && !known; j++) known = c->interfaces[j] == interface;
+        if (!known) c->interfaces[n++] = interface;
+    }
+    c->ninterfaces = n;
+}
+
+/* "1 argument", "0 to 2 arguments": how many a method takes, for a message */
+static void describe_arity(char *out, size_t size, int lo, int hi) {
+    if (lo != hi) snprintf(out, size, "%d to %d arguments", lo, hi);
+    else snprintf(out, size, "%d argument%s", lo, lo == 1 ? "" : "s");
+}
+
+/* A kind objects are made of has every method its interfaces name: pub, and accepting every
+   argument count the interface's does. An abstract kind may leave them to its children. */
+static void check_implementer(Kind *c) {
+    if (c->abstract) return;
+    for (int i = 0; i < c->ninterfaces; i++) {
+        Block *interface = c->interfaces[i]->block;
+        for (int s = 0; s < interface->nsigs; s++) {
+            Function *f = NULL;
+            for (int m = 0; m < c->nmethods && !f; m++) {
+                if (c->methods[m] == interface->sig_names[s] && c->method_vis[m] == V_PUB) f = c->entries[m].function;
+            }
+            const char *kind = c->name->data, *name = interface->name->data, *method = interface->sig_names[s]->data;
+            if (!f) fail_at(false, "Kind %s implements %s but has no pub method %s", kind, name, method);
+            if (f->lo > interface->sig_lo[s] || f->hi < interface->sig_hi[s]) {
+                char takes[40], asks[40];
+                describe_arity(takes, sizeof takes, f->lo, f->hi);
+                describe_arity(asks, sizeof asks, interface->sig_lo[s], interface->sig_hi[s]);
+                fail_at(false, "Method %s of kind %s takes %s, but %s.%s must accept %s", method, kind, takes, name, method, asks);
+            }
+        }
+    }
+}
+
 static void build_kinds(void) {
     int n = 0;
     for (int i = 0; i < prog->nblocks; i++) {
@@ -1395,6 +1501,25 @@ static void build_kinds(void) {
         }
         if (!strcmp(c->name->data, "Html")) prog->html_kind = c;
     }
+    for (int i = 0; i < prog->ninterfaces; i++) {
+        Kind *c = &prog->interfaces[i];
+        c->interface = c->abstract = true;
+    }
+    for (int i = 0; i < prog->nblocks; i++) {
+        if (prog->blocks[i]->kind == B_INTERFACE) prog->interfaces[prog->blocks[i]->index].block = prog->blocks[i];
+    }
+    /* Everything that walks a kind's parents (is_a, a catch, a type) would never end on a cycle */
+    for (int i = 0; i < prog->nkinds; i++) {
+        Kind *c = &prog->kinds[i];
+        Kind *k = c->parent;
+        for (int steps = 0; k && steps < prog->nkinds; steps++, k = k->parent) {
+            if (k == c) fail_at(false, "Kind %s extends itself, through its parents", c->name->data);
+        }
+    }
+    bool *flattened = xcalloc((size_t)prog->nkinds + 1, sizeof(bool));
+    for (int i = 0; i < prog->nkinds; i++) flatten_interfaces(&prog->kinds[i], flattened);
+    free(flattened);
+    for (int i = 0; i < prog->nkinds; i++) check_implementer(&prog->kinds[i]);
 }
 
 /* The operators quick_binary() in vm.c can do; the comparisons among them give a bool */
@@ -1529,7 +1654,10 @@ static void link_program(void) {
             case OP_MAKE_CLOSURE:
                 in->p = find_lambda(r->ints[0]);
                 break;
-            case OP_PUSH_KIND: case OP_CALL_CONSTRUCTOR:
+            case OP_PUSH_KIND:
+                in->p = find_kind_or_interface(r->names[0]);
+                break;
+            case OP_CALL_CONSTRUCTOR:
                 in->p = find_kind(r->names[0]);
                 break;
             case OP_NEW:
@@ -1659,7 +1787,9 @@ Program *load(const char *text, size_t len, const char *path) {
         if (b->kind == B_FN) prog->nfunctions++;
         if (b->kind == B_KIND) prog->nkinds++;
         if (b->kind == B_LAMBDA) prog->nlambdas++;
+        if (b->kind == B_INTERFACE) b->index = prog->ninterfaces++;
     }
+    prog->interfaces = xcalloc((size_t)prog->ninterfaces + 1, sizeof(Kind));
     prog->functions = xcalloc((size_t)prog->nfunctions + 1, sizeof(Function));
     prog->kinds = xcalloc((size_t)prog->nkinds + 1, sizeof(Kind));
     prog->lambdas = xcalloc((size_t)prog->nlambdas + 1, sizeof(Lambda));
@@ -1685,10 +1815,12 @@ Program *load(const char *text, size_t len, const char *path) {
     prog->nkinds = 0;
     for (int i = 0; i < prog->nblocks; i++) {
         if (prog->blocks[i]->kind == B_KIND) prog->kinds[prog->nkinds++].name = prog->blocks[i]->name;
+        if (prog->blocks[i]->kind == B_INTERFACE) prog->interfaces[prog->blocks[i]->index].name = prog->blocks[i]->name;
     }
     (void)nc;
     for (int i = 0; i < prog->nblocks; i++) {
         if (prog->blocks[i]->kind == B_KIND) check_record(prog->blocks[i]);
+        if (prog->blocks[i]->kind == B_INTERFACE) check_interface(prog->blocks[i]);
         Str *owner = prog->blocks[i]->owner_name;
         if (owner && !find_kind(owner)) {
             fail_at(false, "Block %s is written in undefined kind '%s'",
@@ -1696,7 +1828,9 @@ Program *load(const char *text, size_t len, const char *path) {
         }
     }
     mark_objectless();
-    for (int i = 0; i < prog->nblocks; i++) check_block(prog->blocks[i]);
+    for (int i = 0; i < prog->nblocks; i++) {
+        if (prog->blocks[i]->kind != B_INTERFACE) check_block(prog->blocks[i]);
+    }
 
     build_kinds();
     /* What a catch sees is made as an Error (caught() in vm.c), so a file that can catch needs

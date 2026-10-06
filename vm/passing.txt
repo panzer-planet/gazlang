@@ -751,6 +751,7 @@ tests/corpora/bytecode/error_catch_value_of_a_number.gzb
 tests/corpora/bytecode/error_catch_without_an_error_kind.gzb
 tests/corpora/bytecode/error_check_in_a_lambda.gzb
 tests/corpora/bytecode/error_check_in_a_method.gzb
+tests/corpora/bytecode/error_circular_inheritance.gzb
 tests/corpora/bytecode/error_concat_path_ending_in_append.gzb
 tests/corpora/bytecode/error_count_deeper_than_the_stack.gzb
 tests/corpora/bytecode/error_count_not_a_number.gzb
@@ -765,6 +766,7 @@ tests/corpora/bytecode/error_empty_stack_method.gzb
 tests/corpora/bytecode/error_empty_stack_path.gzb
 tests/corpora/bytecode/error_end_try_without_a_try.gzb
 tests/corpora/bytecode/error_error_kind_without_its_fields.gzb
+tests/corpora/bytecode/error_extends_an_interface.gzb
 tests/corpora/bytecode/error_extra_argument.gzb
 tests/corpora/bytecode/error_field_declarer_undefined.gzb
 tests/corpora/bytecode/error_field_in_a_lambda_made_at_top_level.gzb
@@ -786,6 +788,25 @@ tests/corpora/bytecode/error_foreach_next_undefined_label.gzb
 tests/corpora/bytecode/error_foreach_next_without_a_label.gzb
 tests/corpora/bytecode/error_global_slot.gzb
 tests/corpora/bytecode/error_halt_inside_a_call.gzb
+tests/corpora/bytecode/error_implements_a_kind.gzb
+tests/corpora/bytecode/error_implements_arity.gzb
+tests/corpora/bytecode/error_implements_header.gzb
+tests/corpora/bytecode/error_implements_in_a_function.gzb
+tests/corpora/bytecode/error_implements_inherited_through_a_parent.gzb
+tests/corpora/bytecode/error_implements_method_not_pub.gzb
+tests/corpora/bytecode/error_implements_missing_method.gzb
+tests/corpora/bytecode/error_implements_twice.gzb
+tests/corpora/bytecode/error_implements_undefined.gzb
+tests/corpora/bytecode/error_interface_called.gzb
+tests/corpora/bytecode/error_interface_field.gzb
+tests/corpora/bytecode/error_interface_header_extends.gzb
+tests/corpora/bytecode/error_interface_in_a_catch.gzb
+tests/corpora/bytecode/error_interface_method_arity.gzb
+tests/corpora/bytecode/error_interface_method_twice.gzb
+tests/corpora/bytecode/error_interface_named_like_a_kind.gzb
+tests/corpora/bytecode/error_interface_twice.gzb
+tests/corpora/bytecode/error_interface_with_code.gzb
+tests/corpora/bytecode/error_interface_without_name.gzb
 tests/corpora/bytecode/error_kind_header.gzb
 tests/corpora/bytecode/error_kind_without_name.gzb
 tests/corpora/bytecode/error_label_of_another_block.gzb
@@ -800,6 +821,7 @@ tests/corpora/bytecode/error_method_declarer_undefined.gzb
 tests/corpora/bytecode/error_method_definer_undefined.gzb
 tests/corpora/bytecode/error_method_without_block.gzb
 tests/corpora/bytecode/error_missing_argument.gzb
+tests/corpora/bytecode/error_new_an_interface.gzb
 tests/corpora/bytecode/error_no_blocks.gzb
 tests/corpora/bytecode/error_no_globals.gzb
 tests/corpora/bytecode/error_no_locals_at_end.gzb
@@ -865,6 +887,7 @@ tests/corpora/bytecode/error_value_with_a_hash.gzb
 tests/corpora/bytecode/error_value_with_an_arrow.gzb
 tests/corpora/bytecode/error_version.gzb
 tests/corpora/bytecode/foreach_next.gzb
+tests/corpora/bytecode/interfaces.gzb
 tests/corpora/bytecode/map_extend.gzb
 tests/corpora/bytecode/raised_error_as_a_value.gzb
 tests/corpora/bytecode/set_field_undeclared.gzb
@@ -880,6 +903,7 @@ tests/corpora/codegen/braced_constant.gaz
 tests/corpora/codegen/concat_assign_paths.gaz
 tests/corpora/codegen/expressions.gaz
 tests/corpora/codegen/functions.gaz
+tests/corpora/codegen/interfaces.gaz
 tests/corpora/codegen/kinds.gaz
 tests/corpora/codegen/lambda_bare_list_pattern.gaz
 tests/corpora/codegen/list_pattern_empty_slots.gaz
@@ -923,6 +947,7 @@ tests/corpora/parser/constant_edges.gaz
 tests/corpora/parser/constant_values.gaz
 tests/corpora/parser/constants.gaz
 tests/corpora/parser/functions.gaz
+tests/corpora/parser/interfaces.gaz
 tests/corpora/parser/interpolation.gaz
 tests/corpora/parser/kin_abstract_method.gaz
 tests/corpora/parser/kind_constants.gaz
@@ -968,12 +993,14 @@ tests/corpora/parser/modules/same_file_spelt_two_ways.gaz
 tests/corpora/parser/modules/symlink_is_the_file_it_points_to.gaz
 tests/corpora/parser/modules/template_imports.gaz
 tests/corpora/parser/namespaces/imported_twice.gaz
+tests/corpora/parser/namespaces/interfaces_qualified.gaz
 tests/corpora/parser/namespaces/kinds_named_qualified.gaz
 tests/corpora/parser/namespaces/lib/json.gaz
 tests/corpora/parser/namespaces/lib/mid.gaz
 tests/corpora/parser/namespaces/lib/more.gaz
 tests/corpora/parser/namespaces/lib/plain.gaz
 tests/corpora/parser/namespaces/lib/problems.gaz
+tests/corpora/parser/namespaces/lib/shapes.gaz
 tests/corpora/parser/namespaces/lib/tags.gaz
 tests/corpora/parser/namespaces/main.gaz
 tests/corpora/parser/namespaces/tagged_namespaced.gaz
@@ -1126,6 +1153,8 @@ tests/gaz/lists/pattern_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
+tests/gaz/objects/interfaces/geometry.gaz
+tests/gaz/objects/interfaces_test.gaz
 tests/gaz/objects/kind_members_by_name_test.gaz
 tests/gaz/objects/kind_of_test.gaz
 tests/gaz/objects/kinds_test.gaz

@@ -1,0 +1,11 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+NEW Shape 0
+POP
+
+interface Shape
+locals

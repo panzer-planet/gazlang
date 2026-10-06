@@ -1,0 +1,3 @@
+import "./lib/shapes.gaz";
+
+fn f(shapes::Secret $s) {}

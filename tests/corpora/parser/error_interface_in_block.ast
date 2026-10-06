@@ -1,0 +1,1 @@
+Error: Interfaces can only be declared at the top level at tests/corpora/parser/error_interface_in_block.gaz:2

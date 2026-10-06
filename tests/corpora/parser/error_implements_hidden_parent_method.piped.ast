@@ -1,0 +1,1 @@
+Error: Kind Square must define method area of interface Shape, or be abstract (Base.area is not pub, so it can't) on line 9

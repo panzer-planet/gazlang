@@ -1,0 +1,13 @@
+interface Shape {
+    fn area(): float;
+}
+
+interface Plot {
+    fn area(): int;
+}
+
+kind Square implements Shape, Plot {
+    pub fn area(): float {
+        return 1.0;
+    }
+}

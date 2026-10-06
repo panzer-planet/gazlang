@@ -1,0 +1,17 @@
+/*
+ * An interface in a namespace, which the test implements from outside it: a pub one escapes
+ * the namespace as a pub kind does
+ */
+namespace geometry;
+
+pub interface Measured {
+    fn size(): float;
+}
+
+pub kind Ruler implements Measured {
+    fn _(float #length) {}
+
+    pub fn size(): float {
+        return #length;
+    }
+}

@@ -1,0 +1,1 @@
+Error: Shape is an interface, not a kind at tests/corpora/parser/error_interface_caught.gaz:5

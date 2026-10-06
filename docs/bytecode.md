@@ -32,13 +32,13 @@ is blocks.
 ## Blocks
 
 A block is a unit of code with its own frame and its own labels: the top level, a function, a
-kind, or a lambda. A block starts at its header line, which begins with a lowercase word, and
-runs until the next header line or the end of the file. Instruction names are uppercase, so a
-block needs no end marker.
+kind, or a lambda; an interface is a block too, a record with no code. A block starts at its
+header line, which begins with a lowercase word, and runs until the next header line or the end
+of the file. Instruction names are uppercase, so a block needs no end marker.
 
 The top level block comes first; a loader starts the program at its first instruction, and
-falling off its end ends the program. Then come the functions in declaration order, then each
-kind followed by its methods, then the lambdas in index order.
+falling off its end ends the program. Then come the functions in declaration order, then the
+interfaces, then each kind followed by its methods, then the lambdas in index order.
 
 Every block's header ends with a `locals` line naming the variable in each local slot, in slot
 order, after any record lines and before its first instruction. A block's parameters are its
@@ -97,6 +97,12 @@ differ from the kind whose version runs: `method area Square kin Shape` is Squar
 a method Shape declared, and it is Shape's marker that says who may name it. Nothing said means
 the declarer is the definer.
 
+An `implements` line names an interface the kind claims itself, one line each, in the order
+the source wrote them; what its ancestors claim is theirs to say, and a loader works out the
+whole set. A kind whose objects can be made (one that isn't abstract) must have, for every
+interface in that set, a `pub` method of each name the interface gives, whose block accepts
+every argument count the interface asks for.
+
 A `static` line gives a static field the kind declares with a type: its name (without the kind,
 which is the block's own) and the type. Its slot is the one the `statics` header names as
 `Kind::name`; a static field without a type has no line, since the header already has it.
@@ -116,14 +122,33 @@ static made int
 locals $#argument_0
 ```
 
+An **interface** gives its name, then a `method` line for each method it names, with the arity
+an implementer must accept as fewest then most arguments, and an empty `locals` line. It has no
+code: a value of it is pushed by `PUSH_KIND`, and a type can name it, but nothing constructs one,
+extends one or catches one.
+
+```gzb
+interface Measured
+method size 0 0
+method scale 1 2
+locals
+
+kind Ruler
+implements Measured
+method size Ruler pub
+method scale Ruler pub
+locals
+```
+
 ## Types
 
 A type names what a value may be, and is written as one word: the alternatives of a union
 joined with `|`, each a `type_of()` name (`int float string bool null list map function kind
-object socket db file`) or a kind's name, so `int|float`, `string|null` (what the source writes
-`?string`) and `Shape`. There is no `?` in the file. A check is strict and never converts, with
-one exception: an int where `float` is one of the alternatives is accepted, and arrives as a
-float. `object` is any object; a kind admits its children, as `is_a` does.
+object socket db file`) or a kind's or interface's name, so `int|float`, `string|null` (what the
+source writes `?string`) and `Shape`. There is no `?` in the file. A check is strict and never
+converts, with one exception: an int where `float` is one of the alternatives is accepted, and
+arrives as a float. `object` is any object; a kind admits its children, and an interface the
+objects of every kind that implements it, as `is_a` does.
 
 `CHECK_PARAM` and `CHECK_RETURN` carry a type and check a parameter or a returned value. A
 `field` or `static` record carries one and the VM checks every write into that slot. Untyped
@@ -306,7 +331,7 @@ block and not in another.
 
 | Instruction | Stack | What it does |
 | --- | --- | --- |
-| `PUSH_KIND kind` | `-- c` | Pushes a kind as a value. |
+| `PUSH_KIND kind` | `-- c` | Pushes a kind, or an interface, as a value. Calling an interface fails with "Cannot construct interface Shape". |
 | `NEW kind count` | `… -- o` | Makes an object of that kind with that many arguments: the kind's block sets the field defaults, calls the constructor and returns the object. |
 | `CALL_CONSTRUCTOR kind` | `-- v` | In a kind's block: runs that kind's `_` on the object being made, with the same arguments. A kind with no constructor is an error when it runs, as the loader doesn't know which methods a kind answers to. |
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
@@ -356,10 +381,17 @@ A file that loads is one the VM can run, so the checks are part of the format:
   a VM puts an error the program didn't throw itself and what every program reads off one, and
   a file holding `CATCH_VALUE` or `CATCH_MATCH` has that kind at all, since that is what a
   caught error is made as.
-- A block's `in Kind` names a kind the file declares, and so does a `method` line's declarer.
+- A block's `in Kind` names a kind the file declares, and so does a `method` line's declarer
+  and a kind's parent. No kind is its own ancestor, through any number of parents.
+- An interface's name is no kind's or other interface's, and it names each method once, with no
+  code. Every `implements` line names an interface, each once in a kind, and a kind that isn't
+  abstract has, for every interface it or an ancestor claims, a `pub` method of each name the
+  interface gives whose block accepts every argument count the interface asks for. Only
+  `PUSH_KIND` and a type may name an interface; `NEW`, `CALL_CONSTRUCTOR`, `CATCH_MATCH`,
+  `extends` and the rest name kinds alone.
 - Every name in a type, on a `field` or `static` line or in a `CHECK_PARAM` or
-  `CHECK_RETURN`, is a `type_of()` name or a kind the file declares, and a `static` line names
-  a slot the `statics` header has.
+  `CHECK_RETURN`, is a `type_of()` name or a kind or interface the file declares, and a
+  `static` line names a slot the `statics` header has.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

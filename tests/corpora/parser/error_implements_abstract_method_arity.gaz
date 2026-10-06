@@ -1,0 +1,7 @@
+interface Shape {
+    fn area();
+}
+
+abstract kind Base implements Shape {
+    pub abstract fn area($unit);
+}

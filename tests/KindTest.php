@@ -662,7 +662,7 @@ class KindTest extends GazLangTestCase
     public static function syntaxErrors(): array
     {
         return [
-            'reserved word' => ["\$x = 1;\ninterface Shape {}", 'interface is reserved on line 2'],
+            'reserved word' => ["\$x = 1;\nfinal kind Shape {}", 'final is reserved on line 2'],
             'reserved word in an expression' => ['echo final;', 'final is reserved on line 1'],
             'another language\'s word for a level is a name' => ['echo protected;', 'Undefined function or constant: protected on line 1'],
             'dot after #' => ['kind P { pub fn f() { return #.name; } }', 'Write #name, not #.name on line 1'],

@@ -1,0 +1,5 @@
+interface Shape {
+    fn area();
+}
+
+echo Shape.area;

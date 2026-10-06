@@ -1,0 +1,15 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+
+interface Shape
+locals
+
+fn f 0 0
+implements Shape
+locals
+PUSH null
+RET

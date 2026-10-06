@@ -1,0 +1,17 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+
+kind Base
+locals
+LOAD_THIS
+RET
+
+kind Square
+implements Base
+locals
+LOAD_THIS
+RET

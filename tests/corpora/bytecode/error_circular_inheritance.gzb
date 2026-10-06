@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+
+kind A extends B
+locals
+LOAD_THIS
+RET
+
+kind B extends A
+locals
+LOAD_THIS
+RET

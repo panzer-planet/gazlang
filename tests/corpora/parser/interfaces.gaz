@@ -1,0 +1,47 @@
+// Interfaces: the methods a kind promises, checked when the program is read. A kind claims
+// them after its parent; an abstract kind may leave one to its children, and a child of an
+// implementer is one too. An interface is a value and a type, never constructed.
+pub interface Shape {
+    fn area(): float;
+    fn scale(float $by, $around = null);
+}
+
+interface Named {
+    fn name(): string;
+}
+
+// One method two interfaces both name, alike
+interface Labelled {
+    fn name(): string;
+}
+
+abstract kind Base implements Shape {
+    pub fn scale(float $by, $around = null, $twice = false) {}
+}
+
+kind Square extends Base implements Named, Labelled {
+    fn _(pub float #side) {}
+
+    pub fn area(): float {
+        return #side * #side;
+    }
+
+    pub fn name(): string {
+        return "square";
+    }
+}
+
+kind Tile extends Square {}
+
+fn total(Shape $shape): float {
+    return $shape.area();
+}
+
+fn first(?Shape $shape, Shape|int|null $other = null): Shape|null {
+    return $shape;
+}
+
+echo total(Tile(2.0));
+echo is_a(Square(1.0), Named);
+$k = Shape;
+echo $k;

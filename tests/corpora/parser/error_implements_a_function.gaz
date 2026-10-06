@@ -1,0 +1,2 @@
+fn area() {}
+kind Square implements area {}

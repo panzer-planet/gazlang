@@ -131,6 +131,12 @@ shell calls are its session and a sequence showing a bug is already a test case.
   can nest as deep as the call limit, so the program runs on a thread with a 1GB stack (address
   space, backed only as used). `call_value()` checks its callee as `CALL_VALUE` does, with its
   own copy of the checks (`enter_value()`): sharing them cost lambda calls 8%.
+- **An interface is a `Kind` to the VM** (`Kind.interface`): a value of one is a `T_KIND`, so
+  `is_a`, `==`, `echo` and a type's alternatives take one with no tag of its own, and it is
+  abstract, so nothing constructs it. The loader works out once which interfaces each kind
+  implements, its ancestors' included (`Kind.interfaces`), and `kind_is_a()` reads that list only
+  after the walk up the parents has failed and the kind asked about is an interface, so a check
+  against a kind, and code without types, cost what they did.
 - **The cycle collector** (`gc.c`) is CPython's trial deletion over every list, map, object and
   function, needing no roots, run at a backward jump or call once as many containers have been
   made as were alive after the last collection. There are no destructors, so freeing runs no

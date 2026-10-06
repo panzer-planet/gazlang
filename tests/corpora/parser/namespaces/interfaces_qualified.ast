@@ -1,0 +1,263 @@
+Compound
+  statements:
+@ "tests/corpora/parser/namespaces/lib/shapes.gaz"
+    0: InterfaceDeclaration 4
+      name: "shapes::Area"
+      methods:
+        area: FunctionDeclaration 5
+          name: "area"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 5
+            names: ["float"]
+          kind: "shapes::Area"
+          abstract: false
+    1: InterfaceDeclaration 8
+      name: "shapes::Secret"
+      methods:
+        reveal: FunctionDeclaration 9
+          name: "reveal"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          kind: "shapes::Secret"
+          abstract: false
+    2: KindDeclaration 12
+      name: "shapes::Circle"
+      parent: null
+      abstract: false
+      interfaces: ["shapes::Area"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"radius" => "", "_" => "pub", "area" => "pub"}
+      fields: {"radius" => null}
+      field_types:
+        radius: Type 13
+          names: ["float"]
+      field_lines: {"radius" => 13}
+      methods:
+        _: FunctionDeclaration 13
+          name: "_"
+          params: ["\$radius"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: Property 13
+                    target: This 13
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 13 ASSIGN =
+                  right: Variable 13
+                    token: 13 VAR_IDENTIFIER $radius
+                    value: "\$radius"
+          arity: 1
+          param_types:
+            0: Type 13
+              names: ["float"]
+          kind: "shapes::Circle"
+          abstract: false
+        area: FunctionDeclaration 15
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 16
+                expr: BinOp 16
+                  left: BinOp 16
+                    left: Num 16
+                      token: 16 FLOAT 3.0
+                      value: 3.0
+                    token: 16 MULTIPLY *
+                    op: 16 MULTIPLY *
+                    right: Property 16
+                      target: This 16
+                      name: "radius"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                  token: 16 MULTIPLY *
+                  op: 16 MULTIPLY *
+                  right: Property 16
+                    target: This 16
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          return_type: Type 15
+            names: ["float"]
+          kind: "shapes::Circle"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"radius" => "shapes::Circle"}
+      members: {"_" => "shapes::Circle", "area" => "shapes::Circle"}
+      abstract_methods: []
+      slots: [["radius", "shapes::Circle", ""]]
+      method_table: [["_", "shapes::Circle", "pub", "shapes::Circle"], ["area", "shapes::Circle", "pub", "shapes::Circle"]]
+      owner_vis: {"radius" => "", "_" => "pub", "area" => "pub"}
+      declared_at: {"_" => "shapes::Circle", "area" => "shapes::Circle"}
+      hidden: []
+      hidden_fields: []
+@ "tests/corpora/parser/namespaces/interfaces_qualified.gaz"
+    3: KindDeclaration 6
+      name: "Square"
+      parent: null
+      abstract: false
+      interfaces: ["shapes::Area"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"side" => "", "_" => "pub", "area" => "pub"}
+      fields: {"side" => null}
+      field_types:
+        side: Type 7
+          names: ["float"]
+      field_lines: {"side" => 7}
+      methods:
+        _: FunctionDeclaration 7
+          name: "_"
+          params: ["\$side"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 7
+                expr: Assign 7
+                  left: Property 7
+                    target: This 7
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 7 ASSIGN =
+                  right: Variable 7
+                    token: 7 VAR_IDENTIFIER $side
+                    value: "\$side"
+          arity: 1
+          param_types:
+            0: Type 7
+              names: ["float"]
+          kind: "Square"
+          abstract: false
+        area: FunctionDeclaration 9
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 10
+                expr: BinOp 10
+                  left: Property 10
+                    target: This 10
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 10 MULTIPLY *
+                  op: 10 MULTIPLY *
+                  right: Property 10
+                    target: This 10
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          return_type: Type 9
+            names: ["float"]
+          kind: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"_" => "Square", "area" => "Square"}
+      abstract_methods: []
+      slots: [["side", "Square", ""]]
+      method_table: [["_", "Square", "pub", "Square"], ["area", "Square", "pub", "Square"]]
+      owner_vis: {"side" => "", "_" => "pub", "area" => "pub"}
+      declared_at: {"_" => "Square", "area" => "Square"}
+      hidden: []
+      hidden_fields: []
+    4: FunctionDeclaration 14
+      name: "total"
+      params: ["\$shape"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 15
+            expr: MethodCall 15
+              property: Property 15
+                target: Variable 15
+                  token: 15 VAR_IDENTIFIER $shape
+                  value: "\$shape"
+                name: "area"
+                field: false
+                constant: false
+                value: null
+                static_name: null
+              args: []
+      arity: 1
+      param_types:
+        0: Type 14
+          names: ["shapes::Area"]
+      return_type: Type 14
+        names: ["float"]
+      kind: null
+      abstract: false
+    5: EchoStatement 18
+      expr: BinOp 18
+        left: FunctionCall 18
+          name: "total"
+          args:
+            0: FunctionCall 18
+              name: "Square"
+              args:
+                0: Num 18
+                  token: 18 FLOAT 2.0
+                  value: 2.0
+        token: 18 PLUS +
+        op: 18 PLUS +
+        right: FunctionCall 18
+          name: "total"
+          args:
+            0: FunctionCall 18
+              name: "shapes::Circle"
+              args:
+                0: Num 18
+                  token: 18 FLOAT 1.0
+                  value: 1.0
+    6: EchoStatement 19
+      expr: FunctionCall 19
+        name: "is_a"
+        args:
+          0: FunctionCall 19
+            name: "Square"
+            args:
+              0: Num 19
+                token: 19 FLOAT 1.0
+                value: 1.0
+          1: FunctionRef 19
+            name: "shapes::Area"
+            constant: false
+            value: null
+            static_name: null

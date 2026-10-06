@@ -445,7 +445,8 @@ class LspTest extends GazLangTestCase
         $this->assertSame(['label' => 'slice', 'kind' => 3, 'detail' => '2 to 3 arguments'], $byLabel['slice']);
         // A word reserved for what isn't built isn't offered, nor one that is gone, nor another
         // language's keyword
-        $this->assertArrayNotHasKey('interface', $byLabel);
+        $this->assertArrayNotHasKey('final', $byLabel);
+        $this->assertSame(['label' => 'interface', 'kind' => 14], $byLabel['interface']);
         $this->assertArrayNotHasKey('include', $byLabel);
         $this->assertSame(['label' => 'import', 'kind' => 14], $byLabel['import']);
         $this->assertArrayNotHasKey('function', $byLabel);
@@ -460,7 +461,7 @@ class LspTest extends GazLangTestCase
     {
         preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/compiler/lexer.gaz'), $table);
         preg_match_all('/"(\w+)" =>/', $table[1], $words);
-        $hints = ['include', 'interface', 'implements', 'final'];
+        $hints = ['include', 'final'];
         $offered = array_column(array_filter(
             $this->completionsFor('file:///a.gaz', "echo 1;\n"),
             fn ($item) => $item['kind'] === 14,
@@ -476,6 +477,29 @@ class LspTest extends GazLangTestCase
         $byLabel = array_column($items, null, 'label');
 
         $this->assertSame(['label' => 'total', 'kind' => 3], $byLabel['total']);
+    }
+
+    /**
+     * An interface is a declaration as a kind is: completed as an Interface, hovered with its
+     * signature and docblock, and found by go-to-definition
+     */
+    public function test_an_interface_is_completed_hovered_and_found()
+    {
+        $source = "/**\n * Has an area\n */\ninterface Shape {\n    fn area();\n}\nkind Square implements Shape { pub fn area() {} }\n";
+        $byLabel = array_column($this->completionsFor('file:///a.gaz', $source), null, 'label');
+        $this->assertSame(8, $byLabel['Shape']['kind']);
+        $this->assertSame('Has an area', $byLabel['Shape']['detail']);
+
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $source],
+            ]],
+            $this->hoverAt(1, 6, 26), // "Shape" after implements
+            $this->definitionAt(2, 'file:///a.gaz', 6, 26),
+        ]);
+        $this->assertSame(['jsonrpc' => '2.0', 'method' => 'textDocument/publishDiagnostics', 'params' => ['uri' => 'file:///a.gaz', 'diagnostics' => []]], $messages[0]);
+        $this->assertSame(['kind' => 'markdown', 'value' => "```gaz\ninterface Shape\n```\n\nHas an area"], $messages[1]['result']['contents']);
+        $this->assertSame(['line' => 3, 'character' => 0], $messages[2]['result']['range']['start']);
     }
 
     public function test_completion_offers_a_function_from_an_imported_file()

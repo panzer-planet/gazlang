@@ -1,0 +1,1 @@
+Error: extends comes before implements: write 'kind Square extends Parent implements ...' on line 3

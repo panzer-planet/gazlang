@@ -1,0 +1,10 @@
+interface Shape {
+    fn area();
+}
+
+interface Plot {
+    fn area($unit);
+}
+
+abstract kind Base implements Shape {}
+abstract kind Square extends Base implements Plot {}

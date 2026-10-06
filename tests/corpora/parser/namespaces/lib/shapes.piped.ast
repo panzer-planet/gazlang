@@ -1,0 +1,116 @@
+Compound
+  statements:
+@ null
+    0: InterfaceDeclaration 4
+      name: "shapes::Area"
+      methods:
+        area: FunctionDeclaration 5
+          name: "area"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 5
+            names: ["float"]
+          kind: "shapes::Area"
+          abstract: false
+    1: InterfaceDeclaration 8
+      name: "shapes::Secret"
+      methods:
+        reveal: FunctionDeclaration 9
+          name: "reveal"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          kind: "shapes::Secret"
+          abstract: false
+    2: KindDeclaration 12
+      name: "shapes::Circle"
+      parent: null
+      abstract: false
+      interfaces: ["shapes::Area"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"radius" => "", "_" => "pub", "area" => "pub"}
+      fields: {"radius" => null}
+      field_types:
+        radius: Type 13
+          names: ["float"]
+      field_lines: {"radius" => 13}
+      methods:
+        _: FunctionDeclaration 13
+          name: "_"
+          params: ["\$radius"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 13
+                expr: Assign 13
+                  left: Property 13
+                    target: This 13
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 13 ASSIGN =
+                  right: Variable 13
+                    token: 13 VAR_IDENTIFIER $radius
+                    value: "\$radius"
+          arity: 1
+          param_types:
+            0: Type 13
+              names: ["float"]
+          kind: "shapes::Circle"
+          abstract: false
+        area: FunctionDeclaration 15
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 16
+                expr: BinOp 16
+                  left: BinOp 16
+                    left: Num 16
+                      token: 16 FLOAT 3.0
+                      value: 3.0
+                    token: 16 MULTIPLY *
+                    op: 16 MULTIPLY *
+                    right: Property 16
+                      target: This 16
+                      name: "radius"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                  token: 16 MULTIPLY *
+                  op: 16 MULTIPLY *
+                  right: Property 16
+                    target: This 16
+                    name: "radius"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          return_type: Type 15
+            names: ["float"]
+          kind: "shapes::Circle"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"radius" => "shapes::Circle"}
+      members: {"_" => "shapes::Circle", "area" => "shapes::Circle"}
+      abstract_methods: []
+      slots: [["radius", "shapes::Circle", ""]]
+      method_table: [["_", "shapes::Circle", "pub", "shapes::Circle"], ["area", "shapes::Circle", "pub", "shapes::Circle"]]
+      owner_vis: {"radius" => "", "_" => "pub", "area" => "pub"}
+      declared_at: {"_" => "shapes::Circle", "area" => "shapes::Circle"}
+      hidden: []
+      hidden_fields: []

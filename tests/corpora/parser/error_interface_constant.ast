@@ -1,0 +1,1 @@
+Error: An interface has no constants: it names methods only, as fn name(...); at tests/corpora/parser/error_interface_constant.gaz:2

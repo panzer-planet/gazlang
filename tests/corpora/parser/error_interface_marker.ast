@@ -1,0 +1,1 @@
+Error: An interface's methods are all pub, so they need no pub at tests/corpora/parser/error_interface_marker.gaz:2

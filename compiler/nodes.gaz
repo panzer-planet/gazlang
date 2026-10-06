@@ -469,6 +469,17 @@ kind FunctionDeclarationAST extends AST {
     }
 }
 
+// An interface: the methods a kind that implements it must have, each a FunctionDeclarationAST
+// with no body, by name
+kind InterfaceDeclarationAST extends AST {
+    pub #name;
+    pub #methods = {};
+
+    fn _($name) {
+        #name = $name;
+    }
+}
+
 // ##name, the parent kind's version of a method: a bound method, or a call when #args is a list
 kind ParentMethodAST extends AST {
     pub #name;
@@ -499,6 +510,9 @@ kind KindDeclarationAST extends AST {
     pub #name;
     pub #parent;
     pub #abstract;
+    // The interfaces it claims itself, in the order written: set only when it claims any, so a
+    // kind without dumps as it always did (fields() leaves out what was never set)
+    pub #interfaces;
     // Each declared static field's default expression, and the line it is declared on, by name
     pub #statics = {};
     // Each declared static field's TypeAST, by name: set only once one has a type, so an

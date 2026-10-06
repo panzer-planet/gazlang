@@ -1,0 +1,1 @@
+Error: area is a function, not an interface at tests/corpora/parser/error_implements_a_function.gaz:2

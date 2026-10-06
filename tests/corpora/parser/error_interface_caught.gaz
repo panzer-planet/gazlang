@@ -1,0 +1,6 @@
+interface Shape {}
+
+try {
+    throw "x";
+} catch (Shape $e) {
+}

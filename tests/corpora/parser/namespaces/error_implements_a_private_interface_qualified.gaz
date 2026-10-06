@@ -1,0 +1,5 @@
+import "./lib/shapes.gaz";
+
+kind Leak implements shapes::Secret {
+    pub fn reveal() {}
+}

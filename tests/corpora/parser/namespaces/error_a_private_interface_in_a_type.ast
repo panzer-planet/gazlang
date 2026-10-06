@@ -1,0 +1,1 @@
+Error: shapes::Secret is not pub, so only namespace shapes can use it at tests/corpora/parser/namespaces/error_a_private_interface_in_a_type.gaz:3

@@ -469,8 +469,8 @@ echo $c;                                 // circle with area 12.56636
 echo is_a($c, Shape) .. " " .. $c.radius;
 ```
 
-- **Kinds** are top level only, single inheritance, usable before they are declared. They are
-  values: `type_of(Point)` is `"kind"`, and `kind_of($obj)` gives an object's own kind, so
+- **Kinds** are top level only, single inheritance, usable before they are declared, and may
+  implement any number of interfaces (see "Interfaces"). They are values: `type_of(Point)` is `"kind"`, and `kind_of($obj)` gives an object's own kind, so
   `match (kind_of($node)) { NumAST => ..., AddAST => ... }` dispatches from outside the kinds.
 - **Fields are declared** (`#x;` or `#x = default;`). A default is evaluated per object, so a
   `[]` default is never shared. Reading one never set is an error; `??` reads it as null.
@@ -523,6 +523,92 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.
 
+## Interfaces
+
+An interface names methods that unrelated kinds can share. A kind says which interfaces it
+implements, and the program is checked when it is read: a kind that claims one has every
+method it names.
+
+```gaz
+interface Shape {
+    fn area(): float;
+    fn scale(float $by);
+}
+
+interface Named {
+    fn name(): string;
+}
+
+abstract kind Polygon implements Shape {
+    kin float #factor = 1.0;
+
+    pub fn scale(float $by) {
+        #factor = #factor * $by;
+    }
+}
+
+kind Square extends Polygon implements Named {
+    fn _(float #side) {}
+
+    pub fn area(): float {
+        return #side * #side * #factor;
+    }
+
+    pub fn name(): string {
+        return "square";
+    }
+}
+
+fn describe(Shape $shape): string {
+    return "an area of " .. $shape.area();
+}
+
+$square = Square(2.0);
+$square.scale(1.5);
+echo describe($square);
+echo is_a($square, Shape) .. " " .. is_a($square, Named);
+echo Shape;
+```
+```
+an area of 6.0
+true true
+interface Shape
+```
+
+- **An interface names methods and nothing else**: each one's parameters (with types and
+  defaults, as a method's) and its return type, ended by `;`. No bodies, fields, constants or
+  statics, no `pub` or `kin` (every method of one is `pub`), no `abstract` (there is nothing to
+  leave out) and no constructor, and an interface extends nothing. Each is an error that says
+  so. A kind that needs two interfaces implements both.
+- **`implements` comes after `extends`**: `kind Square extends Polygon implements Shape, Named`.
+  An interface is top level only, shares the namespace of functions, kinds and constants, and
+  follows `pub` and namespaces as a kind does: `implements geometry::Measured`.
+- **A kind that claims an interface has each of its methods**, declared or inherited, and each
+  is checked as an override of it would be: it must be `pub` (an interface is a promise to any
+  caller), accept every argument count the interface's does (`Method Square.scale must accept
+  every argument count Shape.scale does (1)`) and keep its types (`Method Square.area must
+  return float, as Shape.area does: an implementation keeps the interface's types`). A missing
+  one is `Kind Square must define method area of interface Shape, or be abstract`.
+- **An abstract kind may leave a method to its children**, which are checked in turn; one it
+  does have is checked where it is. **A child of an implementer is an implementer**, with
+  nothing said.
+- **Two interfaces a kind claims may name the same method only alike** (the same argument
+  counts and types), since one method answers for both: otherwise `Kind Square can't implement
+  both Shape and Plot: they name method area differently`.
+- **At run time an interface is a value and a type.** `is_a($x, Shape)` is true for an object
+  whose kind, or any ancestor, implements `Shape`, and a parameter, return, field or static
+  field typed `Shape` (or `?Shape`, or in any union) admits an implementer and refuses anything
+  else with the usual words: `describe() expects $shape to be Shape, got Rock`. A kind with the
+  right methods that doesn't say `implements` is not one: the claim is the contract.
+- **It prints as `interface Shape`**, `kind_name(Shape)` is `"Shape"`, and `type_of(Shape)` is
+  `"kind"`, as for any kind: an interface goes where a kind value goes (the second argument of
+  `is_a`, a parameter typed `kind`). It can't be constructed: `Shape()` is an error when the
+  program is read, and calling one held in a variable is `Cannot construct interface Shape`.
+  `kind_of($x)` is still the object's own kind, and an interface can't be extended, caught or
+  reached with `::` or `.`.
+- **`to_string()` and `to_json()` stay protocols**, not interfaces: a kind has them or not, and
+  printing and encoding ask.
+
 ## Types
 
 Types are optional, and checked when the program runs. Leaving one out means anything; writing
@@ -573,9 +659,9 @@ echo Account::made;
   since constructing gives the object, and a lambda has none either: after `(...)` a `:` is a
   ternary's, as in `$c ? ($a) : $b`. A list pattern takes no type: it is already a list.
 - **A type is a `type_of()` name** (`int float string bool null list map function kind object
-  socket db file`) **or a kind's name**, resolved like any other name, so `Shape` in
+  socket db file`) **or a kind's or interface's name**, resolved like any other name, so `Shape` in
   `namespace shapes` is `shapes::Shape`. `?T` is `T|null`, and `A|B|C` is a union. `object` is
-  any object; a kind admits its children, as `is_a` does. A kind can't be named after a
+  any object; a kind admits its children and an interface its implementers, as `is_a` does. A kind can't be named after a
   builtin type. No `mixed` or `any`: leave the type out. No generics yet: `list<int>` is an
   error that says so.
 - **`: null` is the return type of a function that returns nothing**, since a call that returns
@@ -727,16 +813,16 @@ comment, it can't appear in a docblock's text.
 ## Names
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
-default const import try catch finally throw true false kind extends abstract namespace use pub
-kin static shared`. `interface`, `implements` and `final` are reserved for features decided but
-not built ([interfaces](https://github.com/panzer-planet/gazlang/issues/8)), and `include` stays a keyword so that writing it says to write `import`. Other
+default const import try catch finally throw true false kind extends abstract interface
+implements namespace use pub kin static shared`. `final` is reserved for a feature decided but
+not built ([final](https://github.com/panzer-planet/gazlang/issues/8)), and `include` stays a keyword so that writing it says to write `import`. Other
 languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
 own namespaces, so `$default`, `@match` and `fn match()` were always fine.
 
-Functions, kinds, builtins and top level constants share one namespace, and so do all of a
+Functions, kinds, interfaces, builtins and top level constants share one namespace, and so do all of a
 kind's fields, methods and constants across its hierarchy.
 
 ## Builtins
@@ -876,7 +962,7 @@ straight to where the builtin was called.
 | Builtin | What it does |
 | --- | --- |
 | `type_of($x)` | The name of `$x`'s type: `"int"`, `"string"`, `"list"`, `"object"` and so on |
-| `is_a($x, Kind)` | Whether `$x` is an object of that kind or of a child of it |
+| `is_a($x, Kind)` | Whether `$x` is an object of that kind or of a child of it, or of a kind that implements it when it is an interface |
 | `kind_of($x)` | An object's own kind |
 | `kind_name($kind)` | The name a kind was declared with, as a string |
 | `fields($object)` | An object's fields that are set, as a map by name |

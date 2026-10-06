@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+
+interface Shape extends Other
+locals

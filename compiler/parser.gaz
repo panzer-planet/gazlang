@@ -279,6 +279,8 @@ kind Parser {
 
     // Declared kinds by name, resolved once the whole program is read
     #kinds = {};
+    // Declared interfaces by name, which kinds are checked against once the whole program is read
+    #interfaces = {};
     // The fields a constructor's promoted parameters declared, as "Kind::name", so a second
     // declaration of one can say where the first came from (a promoted parameter is the field)
     #promoted = {};
@@ -339,6 +341,8 @@ kind Parser {
     // Every kind's parent and every catch clause's kind, as [kind or node, scope], since
     // both name a kind that is resolved once the whole program is read
     #parent_names = [];
+    // Every kind that claims interfaces, as [kind, scope], each name resolved the same way
+    #interface_claims = [];
     /*
      * Every name an `import ... use` clause brought in, as [qualified name, file, line, scope,
      * the imported module, the path as written], checked once the whole program is read as
@@ -433,7 +437,7 @@ kind Html {
     // How source with no file is known as a module
     const MAIN = "<main>";
     // Why a statement can't be in a file that is imported
-    const STATEMENT_IN_MODULE = "An imported file only declares (fn, kind, const): move this statement into a function, or into the program's main file";
+    const STATEMENT_IN_MODULE = "An imported file only declares (fn, kind, interface, const): move this statement into a function, or into the program's main file";
 
     // Every call by name and bare name used as a value, in source order, as [the node, its
     // file's scope, the kind it is written in or null], checked against the declared
@@ -475,7 +479,7 @@ kind Html {
     };
 
     // Keywords reserved for features that don't exist yet, so adding them never breaks a program
-    pub const RESERVED = ["INTERFACE", "IMPLEMENTS", "FINAL"];
+    pub const RESERVED = ["FINAL"];
     // Keywords of features that are gone, kept so that using one says what replaced it
     pub const REMOVED = ["INCLUDE"];
 
@@ -528,7 +532,7 @@ kind Html {
     fn keyword_hint() {
         foreach ([#current_token, #previous_token] as $token) {
             if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer::KEYWORDS, lower($token.value))
-                && !has_key(#functions, $token.value) && !has_key(#kinds, $token.value) && !has_key(#constants, $token.value)) {
+                && !#declared($token.value)) {
                 return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
             }
         }
@@ -2174,7 +2178,8 @@ kind Html {
         return #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start), $types, $returns);
     }
 
-    // Check the name being declared isn't taken: functions, kinds and builtins share one namespace
+    // Check the name being declared isn't taken: functions, kinds, interfaces, constants and
+    // builtins share one namespace
     //
     // Asked before the name is eaten, so the error is at the name. Anything that isn't a
     // name is left for eat() to refuse.
@@ -2191,6 +2196,8 @@ kind Html {
             #fail("Function {$name} is already declared");
         } else if (has_key(#kinds, $name)) {
             #fail("Kind {$name} is already declared");
+        } else if (has_key(#interfaces, $name)) {
+            #fail("Interface {$name} is already declared");
         } else if (has_key(#constants, $name)) {
             #fail("Constant {$name} is already declared");
         }
@@ -2370,11 +2377,12 @@ kind Html {
         }
     }
 
-    // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS name] LBRACE (field | method)* RBRACE),
-    // field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON, method: [ABSTRACT] FN name parameters (block | SEMICOLON)
+    // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS name] [IMPLEMENTS name (COMMA name)*]
+    // LBRACE (field | method)* RBRACE), field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON,
+    // method: [ABSTRACT] FN name parameters (block | SEMICOLON)
     //
-    // Only at the top level. The parent can be declared later; it is checked once the whole
-    // program is read. A field's default is evaluated for each new object, with #
+    // Only at the top level. The parent and the interfaces can be declared later; they are
+    // checked once the whole program is read. A field's default is evaluated for each new object, with #
     // being that object and no local variables. Methods may be named with any word,
     // keywords included, since they are always reached through # or a dot.
     fn kind_declaration($pub = false) {
@@ -2398,12 +2406,17 @@ kind Html {
             #eat("IDENTIFIER");
             $parent = #qualified_name($parent);
         }
+        $claims = #implements_clause($name);
 
         $kind = #at(KindDeclarationAST($name, $parent, $abstract), $start);
         #kinds[$name] = $kind;
         #declare($name, $pub);
         if ($parent != null) {
             #parent_names[] = [$kind, #scope];
+        }
+        if ($claims != []) {
+            $kind.interfaces = $claims;
+            #interface_claims[] = [$kind, #scope];
         }
         #eat("LEFT_BRACE");
         #kind = $kind;
@@ -2445,6 +2458,114 @@ kind Html {
         #eat("RIGHT_BRACE");
 
         return $kind;
+    }
+
+    // The interfaces a kind claims ([IMPLEMENTS name (COMMA name)*]), as written: after its
+    // parent, if it has one
+    fn implements_clause($kind) {
+        $claims = [];
+        if (#current_token.type == "IMPLEMENTS") {
+            #eat("IMPLEMENTS");
+            $claims[] = #claimed_name();
+            while (#current_token.type == "COMMA") {
+                #eat("COMMA");
+                $claims[] = #claimed_name();
+            }
+        }
+        if ($claims != [] && #current_token.type == "EXTENDS") {
+            #fail("extends comes before implements: write 'kind " .. #split_name($kind)[1] .. " extends Parent implements ...'");
+        }
+
+        return $claims;
+    }
+
+    // One name after implements, possibly qualified
+    fn claimed_name() {
+        $name = #current_token.value;
+        #eat("IDENTIFIER");
+
+        return #qualified_name($name);
+    }
+
+    /*
+     * Parse an interface declaration (INTERFACE IDENTIFIER LBRACE signature* RBRACE), signature:
+     * FN name parameters [COLON type] SEMICOLON
+     *
+     * Only at the top level. It names the methods a kind that implements it must have, and
+     * nothing else: no bodies, fields, constants, statics or markers (every method of one is
+     * pub), and no extends. Each is the restrictive choice, which can be loosened later without
+     * breaking a program.
+     */
+    fn interface_declaration($pub) {
+        $start = #current_token;
+        #eat("INTERFACE");
+        #check_new_name();
+        // In a type, one of these words always means the builtin type
+        if (in_array(#current_token.value, #TYPE_NAMES)) {
+            #fail("{#current_token.value} is a type name, so an interface can't be called that");
+        }
+        $name = #qualify(#current_token.value);
+        #eat("IDENTIFIER");
+        if (#current_token.type == "EXTENDS" || #current_token.type == "IMPLEMENTS") {
+            #fail("An interface {#current_token.value} nothing: a kind implements each interface it needs");
+        }
+
+        $interface = #at(InterfaceDeclarationAST($name), $start);
+        #interfaces[$name] = $interface;
+        #declare($name, $pub);
+        #eat("LEFT_BRACE");
+        while (#current_token.type != "RIGHT_BRACE") {
+            #signature($interface);
+        }
+        #eat("RIGHT_BRACE");
+
+        return $interface;
+    }
+
+    // Parse one method an interface names (FN name parameters [COLON type] SEMICOLON), refusing
+    // anything else a kind's body could hold
+    fn signature($interface) {
+        $start = #current_token;
+        $type = $start.type;
+        if ($type == "PUB" || $type == "KIN") {
+            #fail("An interface's methods are all pub, so they need no {$start.value}");
+        } else if ($type == "HASH_IDENTIFIER") {
+            #fail("An interface has no fields: it names methods only, as fn name(...);");
+        } else if ($type == "CONST") {
+            #fail("An interface has no constants: it names methods only, as fn name(...);");
+        } else if ($type == "STATIC") {
+            #fail("An interface has no static members: it names methods an object has, as fn name(...);");
+        } else if ($type == "ABSTRACT") {
+            #fail("An interface's methods are abstract already, so they need no abstract");
+        } else if ($type != "FN") {
+            #refuse_reserved_member();
+            #fail("Expected a method (fn) but found " .. #describe($start));
+        }
+        #eat("FN");
+        $token = #current_token;
+        if ($token.type != "IDENTIFIER" && !in_array($token.type, values(Lexer::KEYWORDS))) {
+            #fail("Expected a name but found " .. #describe($token));
+        }
+        $name = $token.value;
+        if ($name == "_") {
+            #fail("An interface can't name a constructor: each kind's _ is its own");
+        }
+        if (has_key($interface.methods, $name)) {
+            #fail("Interface {$interface.name} already has a method {$name}");
+        }
+        #eat($token.type);
+
+        [$params, $defaults, $promoted, $patterns, $types] = #parameters("method {$interface.name}.{$name}");
+        $returns = #declared_return(false);
+        if (#current_token.type == "LEFT_BRACE") {
+            #fail("An interface's method has no body: end it with ;");
+        }
+        #eat("SEMICOLON");
+
+        $arity = #arity($params, $defaults);
+        $method = #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, null, $arity), $start), $types, $returns);
+        $method.kind = $interface.name;
+        $interface.methods[$name] = $method;
     }
 
     // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind, its type already read
@@ -2540,9 +2661,9 @@ kind Html {
         }
     }
 
-    // Whether a top level name is declared, as a function, a kind or a constant
+    // Whether a top level name is declared, as a function, a kind, an interface or a constant
     fn declared($name) {
-        return has_key(#functions, $name) || has_key(#kinds, $name) || has_key(#constants, $name);
+        return has_key(#functions, $name) || has_key(#kinds, $name) || has_key(#interfaces, $name) || has_key(#constants, $name);
     }
 
     // Read a module's top level as the file being parsed, giving its statements
@@ -2835,6 +2956,12 @@ kind Html {
             $kind.parent = #resolve($kind.parent, $scope, $kind.file, $kind.line, "Undefined kind");
             #check_visible($kind.parent, $scope, $kind.file, $kind.line);
         }
+        foreach (#interface_claims as [$kind, $scope]) {
+            foreach ($kind.interfaces as $i => $name) {
+                $kind.interfaces[$i] = #resolve($name, $scope, $kind.file, $kind.line, "Undefined interface");
+                #check_visible($kind.interfaces[$i], $scope, $kind.file, $kind.line);
+            }
+        }
         foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
             $name = #resolve($node.catches[$index][0], $scope, $file, $line, "Undefined kind");
             $node.catches[$index][0] = $name;
@@ -2869,11 +2996,11 @@ kind Html {
         }
     }
 
-    // Every name in a declared type that isn't a builtin type's must be a kind's
+    // Every name in a declared type that isn't a builtin type's must be a kind's or an interface's
     fn check_types() {
         foreach (#type_uses as [$node, $scope]) {
             foreach ($node.names as $name) {
-                if (!in_array($name, #TYPE_NAMES) && !has_key(#kinds, $name)) {
+                if (!in_array($name, #TYPE_NAMES) && !has_key(#kinds, $name) && !has_key(#interfaces, $name)) {
                     #fail_at(#not_a_type($name), $node.file, $node.line);
                 }
             }
@@ -2883,9 +3010,20 @@ kind Html {
     // What is wrong with a name written where a kind's goes
     fn not_a_kind($name) {
         return match {
+            has_key(#interfaces, $name) => "{$name} is an interface, not a kind",
             has_key(#functions, $name) => "{$name} is a function, not a kind",
             has_key(#constants, $name) => "{$name} is a constant, not a kind",
             default => "Undefined kind: {$name}" .. #library_hint($name),
+        };
+    }
+
+    // What is wrong with a name written after implements
+    fn not_an_interface($name) {
+        return match {
+            has_key(#kinds, $name) => "{$name} is a kind, not an interface: a kind extends a kind, and implements interfaces",
+            has_key(#functions, $name) => "{$name} is a function, not an interface",
+            has_key(#constants, $name) => "{$name} is a constant, not an interface",
+            default => "Undefined interface: {$name}" .. #library_hint($name),
         };
     }
 
@@ -3183,6 +3321,9 @@ kind Html {
         if ($kind != null) {
             #fail_at("Cannot use . on a kind: write '{$kind.name}::{$node.name}', not '{$kind.name}.{$node.name}'", $node.file, $node.line);
         }
+        if (has_key(#interfaces, $node.target.name)) {
+            #fail_at("Cannot use . on an interface: call {$node.name} on an object of a kind that implements {$node.target.name}", $node.file, $node.line);
+        }
     }
 
     // A qualified name's parts, as [everything before the last ::, the name after it]
@@ -3446,6 +3587,8 @@ kind Html {
             #fail("Functions can only be declared at the top level");
         } else if ($type == "KIND" || $type == "ABSTRACT") {
             #fail("Kinds can only be declared at the top level");
+        } else if ($type == "INTERFACE") {
+            #fail("Interfaces can only be declared at the top level");
         } else if ($type == "CONST") {
             #fail("Constants can only be declared at the top level or in a kind");
         } else if ($type == "INCLUDE") {
@@ -3546,7 +3689,7 @@ kind Html {
         $root.statements = #top_level();
         if (#main_imported != null && #main_statement != null) {
             [$importer, $imported_line, $written] = #main_imported;
-            #fail_at("Cannot import \"{$written}\": it is the program's main file, which has a statement on line " .. #main_statement .. ", and an imported file only declares (fn, kind, const)", $importer, $imported_line);
+            #fail_at("Cannot import \"{$written}\": it is the program's main file, which has a statement on line " .. #main_statement .. ", and an imported file only declares (fn, kind, interface, const)", $importer, $imported_line);
         }
         // Every name a file wrote becomes the name a declaration made, before anything below
         // is checked, so only this pass ever learns that namespaces exist
@@ -3578,6 +3721,7 @@ kind Html {
             }
         }
         #check_types();
+        #check_claims();
 
         foreach (#kinds as $kind) {
             #resolve_kind($kind, []);
@@ -3661,6 +3805,14 @@ kind Html {
 
                 continue;
             }
+            // An interface is a value (is_a's second argument), never constructed
+            if (has_key(#interfaces, $use.name)) {
+                if (is_a($use, FunctionCallAST)) {
+                    #fail_at("Cannot construct interface {$use.name}: construct a kind that implements it", $use.file, $use.line);
+                }
+
+                continue;
+            }
             // Child::next is the function Parent::next when the parent declares it
             if (!has_key(#functions, $use.name) && contains($name, "::")) {
                 [$prefix, $last] = #split_name($name);
@@ -3709,6 +3861,7 @@ kind Html {
     fn fail_braced_name($use, $what = null) {
         $what ??= match {
             has_key(#kinds, $use.name) => "a kind",
+            has_key(#interfaces, $use.name) => "an interface",
             has_key(#builtins, $use.name) => "a builtin",
             has_key(#functions, $use.name) => "a function",
             default => null,
@@ -3831,6 +3984,9 @@ kind Html {
 
         if ($kind.parent != null) {
             $parent = #kinds[$kind.parent] ?? null;
+            if (has_key(#interfaces, $kind.parent)) {
+                #fail_at("Kind {$kind.name} can't extend {$kind.parent}: it is an interface, so write 'implements {$kind.parent}'", $kind.file, $kind.line);
+            }
             if ($parent == null) {
                 #fail_at(#not_a_kind($kind.parent), $kind.file, $kind.line);
             }
@@ -3986,7 +4142,115 @@ kind Html {
             $name = keys($kind.abstract_methods)[0];
             #fail_at("Kind {$kind.name} must define abstract method {$name} of {$kind.abstract_methods[$name]}, or be abstract", $kind.file, $kind.line);
         }
+        #check_interfaces($kind);
         $kind.resolved = true;
+    }
+
+    // Every name after implements must be an interface's, and each only once
+    fn check_claims() {
+        foreach (#interface_claims as [$kind, $scope]) {
+            $seen = {};
+            foreach ($kind.interfaces as $name) {
+                if (!has_key(#interfaces, $name)) {
+                    #fail_at(#not_an_interface($name), $kind.file, $kind.line);
+                }
+                if (has_key($seen, $name)) {
+                    #fail_at("Kind {$kind.name} implements {$name} twice", $kind.file, $kind.line);
+                }
+                $seen[$name] = true;
+            }
+        }
+    }
+
+    // Every interface a resolved kind implements, its parent's first, each once: a child of
+    // an implementer is one too
+    fn interfaces_of($kind) {
+        $all = $kind.parent == null ? [] : #interfaces_of(#kinds[$kind.parent]);
+        foreach ($kind.interfaces ?? [] as $name) {
+            if (!in_array($name, $all)) {
+                $all[] = $name;
+            }
+        }
+
+        return $all;
+    }
+
+    /*
+     * A kind has, declared or inherited, every method its interfaces name, each as an override
+     * of it would be. An abstract kind may leave one to its children, which are checked in turn,
+     * but one it has is checked here. Two of its interfaces may name the same method only with
+     * the same signature, since one method must answer for both.
+     */
+    fn check_interfaces($kind) {
+        // Each method named so far, with the interface that named it
+        $named = {};
+        foreach (#interfaces_of($kind) as $interface) {
+            foreach (#interfaces[$interface].methods as $name => $signature) {
+                if (has_key($named, $name) && !#same_signature(#interfaces[$named[$name]].methods[$name], $signature)) {
+                    #fail_at("Kind {$kind.name} can't implement both {$named[$name]} and {$interface}: they name method {$name} differently", $kind.file, $kind.line);
+                }
+                $named[$name] ??= $interface;
+                #check_implementation($kind, $interface, $signature);
+            }
+        }
+    }
+
+    /*
+     * The method of a kind that answers for one an interface names must be pub, since the
+     * interface is a promise to any caller, and must fit it as an override fits what it
+     * replaces: every argument count, and the same types. An error is at the method, saying
+     * which kind's claim it fails when the method is inherited.
+     */
+    fn check_implementation($kind, $interface, $signature) {
+        $name = $signature.name;
+        $definer = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
+        if ($definer == null) {
+            if (!$kind.abstract) {
+                $hidden = has_key($kind.hidden, $name) ? " ({$kind.hidden[$name]}.{$name} is not pub, so it can't)" : "";
+                #fail_at("Kind {$kind.name} must define method {$name} of interface {$interface}, or be abstract{$hidden}", $kind.file, $kind.line);
+            }
+
+            return;
+        }
+        $method = #kinds[$definer].methods[$name];
+        $claim = $definer == $kind.name ? "" : ", since {$kind.name} implements {$interface}";
+        if ($kind.owner_vis[$name] != "pub") {
+            #fail_at("Method {$definer}.{$name} must be pub: {$interface}.{$name} is for any caller{$claim}", $method.file, $method.line);
+        }
+        [$fewest, $most] = #bounds($method.arity);
+        [$asked_fewest, $asked_most] = #bounds($signature.arity);
+        if ($fewest > $asked_fewest || $most < $asked_most) {
+            $expected = $asked_fewest == $asked_most ? $asked_fewest : "{$asked_fewest} to {$asked_most}";
+            #fail_at("Method {$definer}.{$name} must accept every argument count {$interface}.{$name} does ({$expected}){$claim}", $method.file, $method.line);
+        }
+        #check_override_types(#kinds[$definer], $method, $interface, $signature, "an implementation keeps the interface's types{$claim}");
+    }
+
+    // Whether two interfaces name a method alike: the same argument counts and the same types
+    fn same_signature($mine, $theirs) {
+        if (#bounds($mine.arity) != #bounds($theirs.arity)) {
+            return false;
+        }
+        if (!#same_or_none($mine.return_type ?? null, $theirs.return_type ?? null)) {
+            return false;
+        }
+        [$types, $their_types] = [$mine.param_types ?? [], $theirs.param_types ?? []];
+        foreach ($mine.params as $i => $_) {
+            if (!#same_or_none($types[$i] ?? null, $their_types[$i] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Whether two types, either of which may be missing, say the same
+    fn same_or_none($mine, $theirs) {
+        if ($mine == null || $theirs == null) {
+            return $mine == $theirs;
+        }
+
+        return #same_type($mine, $theirs);
     }
 
     // An override keeps the parent's types where the parent declares them: the same type on
@@ -3994,7 +4258,7 @@ kind Html {
     // is never let down by a child's. Where the parent says nothing, the child may say what it
     // likes. The same type rather than a wider or narrower one: the restrictive choice, which
     // can be loosened later without breaking a program.
-    fn check_override_types($kind, $method, $owner, $parent) {
+    fn check_override_types($kind, $method, $owner, $parent, $why = "an override keeps the parent's types") {
         $name = $method.name;
         $types = $method.param_types ?? [];
         foreach ($parent.param_types ?? [] as $i => $type) {
@@ -4003,13 +4267,13 @@ kind Html {
             }
             $mine = $types[$i] ?? null;
             if (!#same_type($mine, $type)) {
-                #fail_at("Method {$kind.name}.{$name} must take {$method.params[$i]} as {$type.text()}, as {$owner}.{$name} does: an override keeps the parent's types", $method.file, $method.line);
+                #fail_at("Method {$kind.name}.{$name} must take {$method.params[$i]} as {$type.text()}, as {$owner}.{$name} does: {$why}", $method.file, $method.line);
             }
         }
         $returns = $parent.return_type ?? null;
         $mine = $method.return_type ?? null;
         if ($returns != null && !#same_type($mine, $returns)) {
-            #fail_at("Method {$kind.name}.{$name} must return {$returns.text()}, as {$owner}.{$name} does: an override keeps the parent's types", $method.file, $method.line);
+            #fail_at("Method {$kind.name}.{$name} must return {$returns.text()}, as {$owner}.{$name} does: {$why}", $method.file, $method.line);
         }
     }
 
@@ -4206,7 +4470,7 @@ kind Html {
                 }
             } else if ($type == "INCLUDE") {
                 #include_is_gone();
-            } else if ($type == "PUB" || $type == "FN" || $type == "KIND" || $type == "ABSTRACT" || $type == "CONST") {
+            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "INTERFACE", "CONST"])) {
                 #module.declaring = true;
                 foreach (#declaration() as $declared) {
                     $statements[] = $declared;
@@ -4223,7 +4487,7 @@ kind Html {
     }
 
     /*
-     * Parse a top level declaration ([PUB] (function_declaration | kind_declaration | constant_declaration)),
+     * Parse a top level declaration ([PUB] (function_declaration | kind_declaration | interface_declaration | constant_declaration)),
      * giving what it adds to the program's statements
      */
     fn declaration() {
@@ -4246,12 +4510,15 @@ kind Html {
 
             return $statements;
         }
+        if ($type == "INTERFACE") {
+            return [#interface_declaration($pub)];
+        }
         if ($type == "CONST") {
             #constant_declaration(null, $pub);
 
             return [];
         }
-        #fail("Expected a function (fn), a kind or a constant (const) after pub but found " .. #describe(#current_token));
+        #fail("Expected a function (fn), a kind, an interface or a constant (const) after pub but found " .. #describe(#current_token));
     }
 
     /*

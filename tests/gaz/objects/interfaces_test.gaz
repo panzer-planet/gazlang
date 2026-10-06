@@ -1,0 +1,141 @@
+import "std/test.gaz" use expect, throws;
+import "./interfaces/geometry.gaz";
+import "./interfaces/geometry.gaz" use Measured;
+
+// Interfaces at run time: is_a, typed parameters, returns, fields and static fields, unions with
+// null, a child of an implementer and an abstract kind leaving a method to its children, a
+// namespaced interface, and how one prints and fails. The checks when the program is read are
+// the parser corpus's (tests/corpora/parser/error_implements_*).
+
+interface Shape {
+    fn area(): float;
+    fn scale(float $by);
+}
+
+interface Named {
+    fn name(): string;
+}
+
+// Leaves area to its children, and implements scale for all of them
+abstract kind Polygon implements Shape {
+    kin float #factor = 1.0;
+
+    pub fn scale(float $by) {
+        #factor = #factor * $by;
+    }
+}
+
+kind Square extends Polygon implements Named {
+    fn _(float #side) {}
+
+    pub fn area(): float {
+        return #side * #side * #factor;
+    }
+
+    pub fn name(): string {
+        return "square";
+    }
+}
+
+// A child of an implementer is one too, with nothing said
+kind Tile extends Square {}
+
+kind Rock {
+    pub fn area(): float {
+        return 0.0;
+    }
+}
+
+fn total(Shape $shape): float {
+    return $shape.area();
+}
+
+fn described(?Shape $shape): string {
+    return $shape == null ? "nothing" : "a shape of " .. $shape.area();
+}
+
+fn either(Shape|Named|int $thing): string {
+    return type_of($thing);
+}
+
+fn largest(list $shapes): Shape {
+    return sort($shapes, ($a, $b) -> $b.area() <=> $a.area())[0];
+}
+
+fn not_a_shape(): Shape {
+    return Rock();
+}
+
+kind Drawing {
+    pub ?Shape #main = null;
+    pub static Shape|null #last = null;
+}
+
+$square = Square(2.0);
+$tile = Tile(3.0);
+
+expect("an implementer is_a its interface", is_a($square, Shape), true);
+expect("and every interface it claims", is_a($square, Named), true);
+expect("a child of an implementer is one", is_a($tile, Shape), true);
+expect("and inherits its parent's claims too", is_a($tile, Named), true);
+expect("a kind with the methods but no claim is not", is_a(Rock(), Shape), false);
+expect("nor is anything that isn't an object", is_a(1.5, Shape), false);
+
+expect("a typed parameter takes an implementer", total($square), 4.0);
+expect("and its children", total($tile), 9.0);
+$square.scale(2.0);
+expect("the abstract kind's method runs on the child", total($square), 8.0);
+expect("?Shape takes null", described(null), "nothing");
+expect("?Shape takes an implementer", described(Square(1.0)), "a shape of 1.0");
+expect("a union of interfaces and int, as an interface", either($tile), "object");
+expect("a union of interfaces and int, as an int", either(3), "int");
+expect("a return typed by an interface", largest([Square(1.0), $tile]).area(), 9.0);
+
+$drawing = Drawing();
+$drawing.main = $tile;
+expect("a field typed by an interface", $drawing.main.area(), 9.0);
+$drawing.main = null;
+expect("which may be null", $drawing.main, null);
+Drawing::last = $square;
+expect("a static field typed by an interface", Drawing::last.name(), "square");
+
+throws("a parameter refuses a kind that doesn't implement it", () -> total(Rock()), "total() expects \$shape to be Shape, got Rock");
+throws("and anything else", () -> total("square"), "total() expects \$shape to be Shape, got string");
+throws("a nullable one names the union", () -> described(Rock()), "described() expects \$shape to be Shape|null, got Rock");
+throws("a return", () -> not_a_shape(), "not_a_shape() should return Shape, got Rock");
+throws("a field", () -> ($drawing.main = Rock()), "Drawing #main must be Shape|null, got Rock");
+throws("a static field", () -> (Drawing::last = 5), "Drawing::last must be Shape|null, got int");
+
+// An interface is a value: it prints, names itself and compares as a kind does
+expect("echo shows an interface", to_string(Shape), "interface Shape");
+expect("type_of says kind, as for any kind value", type_of(Shape), "kind");
+expect("kind_name gives its name", kind_name(Shape), "Shape");
+expect("kind_of is still the object's own kind", kind_of($tile) == Tile, true);
+expect("an interface is equal to itself", Shape == Shape, true);
+expect("and not to a kind", Shape == Square, false);
+$interface = Shape;
+expect("held in a variable, is_a takes it", is_a($tile, $interface), true);
+throws("calling one doesn't construct it", () -> $interface(), "Cannot construct interface Shape");
+
+// In a namespace, by its qualified name or the name a use clause gives it
+kind Tape implements geometry::Measured {
+    pub fn size(): float {
+        return 2.5;
+    }
+}
+
+fn measure(Measured $thing): float {
+    return $thing.size();
+}
+
+expect("a namespaced interface implemented from outside", measure(Tape()), 2.5);
+expect("and inside its namespace", measure(geometry::Ruler(4.0)), 4.0);
+expect("is_a by the qualified name", is_a(Tape(), geometry::Measured), true);
+expect("its name carries its namespace", kind_name(Measured), "geometry::Measured");
+expect("as echo shows it", to_string(geometry::Measured), "interface geometry::Measured");
+throws("a type error names it qualified", () -> measure($tile), "measure() expects \$thing to be geometry::Measured, got Tile");
+
+/* An interface held as a value is named as one in errors, though type_of() calls it a kind */
+$held = Shape;
+throws(". on one", () -> $held.area, "Cannot use . on interface");
+expect("type_of", type_of($held), "kind");

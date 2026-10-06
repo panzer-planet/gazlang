@@ -1,0 +1,1 @@
+Error: Base is a kind, not an interface: a kind extends a kind, and implements interfaces at tests/corpora/parser/error_implements_a_kind.gaz:2

@@ -1,0 +1,7 @@
+interface Shape {
+    fn area();
+}
+
+kind Square implements Shape {
+    kin fn area() {}
+}

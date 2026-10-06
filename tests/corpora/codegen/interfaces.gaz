@@ -1,0 +1,33 @@
+// An interface is a block of its own, a record with no code: the name and arity of each
+// method it names, after the functions and before the kinds. A kind says which interfaces it
+// claims itself, one implements line each; the loader works out what its ancestors claim.
+interface Shape {
+    fn area(): float;
+    fn scale(float $by, $around = null);
+}
+
+interface Named {
+    fn name();
+}
+
+abstract kind Base implements Shape {
+    pub fn scale(float $by, $around = null) {}
+}
+
+kind Square extends Base implements Named {
+    pub fn area(): float {
+        return 1.0;
+    }
+
+    pub fn name() {
+        return "square";
+    }
+}
+
+fn total(?Shape $shape): float {
+    return $shape?.area() ?? 0.0;
+}
+
+echo is_a(Square(), Shape);
+echo Shape;
+echo total(Square());

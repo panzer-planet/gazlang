@@ -1,0 +1,1 @@
+Error: Method Base.area must accept every argument count Shape.area does (0), since Square implements Shape at tests/corpora/parser/error_implements_inherited_method_arity.gaz:6

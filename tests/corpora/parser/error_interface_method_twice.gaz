@@ -1,0 +1,4 @@
+interface Shape {
+    fn area();
+    fn area($unit);
+}

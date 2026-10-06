@@ -1,0 +1,18 @@
+// Interfaces in a namespace: a pub one escapes it, as a kind would, and a private one doesn't
+namespace shapes;
+
+pub interface Area {
+    fn area(): float;
+}
+
+interface Secret {
+    fn reveal();
+}
+
+pub kind Circle implements Area {
+    fn _(float #radius) {}
+
+    pub fn area(): float {
+        return 3.0 * #radius * #radius;
+    }
+}

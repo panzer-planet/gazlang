@@ -732,7 +732,7 @@ bool append_string(Value v, Buf *out) {
         return true;
     }
     case T_KIND:
-        buf_adds(out, "kind ");
+        buf_adds(out, v.k->interface ? "interface " : "kind ");
         buf_add_str(out, v.k->name);
         return true;
     case T_DB:

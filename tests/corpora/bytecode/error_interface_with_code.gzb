@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+
+interface Shape
+method area 0 0
+locals
+PUSH null
+RET

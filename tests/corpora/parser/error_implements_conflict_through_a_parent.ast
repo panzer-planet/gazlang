@@ -1,0 +1,1 @@
+Error: Kind Square can't implement both Shape and Plot: they name method area differently at tests/corpora/parser/error_implements_conflict_through_a_parent.gaz:10

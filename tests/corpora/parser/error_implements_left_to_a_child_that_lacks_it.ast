@@ -1,0 +1,1 @@
+Error: Kind Middle must define method area of interface Shape, or be abstract at tests/corpora/parser/error_implements_left_to_a_child_that_lacks_it.gaz:6

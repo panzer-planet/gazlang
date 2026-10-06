@@ -1,0 +1,2 @@
+kind Base {}
+kind Square implements Base {}

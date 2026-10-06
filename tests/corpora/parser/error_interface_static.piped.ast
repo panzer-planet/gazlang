@@ -1,0 +1,1 @@
+Error: An interface has no static members: it names methods an object has, as fn name(...); on line 2

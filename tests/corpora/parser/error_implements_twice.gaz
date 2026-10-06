@@ -1,0 +1,2 @@
+interface Shape {}
+kind Square implements Shape, Shape {}

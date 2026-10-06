@@ -1,0 +1,10 @@
+interface Shape {
+    fn area();
+}
+
+kind Base {
+    pub fn area($unit) {}
+}
+
+kind Square extends Base
+    implements Shape {}

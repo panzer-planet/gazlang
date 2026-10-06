@@ -1,0 +1,1 @@
+Error: Method Base.area must accept every argument count Shape.area does (0) at tests/corpora/parser/error_implements_abstract_method_arity.gaz:6

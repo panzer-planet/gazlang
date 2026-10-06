@@ -1,0 +1,1 @@
+Error: An interface has no code, but 'PUSH' is an instruction at tests/corpora/bytecode/error_interface_with_code.gzb:11

@@ -1,0 +1,1 @@
+Error: extends comes before implements: write 'kind Square extends Parent implements ...' at tests/corpora/parser/error_implements_before_extends.gaz:3

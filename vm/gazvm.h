@@ -272,10 +272,15 @@ struct Kind {
     Vis *method_vis;
     Entry *entries;     /* each method's entry, parallel to methods (the constructor's too) */
     int lo, hi;         /* the constructor's arity, 0 0 without one */
-    Block *block;       /* the code that makes an object */
+    Block *block;       /* the code that makes an object; an interface's record */
+    /* An interface is a Kind too, so a value, is_a() and a type can name one as they name a
+       kind; it is abstract, so nothing constructs it, and has no fields or methods of its own */
+    bool interface;
+    int ninterfaces;
+    Kind **interfaces;  /* every interface a kind implements, its ancestors' included */
 };
 
-typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA } BlockKind;
+typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA, B_INTERFACE } BlockKind;
 
 struct Block {
     BlockKind kind;
@@ -305,6 +310,11 @@ struct Block {
     Vis *method_vis;
     int nstatic_types;  /* kind: the static fields it declares with a type, and each one's type */
     Str **static_names, **static_type_texts;
+    int nimplements;    /* kind: the interfaces it claims itself */
+    Str **implements;
+    int nsigs;          /* interface: each method it names, with the arity it asks for */
+    Str **sig_names;
+    int *sig_lo, *sig_hi;
     int entry;          /* its first instruction in the program's code */
     int max_stack;      /* the greatest stack depth the loader's walk found */
     int line_no;        /* the line of its header, for nothing but debugging */
@@ -373,6 +383,8 @@ typedef struct Program {
     Lambda *lambdas;    /* by index */
     int nkinds;
     Kind *kinds;
+    int ninterfaces;
+    Kind *interfaces;
     Kind *error_kind; /* the builtin Error kind, when the program has it */
     Kind *html_kind;  /* the builtin Html kind, which .. and join() refuse (append_joined()) */
     int max_frame;      /* the most stack one frame can need: locals plus its deepest stack */

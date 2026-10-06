@@ -1,0 +1,6 @@
+interface Shape {
+    fn area();
+}
+
+abstract kind Base implements Shape {}
+kind Middle extends Base {}

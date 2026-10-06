@@ -1,0 +1,7 @@
+interface Shape {
+    fn scale(float $by);
+}
+
+kind Square implements Shape {
+    pub fn scale($by) {}
+}

@@ -1,0 +1,1 @@
+Error: Expected a function (fn), a kind, an interface or a constant (const) after pub but found 'echo' at tests/corpora/parser/error_pub_before_something_else.gaz:1

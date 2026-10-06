@@ -1,0 +1,9 @@
+interface Shape {
+    fn area();
+    fn scale($by);
+}
+
+kind Square
+    implements Shape {
+    pub fn area() {}
+}

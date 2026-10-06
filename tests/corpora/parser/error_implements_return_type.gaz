@@ -1,0 +1,9 @@
+interface Shape {
+    fn area(): float;
+}
+
+kind Square implements Shape {
+    pub fn area(): int {
+        return 1;
+    }
+}

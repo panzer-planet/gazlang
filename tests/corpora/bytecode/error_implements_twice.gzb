@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+
+interface Shape
+locals
+
+kind Square
+implements Shape
+implements Shape
+locals
+LOAD_THIS
+RET

@@ -1,0 +1,3 @@
+interface Shape {}
+kind Base {}
+kind Square implements Shape extends Base {}

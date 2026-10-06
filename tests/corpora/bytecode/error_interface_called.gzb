@@ -1,0 +1,12 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+PUSH_KIND Shape
+CALL_VALUE 0
+POP
+
+interface Shape
+locals

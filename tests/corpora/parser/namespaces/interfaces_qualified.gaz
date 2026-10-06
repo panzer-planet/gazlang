@@ -1,0 +1,19 @@
+// An interface from another namespace, implemented, typed and asked about by its qualified
+// name and by the name a use clause gives it
+import "./lib/shapes.gaz";
+import "./lib/shapes.gaz" use Area;
+
+kind Square implements shapes::Area {
+    fn _(float #side) {}
+
+    pub fn area(): float {
+        return #side * #side;
+    }
+}
+
+fn total(Area $shape): float {
+    return $shape.area();
+}
+
+echo total(Square(2.0)) + total(shapes::Circle(1.0));
+echo is_a(Square(1.0), shapes::Area);

@@ -43,6 +43,8 @@ kind CodeGenerator {
     #functions = [];
     // Every kind, by name, to emit after the functions
     #kinds = {};
+    // Every interface, by name, to emit after the functions and before the kinds
+    #interfaces = {};
     #label_counter = 0;
     // The end label of each ?. chain the current node is in, innermost last
     #nullsafe_ends = [];
@@ -115,6 +117,8 @@ kind CodeGenerator {
             TernaryAST => #visit_ternary($node),
             // Its code is emitted after the functions
             KindDeclarationAST => {}
+            // A record only, written after the functions
+            InterfaceDeclarationAST => {}
             ThisAST => #emit("LOAD_THIS"),
             PropertyAST, NullsafePropertyAST => #visit_property($node),
             NullsafeChainAST => #visit_nullsafe_chain($node),
@@ -963,7 +967,8 @@ kind CodeGenerator {
             #emit("PUSH", [$node.value]);
             return;
         }
-        #emit(has_key(#kinds, $node.name) ? "PUSH_KIND" : "PUSH_FN", [$node.name]);
+        $kind = has_key(#kinds, $node.name) || has_key(#interfaces, $node.name);
+        #emit($kind ? "PUSH_KIND" : "PUSH_FN", [$node.name]);
     }
 
     // MAKE_CLOSURE, with the body compiled later by compile(). The capture map is recorded now,
@@ -1070,6 +1075,9 @@ kind CodeGenerator {
             if (is_a($statement, KindDeclarationAST)) {
                 #kinds[$statement.name] = $statement;
             }
+            if (is_a($statement, InterfaceDeclarationAST)) {
+                #interfaces[$statement.name] = $statement;
+            }
         }
         #visit(#tree);
         #block({"kind" => "top"});
@@ -1080,13 +1088,20 @@ kind CodeGenerator {
                 "owner" => $function.kind});
         }
 
+        // An interface is a record and no code: the name and arity of each method it names
+        foreach (#interfaces as $interface) {
+            #var_addresses = {};
+            $methods = map(values($interface.methods), $method -> [$method.name, $method.arity]);
+            #block({"kind" => "interface", "name" => $interface.name, "methods" => $methods});
+        }
+
         // A kind block holds its record and the code that makes one of its objects; its methods
         // are functions named "Kind.name", which no function name can be
         foreach (#kinds as $kind) {
             #compile_initialiser($kind);
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
-                "abstract" => $kind.abstract, "fields" => #field_records($kind), "methods" => $kind.method_table,
+                "implements" => $kind.interfaces ?? [], "abstract" => $kind.abstract, "fields" => #field_records($kind), "methods" => $kind.method_table,
                 "statics" => #typed_statics($kind),
             });
             foreach ($kind.methods as $method) {
@@ -1267,14 +1282,28 @@ kind Program {
         return match ($block["kind"]) {
             "fn" => ["fn {$block["name"]} " .. $bounds($block["arity"]) .. #in_kind($block)],
             "kind" => #kind_header($block),
+            "interface" => #interface_header($block, $bounds),
             "lambda" => #lambda_header($block, $bounds($block["arity"])),
             default => ["top"],
         };
     }
 
+    // An interface's header: its name, and each method with the arity an implementer must accept
+    fn interface_header($block, $bounds) {
+        $lines = ["interface {$block["name"]}"];
+        foreach ($block["methods"] as [$name, $arity]) {
+            $lines[] = "method {$name} " .. $bounds($arity);
+        }
+
+        return $lines;
+    }
+
     fn kind_header($block) {
         $lines = [($block["abstract"] ? "abstract kind " : "kind ") .. $block["name"]
             .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
+        foreach ($block["implements"] as $interface) {
+            $lines[] = "implements {$interface}";
+        }
         foreach ($block["fields"] as [$field, $declarer, $vis, $type]) {
             $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}") .. ($type == null ? "" : " {$type}");
         }

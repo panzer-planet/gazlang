@@ -1,0 +1,1 @@
+Error: Cannot use . on an interface: call area on an object of a kind that implements Shape at tests/corpora/parser/error_interface_dot.gaz:5

@@ -117,6 +117,14 @@ $crlf = outline(replace(SOURCE, "\n", "\r\n"));
 expect("CRLF line endings", map($crlf.declarations, $d -> $d.doc), map($outline.declarations, $d -> $d.doc));
 expect("CRLF overview", $crlf.overview, $outline.overview);
 
+// An interface is outlined as a kind is, its methods its members, all pub though none says so
+$interface = outline("/** Has an area */\npub interface Area {\n    /** Its area */\n    fn area(): float;\n}\nkind Square implements Area {}\n");
+expect("an interface and its methods", map($interface.declarations, describe), [
+    "interface Area pub 2: pub interface Area | Has an area",
+    "method Area.area pub 4: fn area(): float; | Its area",
+    "kind Square 6: kind Square implements Area | null",
+]);
+
 // No namespace line: the first docblock is the first declaration's, not an overview
 $plain = outline("/** Adds */\nfn add(\$a, \$b) { return \$a + \$b; }\n");
 expect("no namespace", $plain.namespace, null);

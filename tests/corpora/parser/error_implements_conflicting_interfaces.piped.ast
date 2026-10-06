@@ -1,0 +1,1 @@
+Error: Kind Square can't implement both Shape and Plot: they name method area differently on line 9

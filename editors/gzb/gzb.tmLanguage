@@ -132,6 +132,23 @@
 						<key>1</key>
 						<dict>
 							<key>name</key>
+							<string>storage.type.interface.gzb</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.type.interface.gzb</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>^\s*(interface)\s+([A-Za-z_][\w:.]*)\s*$</string>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
 							<string>storage.type.lambda.gzb</string>
 						</dict>
 						<key>2</key>
@@ -923,6 +940,51 @@
 					</dict>
 					<key>match</key>
 					<string>^\s*(method)\s+(\w+)\s+([A-Za-z_][\w:.]*)(?:\s+(pub|kin))?(?:\s+([A-Za-z_][\w:.]*))?\s*$</string>
+				</dict>
+				<!-- An interface's method: its name and the arity an implementer must accept -->
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.type.method.gzb</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.function.method.gzb</string>
+						</dict>
+						<key>3</key>
+						<dict>
+							<key>name</key>
+							<string>constant.numeric.arity.gzb</string>
+						</dict>
+						<key>4</key>
+						<dict>
+							<key>name</key>
+							<string>constant.numeric.arity.gzb</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>^\s*(method)\s+(\w+)\s+(\d+)\s+(\d+)\s*$</string>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.modifier.gzb</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.other.inherited-class.gzb</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>^\s*(implements)\s+([A-Za-z_][\w:.]*)\s*$</string>
 				</dict>
 				<dict>
 					<key>captures</key>

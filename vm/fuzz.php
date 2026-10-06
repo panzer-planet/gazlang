@@ -718,7 +718,7 @@ function bytecodeBlocks(array $lines): array
     $blocks = [];
     $at = -1;
     foreach ($lines as $i => $line) {
-        if (preg_match('/^(top|fn |lambda |kind |abstract kind )/', $line)) {
+        if (preg_match('/^(top|fn |lambda |kind |abstract kind |interface )/', $line)) {
             $blocks[] = ['body' => [], 'locals' => 0, 'labels' => []];
             $at = count($blocks) - 1;
         }
@@ -808,6 +808,9 @@ final class ProgramGenerator
     /** @var array{kind: string, index: int, owner: int|null, params: int, loop: int} Where the code being generated is */
     private array $scope;
 
+    /** Whether the program has the interface I0, which C0 implements, naming its methods */
+    private bool $interface = false;
+
     /**
      * @param  array<string, array{0: int, 1: int}>  $builtins
      */
@@ -817,6 +820,7 @@ final class ProgramGenerator
     {
         $this->functions = [];
         $this->kinds = [];
+        $this->interface = false;
         $out = '';
         for ($i = $this->int(0, 4); $i >= 0; $i--) {
             $required = $this->int(0, 2);
@@ -828,6 +832,15 @@ final class ProgramGenerator
             for ($m = $this->int(1, 3); $m > 0; $m--) {
                 $this->kinds[$k]['methods'][] = $this->int(0, 1);
             }
+        }
+        // C0's methods as an interface, which is_a and a typed parameter ask about
+        if ($this->chance(2)) {
+            $this->interface = true;
+            $out .= "interface I0 {\n";
+            foreach ($this->kinds[0]['methods'] as $m => $arity) {
+                $out .= "    fn c0m{$m}(".($arity > 0 ? '$p0' : '').");\n";
+            }
+            $out .= "}\nfn i0(?I0 \$x): ?I0 { return \$x; }\n";
         }
         foreach ($this->functions as $f => [$required, $total]) {
             $this->scope = ['kind' => 'function', 'index' => $f, 'owner' => null, 'params' => $total, 'loop' => 0];
@@ -857,7 +870,8 @@ final class ProgramGenerator
      */
     private function kindDeclaration(int $k, array $kind): string
     {
-        $out = "kind C{$k}".($kind['parent'] === null ? '' : " extends C{$kind['parent']}")." {\n";
+        $implements = $k === 0 && $this->interface ? ' implements I0' : '';
+        $out = "kind C{$k}".($kind['parent'] === null ? '' : " extends C{$kind['parent']}")."{$implements} {\n";
         for ($f = 0; $f < $kind['fields']; $f++) {
             $out .= '    '.$this->escapes()."#c{$k}x{$f}".($this->chance(2) ? ' = '.$this->literal() : '').";\n";
         }
@@ -870,7 +884,9 @@ final class ProgramGenerator
         $out .= $this->locals(8).$this->block(8)."    }\n";
         foreach ($kind['methods'] as $m => $arity) {
             $this->scope = ['kind' => 'method', 'index' => $m, 'owner' => $k, 'params' => $arity, 'loop' => 0];
-            $out .= '    '.$this->escapes()."fn c{$k}m{$m}(".($arity > 0 ? '$p0' : '').") {\n".$this->locals(8).$this->block(8)."    }\n";
+            // What implements an interface is pub
+            $escapes = $implements === '' ? $this->escapes() : 'pub ';
+            $out .= '    '.$escapes."fn c{$k}m{$m}(".($arity > 0 ? '$p0' : '').") {\n".$this->locals(8).$this->block(8)."    }\n";
         }
         if ($this->chance(2)) {
             // One field, so printing an object that holds itself recurses once per level, not twice
@@ -979,7 +995,7 @@ final class ProgramGenerator
             5 => "{$this->expr()}[{$this->expr()}]",
             6, 7 => $this->builtinCall(),
             8 => $this->functionCall(),
-            9 => $this->kinds === [] ? 'null' : $this->construct(),
+            9 => $this->kindUse(),
             10 => "{$this->target()}".$this->field(),
             11 => "({$this->expr()} ? {$this->expr()} : {$this->expr()})",
             12 => $this->lambda(),
@@ -988,6 +1004,19 @@ final class ProgramGenerator
         $this->depth--;
 
         return $e;
+    }
+
+    /**
+     * An object made, or, when the program has the interface, a value asked about it or passed
+     * through the function typed by it
+     */
+    private function kindUse(): string
+    {
+        return match ($this->interface ? $this->int(0, 3) : 3) {
+            0 => "is_a({$this->expr()}, I0)",
+            1 => "i0({$this->expr()})",
+            default => $this->kinds === [] ? 'null' : $this->construct(),
+        };
     }
 
     private function exprs(int $n): string

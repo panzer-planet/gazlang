@@ -30,14 +30,15 @@ const CLOSERS = ["RIGHT_PAREN", "RIGHT_BRACKET", "RIGHT_BRACE"];
 const STATEMENT_ENDS = ["SEMICOLON", "LEFT_BRACE", "RIGHT_BRACE"];
 
 /**
- * A declaration of a file: a function, kind or constant at the top level, or a member of a kind
- * (with #owner the kind's name). $signature is its source from its first word up to its body,
- * or to the end of the statement for one without; $line the line its first word is on; $doc
- * the docblock right above it, or null.
+ * A declaration of a file: a function, kind, interface or constant at the top level, or a member
+ * of a kind or interface (with #owner its name; an interface's methods are all pub). $signature
+ * is its source from its first word up to its body, or to the end of the statement for one
+ * without; $line the line its first word is on; $doc the docblock right above it, or null.
  */
 pub kind Declaration {
     pub const FUNCTION = "function";
     pub const KIND = "kind";
+    pub const INTERFACE = "interface";
     pub const CONSTANT = "constant";
     pub const FIELD = "field";
     pub const STATIC_FIELD = "static field";
@@ -109,9 +110,13 @@ kind OutlineReader {
         $namespace = null;
         $declarations = [];
         $imports = [];
-        // The kind whose body is open, and one declared whose body is still to open
+        // The kind or interface whose body is open, and one declared whose body is still to open
         $kind = null;
         $declared_kind = null;
+        // Whether the body is an interface's, whose members are all pub, and whether the one
+        // declared is
+        $in_interface = false;
+        $declared_interface = false;
         $braces = 0;
         $parentheses = 0;
         $at_start = true;
@@ -125,11 +130,12 @@ kind OutlineReader {
                 $imports[] = #tokens[$t + 1].value;
             }
             if ($at_start && $parentheses == 0 && #declares($t, $braces, $kind)) {
-                [$declaration, $end] = #declaration($t, $braces == 0 ? null : $kind);
+                [$declaration, $end] = #declaration($t, $braces == 0 ? null : $kind, $braces != 0 && $in_interface);
                 if ($declaration != null) {
                     $declarations[] = $declaration;
-                    if ($declaration.what == Declaration::KIND) {
+                    if ($declaration.what == Declaration::KIND || $declaration.what == Declaration::INTERFACE) {
                         $declared_kind = $declaration.name;
+                        $declared_interface = $declaration.what == Declaration::INTERFACE;
                     }
                 }
                 $at_start = #type($end - 1) == "SEMICOLON";
@@ -137,8 +143,8 @@ kind OutlineReader {
                 continue;
             }
             if ($type == "LEFT_BRACE" && $braces == 0) {
-                $kind = $declared_kind;
-                $declared_kind = null;
+                [$kind, $in_interface] = [$declared_kind, $declared_interface];
+                [$declared_kind, $declared_interface] = [null, false];
             }
             $braces += #depth_change($type, ["LEFT_BRACE"], ["RIGHT_BRACE"]);
             $parentheses += #depth_change($type, ["LEFT_PAREN", "LEFT_BRACKET"], ["RIGHT_PAREN", "RIGHT_BRACKET"]);
@@ -174,8 +180,11 @@ kind OutlineReader {
         return $braces == 1 && $kind != null && $type != "RIGHT_BRACE" && $type != "SEMICOLON";
     }
 
-    // The declaration starting at token $t as [Declaration or null if the source ends first, the token after it]
-    fn declaration(int $t, ?string $owner): list {
+    /*
+     * The declaration starting at token $t as [Declaration or null if the source ends first, the
+     * token after it]; $all_pub for a member of an interface, which says no pub but is
+     */
+    fn declaration(int $t, ?string $owner, bool $all_pub = false): list {
         $u = $t;
         $modifiers = [];
         while (in_array(#type($u), DECLARATION_MODIFIERS)) {
@@ -195,25 +204,27 @@ kind OutlineReader {
         $what = match (#type($u)) {
             "FN" => #function_what($name, $owner, $static),
             "KIND" => Declaration::KIND,
+            "INTERFACE" => Declaration::INTERFACE,
             "CONST" => Declaration::CONSTANT,
             default => $static ? Declaration::STATIC_FIELD : Declaration::FIELD,
         };
         $end = #declaration_end($u, $what);
         $start = #tokens[$t].start;
         $signature = slice(#source, $start, #tokens[$end - 1].stop - $start);
-        $pub = in_array("PUB", $modifiers);
+        $pub = $all_pub || in_array("PUB", $modifiers);
         $declaration = Declaration($what, $name, $pub, $owner, $signature, #tokens[$t].line, #docblock_above($t));
 
         return [$declaration, $end];
     }
 
-    // fn, const, a field's #name, or kind followed by its name (not a field's type, kind #k)
+    // fn, const, a field's #name, or kind or interface followed by its name (not a field's type,
+    // kind #k)
     fn is_declaring_word(int $u): bool {
         return in_array(#type($u), ["FN", "CONST", "HASH_IDENTIFIER", "EOF"]) || #is_kind_word($u);
     }
 
     fn is_kind_word(int $u): bool {
-        return #type($u) == "KIND" && #type($u + 1) == "IDENTIFIER";
+        return in_array(#type($u), ["KIND", "INTERFACE"]) && #type($u + 1) == "IDENTIFIER";
     }
 
     fn function_what(string $name, ?string $owner, bool $static): string {
@@ -226,8 +237,9 @@ kind OutlineReader {
     }
 
     /*
-     * The token after a declaration's signature: a function's or kind's ends before its body
-     * (or the ; of one without), a constant's or field's at its ;, past any braces of its value
+     * The token after a declaration's signature: a function's, kind's or interface's ends before
+     * its body (or the ; of one without), a constant's or field's at its ;, past any braces of its
+     * value
      */
     fn declaration_end(int $u, string $what): int {
         $depth = 0;

@@ -1,0 +1,1 @@
+Error: An interface has no static members: it names methods an object has, as fn name(...); at tests/corpora/parser/error_interface_static.gaz:2

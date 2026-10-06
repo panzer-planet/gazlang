@@ -1,0 +1,318 @@
+Compound
+  statements:
+@ null
+    0: InterfaceDeclaration 4
+      name: "Shape"
+      methods:
+        area: FunctionDeclaration 5
+          name: "area"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 5
+            names: ["float"]
+          kind: "Shape"
+          abstract: false
+        scale: FunctionDeclaration 6
+          name: "scale"
+          params: ["\$by", "\$around"]
+          defaults:
+            0: null
+            1: Null 6
+              token: 6 NULL null
+              value: null
+          body: null
+          arity: [1, 2]
+          param_types:
+            0: Type 6
+              names: ["float"]
+            1: null
+          kind: "Shape"
+          abstract: false
+    1: InterfaceDeclaration 9
+      name: "Named"
+      methods:
+        name: FunctionDeclaration 10
+          name: "name"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 10
+            names: ["string"]
+          kind: "Named"
+          abstract: false
+    2: InterfaceDeclaration 14
+      name: "Labelled"
+      methods:
+        name: FunctionDeclaration 15
+          name: "name"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 15
+            names: ["string"]
+          kind: "Labelled"
+          abstract: false
+    3: KindDeclaration 18
+      name: "Base"
+      parent: null
+      abstract: true
+      interfaces: ["Shape"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"scale" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        scale: FunctionDeclaration 19
+          name: "scale"
+          params: ["\$by", "\$around", "\$twice"]
+          defaults:
+            0: null
+            1: Null 19
+              token: 19 NULL null
+              value: null
+            2: Boolean 19
+              token: 19 FALSE false
+              value: false
+          body: Compound
+            statements: []
+          arity: [1, 3]
+          param_types:
+            0: Type 19
+              names: ["float"]
+            1: null
+            2: null
+          kind: "Base"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"scale" => "Base"}
+      abstract_methods: []
+      slots: []
+      method_table: [["scale", "Base", "pub", "Base"]]
+      owner_vis: {"scale" => "pub"}
+      declared_at: {"scale" => "Base"}
+      hidden: []
+      hidden_fields: []
+    4: KindDeclaration 22
+      name: "Square"
+      parent: "Base"
+      abstract: false
+      interfaces: ["Named", "Labelled"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"side" => "pub", "_" => "pub", "area" => "pub", "name" => "pub"}
+      fields: {"side" => null}
+      field_types:
+        side: Type 23
+          names: ["float"]
+      field_lines: {"side" => 23}
+      methods:
+        _: FunctionDeclaration 23
+          name: "_"
+          params: ["\$side"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 23
+                expr: Assign 23
+                  left: Property 23
+                    target: This 23
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 23 ASSIGN =
+                  right: Variable 23
+                    token: 23 VAR_IDENTIFIER $side
+                    value: "\$side"
+          arity: 1
+          param_types:
+            0: Type 23
+              names: ["float"]
+          kind: "Square"
+          abstract: false
+        area: FunctionDeclaration 25
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 26
+                expr: BinOp 26
+                  left: Property 26
+                    target: This 26
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 26 MULTIPLY *
+                  op: 26 MULTIPLY *
+                  right: Property 26
+                    target: This 26
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          return_type: Type 25
+            names: ["float"]
+          kind: "Square"
+          abstract: false
+        name: FunctionDeclaration 29
+          name: "name"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 30
+                expr: String 30
+                  token: 30 STRING "square"
+                  value: "square"
+          arity: 0
+          return_type: Type 29
+            names: ["string"]
+          kind: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"scale" => "Base", "_" => "Square", "area" => "Square", "name" => "Square"}
+      abstract_methods: []
+      slots: [["side", "Square", "pub"]]
+      method_table: [["scale", "Base", "pub", "Base"], ["_", "Square", "pub", "Square"], ["area", "Square", "pub", "Square"], ["name", "Square", "pub", "Square"]]
+      owner_vis: {"scale" => "pub", "side" => "pub", "_" => "pub", "area" => "pub", "name" => "pub"}
+      declared_at: {"scale" => "Base", "_" => "Square", "area" => "Square", "name" => "Square"}
+      hidden: []
+      hidden_fields: []
+    5: KindDeclaration 34
+      name: "Tile"
+      parent: "Square"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"scale" => "Base", "_" => "Square", "area" => "Square", "name" => "Square"}
+      abstract_methods: []
+      slots: [["side", "Square", "pub"]]
+      method_table: [["scale", "Base", "pub", "Base"], ["_", "Square", "pub", "Square"], ["area", "Square", "pub", "Square"], ["name", "Square", "pub", "Square"]]
+      owner_vis: {"scale" => "pub", "side" => "pub", "_" => "pub", "area" => "pub", "name" => "pub"}
+      declared_at: {"scale" => "Base", "_" => "Square", "area" => "Square", "name" => "Square"}
+      hidden: []
+      hidden_fields: []
+    6: FunctionDeclaration 36
+      name: "total"
+      params: ["\$shape"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 37
+            expr: MethodCall 37
+              property: Property 37
+                target: Variable 37
+                  token: 37 VAR_IDENTIFIER $shape
+                  value: "\$shape"
+                name: "area"
+                field: false
+                constant: false
+                value: null
+                static_name: null
+              args: []
+      arity: 1
+      param_types:
+        0: Type 36
+          names: ["Shape"]
+      return_type: Type 36
+        names: ["float"]
+      kind: null
+      abstract: false
+    7: FunctionDeclaration 40
+      name: "first"
+      params: ["\$shape", "\$other"]
+      defaults:
+        0: null
+        1: Null 40
+          token: 40 NULL null
+          value: null
+      body: Compound
+        statements:
+          0: ReturnStatement 41
+            expr: Variable 41
+              token: 41 VAR_IDENTIFIER $shape
+              value: "\$shape"
+      arity: [1, 2]
+      param_types:
+        0: Type 40
+          names: ["Shape", "null"]
+        1: Type 40
+          names: ["Shape", "int", "null"]
+      return_type: Type 40
+        names: ["Shape", "null"]
+      kind: null
+      abstract: false
+    8: EchoStatement 44
+      expr: FunctionCall 44
+        name: "total"
+        args:
+          0: FunctionCall 44
+            name: "Tile"
+            args:
+              0: Num 44
+                token: 44 FLOAT 2.0
+                value: 2.0
+    9: EchoStatement 45
+      expr: FunctionCall 45
+        name: "is_a"
+        args:
+          0: FunctionCall 45
+            name: "Square"
+            args:
+              0: Num 45
+                token: 45 FLOAT 1.0
+                value: 1.0
+          1: FunctionRef 45
+            name: "Named"
+            constant: false
+            value: null
+            static_name: null
+    10: Statement 46
+      expr: Assign 46
+        left: Variable 46
+          token: 46 VAR_IDENTIFIER $k
+          value: "\$k"
+        token: 46 ASSIGN =
+        right: FunctionRef 46
+          name: "Shape"
+          constant: false
+          value: null
+          static_name: null
+    11: EchoStatement 47
+      expr: Variable 47
+        token: 47 VAR_IDENTIFIER $k
+        value: "\$k"

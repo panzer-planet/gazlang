@@ -1,0 +1,1 @@
+Error: Method Square.scale must take $by as float, as Shape.scale does: an implementation keeps the interface's types at tests/corpora/parser/error_implements_param_type.gaz:6

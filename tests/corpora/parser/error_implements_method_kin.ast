@@ -1,0 +1,1 @@
+Error: Method Square.area must be pub: Shape.area is for any caller at tests/corpora/parser/error_implements_method_kin.gaz:6

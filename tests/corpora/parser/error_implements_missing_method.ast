@@ -1,0 +1,1 @@
+Error: Kind Square must define method scale of interface Shape, or be abstract at tests/corpora/parser/error_implements_missing_method.gaz:6

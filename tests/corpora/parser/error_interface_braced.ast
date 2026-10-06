@@ -1,0 +1,1 @@
+Error: Only a constant interpolates in bare braces, and Shape is an interface: assign it to a $variable first, or join it with .. at tests/corpora/parser/error_interface_braced.gaz:3

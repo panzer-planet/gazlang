@@ -1,0 +1,61 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+PUSH_KIND Shape
+PRINT
+NEW Square 0
+PUSH_KIND Shape
+CALL_BUILTIN is_a 2
+PRINT
+NEW Square 0
+CALL total 1
+PRINT
+PUSH null
+CALL total 1
+PRINT
+PUSH 1
+PUSH_KIND Shape
+CALL_BUILTIN is_a 2
+PRINT
+
+fn total 1 1
+locals $s
+CHECK_PARAM 0 Shape|null
+PUSH "ok"
+RET
+
+interface Shape
+method area 0 1
+method scale 1 1
+locals
+
+interface Unclaimed
+locals
+
+abstract kind Base
+implements Shape
+method scale Base pub
+locals
+LOAD_THIS
+RET
+
+fn Base.scale 1 2
+locals $by $twice
+PUSH null
+RET
+
+kind Square extends Base
+implements Shape
+method scale Base pub
+method area Square pub
+locals
+LOAD_THIS
+RET
+
+fn Square.area 0 2
+locals $a $b
+PUSH 1
+RET

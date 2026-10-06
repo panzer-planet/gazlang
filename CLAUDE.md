@@ -444,7 +444,8 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   - **Generated programs are made to end**: calls only go down (a function calls the ones
     before it, a method the ones below it), loops run a few times, and a lambda calls nothing
     that calls back, so a time-out in one is a bug. A mutant may just loop, so its time-out is
-    only reported.
+    only reported. Half of them declare an interface of their first kind's methods, which that
+    kind implements and `is_a` and a typed function ask about.
   - **Mutations aim at instruction lines**, in the file being mutated and in the one a line is
     taken from: a block's header lines (`top`, `locals`, `fn`, `kind`) are a good part of a
     small bytecode file, and damage to one is refused by the header parser before an
@@ -469,8 +470,9 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   hand-over, decoding, routing, sessions, middleware) and the rules each keeps, such as refusing
   both `Content-Length` and `Transfer-Encoding`, and a handle made before `workers()` being
   abandoned, never closed, by the processes that inherit it.
-- **Interfaces are decided, not built** ([#8](https://github.com/panzer-planet/gazlang/issues/8)): `interface`/`implements` (a
-  parse-time check that the methods exist, plus `is_a`), and `final`. The keywords are reserved.
+- **`final` is decided, not built** ([#8](https://github.com/panzer-planet/gazlang/issues/8)): a
+  kind or method that may not be extended, next to interfaces (see "Interfaces"). The keyword is
+  reserved.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
   bytecode, while a method block stays `Kind.method`, which is what lets the loader tell the two
   apart. Resolution is one pass before anything else is checked, so nothing below it knows
@@ -773,8 +775,8 @@ and methods a table in C.
   can't replace a concrete one.
 - **Visibility**: `pub` means one thing everywhere, so one keyword for the whole language; `kin`
   and `kind` are one root. Markers are only `pub` and `kin`, so a reader learns one spelling.
-  `interface`, `implements` and `final` say they are reserved wherever they land: where a
-  statement, a member (after a marker too) or an expression starts (`refuse_reserved_member()`).
+  `final` says it is reserved wherever it lands: where a statement, a member (after a marker
+  too, and in an interface) or an expression starts (`refuse_reserved_member()`).
   - **The asking kind is where the code is written**, checked by `check_member_escapes()` from
     the kind each use in `#uses` was written in; a kind's own private member named through a
     child (`Tally::n` in `Counter`) is its own (`as_asked()`). A block's header carries the kind
@@ -819,7 +821,46 @@ and methods a table in C.
   runtime's own `Team has no member to_json`; an object inside its own is an error by
   `object_id()`, not a loop. GazLang only (`lib/json.gaz`). A `to_json()` whose data must also
   compare with `==` or round-trip without JSON (the football game's tests do both) returns plain
-  data all the way down rather than leaving nested objects to the encoder.
+  data all the way down rather than leaving nested objects to the encoder. `to_string()` and
+  `to_json()` stay protocols, not interfaces: printing and encoding ask the object, and a kind
+  that has one needn't say so.
+
+## Interfaces
+
+- **Methods and nothing else**: `interface Shape { fn area(): float; }` names signatures, which
+  `parameters()` reads as a method's (types and defaults; a default only sets the arity). No
+  bodies, fields, constants, statics, markers (every method of one is `pub`, since an interface
+  is a promise to any caller), `abstract`, constructor (each kind's `_` is its own) or `extends`,
+  each refused by name in `signature()` and `interface_declaration()`: the restrictive choices,
+  and loosening any later breaks nothing. Constants and statics are reached by `::` on a kind,
+  which an interface isn't.
+- **A name like a kind's**: `#interfaces` in the parser beside `#kinds`, one namespace with
+  functions and constants, `pub` and namespaces resolved as a kind's are; `implements` after
+  `extends` (`implements_clause()`), resolved in `resolve_names()` and checked in
+  `check_claims()`. Kept apart from `#kinds` so everything that takes a kind (`extends`, a catch,
+  constructing, `::`, `.`) refuses one by default, each with a sentence (`not_a_kind()`).
+- **Checked when the program is read, as an override is** (`check_interfaces()` at the end of
+  `resolve_kind()`): every method an interface names, declared or inherited, is `pub`, accepts
+  every argument count and keeps the types (`check_override_types()` with its reason). An
+  abstract kind may leave one to its children, but one it has is checked where it is; an
+  inherited method that fails is reported at the method, naming the kind whose claim it fails.
+  Two of a kind's interfaces naming one method must name it alike (`same_signature()`): one
+  method answers for both. A kind with the methods but no claim is not an implementer: the
+  claim is the contract, and it can't be had by accident.
+- **At run time it is a kind value** (`T_KIND`, `Kind.interface`, abstract), so `is_a`, types,
+  `==`, `kind_name` and `echo` (`interface Shape`) need no tag of their own, and `type_of` says
+  `"kind"`: an interface goes where a kind value goes, and a new type name would be one more
+  word in every type. Constructing one is a parse error by name and `Cannot construct interface
+  Shape` through a value. `kind_is_a()` reads the kind's flattened list (`Kind.interfaces`,
+  worked out once by the loader, ancestors included) only after the parent walk has failed and
+  the ancestor is an interface, so `type_admits()` costs a kind or a builtin type nothing more.
+- **In bytecode**: an `interface` block (after the functions, before the kinds) of `method NAME
+  FEWEST MOST` lines and an empty `locals`, and an `implements` line per interface a kind claims
+  itself. The loader checks the claim again (each method `pub` with a fitting arity in every
+  kind that can be made, types being instructions it doesn't read), so hand-written bytecode
+  can't make `is_a` true of a kind without the methods; it also refuses a kind that is its own
+  ancestor, which hung `is_a` before. Only `PUSH_KIND` and types may name an interface. Old
+  files load unchanged, so the version stays 3.
 
 ## Command line arguments
 

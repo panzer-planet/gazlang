@@ -1,0 +1,39 @@
+ok an implementer is_a its interface
+ok and every interface it claims
+ok a child of an implementer is one
+ok and inherits its parent's claims too
+ok a kind with the methods but no claim is not
+ok nor is anything that isn't an object
+ok a typed parameter takes an implementer
+ok and its children
+ok the abstract kind's method runs on the child
+ok ?Shape takes null
+ok ?Shape takes an implementer
+ok a union of interfaces and int, as an interface
+ok a union of interfaces and int, as an int
+ok a return typed by an interface
+ok a field typed by an interface
+ok which may be null
+ok a static field typed by an interface
+ok a parameter refuses a kind that doesn't implement it
+ok and anything else
+ok a nullable one names the union
+ok a return
+ok a field
+ok a static field
+ok echo shows an interface
+ok type_of says kind, as for any kind value
+ok kind_name gives its name
+ok kind_of is still the object's own kind
+ok an interface is equal to itself
+ok and not to a kind
+ok held in a variable, is_a takes it
+ok calling one doesn't construct it
+ok a namespaced interface implemented from outside
+ok and inside its namespace
+ok is_a by the qualified name
+ok its name carries its namespace
+ok as echo shows it
+ok a type error names it qualified
+ok . on one
+ok type_of

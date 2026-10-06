@@ -1,0 +1,25 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+TRY caught
+END_TRY
+JMP end
+LABEL caught
+CATCH_MATCH Shape end
+POP
+LABEL end
+
+interface Shape
+locals
+
+kind Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+locals
+LOAD_THIS
+RET

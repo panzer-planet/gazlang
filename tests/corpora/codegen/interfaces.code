@@ -1,0 +1,102 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ "interfaces.gaz" 31
+NEW Square 0
+PUSH_KIND Shape
+CALL_BUILTIN is_a 2
+PRINT
+@ "interfaces.gaz" 32
+PUSH_KIND Shape
+PRINT
+@ "interfaces.gaz" 33
+NEW Square 0
+CALL total 1
+PRINT
+
+fn total 1 1
+locals $shape
+@ "interfaces.gaz" 27
+CHECK_PARAM 0 Shape|null
+@ "interfaces.gaz" 28
+LOAD 0
+JNN NULLSAFE_GO_2
+PUSH null
+JMP NULLSAFE_END_1
+LABEL NULLSAFE_GO_2
+GET_METHOD area
+CALL_METHOD 0 area
+LABEL NULLSAFE_END_1
+JNN COALESCE_END_0
+PUSH 0.0
+LABEL COALESCE_END_0
+CHECK_RETURN float
+RET
+@ "interfaces.gaz" 27
+PUSH null
+CHECK_RETURN float
+RET
+
+interface Shape
+method area 0 0
+method scale 1 2
+locals
+
+interface Named
+method name 0 0
+locals
+
+abstract kind Base
+implements Shape
+method scale Base pub
+locals
+@ "interfaces.gaz" 13
+LOAD_THIS
+RET
+
+fn Base.scale 1 2
+locals $by $around
+@ "interfaces.gaz" 14
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH null
+STORE 1
+LABEL PASSED_0
+CHECK_PARAM 0 float
+PUSH null
+RET
+
+kind Square extends Base
+implements Named
+method scale Base pub
+method area Square pub
+method name Square pub
+locals
+@ "interfaces.gaz" 17
+LOAD_THIS
+RET
+
+fn Square.area 0 0
+locals
+@ "interfaces.gaz" 19
+PUSH 1.0
+CHECK_RETURN float
+RET
+@ "interfaces.gaz" 18
+PUSH null
+CHECK_RETURN float
+RET
+
+fn Square.name 0 0
+locals
+@ "interfaces.gaz" 23
+PUSH "square"
+RET
+@ "interfaces.gaz" 22
+PUSH null
+RET

@@ -354,7 +354,7 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
     *entered = NULL;
     if (callee.type == T_KIND) {
         Kind *c = callee.k;
-        if (c->abstract) return raisef("Cannot construct abstract kind %s", c->name->data);
+        if (c->abstract) return raisef("Cannot construct %s %s", c->interface ? "interface" : "abstract kind", c->name->data);
         if (!arity_fits(c->lo, c->hi, argc)) {
             Buf what = {0};
             buf_adds(&what, "Kind ");
@@ -1338,7 +1338,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             if (callee.type == T_KIND) {
                 Kind *c = callee.k;
                 if (c->abstract) {
-                    raisef("Cannot construct abstract kind %s", c->name->data);
+                    raisef("Cannot construct %s %s", c->interface ? "interface" : "abstract kind", c->name->data);
                     goto error;
                 }
                 if (!arity_fits(c->lo, c->hi, argc)) {

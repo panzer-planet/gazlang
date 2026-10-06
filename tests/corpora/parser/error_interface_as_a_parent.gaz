@@ -1,0 +1,3 @@
+interface Shape {}
+
+kind Square extends Shape {}

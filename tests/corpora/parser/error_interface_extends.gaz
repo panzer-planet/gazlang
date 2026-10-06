@@ -1,0 +1,2 @@
+interface Named {}
+interface Shape extends Named {}

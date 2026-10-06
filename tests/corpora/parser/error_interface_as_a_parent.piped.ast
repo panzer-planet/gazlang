@@ -1,0 +1,1 @@
+Error: Kind Square can't extend Shape: it is an interface, so write 'implements Shape' on line 3
