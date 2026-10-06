@@ -10,7 +10,14 @@ const PROGRAMS = ["chain", "cap", "cycle", "values"];
 // Standard error from its first cause on
 fn causes_reported($stderr) {
     $at = index_of($stderr, "\nCaused by: ");
-    return $at == null ? "" : slice($stderr, $at + 1);
+    return $at == null ? "" : without_vm_stats(slice($stderr, $at + 1));
+}
+
+// Without the line the leak check adds when the tests run under it (GAZVM_STATS reaches the child)
+fn without_vm_stats($text) {
+    $lines = filter(split($text, "\n"), $line -> !starts_with($line, "gazvm: "));
+
+    return join($lines, "\n");
 }
 
 foreach (PROGRAMS as $name) {
