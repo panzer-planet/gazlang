@@ -143,9 +143,20 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   only ways a builtin is reached, so a server without a database never loads it): on macOS
   Homebrew's libpq brings in Kerberos.framework, whose Objective-C classes can't be set up in a
   child forked from a process with two threads, so a worker loading it itself was killed; elsewhere
-  it saves each worker (and each recycled one) the load. Tested by `DbPgTest`'s `own` run of
-  `tests/db/pg_workers.gaz`. On macOS libpq is looked for by whole paths only, since dyld would
-  find a name alone in the working directory.
+  it saves each worker (and each recycled one) the load. **On macOS `open_pg()` in a worker sets
+  `PGGSSENCMODE=disable` unless it is set** (a program that never forked keeps libpq's own
+  default): libpq's default, `prefer`, asks Kerberos for
+  credentials on every TCP connection, and Kerberos.framework sets up Objective-C classes to read
+  its preferences, which the runtime refuses in a worker. As libpq's own variable it is the lowest
+  setting, below a URL's `gssencmode`, a service file's and the user's environment, so GSS
+  encryption is one `?gssencmode=prefer` away; `ponytail:` GSSAPI (that, or a server asking for
+  `gss` authentication) still aborts a worker unless gaz was started with
+  `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES` (read when the process starts, so gaz can't set it
+  itself), and run() passes the variable on; `PGGSSENCMODE` itself is seen by the worker's
+  `getenv()` and inherited by what it starts with `run()` (`psql`, `pg_dump`). TLS, SCRAM and `.pgpass` set up no classes. Tested by
+  `DbPgTest`'s `own` run of `tests/db/pg_workers.gaz` and its `refused` run, which needs no
+  server: a worker reaching a closed port must get the catchable error. On macOS libpq is looked
+  for by whole paths only, since dyld would find a name alone in the working directory.
 - `make SQLITE=1`/`PG=1` make a missing library (libpq's header) an error, which CI asks for. SQLite is tested by
   `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded, sanitized, leak-checked); PostgreSQL by
   `DbPgTest` running `tests/db/pg_check.gaz` against the server `GAZLANG_TEST_PG` names (skipped

@@ -163,7 +163,8 @@ static bool load_libpq(void) {
  * loading it on its first open. On macOS that is not only quicker but needed: Homebrew's libpq
  * brings in Kerberos.framework, whose Objective-C classes can't be set up in a child forked from
  * a process with two threads (gaz's main thread and the program's), so a worker that loaded it
- * itself would be killed by the Objective-C runtime. workers() calls it only for a program that
+ * itself would be killed by the Objective-C runtime (and so would one asking Kerberos for
+ * credentials, which open_pg() prevents by default). workers() calls it only for a program that
  * names db_open (Program.opens_databases), so a server without a database never loads libpq. A
  * failure is left for db_open() to raise.
  */
@@ -173,6 +174,27 @@ void pg_load_before_fork(void) { load_libpq(); }
 
 static bool open_pg(Str *url, void **conn) {
     if (!load_libpq()) return raisef("%s", failure.data);
+#ifdef __APPLE__
+    /*
+     * libpq's gssencmode is "prefer" unless something says otherwise, so on every TCP connection
+     * it first asks Kerberos whether there are credentials (gss_acquire_cred()). On macOS that
+     * goes through Apple's Kerberos.framework, which reads its preferences with CoreFoundation and
+     * so sets up some forty Objective-C classes (NSMutableString first). In a worker, a child
+     * forked from a process with two threads, the Objective-C runtime aborts rather than set up a
+     * class for the first time. So on macOS, in a worker only (a program that never forked may
+     * use GSS as libpq likes), gaz makes "disable" the default, in libpq's own environment
+     * variable: it then comes last, after the URL's gssencmode, a service file's and a
+     * PGGSSENCMODE the user set, and with it no connection reaches Kerberos unless the server
+     * asks for GSSAPI authentication. Loading libpq is the other half (pg_load_before_fork()).
+     * Being an environment variable, the worker's getenv() sees it and programs it starts with
+     * run() inherit it, as sqlite.c's OS_ACTIVITY_MODE is.
+     * ponytail: GSSAPI (gssencmode prefer or require, or a server asking for gss authentication)
+     * still aborts a worker unless gaz was started with OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES;
+     * lifted only if Kerberos.framework stops using Objective-C or workers are started by exec
+     * rather than fork.
+     */
+    if (vm_process != 0) setenv("PGGSSENCMODE", "disable", 0);
+#endif
     PGconn *c = pq.PQconnectdb(url->data);
     if (!c) return raisef("postgres: out of memory");
     if (pq.PQstatus(c) != CONNECTION_OK) {

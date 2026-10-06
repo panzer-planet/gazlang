@@ -10,10 +10,22 @@
  * rather than garble the others' replies and hang.
  * own: nothing is opened before workers(), so each of three workers opens its own connection, on
  * the libpq workers() loaded in the master because this program names db_open.
+ * refused: as own, but URL names a port where no server listens (needing none), so each of three
+ * workers must get the catchable refusal; on macOS the Objective-C runtime once aborted them.
  */
 import "std/db.gaz";
 
 [$url, $mode] = args();
+if ($mode == "refused") {
+    workers(3);
+    try {
+        db::open($url);
+        echo "worker connected";
+    } catch (Error $e) {
+        echo contains($e.message, "cannot connect") ? "worker refused" : $e.message;
+    }
+    exit(0);
+}
 if ($mode == "own") {
     workers(3);
     $mine = db::open($url);

@@ -5,10 +5,10 @@ namespace GazLang\Tests;
 /**
  * lib/db.gaz and the PostgreSQL driver, against a real server: tests/db/pg_check.gaz, which uses
  * temporary tables only, and tests/db/pg_workers.gaz, a connection opened before workers() and
- * workers opening their own on the libpq the master loaded.
- * Skipped without GAZLANG_TEST_PG, the server's URL
- * (postgres://user:password@localhost/postgres); the SQLite driver needs no server, and its
- * tests are tests/gaz/lib/db_test.gaz.
+ * workers opening their own on the libpq the master loaded. Skipped without GAZLANG_TEST_PG, the
+ * server's URL (postgres://user:password@localhost/postgres), except workers refused a connection,
+ * which needs libpq but no server; the SQLite driver needs no server, and its tests are
+ * tests/gaz/lib/db_test.gaz.
  */
 class DbPgTest extends GazLangTestCase
 {
@@ -53,6 +53,24 @@ class DbPgTest extends GazLangTestCase
     }
 
     /**
+     * Each worker reaches a port where nothing listens and gets the catchable error, needing no
+     * server. On macOS libpq's default gssencmode, "prefer", asked Kerberos for credentials on any
+     * TCP connection, which set up Objective-C classes in the worker, and the runtime aborted it.
+     */
+    public function test_a_worker_refused_a_connection_gets_an_error_rather_than_abort()
+    {
+        $url = 'postgres://gaz@127.0.0.1:1/gaz';
+        [$probe] = self::gazlang(['-e', "try { db_open(\"{$url}\"); } catch (Error \$e) { echo \$e.message; }"]);
+        if (! str_contains($probe, 'cannot connect')) {
+            self::markTestSkipped("PostgreSQL can't be tried: {$probe}");
+        }
+
+        [$out, $err, $code] = self::workers('refused', $url);
+
+        $this->assertSame([str_repeat("worker refused\n", 3), '', 0], [$out, $err, $code]);
+    }
+
+    /**
      * The server's URL, or the test is skipped
      */
     private static function url(): string
@@ -66,14 +84,17 @@ class DbPgTest extends GazLangTestCase
     }
 
     /**
-     * Run tests/db/pg_workers.gaz in a mode, stopping it after LIMIT seconds
+     * Run tests/db/pg_workers.gaz in a mode, on GAZLANG_TEST_PG's server unless given a URL,
+     * stopping it after LIMIT seconds
      *
      * @return array{0: string, 1: string, 2: int} Standard output, standard error and the exit code
      */
-    private static function workers(string $mode): array
+    private static function workers(string $mode, ?string $url = null): array
     {
-        $url = self::url();
-        $process = proc_open([self::binary(), 'tests/db/pg_workers.gaz', $url, $mode], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $url ??= self::url();
+        // Without what would hide the macOS fork abort, so the test sees gaz's own default
+        $environment = array_diff_key(getenv(), ['PGGSSENCMODE' => true, 'OBJC_DISABLE_INITIALIZE_FORK_SAFETY' => true]);
+        $process = proc_open([self::binary(), 'tests/db/pg_workers.gaz', $url, $mode], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT, $environment);
         if ($process === false) {
             throw new \RuntimeException('Cannot run gaz');
         }

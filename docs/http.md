@@ -44,7 +44,10 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   journal), only kept reachable, a `ponytail:` in `sqlite.c`. The per-driver part is
   `DbDriver.abandon`. **On macOS `open_sqlite()` sets `OS_ACTIVITY_MODE=disable`** first: Apple's
   libsqlite3 makes an `os_signpost` on every open, and libtrace's state doesn't survive a fork, so a
-  worker's open after the master had opened one crashes in `os_signpost_enabled`. Tested by `tests/gaz/workers/inherited_test.gaz` (under the
+  worker's open after the master had opened one crashes in `os_signpost_enabled`. **On macOS
+  `open_pg()` in a worker sets `PGGSSENCMODE=disable`** unless something set it: libpq would otherwise ask
+  Kerberos.framework for credentials, which sets up Objective-C classes in the worker, and the
+  Objective-C runtime aborts a forked child that does (see [Databases](library.md#databases)). Tested by `tests/gaz/workers/inherited_test.gaz` (under the
   sanitizers, each worker's `GAZVM_STATS` line checked by `CVM::leaks()`) and `DbPgTest`.
 - **`worker_recycle()` is a third case**, neither a graceful exit nor a crash: the master tells
   `WIFSIGNALED(status) && WTERMSIG(status) == SIGUSR2` apart before the generic failure path,
