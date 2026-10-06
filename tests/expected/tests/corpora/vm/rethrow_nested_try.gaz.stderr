@@ -1,0 +1,5 @@
+Error: to_int() cannot convert "x" at tests/corpora/vm/rethrow_nested_try.gaz:3
+  parse at tests/corpora/vm/rethrow_nested_try.gaz:3
+  read_config at tests/corpora/vm/rethrow_nested_try.gaz:9
+  start at tests/corpora/vm/rethrow_nested_try.gaz:22
+  top level at tests/corpora/vm/rethrow_nested_try.gaz:30

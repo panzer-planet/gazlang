@@ -1,0 +1,4 @@
+Error: Division by zero at tests/corpora/vm/rethrow_in_function.gaz:3
+  divide at tests/corpora/vm/rethrow_in_function.gaz:3
+  average at tests/corpora/vm/rethrow_in_function.gaz:7
+  top level at tests/corpora/vm/rethrow_in_function.gaz:15

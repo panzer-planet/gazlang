@@ -1,0 +1,3 @@
+Error: {"code" => 7}
+  pass_on at tests/corpora/vm/rethrow_value.gaz:10
+  top level at tests/corpora/vm/rethrow_value.gaz:18

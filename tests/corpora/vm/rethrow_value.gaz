@@ -1,0 +1,18 @@
+/*
+ * A value other than an Error has no trace of its own to keep, so thrown again it is reported
+ * from the throw that ended the program
+ */
+fn fail() {
+    throw {"code" => 7};
+}
+
+fn pass_on($v) {
+    throw $v;
+}
+
+try {
+    fail();
+} catch ($v) {
+    $kept = $v;
+}
+pass_on($kept);

@@ -1,0 +1,6 @@
+// A #line no throw writes isn't a location, so the error is located where it is thrown again
+fn inner() { throw "boom"; }
+fn again($e) { throw $e; }
+try { inner(); } catch (Error $e) { $saved = $e; }
+$saved.line = "somewhere";
+again($saved);

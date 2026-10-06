@@ -174,6 +174,8 @@ struct Object {
     Kind *kind;
     int64_t id;         /* object_id(): 1 for the first object made, the enum cases first, then the program's; never reused */
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
+    bool says_where;    /* the Error a catch made of a runtime error, whose message line ends
+                           where it happened, as a thrown one's doesn't; in the padding too */
     int32_t case_number; /* a case of an enum: which, from 1 (0 for any other object), in the
                             padding before the fields, so it costs an object nothing */
     Value fields[];

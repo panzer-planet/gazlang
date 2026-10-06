@@ -1,0 +1,12 @@
+// A #file no path can be (a NUL in it) is left alone, and the rethrow is located where it is thrown
+fn fail() {
+    throw "x";
+}
+$saved = null;
+try {
+    fail();
+} catch (Error $e) {
+    $saved = $e;
+}
+$saved.file = "a\0b";
+throw $saved;

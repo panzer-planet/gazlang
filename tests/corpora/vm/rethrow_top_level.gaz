@@ -1,0 +1,6 @@
+// An error caught and thrown again at the top level is reported as its first throw would have been
+fn inner() { throw "boom"; }
+fn outer() { inner(); }
+try { outer(); } catch (Error $e) { $saved = $e; }
+echo $saved.trace;
+throw $saved;

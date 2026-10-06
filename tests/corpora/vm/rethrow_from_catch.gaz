@@ -1,0 +1,23 @@
+// throw $e in a catch passes a kind of error on unchanged, its causes too
+kind NotFound extends Error {
+    fn _($key, $cause = null) { ##_("Not found: $key", $cause); }
+}
+
+fn find($key) {
+    throw NotFound($key, "no such row");
+}
+
+fn handle($key) {
+    try {
+        find($key);
+    } catch (NotFound $e) {
+        echo "logged: {$e.message}";
+        throw $e;
+    }
+}
+
+fn request() {
+    handle("id");
+}
+
+request();

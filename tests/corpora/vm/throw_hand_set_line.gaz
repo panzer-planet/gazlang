@@ -1,0 +1,9 @@
+// An Error never thrown but given a #line by hand is located where it is thrown, not at that line:
+// only a throw or a catch sets #trace too, which is what marks a rethrow
+fn f() {
+    $e = Error("hand");
+    $e.line = 5;
+    $e.file = null;
+    throw $e;
+}
+f();

@@ -1,4 +1,7 @@
 Error: Could not save the todo
+  http::respond at tests/corpora/vm/uncaught_cause_chain.gaz:38
+  http::failure at tests/corpora/vm/uncaught_cause_chain.gaz:44
+  top level at tests/corpora/vm/uncaught_cause_chain.gaz:50
 Caused by: Query failed: insert into todos
   http::run_query at tests/corpora/vm/uncaught_cause_chain.gaz:26
   http::save at tests/corpora/vm/uncaught_cause_chain.gaz:31

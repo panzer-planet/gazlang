@@ -1,0 +1,3 @@
+Error: made, not thrown
+  fail at tests/corpora/vm/throw_unthrown_trace.gaz:6
+  top level at tests/corpora/vm/throw_unthrown_trace.gaz:11

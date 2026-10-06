@@ -1,0 +1,11 @@
+/*
+ * An Error never thrown has no location, so its first throw is where it is: a #trace the program
+ * gave it is replaced, as a catch would replace it
+ */
+fn fail($e) {
+    throw $e;
+}
+
+$e = Error("made, not thrown");
+$e.trace = ["invented at nowhere.gaz:1", "invented at nowhere.gaz:2"];
+fail($e);

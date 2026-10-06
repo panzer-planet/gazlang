@@ -85,6 +85,43 @@ bool raisef(const char *fmt, ...) {
     return raise_str(s);
 }
 
+/* The Error object a value is, or NULL: only an Error carries a location and a cause */
+static Object *as_error(Value v) {
+    /* The type first: a file the loader refused is reported with no program */
+    if (v.type != T_OBJECT) return NULL;
+    Kind *error_kind = program->error_kind;
+    if (!error_kind || !kind_is_a(v.o->kind, error_kind)) return NULL;
+    return v.o;
+}
+
+/* One of an Error's fields: unset when bytecode from before causes has no #cause */
+static Value error_field(Object *o, const char *name) {
+    int slot = kind_field(o->kind, str_intern(name, strlen(name)), NULL);
+    return slot < 0 ? v_unset() : o->fields[slot];
+}
+
+/*
+ * An Error thrown again (its #line and #trace set, as a catch sets them) is raised from where it
+ * was first thrown: its own #file, #line and #trace, and a message line that says where when the
+ * first one did, so an uncaught rethrow is reported as the first throw would have been. Both are
+ * needed, since a #line alone may be one a constructor or the program set on an Error never
+ * thrown. A location a program set to something no throw writes (a #file a path can't be, with a
+ * NUL in it) is left alone, and the error is located here.
+ */
+static void raise_from_origin(Error *e, Object *o) {
+    Value line = error_field(o, "line"), file = error_field(o, "file"), trace = error_field(o, "trace");
+    if (line.type != T_INT || line.i <= 0 || trace.type != T_LIST) return;
+    if (file.type != T_STRING && file.type != T_NULL) return;
+    if (file.type == T_STRING && memchr(file.s->data, '\0', file.s->len)) return;
+    e->line = line.i;
+    e->path = file.type == T_STRING ? file.s : NULL;
+    if (e->path) incref(file);
+    /* Only its strings are shown */
+    e->trace = trace;
+    incref(trace);
+    e->show_location = o->says_where;
+}
+
 /* throw $v: a string is the message of an Error, anything else is thrown as it is */
 static bool raise_value(Value v) {
     if (vm_error) decref((Value){.type = T_ERROR, .e = vm_error});
@@ -100,6 +137,8 @@ static bool raise_value(Value v) {
     vm_error->has_value = true;
     vm_error->value = v;
     incref(v);
+    Object *o = as_error(v);
+    if (o) raise_from_origin(vm_error, o);
     return false;
 }
 
@@ -224,6 +263,7 @@ static Value caught(Error *e) {
            written before Error had a cause has no slot for one, and the loader takes it. */
         int slot = kind_field(error_kind, cause, NULL);
         if (slot >= 0) o->fields[slot] = v_null();
+        o->says_where = e->show_location;
         e->caught = v_object(o);
     } else {
         Value v = e->value;
@@ -1523,21 +1563,6 @@ static void report_calls(Value trace) {
     }
 }
 
-/* The Error object a value is, or NULL: only an Error carries a cause */
-static Object *as_error(Value v) {
-    /* The type first: a file the loader refused is reported with no program */
-    if (v.type != T_OBJECT) return NULL;
-    Kind *error_kind = program->error_kind;
-    if (!error_kind || !kind_is_a(v.o->kind, error_kind)) return NULL;
-    return v.o;
-}
-
-/* An Error's #cause and #trace: unset when bytecode from before causes has no such field */
-static Value error_field(Object *o, const char *name) {
-    int slot = kind_field(o->kind, str_intern(name, strlen(name)), NULL);
-    return slot < 0 ? v_unset() : o->fields[slot];
-}
-
 /* One cause: "Caused by: " and the value as echo prints it, then an Error's calls. A caught
    error's message never says where it happened, so its trace is shown even with one call. */
 static void report_cause(Value cause) {
@@ -1719,7 +1744,7 @@ static int run_program(bool check) {
             vm_here = NULL;     /* the program has ended: its to_string() has no caller */
             Str *text_value;
             if (to_string(e->value, &text_value)) {
-                Error *shown = error_new(text_value, e->path, e->line, false);
+                Error *shown = error_new(text_value, e->path, e->line, e->show_location);
                 shown->trace = e->trace;
                 incref(shown->trace);
                 e = shown;

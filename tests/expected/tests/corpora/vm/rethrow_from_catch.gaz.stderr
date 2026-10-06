@@ -1,0 +1,6 @@
+Error: Not found: id
+  find at tests/corpora/vm/rethrow_from_catch.gaz:7
+  handle at tests/corpora/vm/rethrow_from_catch.gaz:12
+  request at tests/corpora/vm/rethrow_from_catch.gaz:20
+  top level at tests/corpora/vm/rethrow_from_catch.gaz:23
+Caused by: no such row

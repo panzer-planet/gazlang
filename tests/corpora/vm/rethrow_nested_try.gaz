@@ -1,0 +1,30 @@
+// Passed out through two tries, the second of which doesn't catch it, an error stays as it was
+fn parse($text) {
+    return to_int($text);
+}
+
+fn read_config() {
+    try {
+        try {
+            parse("x");
+        } catch (Error $e) {
+            echo "inner: line {$e.line}";
+            throw $e;
+        }
+    } catch (Error $e) {
+        echo "outer: line {$e.line}, " .. len($e.trace) .. " calls";
+        throw $e;
+    }
+}
+
+fn start() {
+    try {
+        read_config();
+    } catch (ArgumentError $e) {
+        echo "not reached";
+    }
+}
+
+kind ArgumentError extends Error {}
+
+start();

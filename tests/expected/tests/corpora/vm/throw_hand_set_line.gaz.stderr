@@ -1,0 +1,3 @@
+Error: hand
+  f at tests/corpora/vm/throw_hand_set_line.gaz:7
+  top level at tests/corpora/vm/throw_hand_set_line.gaz:9

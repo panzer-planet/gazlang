@@ -1,0 +1,6 @@
+// A trace the program writes on a caught error is the one reported: only its strings are shown
+fn inner() { throw "boom"; }
+try { inner(); } catch (Error $e) { $saved = $e; }
+$saved.trace = ["where it really went wrong", 42, "and the call around it"];
+$saved.message = "boom, said again";
+throw $saved;

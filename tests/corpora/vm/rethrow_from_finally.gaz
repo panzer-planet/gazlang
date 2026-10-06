@@ -1,0 +1,20 @@
+// An error kept and thrown from a finally is reported where it was first thrown
+fn load() {
+    throw "disk full";
+}
+
+fn save() {
+    $failure = null;
+    try {
+        load();
+    } catch (Error $e) {
+        $failure = $e;
+    } finally {
+        echo "cleaning up";
+        if ($failure != null) {
+            throw $failure;
+        }
+    }
+}
+
+save();

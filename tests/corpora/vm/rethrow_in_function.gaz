@@ -1,0 +1,19 @@
+// A runtime error thrown again from another function keeps its location and calls, not the rethrow's
+fn divide($a, $b) {
+    return $a / $b;
+}
+
+fn average($list) {
+    return divide(sum($list), len($list));
+}
+
+fn pass_on($e) {
+    throw $e;
+}
+
+try {
+    average([]);
+} catch (Error $e) {
+    echo "caught: {$e.message} at line {$e.line}";
+    pass_on($e);
+}

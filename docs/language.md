@@ -816,7 +816,9 @@ try {
   last.
 - **`throw $value` raises any value.** A string becomes an `Error`'s message; anything else is
   caught as it is. An `Error` keeps the line and trace of where it was first thrown, so `throw
-  $e;` in a catch passes it on unchanged.
+  $e;` in a catch passes it on unchanged, and if nothing catches it again it is reported as its
+  first throw would have been. Any other value has no line of its own: thrown again, it is
+  reported from where it was thrown last.
 - **`throw` is an expression**, so it goes wherever a value is wanted: `$m[$k] ?? throw
   NotFound($k)`, `default => throw "Unknown cell"` in a `match`, either branch of a ternary, a
   lambda's body. Its operand is a whole expression and runs as far right as it can (`throw $a ??

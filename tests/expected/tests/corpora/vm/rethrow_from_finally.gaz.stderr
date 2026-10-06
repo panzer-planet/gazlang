@@ -1,0 +1,4 @@
+Error: disk full
+  load at tests/corpora/vm/rethrow_from_finally.gaz:3
+  save at tests/corpora/vm/rethrow_from_finally.gaz:9
+  top level at tests/corpora/vm/rethrow_from_finally.gaz:20
