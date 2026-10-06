@@ -402,6 +402,7 @@ typedef struct Program {
     Kind *error_kind; /* the builtin Error kind, when the program has it */
     Kind *html_kind;  /* the builtin Html kind, which .. and join() refuse (append_joined()) */
     int max_frame;      /* the most stack one frame can need: locals plus its deepest stack */
+    bool opens_databases;   /* names db_open, so workers() loads libpq before it forks (pg.c) */
 } Program;
 
 /* The instructions, in the order of the table in load.c */
@@ -658,6 +659,7 @@ void file_close(File *f);
 void db_put(Map *m, const char *key, size_t len, Value v);   /* m[key] = v, taking v's reference */
 Value db_result(List *rows, int64_t changes);   /* the {"rows", "changes"} map a driver's run() gives */
 extern const DbDriver sqlite_driver, pg_driver;  /* defined only when built in (GAZ_SQLITE, GAZ_PG) */
+void pg_load_before_fork(void);     /* pg.c, when built in: load libpq now, for workers() */
 
 /* ---- crypto.c -------------------------------------------------------------------------- */
 

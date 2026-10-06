@@ -6,8 +6,9 @@
 #   make PGO=0     the same with plain -O2, a few seconds quicker to build while editing the C
 #   make TLS=0     the same without OpenSSL: https and socket_open(..., true) are errors
 #   make SQLITE=0  the same without SQLite, and PG=0 without PostgreSQL's libpq: db_open() of
-#                  that scheme is an error. Both are on when the library is found, and
-#                  SQLITE=1 or PG=1 make not finding it an error, which is what CI asks for
+#                  that scheme is an error. Both are on when the library (for libpq, its
+#                  header: see below) is found, and SQLITE=1 or PG=1 make not finding it an
+#                  error, which is what CI asks for
 #   make compiler  rebuild compiler/gazlang.gzb from compiler/ with bin/gaz alone (see below)
 #   make test      vm/build/gazvm-test, with AddressSanitizer and UndefinedBehaviorSanitizer,
 #                  which tests/CVMTest.php runs (it calls this itself)
@@ -44,14 +45,19 @@ ifeq ($(TLS),1)
   LIBS += $(SSL_LIBS)
 endif
 
+# $(call has_header,NAME,FLAGS) is yes when the C compiler finds <NAME> with FLAGS. The # of the
+# include is printf's \043, so make never sees a # (whether \# keeps its backslash differs between
+# make 3.81 and 4.3, and a kept backslash made every header look found)
+has_header = $(shell printf '\043include <%s>\n' '$(1)' | $(CC) -E $(2) -x c - >/dev/null 2>&1 && echo yes)
+
 # SQLite and libpq, for db.c's drivers: used when found (from pkg-config, else, for libpq, from
-# pg_config or Homebrew's keg-only libpq), so a C compiler alone still builds gaz; asking for
+# Homebrew's keg-only libpq or pg_config), so a C compiler alone still builds gaz; asking for
 # one with =1 makes it an error if it isn't there
 SQLITE ?= auto
 ifneq ($(SQLITE),0)
   SQLITE_FLAGS := $(shell pkg-config --cflags sqlite3 2>/dev/null)
   SQLITE_LIBS := $(or $(shell pkg-config --libs sqlite3 2>/dev/null),-lsqlite3)
-  ifeq ($(shell echo '\#include <sqlite3.h>' | $(CC) -E $(SQLITE_FLAGS) -x c - >/dev/null 2>&1 && echo yes),yes)
+  ifeq ($(call has_header,sqlite3.h,$(SQLITE_FLAGS)),yes)
     FLAGS += -DGAZ_SQLITE $(SQLITE_FLAGS)
     LIBS += $(SQLITE_LIBS)
     SOURCES += sqlite.c
@@ -60,28 +66,34 @@ ifneq ($(SQLITE),0)
   endif
 endif
 
+# libpq isn't linked: pg.c loads it with dlopen() when a program first opens a postgres://
+# database, so gaz starts as fast as without it, and building needs only libpq-fe.h. "Built in"
+# means compiled against the header; the directory the library was found in is built in too,
+# and pg.c tries it first. Without the library at run time, opening one is a catchable error.
 PG ?= auto
 ifneq ($(PG),0)
   PG_FLAGS := $(shell pkg-config --cflags libpq 2>/dev/null)
-  PG_LIBS := $(shell pkg-config --libs libpq 2>/dev/null)
-  ifeq ($(PG_LIBS),)
+  PG_LIBDIR := $(shell pkg-config --variable=libdir libpq 2>/dev/null)
+  ifeq ($(PG_LIBDIR),)
     PG_INC := $(shell pg_config --includedir 2>/dev/null)
-    PG_LIB := $(shell pg_config --libdir 2>/dev/null)
     BREW_PQ := $(shell brew --prefix libpq 2>/dev/null)
     ifneq ($(wildcard $(BREW_PQ)/include/libpq-fe.h),)
       PG_FLAGS := -I$(BREW_PQ)/include
-      PG_LIBS := -L$(BREW_PQ)/lib -lpq
+      PG_LIBDIR := $(BREW_PQ)/lib
     else ifneq ($(and $(PG_INC),$(wildcard $(PG_INC)/libpq-fe.h)),)
       PG_FLAGS := -I$(PG_INC)
-      PG_LIBS := -L$(PG_LIB) -lpq
+      PG_LIBDIR := $(shell pg_config --libdir 2>/dev/null)
     endif
   endif
-  ifneq ($(PG_LIBS),)
-    FLAGS += -DGAZ_PG $(PG_FLAGS)
-    LIBS += $(PG_LIBS)
+  ifeq ($(call has_header,libpq-fe.h,$(PG_FLAGS)),yes)
+    FLAGS += -DGAZ_PG $(PG_FLAGS) -DGAZ_PG_LIBDIR='"$(PG_LIBDIR)"'
+    # dlopen() is in glibc itself since 2.34, and in libdl before
+    ifeq ($(shell uname -s),Linux)
+      LIBS += -ldl
+    endif
     SOURCES += pg.c
   else ifeq ($(PG),1)
-    $(error libpq not found: install it (apt install libpq-dev, brew install libpq), or build without it: make PG=0)
+    $(error libpq's header not found: install it (apt install libpq-dev, brew install libpq), or build without it: make PG=0)
   endif
 endif
 

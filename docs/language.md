@@ -1399,7 +1399,10 @@ echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
   secrets.
 
 A driver is built in when its library is found (`libsqlite3`, `libpq`); `make SQLITE=0` or `PG=0`
-leaves one out, and `db_open` of that scheme is then an error.
+leaves one out, and `db_open` of that scheme is then an error. libpq is loaded when a program first
+opens a `postgres://` database, not when gaz starts, so a program that never does costs nothing for
+it; if it isn't installed then, `db_open` raises an error saying where gaz looked and how to install
+it.
 
 ### Sockets
 

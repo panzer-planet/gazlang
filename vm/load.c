@@ -1751,6 +1751,9 @@ static void link_program(void) {
     for (int i = 0; i < prog->nblocks; i++) total += prog->blocks[i]->nraw + 1;
     prog->code = xcalloc((size_t)total, sizeof(Instr));
     int *positions = NULL;
+    /* A builtin is reached only by its name, in a CALL_BUILTIN or a PUSH_FN, so a program that
+       names neither with db_open can't open a database */
+    int db_open = builtin_find("db_open", strlen("db_open"));
 
     for (int i = 0; i < prog->nblocks; i++) {
         Block *b = prog->blocks[i];
@@ -1813,6 +1816,7 @@ static void link_program(void) {
             case OP_CALL_BUILTIN:
                 in->a = builtin_find(r->names[0]->data, r->names[0]->len);
                 in->b = r->ints[1];
+                if (in->a == db_open) prog->opens_databases = true;
                 break;
             case OP_CHECK_PARAM:
                 in->p = read_type(r->names[1]);
@@ -1825,6 +1829,7 @@ static void link_program(void) {
                 int builtin = builtin_find(r->names[0]->data, r->names[0]->len);
                 if (f) in->v = v_func(f->value);
                 else if (builtin >= 0) in->v = v_func(builtin_value(builtin));
+                if (!f && builtin == db_open) prog->opens_databases = true;
                 break;
             }
             case OP_MAKE_CLOSURE:

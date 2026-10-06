@@ -305,6 +305,12 @@ bool start_workers(int64_t count, Value *out) {
        every stream open for writing) */
     flush_output();
     fflush(NULL);
+#ifdef GAZ_PG
+    /* libpq is loaded on a program's first postgres:// open; load it now, so every worker has it
+       (and on macOS can: see pg.c). Only for a program that names db_open, the only way to open
+       one, so a server without a database doesn't load libpq at all. */
+    if (program->opens_databases) pg_load_before_fork();
+#endif
 
     struct sigaction stop = {.sa_handler = on_stop};
     sigemptyset(&stop.sa_mask);

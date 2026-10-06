@@ -1,5 +1,5 @@
 /*
- * Run by DbPgTest against a real server: gaz pg_workers.gaz URL drop|share. A connection opened
+ * Run by DbPgTest against a real server: gaz pg_workers.gaz URL drop|share|own. A connection opened
  * before workers() is shared with every worker, so a worker can't use it and must leave it working
  * for the process that opened it when it lets go of it.
  *
@@ -8,10 +8,18 @@
  * the shared socket.
  * share: three workers try the inherited connection; each must be refused every time, promptly,
  * rather than garble the others' replies and hang.
+ * own: nothing is opened before workers(), so each of three workers opens its own connection, on
+ * the libpq workers() loaded in the master because this program names db_open.
  */
 import "std/db.gaz";
 
 [$url, $mode] = args();
+if ($mode == "own") {
+    workers(3);
+    $mine = db::open($url);
+    echo "worker's own " .. $mine.value(db::sql"select 1::int");
+    exit(0);
+}
 $db = db::open($url);
 $backend = $db.value(db::sql"select pg_backend_pid()");
 $n = workers($mode == "drop" ? 1 : 3);

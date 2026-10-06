@@ -98,7 +98,8 @@ composer ci                         # what CI runs, cold: phpstan with no result
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
   `open_memstream` and `realpath`; `builtins.c` defines `_GNU_SOURCE` too, for `memmem` before glibc 2.38), libc, libm and pthreads, and OpenSSL in `net.c`
   only (on by default, `make TLS=0` without, `GAZ_TLS` saying which), libsqlite3 in `sqlite.c` and
-  libpq in `pg.c` only (on when found, `make SQLITE=0`/`PG=0` without), built warning-free by
+  libpq in `pg.c` only (on when found, `make SQLITE=0`/`PG=0` without; libpq is loaded with
+  `dlopen` on the first `postgres://` open, so building needs only its header), built warning-free by
   clang and gcc, commented where the C isn't obvious (a
   flexible array member, a `goto` into shared code), for readers who know a little C.
 - **PHP** (the tests and `vm/*.php`): 8.5 or later, PSR-4 under `GazLang\Tests`, methods
@@ -372,7 +373,9 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   with notes from the commits; `gh workflow run release.yml` is a dry run that publishes nothing.
   To release: change `VERSION`, re-record the CLI's `version` row (`GAZLANG_RECORD=1 vendor/bin/phpunit
   --filter CliTest`), commit, then tag and push the tag. The binaries have TLS and SQLite but
-  not PostgreSQL, since libpq is rarely installed and Homebrew's can't travel. On macOS OpenSSL
+  not PostgreSQL. libpq is loaded when a program first opens a `postgres://` database, not linked,
+  so a binary built with its header would work wherever libpq is installed and give a clear error
+  where it isn't; the workflow doesn't install the header yet. On macOS OpenSSL
   is linked in, so they need nothing but the system, and `net.c` trusts the system's
   `/etc/ssl/cert.pem` too (unless `SSL_CERT_FILE` says otherwise), since a linked-in OpenSSL looks
   for certificates where Homebrew keeps them; without it https fails on a Mac without Homebrew. No promise about what changes between releases yet.

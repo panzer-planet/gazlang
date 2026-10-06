@@ -4,7 +4,8 @@ namespace GazLang\Tests;
 
 /**
  * lib/db.gaz and the PostgreSQL driver, against a real server: tests/db/pg_check.gaz, which uses
- * temporary tables only, and tests/db/pg_workers.gaz, a connection opened before workers().
+ * temporary tables only, and tests/db/pg_workers.gaz, a connection opened before workers() and
+ * workers opening their own on the libpq the master loaded.
  * Skipped without GAZLANG_TEST_PG, the server's URL
  * (postgres://user:password@localhost/postgres); the SQLite driver needs no server, and its
  * tests are tests/gaz/lib/db_test.gaz.
@@ -36,6 +37,19 @@ class DbPgTest extends GazLangTestCase
         [$out, $err, $code] = self::workers('share');
 
         $this->assertSame([str_repeat("worker refused 100\n", 3), '', 0], [$out, $err, $code]);
+    }
+
+    /**
+     * Nothing is opened before workers(), but the program names db_open, so workers() loads libpq
+     * in the master and each worker's first open uses it. A worker never loads libpq itself, by
+     * design: on macOS Homebrew's libpq brings in Kerberos.framework, whose Objective-C classes
+     * can't be set up in a child forked from a process with two threads, and the worker is killed.
+     */
+    public function test_a_worker_uses_the_libpq_its_master_loaded()
+    {
+        [$out, $err, $code] = self::workers('own');
+
+        $this->assertSame([str_repeat("worker's own 1\n", 3), '', 0], [$out, $err, $code]);
     }
 
     /**

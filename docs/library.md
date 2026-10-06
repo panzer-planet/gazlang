@@ -132,7 +132,21 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
 - `tests/gaz/lib/sql_test.gaz` renders both styles with no database; `db_test.gaz` and
   `pg_check.gaz` run them. `ponytail:` no helper joins a list of fragments (a bulk insert of many
   rows is one `values {$row}` per row, or a loop in a transaction).
-- `make SQLITE=1`/`PG=1` make a missing library an error, which CI asks for. SQLite is tested by
+- **libpq is loaded, not linked** (`load_libpq()` in `pg.c`, `dlopen` on the first `postgres://`
+  open), since linked it cost every start of gaz about 7ms (it brings OpenSSL 3 and Kerberos) for
+  programs that never open a database. Building needs only `libpq-fe.h`, so "built in" means
+  compiled against the header; the directory make found the library in is built in and tried
+  first, then the system's own search (`libpq.so.5`, `libpq.5.dylib`), then Homebrew's two prefixes
+  on macOS. Missing, `db_open` raises a catchable error naming every file tried and how to install
+  it. **`workers()` loads it before it forks** (`pg_load_before_fork()`), when the program names
+  `db_open` (`Program.opens_databases`, set by the loader from `CALL_BUILTIN` and `PUSH_FN`, the
+  only ways a builtin is reached, so a server without a database never loads it): on macOS
+  Homebrew's libpq brings in Kerberos.framework, whose Objective-C classes can't be set up in a
+  child forked from a process with two threads, so a worker loading it itself was killed; elsewhere
+  it saves each worker (and each recycled one) the load. Tested by `DbPgTest`'s `own` run of
+  `tests/db/pg_workers.gaz`. On macOS libpq is looked for by whole paths only, since dyld would
+  find a name alone in the working directory.
+- `make SQLITE=1`/`PG=1` make a missing library (libpq's header) an error, which CI asks for. SQLite is tested by
   `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded, sanitized, leak-checked); PostgreSQL by
   `DbPgTest` running `tests/db/pg_check.gaz` against the server `GAZLANG_TEST_PG` names (skipped
   without), on temporary tables. `ponytail:` a bool parameter is 0/1 in SQLite, no blobs going in,
