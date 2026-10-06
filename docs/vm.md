@@ -99,6 +99,13 @@ shell calls are its session and a sequence showing a bug is already a test case.
   `open_memstream()` buffer, which is then loaded as bytecode saved next to the source. Each run
   starts with fresh stacks and globals and the compile's leftovers are dropped first, so the leak
   check sees only the program. It costs about 10ms before the first instruction.
+- **Reading bytecode is most of starting**, since every run of source loads the compiler (about
+  50000 lines) first, so the reader does per line only what it must: words go into one buffer
+  every line reuses (`split_words()`), an instruction's name is found by a hash table built once
+  (`op_find()`), an `@` line's literal written as the last one was isn't read again
+  (`read_location()`), and an instruction keeps a pointer to its line rather than its words, which
+  only the "stack is N deep at ..." message needs, split again then. Each was a malloc, a binary
+  search or an intern per line, and together they were half of loading the compiler.
 - **Errors are return values**: a function that can fail returns `bool` with the error in
   `vm_error`, passed up to the dispatch loop, which locates it and unwinds. No
   `setjmp`/`longjmp`, so reference counts stay right on the way out. The loader is the

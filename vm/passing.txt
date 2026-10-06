@@ -872,6 +872,7 @@ tests/corpora/bytecode/error_set_field_at_top_level.gzb
 tests/corpora/bytecode/error_slot.gzb
 tests/corpora/bytecode/error_stack_differs.gzb
 tests/corpora/bytecode/error_stack_differs_after_try.gzb
+tests/corpora/bytecode/error_stack_differs_spaced.gzb
 tests/corpora/bytecode/error_static_slot_out_of_range.gzb
 tests/corpora/bytecode/error_static_type_then_more.gzb
 tests/corpora/bytecode/error_static_type_without_slot.gzb

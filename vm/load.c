@@ -143,8 +143,7 @@ typedef struct RawInstr {
     int op;
     int ints[3];        /* slot, count and lambda arguments */
     Str *names[3];      /* label, function, kind, member... arguments, interned */
-    Str *words[4];      /* the words as written, for messages */
-    int nwords;
+    const char *text;   /* the line as written, for a message; only while the file is read */
     Value value;        /* PUSH's value */
     Path *path;
     Str *file;
@@ -187,14 +186,28 @@ static char *next_line(void) {
     return NULL;
 }
 
-/* A line's words, split on runs of whitespace; w[] points into a copy, both freed by free_words() */
-typedef struct { char *copy; char **w; int n; } Words;
+/* A line's words, split on runs of whitespace */
+typedef struct { char **w; int n; } Words;
 
+/*
+ * w[] points into one buffer that every call reuses, growing it when a line is longer than any
+ * before, so the words last only until the next line is split: a malloc and a free per line
+ * were most of the time it took to read the compiler. Nothing holds two lines' words at once.
+ */
 static void split_words(const char *line, Words *out) {
-    out->copy = strdup(line);
-    out->w = xmalloc((strlen(line) / 2 + 2) * sizeof(char *));   /* never more words than that */
+    static char *copy;
+    static char **words;
+    static size_t cap;
+    size_t len = strlen(line);
+    if (len + 1 > cap) {
+        cap = (len + 1) * 2;
+        copy = xrealloc(copy, cap);
+        words = xrealloc(words, (cap / 2 + 2) * sizeof(char *));   /* never more words than that */
+    }
+    memcpy(copy, line, len + 1);
+    out->w = words;
     out->n = 0;
-    char *p = out->copy;
+    char *p = copy;
     while (*p) {
         while (*p && is_space(*p)) p++;
         if (!*p) break;
@@ -203,11 +216,6 @@ static void split_words(const char *line, Words *out) {
         if (*p) *p++ = '\0';
     }
     if (out->n == 0) out->w[out->n++] = p;
-}
-
-static void free_words(Words *w) {
-    free(w->copy);
-    free(w->w);
 }
 
 static const char *word(Words *w, int i) {
@@ -619,20 +627,8 @@ static Str *absolute_path(const char *path) {
     return buf_to_str(&out);
 }
 
-/* A source path as the parser shows it: relative to the working directory when it is under it.
-   Consecutive @ lines nearly always name the same file, so the last answer is kept. */
-static Str *last_file, *last_shown;
-static Str *display_path_of(Str *file);
-
+/* A source path as the parser shows it: relative to the working directory when it is under it */
 static Str *display_path(Str *file) {
-    if (last_file && last_file->len == file->len && memcmp(last_file->data, file->data, file->len) == 0) return last_shown;
-    Str *shown = display_path_of(file);
-    last_file = str_intern(file->data, file->len);
-    last_shown = shown;
-    return shown;
-}
-
-static Str *display_path_of(Str *file) {
     Buf joined = {0};
     if (file->data[0] != '/') {
         buf_add_str(&joined, base_dir);
@@ -696,29 +692,47 @@ static Path *read_path(const char *text, bool element) {
 
 /* ---- Blocks ---------------------------------------------------------------------------- */
 
-/* An instruction by name, or -1: a binary search of the names in order, sorted the first time */
-static int by_name[OP_COUNT];
+/*
+ * An instruction by name, or -1. Every line of code asks, so the names are hashed into a table
+ * once (open addressing: a name's slot is its hash, or the next free one after it), and a lookup
+ * is one hash and, nearly always, one strcmp. The table holds an op plus one, 0 being empty.
+ */
+#define OP_TABLE 512
+_Static_assert(OP_COUNT * 2 <= OP_TABLE, "the instruction table must stay at most half full");
 
-static int compare_ops(const void *a, const void *b) {
-    return strcmp(INFO[*(const int *)a].name, INFO[*(const int *)b].name);
-}
-
-static int compare_name(const void *name, const void *op) {
-    return strcmp(name, INFO[*(const int *)op].name);
+/* FNV-1a, which is enough to spread a hundred upper-case names */
+static uint32_t name_hash(const char *name) {
+    uint32_t h = 2166136261u;
+    for (const char *p = name; *p; p++) h = (h ^ (uint8_t)*p) * 16777619u;
+    return h;
 }
 
 static int op_find(const char *name) {
-    static bool sorted;
-    if (!sorted) {
-        for (int op = 0; op < OP_COUNT; op++) by_name[op] = op;
-        qsort(by_name, OP_COUNT, sizeof(int), compare_ops);
-        sorted = true;
+    static int table[OP_TABLE];
+    static bool built;
+    if (!built) {
+        for (int op = 0; op < OP_COUNT; op++) {
+            uint32_t j = name_hash(INFO[op].name) % OP_TABLE;
+            while (table[j]) j = (j + 1) % OP_TABLE;
+            table[j] = op + 1;
+        }
+        built = true;
     }
-    const int *found = bsearch(name, by_name, OP_COUNT, sizeof(int), compare_name);
-    return found ? *found : -1;
+    for (uint32_t j = name_hash(name) % OP_TABLE; table[j]; j = (j + 1) % OP_TABLE) {
+        if (!strcmp(INFO[table[j] - 1].name, name)) return table[j] - 1;
+    }
+    return -1;
 }
 
-/* An @ line: the file as it is shown, and the line */
+/*
+ * An @ line: the file as it is shown, and the line. Consecutive @ lines nearly always name the
+ * same file, so the last literal and what it gave are kept, and a literal written the same way
+ * again isn't read again. start_reading() forgets them, since a path is shown by where the
+ * bytecode file is.
+ */
+static Buf last_literal;
+static Str *last_file;
+
 static void read_location(Words *w, Str **file, int *line) {
     if (w->n == 2) {
         *file = NULL;
@@ -726,10 +740,15 @@ static void read_location(Words *w, Str **file, int *line) {
         return;
     }
     if (w->n != 3 || w->w[1][0] != '"') fail("Expected @ \"file\" line or @ line");
-    Value v = read_value(w->w[1]);
-    if (v.type != T_STRING) fail("Expected @ \"file\" line");
-    *file = v.s->data[0] == '<' ? str_intern(v.s->data, v.s->len) : display_path(v.s);
-    decref(v);
+    if (!last_file || strcmp(last_literal.data, w->w[1])) {
+        Value v = read_value(w->w[1]);
+        if (v.type != T_STRING) fail("Expected @ \"file\" line");
+        last_file = v.s->data[0] == '<' ? str_intern(v.s->data, v.s->len) : display_path(v.s);
+        decref(v);
+        last_literal.len = 0;
+        buf_adds(&last_literal, w->w[1]);
+    }
+    *file = last_file;
     *line = count(w->w[2]);
 }
 
@@ -745,7 +764,6 @@ static void read_code(Block *b) {
         split_words(text, &w);
         if (!strcmp(w.w[0], "@")) {
             read_location(&w, &file, &line);
-            free_words(&w);
             continue;
         }
         int op = op_find(w.w[0]);
@@ -753,7 +771,6 @@ static void read_code(Block *b) {
             /* A lowercase word starts the next block; anything else is meant to be an instruction */
             if (w.w[0][0] >= 'a' && w.w[0][0] <= 'z') {
                 at_line--;
-                free_words(&w);
                 return;
             }
             fail("Unknown instruction '%s'", w.w[0]);
@@ -789,9 +806,7 @@ static void read_code(Block *b) {
         if (w.n != info->nargs + 1 && !has_value) {
             fail("%s takes %d argument%s", info->name, info->nargs, info->nargs == 1 ? "" : "s");
         }
-        for (int i = 0; i < w.n && i < 4; i++) r.words[i] = intern(w.w[i]);
-        r.nwords = w.n < 4 ? w.n : 4;
-        free_words(&w);
+        r.text = text;
         if (b->nraw == cap) b->raw = xrealloc(b->raw, (cap *= 2) * sizeof(RawInstr));
         b->raw[b->nraw++] = r;
     }
@@ -970,7 +985,6 @@ static Block *read_block(const char *header) {
     } else {
         fail("Unknown block '%s'", block_word);
     }
-    free_words(&w);
 
     /* The record lines a kind or lambda block carries, then its locals */
     for (;;) {
@@ -1053,12 +1067,10 @@ static Block *read_block(const char *header) {
             if (b->self < 0) fail("%s is not captured", name->data);
         } else if (!strcmp(first, "locals")) {
             for (int i = 1; i < w.n; i++) b->locals = push_name(b->locals, &b->nlocals, intern(w.w[i]));
-            free_words(&w);
             break;
         } else {
             fail("Expected 'locals'");
         }
-        free_words(&w);
     }
 
     read_code(b);
@@ -1330,10 +1342,13 @@ static void check_block(Block *b) {
             RawInstr *r = &b->raw[position];
             if (heights[position] >= 0) {
                 if (heights[position] != height) {
+                    /* The instruction as its first four words, one space apart */
+                    Words w;
+                    split_words(r->text, &w);
                     Buf what = {0};
-                    for (int i = 0; i < r->nwords; i++) {
+                    for (int i = 0; i < w.n && i < 4; i++) {
                         if (i) buf_addc(&what, ' ');
-                        buf_add_str(&what, r->words[i]);
+                        buf_adds(&what, w.w[i]);
                     }
                     FAIL("The stack is %d deep at %s (instruction %d), but %d on another path", height, what.data, position, heights[position]);
                 }
@@ -1913,14 +1928,12 @@ Program *load(const char *text, size_t len, const char *path) {
     split_words(line ? line : "", &w);
     if (w.n != 3 || strcmp(w.w[0], "GAZLANG") || strcmp(w.w[1], "BYTECODE")) fail("Not a bytecode file");
     if (strcmp(w.w[2], "3")) fail("Bytecode version %s, but this is GazLang bytecode 3", w.w[2]);
-    free_words(&w);
 
     prog = xcalloc(1, sizeof(Program));
     line = next_line();
     split_words(line ? line : "", &w);
     if (strcmp(w.w[0], "globals")) fail("Expected 'globals'");
     for (int i = 1; i < w.n; i++) prog->globals = push_name(prog->globals, &prog->nglobals, intern(w.w[i]));
-    free_words(&w);
 
     /* A static field is named "Kind::name", the kind being the one that declares it, so a
        child and its parent name the same slot. The line is optional, as most programs have none */
@@ -1932,7 +1945,6 @@ Program *load(const char *text, size_t len, const char *path) {
         } else {
             at_line--;      /* not ours, so the block reader gets this line */
         }
-        free_words(&w);
     }
 
     int cap = 8;
@@ -2043,7 +2055,6 @@ char **source_files(const char *text, size_t len, const char *path, int *n) {
         Str *file = NULL;
         int at;
         read_location(&w, &file, &at);
-        free_words(&w);
         if (!file || file->data[0] == '<') continue;
         bool seen = false;
         for (int i = 0; i < count && !seen; i++) seen = strcmp(files[i], file->data) == 0;
