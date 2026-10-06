@@ -141,7 +141,9 @@ It is a hobby language, not production software, and it would like company.
 
 Download a release for Linux or macOS from the
 [releases page](https://github.com/panzer-planet/gazlang/releases), unpack it, and put `gaz` on
-your `PATH`. Building it from source needs nothing but a C compiler — see
+your `PATH`. HTTPS and SQLite need nothing more; PostgreSQL needs libpq installed (`brew install
+libpq`, or `apt install libpq5`), which gaz loads the first time a program opens a database.
+Building it from source needs nothing but a C compiler — see
 [Building from source](docs/internals.md#building-from-source) for that and the optional build
 flags.
 

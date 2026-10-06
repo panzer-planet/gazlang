@@ -372,10 +372,11 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   Intel), and publishes the three `.tar.gz` and their `SHA256SUMS` as a GitHub release
   with notes from the commits; `gh workflow run release.yml` is a dry run that publishes nothing.
   To release: change `VERSION`, re-record the CLI's `version` row (`GAZLANG_RECORD=1 vendor/bin/phpunit
-  --filter CliTest`), commit, then tag and push the tag. The binaries have TLS and SQLite but
-  not PostgreSQL. libpq is loaded when a program first opens a `postgres://` database, not linked,
-  so a binary built with its header would work wherever libpq is installed and give a clear error
-  where it isn't; the workflow doesn't install the header yet. On macOS OpenSSL
+  --filter CliTest`), commit, then tag and push the tag. The binaries have TLS, SQLite and
+  PostgreSQL, **built in but not bundled**: libpq is loaded when a program first opens a
+  `postgres://` database, not linked, so a binary works wherever libpq is installed (on macOS,
+  Homebrew's: the release bakes in its opt directory) and gives a clear error where it isn't, which
+  the release tries both ways, and from two workers on macOS (#75). On macOS OpenSSL
   is linked in, so they need nothing but the system, and `net.c` trusts the system's
   `/etc/ssl/cert.pem` too (unless `SSL_CERT_FILE` says otherwise), since a linked-in OpenSSL looks
   for certificates where Homebrew keeps them; without it https fails on a Mac without Homebrew. No promise about what changes between releases yet.

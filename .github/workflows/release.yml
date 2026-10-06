@@ -5,10 +5,11 @@ name: Release
 #
 #   git tag v0.1.0 && git push origin v0.1.0
 #
-# The binaries carry TLS and SQLite, not PostgreSQL (libpq is rarely installed, and Homebrew's
-# can't travel); a program that needs it builds gaz from source. On macOS OpenSSL is linked in, so
-# a Mac needs nothing but the system; on Linux the binary uses the system's OpenSSL 3 and SQLite,
-# and is built on the latest Ubuntu, which CI tests on.
+# The binaries carry TLS, SQLite and PostgreSQL. PostgreSQL is built in but not bundled: gaz loads
+# libpq the first time a program opens a postgres:// database, and says how to install it if it
+# can't. On macOS OpenSSL is linked in, so a Mac needs nothing but the system (and Homebrew's libpq
+# for PostgreSQL); on Linux the binary uses the system's OpenSSL 3, SQLite and libpq, and is built
+# on the latest Ubuntu, which CI tests on.
 
 on:
   push:
@@ -43,20 +44,26 @@ jobs:
             exit 1
           fi
 
-      - name: Install OpenSSL and SQLite
+      - name: Install OpenSSL, SQLite and libpq's header
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsqlite3-dev
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev libsqlite3-dev libpq-dev
 
       - name: Build on Linux
         if: runner.os == 'Linux'
-        run: make -C vm TLS=1 SQLITE=1 PG=0
+        run: make -C vm TLS=1 SQLITE=1 PG=1
 
-      # Homebrew's OpenSSL, linked in, since a Mac without Homebrew has no libssl to find
+      # Homebrew's OpenSSL, linked in, since a Mac without Homebrew has no libssl to find; its
+      # headers named too, or pkg-config may find another OpenSSL's. libpq's header from Homebrew,
+      # and its opt directory (stable across versions, where a user's brew install puts it too)
+      # baked in as the first place to look; libpq itself is loaded only when a program needs it
       - name: Build on macOS
         if: runner.os == 'macOS'
         run: |
+          brew install libpq
           ssl="$(brew --prefix openssl@3)"
-          make -C vm TLS=1 SQLITE=1 PG=0 SSL_LIBS="$ssl/lib/libssl.a $ssl/lib/libcrypto.a"
+          pq="$(brew --prefix libpq)"
+          make -C vm TLS=1 SQLITE=1 PG=1 SSL_FLAGS="-I$ssl/include" \
+            SSL_LIBS="$ssl/lib/libssl.a $ssl/lib/libcrypto.a" PG_FLAGS="-I$pq/include" PG_LIBDIR="$pq/lib"
           if otool -L bin/gaz | grep -q -e /opt/homebrew -e /usr/local; then
             echo "bin/gaz still needs a Homebrew library:" >&2
             otool -L bin/gaz >&2
@@ -69,6 +76,27 @@ jobs:
           bin/gaz --version | grep -qx "gaz $(cat VERSION)"
           bin/gaz tests/programs/functions.gaz > /dev/null
           echo 'import "std/json.gaz"; echo json::encode(db_run(db_open("sqlite::memory:"), "select 1 as one")["rows"]);' | bin/gaz
+
+      # PostgreSQL with no server: a refused port shows libpq was loaded and called; on macOS the
+      # same from two workers, which once aborted in the Objective-C runtime; then, with libpq
+      # removed, the error that says to install it
+      - name: Try PostgreSQL
+        run: |
+          probe='try { db_open("postgres://x@127.0.0.1:1/x"); } catch (Error $e) { echo $e.message .. "\n"; }'
+          echo "$probe" | bin/gaz | tee /tmp/present.txt
+          grep -q 'cannot connect' /tmp/present.txt
+          if [ "$RUNNER_OS" = macOS ]; then
+            printf 'workers(2);\n%s\nexit(0);\n' "$probe" > /tmp/workers.gaz
+            bin/gaz /tmp/workers.gaz > /tmp/workers.txt 2>&1 || true
+            cat /tmp/workers.txt
+            if grep -q 'Crashing instead' /tmp/workers.txt; then exit 1; fi
+            [ "$(grep -c 'cannot connect' /tmp/workers.txt)" = 2 ]
+            brew uninstall --ignore-dependencies libpq
+          else
+            sudo dpkg --remove --force-depends libpq-dev libpq5
+          fi
+          echo "$probe" | bin/gaz | tee /tmp/absent.txt
+          grep -q 'libpq could not be loaded' /tmp/absent.txt
 
       - name: Package
         run: |
