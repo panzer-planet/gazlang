@@ -97,6 +97,14 @@ differ from the kind whose version runs: `method area Square kin Shape` is Squar
 a method Shape declared, and it is Shape's marker that says who may name it. Nothing said means
 the declarer is the definer.
 
+A kind's header may start with `abstract`, for a kind nothing constructs, or `final`, for a kind
+nothing extends. A `method` line may end with `final`, after its marker and any declarer, for a
+method no child may override: `method area Square pub Shape final`. A method a kind keeps to
+itself is never overridden, so a `final` line has a marker. Every kind that has the entry
+repeats the word, so a kind is checked against its parent alone: a child keeps each final entry
+as its parent has it, the same version and still `final`. An unmarked entry of the name beside
+it is the child's own method, which overrides nothing.
+
 An `implements` line names an interface the kind claims itself, one line each, in the order
 the source wrote them; what its ancestors claim is theirs to say, and a loader works out the
 whole set. A kind whose objects can be made (one that isn't abstract) must have, for every
@@ -117,8 +125,15 @@ kind Circle extends Shape
 field name Shape kin string
 field radius Circle pub float
 method _ Circle pub Shape
-method area Circle pub Shape
+method area Circle pub Shape final
 static made int
+locals $#argument_0
+
+final kind Ring extends Circle
+field name Shape kin string
+field radius Circle pub float
+method _ Circle pub Shape
+method area Circle pub Shape final
 locals $#argument_0
 ```
 
@@ -383,6 +398,8 @@ A file that loads is one the VM can run, so the checks are part of the format:
   caught error is made as.
 - A block's `in Kind` names a kind the file declares, and so does a `method` line's declarer
   and a kind's parent. No kind is its own ancestor, through any number of parents.
+- No kind's parent is `final`, and every `pub` or `kin` entry a kind has of the name of a
+  `final` entry of its parent's runs the same version and says `final` too.
 - An interface's name is no kind's or other interface's, and it names each method once, with no
   code. Every `implements` line names an interface, each once in a kind, and a kind that isn't
   abstract has, for every interface it or an ancestor claims, a `pub` method of each name the

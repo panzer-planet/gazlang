@@ -1,0 +1,10 @@
+ok a final kind is constructed and its own methods run
+ok a final method runs on a child that inherits it
+ok and reaches a kin final method of the grandparent
+ok a final method can be taken as a bound method
+ok a final kind is a kind like any other
+ok is_a sees its ancestors
+ok it prints as any object
+ok extending a final kind
+ok extending Html, which is final
+ok overriding a final method

@@ -443,9 +443,8 @@ class LspTest extends GazLangTestCase
         $this->assertSame(['label' => 'fn', 'kind' => 14], $byLabel['fn']);
         $this->assertSame(['label' => 'len', 'kind' => 3, 'detail' => '1 argument'], $byLabel['len']);
         $this->assertSame(['label' => 'slice', 'kind' => 3, 'detail' => '2 to 3 arguments'], $byLabel['slice']);
-        // A word reserved for what isn't built isn't offered, nor one that is gone, nor another
-        // language's keyword
-        $this->assertArrayNotHasKey('final', $byLabel);
+        // A word that is gone isn't offered, nor another language's keyword
+        $this->assertSame(['label' => 'final', 'kind' => 14], $byLabel['final']);
         $this->assertSame(['label' => 'interface', 'kind' => 14], $byLabel['interface']);
         $this->assertArrayNotHasKey('include', $byLabel);
         $this->assertSame(['label' => 'import', 'kind' => 14], $byLabel['import']);
@@ -461,7 +460,7 @@ class LspTest extends GazLangTestCase
     {
         preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/compiler/lexer.gaz'), $table);
         preg_match_all('/"(\w+)" =>/', $table[1], $words);
-        $hints = ['include', 'final'];
+        $hints = ['include'];
         $offered = array_column(array_filter(
             $this->completionsFor('file:///a.gaz', "echo 1;\n"),
             fn ($item) => $item['kind'] === 14,

@@ -124,7 +124,7 @@
 						</dict>
 					</dict>
 					<key>match</key>
-					<string>^\s*(?:(abstract)\s+)?(kind)\s+([A-Za-z_][\w:.]*)(?:\s+(extends)\s+([A-Za-z_][\w:.]*))?\s*$</string>
+					<string>^\s*(?:(abstract|final)\s+)?(kind)\s+([A-Za-z_][\w:.]*)(?:\s+(extends)\s+([A-Za-z_][\w:.]*))?\s*$</string>
 				</dict>
 				<dict>
 					<key>captures</key>
@@ -937,9 +937,14 @@
 							<key>name</key>
 							<string>entity.other.inherited-class.gzb</string>
 						</dict>
+						<key>6</key>
+						<dict>
+							<key>name</key>
+							<string>storage.modifier.gzb</string>
+						</dict>
 					</dict>
 					<key>match</key>
-					<string>^\s*(method)\s+(\w+)\s+([A-Za-z_][\w:.]*)(?:\s+(pub|kin))?(?:\s+([A-Za-z_][\w:.]*))?\s*$</string>
+					<string>^\s*(method)\s+(\w+)\s+([A-Za-z_][\w:.]*)(?:\s+(pub|kin)(?:\s+(?!final\b)([A-Za-z_][\w:.]*))?(?:\s+(final))?)?\s*$</string>
 				</dict>
 				<!-- An interface's method: its name and the arity an implementer must accept -->
 				<dict>

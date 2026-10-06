@@ -1,1 +1,1 @@
-Error: final is reserved on line 3
+Error: Method Account.deposit escapes only Account, so no child can override it: make it kin or pub, or drop final on line 3

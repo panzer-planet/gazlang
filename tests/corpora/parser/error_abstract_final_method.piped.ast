@@ -1,0 +1,1 @@
+Error: A method can't be both abstract and final: an abstract method is there to be defined by a child on line 2

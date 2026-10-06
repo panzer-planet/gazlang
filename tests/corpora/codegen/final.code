@@ -1,0 +1,74 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ "final.gaz" 26
+NEW Tile 0
+GET_METHOD area
+CALL_METHOD 0 area
+PRINT
+@ "final.gaz" 27
+NEW Tile 0
+PRINT
+
+kind Shape
+method area Shape pub final
+method side Shape kin
+locals
+@ "final.gaz" 4
+LOAD_THIS
+RET
+
+fn Shape.area 0 0
+locals
+@ "final.gaz" 6
+PUSH 1
+RET
+@ "final.gaz" 5
+PUSH null
+RET
+
+fn Shape.side 0 0
+locals
+@ "final.gaz" 10
+PUSH 1
+RET
+@ "final.gaz" 9
+PUSH null
+RET
+
+kind Square extends Shape
+method area Shape pub final
+method side Square kin Shape final
+locals
+@ "final.gaz" 14
+LOAD_THIS
+RET
+
+fn Square.side 0 0
+locals
+@ "final.gaz" 16
+PUSH 2
+RET
+@ "final.gaz" 15
+PUSH null
+RET
+
+final kind Tile extends Square
+method area Shape pub final
+method side Square kin Shape final
+method to_string Tile pub
+locals
+@ "final.gaz" 20
+LOAD_THIS
+RET
+
+fn Tile.to_string 0 0
+locals
+@ "final.gaz" 22
+PUSH "tile"
+RET
+@ "final.gaz" 21
+PUSH null
+RET

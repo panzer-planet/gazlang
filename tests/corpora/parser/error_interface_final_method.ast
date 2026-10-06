@@ -1,1 +1,1 @@
-Error: final is reserved at tests/corpora/parser/error_interface_final_method.gaz:2
+Error: An interface's methods are there to be defined, so none can be final at tests/corpora/parser/error_interface_final_method.gaz:2

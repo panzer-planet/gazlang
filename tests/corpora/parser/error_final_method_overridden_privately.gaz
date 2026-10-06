@@ -1,0 +1,8 @@
+kind Shape {
+    pub final fn area() {}
+}
+
+// An override that escapes less is still an override, and final is said first
+kind Square extends Shape {
+    fn area() {}
+}

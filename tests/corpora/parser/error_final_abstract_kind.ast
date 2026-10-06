@@ -1,0 +1,1 @@
+Error: A kind can't be both abstract and final: an abstract kind is there to be extended at tests/corpora/parser/error_final_abstract_kind.gaz:1

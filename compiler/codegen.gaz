@@ -1101,7 +1101,8 @@ kind CodeGenerator {
             #compile_initialiser($kind);
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
-                "implements" => $kind.interfaces ?? [], "abstract" => $kind.abstract, "fields" => #field_records($kind), "methods" => $kind.method_table,
+                "implements" => $kind.interfaces ?? [], "abstract" => $kind.abstract, "final" => $kind.final ?? false,
+                "fields" => #field_records($kind), "methods" => #method_records($kind),
                 "statics" => #typed_statics($kind),
             });
             foreach ($kind.methods as $method) {
@@ -1134,6 +1135,18 @@ kind CodeGenerator {
         foreach ($kind.slots as [$field, $declarer, $vis]) {
             $type = #kinds[$declarer].field_types[$field] ?? null;
             $records[] = [$field, $declarer, $vis, $type?.text()];
+        }
+
+        return $records;
+    }
+
+    // Every method a kind can run, each as [name, definer, vis, declarer, final]: what its record
+    // says of them, final being the definer's word, which every kind that has the entry repeats
+    fn method_records($kind) {
+        $records = [];
+        foreach ($kind.method_table as [$method, $definer, $vis, $declarer]) {
+            $final = #kinds[$definer].methods[$method].final ?? false;
+            $records[] = [$method, $definer, $vis, $declarer, $final];
         }
 
         return $records;
@@ -1299,7 +1312,13 @@ kind Program {
     }
 
     fn kind_header($block) {
-        $lines = [($block["abstract"] ? "abstract kind " : "kind ") .. $block["name"]
+        $marker = "";
+        if ($block["abstract"]) {
+            $marker = "abstract ";
+        } else if ($block["final"]) {
+            $marker = "final ";
+        }
+        $lines = [$marker .. "kind " .. $block["name"]
             .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
         foreach ($block["implements"] as $interface) {
             $lines[] = "implements {$interface}";
@@ -1307,9 +1326,9 @@ kind Program {
         foreach ($block["fields"] as [$field, $declarer, $vis, $type]) {
             $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}") .. ($type == null ? "" : " {$type}");
         }
-        foreach ($block["methods"] as [$method, $definer, $vis, $declarer]) {
+        foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final]) {
             $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}")
-                .. ($declarer == $definer ? "" : " {$declarer}");
+                .. ($declarer == $definer ? "" : " {$declarer}") .. ($final ? " final" : "");
         }
         // Only a static field with a type has a line: its slot is in the statics line already
         foreach ($block["statics"] as [$static, $type]) {

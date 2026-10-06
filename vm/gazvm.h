@@ -296,6 +296,7 @@ struct Block {
     int nmap;
     struct { bool from_closure; int outer; int inner; } *map;   /* lambda: where each capture comes from */
     bool is_abstract;   /* kind */
+    bool is_final;      /* kind: no kind may extend it */
     Str *parent;        /* kind: the parent's name, or NULL */
     /* The kind this block's code is written in, or NULL: what a member use in it is asked for
        by. A method's own name carries it; a static method's and a lambda's header say "in K". */
@@ -308,6 +309,7 @@ struct Block {
     int nmethods;
     Str **method_names, **method_definers, **method_declarers;
     Vis *method_vis;
+    bool *method_final; /* kind: whether each method is final, which no child may override */
     int nstatic_types;  /* kind: the static fields it declares with a type, and each one's type */
     Str **static_names, **static_type_texts;
     int nimplements;    /* kind: the interfaces it claims itself */

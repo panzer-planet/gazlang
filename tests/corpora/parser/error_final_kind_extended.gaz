@@ -1,0 +1,6 @@
+final kind Page {
+}
+
+kind Fancy
+    extends Page {
+}

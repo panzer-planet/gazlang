@@ -1,0 +1,1 @@
+Error: Kind Fancy can't extend Html: it is final at tests/corpora/parser/error_final_kind_extended_html.gaz:2

@@ -1,0 +1,3 @@
+// Html is final, so a kind extending it is no way around the refusal to concatenate one
+kind Fancy extends Html {
+}

@@ -1,0 +1,1 @@
+Error: An interface can't be final: it is there to be implemented at tests/corpora/parser/error_final_interface.gaz:1

@@ -1,0 +1,1 @@
+Error: Method Square.area can't override Shape.area: it is final on line 7

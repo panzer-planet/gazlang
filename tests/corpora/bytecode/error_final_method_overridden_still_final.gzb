@@ -1,0 +1,27 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+kind Shape
+method area Shape pub final
+locals
+LOAD_THIS
+RET
+
+fn Shape.area 0 0
+locals
+PUSH 1
+RET
+
+kind Square extends Shape
+method area Square pub Shape final
+locals
+LOAD_THIS
+RET
+
+fn Square.area 0 0
+locals
+PUSH 2
+RET

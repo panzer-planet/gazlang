@@ -1,0 +1,1 @@
+Error: Only a kind or a method can be final: nothing else is extended or overridden at tests/corpora/parser/error_final_typed_field.gaz:2

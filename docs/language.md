@@ -519,6 +519,17 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   overrides it. `to_string()` must be `pub`, since printing calls it from outside; an
   `abstract fn` must be `pub` or `kin`, since a child defines what it can see. A constructor
   takes no marker: it is reached by constructing, not by naming.
+- **`final` closes a kind or a method**: no kind extends a `final kind`, and no kind below the one
+  that says it overrides a `final fn`. The marker comes first, as with `abstract` (`pub final
+  kind Receipt`, `kin final fn total()`); `final pub` is an error that says to write `pub final`.
+  Both are checked when the program is read, at the child: `Kind Refund can't extend Receipt: it
+  is final`, `Method Square.area can't override Shape.area: it is final`. Defining an abstract
+  method may close it (`pub final fn area()` in the kind that defines it). `final` is an error
+  wherever it would close nothing: on an abstract kind or method (each is there to be extended or
+  defined), on a method a kind keeps to itself (a child's method of that name is its own, never an
+  override), on a constructor (each kind's `_` is its own), on a method of a final kind (it is
+  closed already), and on a function, field, constant, static member, interface or an interface's
+  method.
 - **`fields()` and `echo` are not member access** and show every field that is set, whatever it
   escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.
@@ -814,8 +825,8 @@ comment, it can't appear in a docblock's text.
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
 default const import try catch finally throw true false kind extends abstract interface
-implements namespace use pub kin static shared`. `final` is reserved for a feature decided but
-not built ([final](https://github.com/panzer-planet/gazlang/issues/8)), and `include` stays a keyword so that writing it says to write `import`. Other
+implements final namespace use pub kin static shared`, and `include` stays a keyword so that
+writing it says to write `import`. Other
 languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
@@ -1823,7 +1834,7 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
   markup a second time. `..`, `..=`, `join()` and interpolation refuse one with `Cannot
   concatenate Html: build it with web::html"...", or use .text for its markup as a plain
   string`; `echo`, `print`, `to_string($h)` and `$h.text` give its markup when a plain string is
-  what you want.
+  what you want. `Html` is `final`, so no kind extending it gets round the refusal.
 - `@if (...)`, `@elseif (...)`, `@else`, `@endif`, `@foreach (...)` and `@endforeach` each stand
   alone on their line, which writes nothing. Their conditions are GazLang's, in parentheses.
 - `{{-- comment --}}` writes nothing; a line holding only one writes nothing at all. `@{{` writes

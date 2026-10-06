@@ -1,0 +1,61 @@
+import "std/test.gaz" use expect;
+
+/*
+ * final at run time: a final kind is constructed, printed and asked about as any kind is, a final
+ * method runs on every child that inherits it, ##name and a bound method reach it, and a child
+ * that overrides another method of the kind is unaffected. The checks when the program is read are
+ * the parser corpus's (tests/corpora/parser/error_final_*), and the loader's the bytecode corpus's.
+ */
+
+abstract kind Shape {
+    kin final fn framed($text) {
+        return "[" .. $text .. "]";
+    }
+
+    pub abstract fn area();
+
+    pub fn name() {
+        return "shape";
+    }
+}
+
+kind Square extends Shape {
+    fn _(pub #side) {}
+
+    // Defining the abstract method closes it to Square's children
+    pub final fn area() {
+        return #side * #side;
+    }
+
+    pub fn name() {
+        return #framed("square");
+    }
+}
+
+final kind Tile extends Square {
+    pub fn name() {
+        return "tile " .. ##name();
+    }
+
+    pub fn doubled() {
+        return #framed(to_string(#area() * 2));
+    }
+}
+
+$tile = Tile(3);
+expect("a final kind is constructed and its own methods run", $tile.name(), "tile [square]");
+expect("a final method runs on a child that inherits it", $tile.area(), 9);
+expect("and reaches a kin final method of the grandparent", $tile.doubled(), "[18]");
+expect("a final method can be taken as a bound method", ($tile.area)(), 9);
+expect("a final kind is a kind like any other", [type_of(Tile), kind_name(Tile), to_string(Tile)], ["kind", "Tile", "kind Tile"]);
+expect("is_a sees its ancestors", [is_a($tile, Square), is_a($tile, Shape), is_a(Square(1), Tile)], [true, true, false]);
+expect("it prints as any object", to_string($tile), "Tile \{#side => 3}");
+
+// What final refuses is refused when the program is read, at the child
+fn refused($source) {
+    $result = run([program_path(), "-e", $source]);
+    return trim($result["stderr"]);
+}
+expect("extending a final kind", refused("final kind A \{}\nkind B extends A \{}"), "Error: Kind B can't extend A: it is final on line 2");
+expect("extending Html, which is final", refused("kind Page extends Html \{}"), "Error: Kind Page can't extend Html: it is final on line 1");
+expect("overriding a final method", refused("kind A \{ pub final fn f() \{} }\nkind B extends A \{\n    pub fn f() \{}\n}"), "Error: Method B.f can't override A.f: it is final on line 3");

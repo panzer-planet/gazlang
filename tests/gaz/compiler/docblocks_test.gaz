@@ -125,6 +125,14 @@ expect("an interface and its methods", map($interface.declarations, describe), [
     "kind Square 6: kind Square implements Area | null",
 ]);
 
+// final marks a kind or a method as abstract does, and the signature keeps it
+$final = outline("/** Closed */\nfinal kind Seal {}\n/** Open */\nkind Box {\n    /** Kept */\n    kin final fn lid() {}\n}\n");
+expect("a final kind and a final method", map($final.declarations, describe), [
+    "kind Seal 2: final kind Seal | Closed",
+    "kind Box 4: kind Box | Open",
+    "method Box.lid 6: kin final fn lid() | Kept",
+]);
+
 // No namespace line: the first docblock is the first declaration's, not an overview
 $plain = outline("/** Adds */\nfn add(\$a, \$b) { return \$a + \$b; }\n");
 expect("no namespace", $plain.namespace, null);

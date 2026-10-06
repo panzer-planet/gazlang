@@ -1,0 +1,1 @@
+Error: Kinds can only be declared at the top level at tests/corpora/parser/error_final_kind_in_block.gaz:2

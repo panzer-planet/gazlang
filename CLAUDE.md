@@ -470,9 +470,6 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   hand-over, decoding, routing, sessions, middleware) and the rules each keeps, such as refusing
   both `Content-Length` and `Transfer-Encoding`, and a handle made before `workers()` being
   abandoned, never closed, by the processes that inherit it.
-- **`final` is decided, not built** ([#8](https://github.com/panzer-planet/gazlang/issues/8)): a
-  kind or method that may not be extended, next to interfaces (see "Interfaces"). The keyword is
-  reserved.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
   bytecode, while a method block stays `Kind.method`, which is what lets the loader tell the two
   apart. Resolution is one pass before anything else is checked, so nothing below it knows
@@ -775,8 +772,9 @@ and methods a table in C.
   can't replace a concrete one.
 - **Visibility**: `pub` means one thing everywhere, so one keyword for the whole language; `kin`
   and `kind` are one root. Markers are only `pub` and `kin`, so a reader learns one spelling.
-  `final` says it is reserved wherever it lands: where a statement, a member (after a marker
-  too, and in an interface) or an expression starts (`refuse_reserved_member()`).
+  `Parser::RESERVED` is empty, kept for the next word decided before it is built: one there says
+  it is reserved wherever it lands, where a statement, a member (after a marker too, and in an
+  interface) or an expression starts (`refuse_reserved_member()`).
   - **The asking kind is where the code is written**, checked by `check_member_escapes()` from
     the kind each use in `#uses` was written in; a kind's own private member named through a
     child (`Tally::n` in `Counter`) is its own (`as_asked()`). A block's header carries the kind
@@ -862,6 +860,22 @@ and methods a table in C.
   ancestor, which hung `is_a` before. Only `PUSH_KIND` and types may name an interface. Old
   files load unchanged, so the version stays 3.
 
+## final
+
+- **`final` closes a kind to children and a method to overrides**, so a kind can guard an
+  invariant no child should get round (`Html`, whose children could be concatenated as plain
+  strings). Checked when the program is read, at the child (`resolve_kind()`); the marker comes
+  first (`pub final fn`, as `pub abstract fn`), and `final pub` says so (`refuse_after_final()`).
+- **Loud where it would close nothing**, the restrictive choice: `abstract final`, a private
+  method (a child's of that name is its own, never an override, `claim()`), `_` (each kind's is
+  its own), a method of a final kind, and fields, constants, statics, functions, interfaces and
+  their methods are each an error saying why. Loosening any later breaks nothing.
+- **Set only when true** (`KindDeclarationAST.final`, `FunctionDeclarationAST.final`), so a tree
+  without it dumps as it did. **In bytecode** `final kind` and a `method` line's last word
+  `final`, repeated on every record that has the entry (`method_records()` in `codegen.gaz`), so
+  the loader checks each kind against its parent alone (`check_final()` in `load.c`). Old files
+  load unchanged, so the version stays 3.
+
 ## Command line arguments
 
 - **Builder methods, not a spec map**, so a misspelt method is caught when the program is read
@@ -894,9 +908,11 @@ and methods a table in C.
   point: each one stands out in review, where if every template call needed one, a
   `{!! $comment !!}` would hide among them. It is how Rails, Django and Jinja stay safe.
 - **Concatenating an `Html` is an error** because the plain string it gave was escaped again by
-  `{{ }}`; a kind extending `Html` too, and never its contents in the message. The loader notes the
-  kind named `Html` (`html_kind`, as `error_kind`) and `append_joined()` in `value.c` refuses it on
-  the conversion path, one tag compare ahead of echo's conversion. `format`'s helpers call
+  `{{ }}`, never with its contents in the message. `Html` is `final`, so a kind extending it is a
+  parse error. The loader notes the kind named `Html` (`html_kind`, as `error_kind`) and
+  `append_joined()` in `value.c` refuses it on the conversion path, one tag compare ahead of
+  echo's conversion; it still refuses a child of it (`kind_is_a()`), since bytecode written before
+  `final` can hold one and still loads. `format`'s helpers call
   `to_string()`, so make no `..`; `{!! !!}` writes `to_string((...))` for the same reason.
 - **`web::html"..."`** (`lib/web.gaz`; not the `Html` kind and not a global `html`, so it takes no
   name from a program) reads the text as a browser would (`Scanner`, in the same file, over the

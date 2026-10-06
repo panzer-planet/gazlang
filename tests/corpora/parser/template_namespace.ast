@@ -5,6 +5,7 @@ Compound
       name: "Html"
       parent: null
       abstract: false
+      final: true
       statics: []
       static_lines: []
       static_methods:

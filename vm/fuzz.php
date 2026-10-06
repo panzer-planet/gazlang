@@ -718,7 +718,7 @@ function bytecodeBlocks(array $lines): array
     $blocks = [];
     $at = -1;
     foreach ($lines as $i => $line) {
-        if (preg_match('/^(top|fn |lambda |kind |abstract kind |interface )/', $line)) {
+        if (preg_match('/^(top|fn |lambda |kind |abstract kind |final kind |interface )/', $line)) {
             $blocks[] = ['body' => [], 'locals' => 0, 'labels' => []];
             $at = count($blocks) - 1;
         }
@@ -871,7 +871,10 @@ final class ProgramGenerator
     private function kindDeclaration(int $k, array $kind): string
     {
         $implements = $k === 0 && $this->interface ? ' implements I0' : '';
-        $out = "kind C{$k}".($kind['parent'] === null ? '' : " extends C{$kind['parent']}")."{$implements} {\n";
+        // A kind nothing extends may be final, and a kind that isn't may have final methods: no
+        // generated method overrides another, since each kind's names are its own
+        $final = ! in_array($k, array_column($this->kinds, 'parent'), true) && $this->chance(3);
+        $out = ($final ? 'final ' : '')."kind C{$k}".($kind['parent'] === null ? '' : " extends C{$kind['parent']}")."{$implements} {\n";
         for ($f = 0; $f < $kind['fields']; $f++) {
             $out .= '    '.$this->escapes()."#c{$k}x{$f}".($this->chance(2) ? ' = '.$this->literal() : '').";\n";
         }
@@ -886,6 +889,7 @@ final class ProgramGenerator
             $this->scope = ['kind' => 'method', 'index' => $m, 'owner' => $k, 'params' => $arity, 'loop' => 0];
             // What implements an interface is pub
             $escapes = $implements === '' ? $this->escapes() : 'pub ';
+            $escapes .= ! $final && $this->chance(4) ? 'final ' : '';
             $out .= '    '.$escapes."fn c{$k}m{$m}(".($arity > 0 ? '$p0' : '').") {\n".$this->locals(8).$this->block(8)."    }\n";
         }
         if ($this->chance(2)) {

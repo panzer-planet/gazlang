@@ -1,0 +1,1 @@
+Error: Kind Page is final, so its methods need no final at tests/corpora/parser/error_final_method_in_final_kind.gaz:2

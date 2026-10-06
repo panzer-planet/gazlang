@@ -1,0 +1,13 @@
+kind Shape {
+    kin final fn area() {
+        return 1;
+    }
+}
+
+kind Square extends Shape {}
+
+kind Tile extends Square {
+    kin fn area() {
+        return 3;
+    }
+}

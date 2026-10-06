@@ -411,7 +411,7 @@ kind Parser {
 kind Shared {
     fn _(pub #value);
 }
-kind Html {
+final kind Html {
     fn _(pub #text) {}
 
     pub fn to_string() {
@@ -431,6 +431,12 @@ kind Html {
         return $text;
     }
 }';
+
+    // Why abstract and final can't mark one kind or method
+    const ABSTRACT_AND_FINAL = {
+        "kind" => "A kind can't be both abstract and final: an abstract kind is there to be extended",
+        "fn" => "A method can't be both abstract and final: an abstract method is there to be defined by a child",
+    };
 
     // How errors name the builtin kinds' source
     const BUILTIN_FILE = "<builtin>";
@@ -478,8 +484,9 @@ kind Html {
         "MULTIPLY" => 12, "DIVIDE" => 12, "MODULO" => 12,
     };
 
-    // Keywords reserved for features that don't exist yet, so adding them never breaks a program
-    pub const RESERVED = ["FINAL"];
+    // Keywords reserved for features that don't exist yet, so adding them never breaks a program:
+    // none now, and kept for the next one
+    pub const RESERVED = [];
     // Keywords of features that are gone, kept so that using one says what replaced it
     pub const REMOVED = ["INCLUDE"];
 
@@ -2369,6 +2376,24 @@ kind Html {
         return #at(StatementAST(#at(AssignAST($property, $assign_token, $variable), $token)), $token);
     }
 
+    /*
+     * What can't follow final, refused saying why: a marker goes first (pub final kind, pub
+     * final fn), abstract contradicts it, and nothing but a kind or a method is ever extended or
+     * overridden. $what is what final may mark here, "kind" at the top level or "fn" in a kind.
+     */
+    fn refuse_after_final($what) {
+        $token = #current_token;
+        if ($token.type == "PUB" || $token.type == "KIN") {
+            #fail("{$token.value} comes before final: write '{$token.value} final {$what} ...'");
+        } else if ($token.type == "ABSTRACT") {
+            #fail(#ABSTRACT_AND_FINAL[$what]);
+        } else if ($token.type == "INTERFACE") {
+            #fail("An interface can't be final: it is there to be implemented");
+        } else if ($token.type != upper($what)) {
+            #fail("Only a kind or a method can be final: nothing else is extended or overridden");
+        }
+    }
+
     // A reserved word where a member goes says so, as it does where a statement goes
     fn refuse_reserved_member() {
         $token = #current_token;
@@ -2377,9 +2402,9 @@ kind Html {
         }
     }
 
-    // Parse a kind declaration ([ABSTRACT] KIND IDENTIFIER [EXTENDS name] [IMPLEMENTS name (COMMA name)*]
+    // Parse a kind declaration ([ABSTRACT | FINAL] KIND IDENTIFIER [EXTENDS name] [IMPLEMENTS name (COMMA name)*]
     // LBRACE (field | method)* RBRACE), field: HASH_IDENTIFIER [ASSIGN expr] SEMICOLON,
-    // method: [ABSTRACT] FN name parameters (block | SEMICOLON)
+    // method: [ABSTRACT | FINAL] FN name parameters (block | SEMICOLON)
     //
     // Only at the top level. The parent and the interfaces can be declared later; they are
     // checked once the whole program is read. A field's default is evaluated for each new object, with #
@@ -2390,6 +2415,14 @@ kind Html {
         $abstract = $start.type == "ABSTRACT";
         if ($abstract) {
             #eat("ABSTRACT");
+            if (#current_token.type == "FINAL") {
+                #fail(#ABSTRACT_AND_FINAL["kind"]);
+            }
+        }
+        $final = $start.type == "FINAL";
+        if ($final) {
+            #eat("FINAL");
+            #refuse_after_final("kind");
         }
         #eat("KIND");
         #check_new_name();
@@ -2409,6 +2442,9 @@ kind Html {
         $claims = #implements_clause($name);
 
         $kind = #at(KindDeclarationAST($name, $parent, $abstract), $start);
+        if ($final) {
+            $kind.final = true;
+        }
         #kinds[$name] = $kind;
         #declare($name, $pub);
         if ($parent != null) {
@@ -2449,6 +2485,11 @@ kind Html {
                 #method_declaration($kind, $vis);
             } else if (#current_token.type == "STATIC") {
                 #static_declaration($kind, $vis);
+            } else if (#current_token.type == "FINAL") {
+                $final_token = #current_token;
+                #eat("FINAL");
+                #refuse_after_final("fn");
+                #method_declaration($kind, $vis, $final_token);
             } else {
                 #refuse_reserved_member();
                 #fail("Expected a field (#name), a method (fn), a constant (const) or a static but found " .. #describe(#current_token));
@@ -2537,6 +2578,8 @@ kind Html {
             #fail("An interface has no static members: it names methods an object has, as fn name(...);");
         } else if ($type == "ABSTRACT") {
             #fail("An interface's methods are abstract already, so they need no abstract");
+        } else if ($type == "FINAL") {
+            #fail("An interface's methods are there to be defined, so none can be final");
         } else if ($type != "FN") {
             #refuse_reserved_member();
             #fail("Expected a method (fn) but found " .. #describe($start));
@@ -3391,6 +3434,9 @@ kind Html {
     fn static_declaration($kind, $vis = "") {
         $start = #current_token;
         #eat("STATIC");
+        if (#current_token.type == "FINAL") {
+            #fail("Only a kind or a method can be final: nothing else is extended or overridden");
+        }
         if (#current_token.type == "FN") {
             #static_method($kind, $start, $vis);
 
@@ -3460,14 +3506,22 @@ kind Html {
         #static_functions[] = $node;
     }
 
-    // Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its kind
-    //
-    // An abstract method has no body, and only an abstract kind can declare one.
-    fn method_declaration($kind, $vis = "") {
-        $start = #current_token;
-        $abstract = $start.type == "ABSTRACT";
+    /*
+     * Parse a method declaration ([ABSTRACT] FN name parameters (block | SEMICOLON)) into its
+     * kind, $final_token being the final before it, already eaten, if there was one
+     *
+     * An abstract method has no body, and only an abstract kind can declare one. A final one
+     * can't be overridden, so it must escape to the children that could (a private method is
+     * never overridden), and a final kind's methods need no final.
+     */
+    fn method_declaration($kind, $vis = "", $final_token = null) {
+        $start = $final_token ?? #current_token;
+        $abstract = #current_token.type == "ABSTRACT";
         if ($abstract) {
             #eat("ABSTRACT");
+            if (#current_token.type == "FINAL") {
+                #fail(#ABSTRACT_AND_FINAL["fn"]);
+            }
         }
         #eat("FN");
         $token = #current_token;
@@ -3483,6 +3537,9 @@ kind Html {
                 #fail("A constructor is reached by constructing, so it needs no {$vis}");
             }
             $vis = "pub";
+        }
+        if ($final_token != null) {
+            #check_final_method($kind, $name, $vis);
         }
         #check_new_member($kind, $name);
         #eat($token.type);
@@ -3521,8 +3578,24 @@ kind Html {
         $method = #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, $body, #arity($params, $defaults)), $start), $types, $returns);
         $method.kind = $kind.name;
         $method.abstract = $abstract;
+        if ($final_token != null) {
+            $method.final = true;
+        }
         $kind.methods[$name] = $method;
         $kind.vis[$name] = $vis;
+    }
+
+    // Whether final means anything on this method: an override is what it forbids
+    fn check_final_method($kind, $name, $vis) {
+        if ($name == "_") {
+            #fail("A constructor can't be final: each kind's _ is its own");
+        }
+        if ($vis == "") {
+            #fail("Method {$kind.name}.{$name} escapes only {$kind.name}, so no child can override it: make it kin or pub, or drop final");
+        }
+        if ($kind.final ?? false) {
+            #fail("Kind {$kind.name} is final, so its methods need no final");
+        }
     }
 
     // Check a kind doesn't already declare a member: fields and methods share one namespace
@@ -3585,7 +3658,7 @@ kind Html {
             return #shared_declaration();
         } else if ($type == "FN") {
             #fail("Functions can only be declared at the top level");
-        } else if ($type == "KIND" || $type == "ABSTRACT") {
+        } else if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL") {
             #fail("Kinds can only be declared at the top level");
         } else if ($type == "INTERFACE") {
             #fail("Interfaces can only be declared at the top level");
@@ -3990,6 +4063,9 @@ kind Html {
             if ($parent == null) {
                 #fail_at(#not_a_kind($kind.parent), $kind.file, $kind.line);
             }
+            if ($parent.final ?? false) {
+                #fail_at("Kind {$kind.name} can't extend {$parent.name}: it is final", $kind.file, $kind.line);
+            }
             $chain[] = $kind.name;
             if (in_array($parent.name, $chain)) {
                 // From the parent's first appearance in the chain, round to it again
@@ -4078,6 +4154,9 @@ kind Html {
             $owner = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
             // What the parent let escape, before this one's own is recorded below
             $inherited_vis = $kind.owner_vis[$name] ?? null;
+            if ($owner != null && (#kinds[$owner].methods[$name].final ?? false)) {
+                #fail_at("Method {$kind.name}.{$name} can't override {$owner}.{$name}: it is final", $method.file, $method.line);
+            }
             if ($owner != null && $method.abstract && has_key($kind.members, $name)) {
                 #fail_at("Abstract method {$kind.name}.{$name} can't replace {$owner}.{$name}", $method.file, $method.line);
             }
@@ -4470,7 +4549,7 @@ kind Html {
                 }
             } else if ($type == "INCLUDE") {
                 #include_is_gone();
-            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "INTERFACE", "CONST"])) {
+            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "FINAL", "INTERFACE", "CONST"])) {
                 #module.declaring = true;
                 foreach (#declaration() as $declared) {
                     $statements[] = $declared;
@@ -4499,7 +4578,7 @@ kind Html {
         if ($type == "FN") {
             return [#function_declaration($pub)];
         }
-        if ($type == "KIND" || $type == "ABSTRACT") {
+        if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL") {
             // A static method is a function, so it is spliced in after its kind
             $from = len(#static_functions);
             $statements = [#kind_declaration($pub)];

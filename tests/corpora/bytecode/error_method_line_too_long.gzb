@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+kind Shape
+method area Shape pub Shape more
+locals
+LOAD_THIS
+RET
+
+fn Shape.area 0 0
+locals
+PUSH 1
+RET

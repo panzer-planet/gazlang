@@ -459,6 +459,8 @@ kind FunctionDeclarationAST extends AST {
     pub #return_type;
     pub #kind = null;
     pub #abstract = false;
+    // Whether it is a final method: set only when it is, so a method without dumps as it always did
+    pub #final;
 
     fn _($name, $params, $defaults, $body, $arity) {
         #name = $name;
@@ -510,6 +512,8 @@ kind KindDeclarationAST extends AST {
     pub #name;
     pub #parent;
     pub #abstract;
+    // Whether no kind may extend it: set only when it is final, as #interfaces is set
+    pub #final;
     // The interfaces it claims itself, in the order written: set only when it claims any, so a
     // kind without dumps as it always did (fields() leaves out what was never set)
     pub #interfaces;

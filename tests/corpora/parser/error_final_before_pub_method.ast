@@ -1,0 +1,1 @@
+Error: pub comes before final: write 'pub final fn ...' at tests/corpora/parser/error_final_before_pub_method.gaz:2

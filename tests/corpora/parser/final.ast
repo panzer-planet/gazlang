@@ -1,0 +1,282 @@
+Compound
+  statements:
+@ "tests/corpora/parser/final.gaz"
+    0: InterfaceDeclaration 2
+      name: "Titled"
+      methods:
+        title: FunctionDeclaration 3
+          name: "title"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          kind: "Titled"
+          abstract: false
+    1: KindDeclaration 6
+      name: "Page"
+      parent: null
+      abstract: true
+      interfaces: ["Titled"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"frame" => "kin", "body" => "pub", "note" => ""}
+      fields: []
+      field_lines: []
+      methods:
+        frame: FunctionDeclaration 7
+          name: "frame"
+          params: ["\$body"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 8
+                expr: BinOp 8
+                  left: BinOp 8
+                    left: String 8
+                      token: 8 STRING "["
+                      value: "["
+                    token: 8 CONCAT ..
+                    op: 8 CONCAT ..
+                    right: Variable 8
+                      token: 8 VAR_IDENTIFIER $body
+                      value: "\$body"
+                  token: 8 CONCAT ..
+                  op: 8 CONCAT ..
+                  right: String 8
+                    token: 8 STRING "]"
+                    value: "]"
+          arity: 1
+          kind: "Page"
+          abstract: false
+          final: true
+        body: FunctionDeclaration 11
+          name: "body"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Page"
+          abstract: true
+        note: FunctionDeclaration 14
+          name: "note"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 15
+                expr: String 15
+                  token: 15 STRING "page"
+                  value: "page"
+          arity: 0
+          kind: "Page"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"frame" => "Page", "note" => "Page"}
+      abstract_methods: {"body" => "Page"}
+      slots: []
+      method_table: [["frame", "Page", "kin", "Page"], ["note", "Page", "", "Page"]]
+      owner_vis: {"frame" => "kin", "body" => "pub", "note" => ""}
+      declared_at: {"frame" => "Page", "body" => "Page", "note" => "Page"}
+      hidden: []
+      hidden_fields: []
+    2: KindDeclaration 19
+      name: "Article"
+      parent: "Page"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"body" => "pub", "title" => "pub", "note" => ""}
+      fields: []
+      field_lines: []
+      methods:
+        body: FunctionDeclaration 21
+          name: "body"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 22
+                expr: String 22
+                  token: 22 STRING "text"
+                  value: "text"
+          arity: 0
+          kind: "Article"
+          abstract: false
+          final: true
+        title: FunctionDeclaration 25
+          name: "title"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 26
+                expr: MethodCall 26
+                  property: Property 26
+                    target: This 26
+                    name: "frame"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args:
+                    0: MethodCall 26
+                      property: Property 26
+                        target: This 26
+                        name: "body"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                      args: []
+          arity: 0
+          kind: "Article"
+          abstract: false
+        note: FunctionDeclaration 29
+          name: "note"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 30
+                expr: String 30
+                  token: 30 STRING "article"
+                  value: "article"
+          arity: 0
+          kind: "Article"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"frame" => "Page", "body" => "Article", "title" => "Article", "note" => "Article"}
+      abstract_methods: []
+      slots: []
+      method_table: [["frame", "Page", "kin", "Page"], ["note", "Page", "", "Page"], ["body", "Article", "pub", "Page"], ["title", "Article", "pub", "Article"], ["note", "Article", "", "Article"]]
+      owner_vis: {"frame" => "kin", "body" => "pub", "title" => "pub", "note" => ""}
+      declared_at: {"frame" => "Page", "body" => "Page", "note" => "Article", "title" => "Article"}
+      hidden: []
+      hidden_fields: []
+    3: KindDeclaration 34
+      name: "Letter"
+      parent: "Article"
+      abstract: false
+      final: true
+      statics: []
+      static_lines: []
+      static_methods:
+        make: FunctionDeclaration 40
+          name: "Letter::make"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 41
+                expr: FunctionCall 41
+                  name: "Letter"
+                  args: []
+          arity: 0
+          kind: "Letter"
+          abstract: false
+      static_owners: {"make" => "Letter"}
+      static_is_method: {"make" => true}
+      vis: {"title" => "pub", "make" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        title: FunctionDeclaration 36
+          name: "title"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 37
+                expr: BinOp 37
+                  left: String 37
+                    token: 37 STRING "Dear "
+                    value: "Dear "
+                  token: 37 CONCAT ..
+                  op: 37 CONCAT ..
+                  right: ParentMethod 37
+                    name: "title"
+                    args: []
+                    definer: "Article"
+          arity: 0
+          kind: "Letter"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"frame" => "Page", "body" => "Article", "title" => "Letter"}
+      abstract_methods: []
+      slots: []
+      method_table: [["frame", "Page", "kin", "Page"], ["note", "Page", "", "Page"], ["body", "Article", "pub", "Page"], ["title", "Letter", "pub", "Article"], ["note", "Article", "", "Article"]]
+      owner_vis: {"frame" => "kin", "body" => "pub", "title" => "pub", "make" => "pub"}
+      declared_at: {"frame" => "Page", "body" => "Page", "note" => "Article", "title" => "Article"}
+      hidden: {"note" => "Article"}
+      hidden_fields: []
+    4: FunctionDeclaration 40
+      name: "Letter::make"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 41
+            expr: FunctionCall 41
+              name: "Letter"
+              args: []
+      arity: 0
+      kind: "Letter"
+      abstract: false
+    5: KindDeclaration 45
+      name: "Stamp"
+      parent: null
+      abstract: false
+      final: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: []
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    6: EchoStatement 48
+      expr: MethodCall 48
+        property: Property 48
+          target: FunctionCall 48
+            name: "Letter::make"
+            args: []
+          name: "title"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []
+    7: EchoStatement 49
+      expr: FunctionCall 49
+        name: "Stamp"
+        args: []

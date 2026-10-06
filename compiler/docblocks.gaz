@@ -20,7 +20,7 @@ import "./lexer.gaz";
 import "std/text.gaz" use trim_end, unindented;
 
 // The words before a declaration that say how far it escapes or what sort it is
-const DECLARATION_MODIFIERS = ["PUB", "KIN", "STATIC", "ABSTRACT"];
+const DECLARATION_MODIFIERS = ["PUB", "KIN", "STATIC", "ABSTRACT", "FINAL"];
 
 // The token types a bracket of each sort opens or closes, for keeping count of depth
 const OPENERS = ["LEFT_PAREN", "LEFT_BRACKET", "LEFT_BRACE"];
@@ -174,7 +174,7 @@ kind OutlineReader {
     fn declares(int $t, int $braces, ?string $kind): bool {
         $type = #type($t);
         if ($braces == 0) {
-            return in_array($type, ["PUB", "ABSTRACT", "FN", "CONST"]) || #is_kind_word($t);
+            return in_array($type, ["PUB", "ABSTRACT", "FINAL", "FN", "CONST"]) || #is_kind_word($t);
         }
 
         return $braces == 1 && $kind != null && $type != "RIGHT_BRACE" && $type != "SEMICOLON";

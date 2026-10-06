@@ -1,0 +1,27 @@
+// final is a word on a record: before kind on a final kind's header, and last on each method
+// line of a final method, after its marker and declarer, on every kind that has the entry,
+// so the loader can check a child against its parent without walking further
+kind Shape {
+    pub final fn area() {
+        return 1;
+    }
+
+    kin fn side() {
+        return 1;
+    }
+}
+
+kind Square extends Shape {
+    kin final fn side() {
+        return 2;
+    }
+}
+
+final kind Tile extends Square {
+    pub fn to_string() {
+        return "tile";
+    }
+}
+
+echo Tile().area();
+echo Tile();

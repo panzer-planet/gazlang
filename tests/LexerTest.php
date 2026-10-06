@@ -235,7 +235,7 @@ class LexerTest extends GazLangTestCase
         );
     }
 
-    public function test_kind_keywords_and_reserved_words()
+    public function test_kind_keywords_and_other_languages_words()
     {
         $this->assertSame(
             ['KIND', 'EXTENDS', 'ABSTRACT', 'INTERFACE', 'IMPLEMENTS', 'FINAL', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER'],

@@ -1,0 +1,7 @@
+kind Shape {
+    pub final fn area() {}
+}
+
+abstract kind Square extends Shape {
+    pub abstract fn area();
+}

@@ -1,0 +1,1 @@
+Error: kin comes before final: write 'kin final fn ...' at tests/corpora/parser/error_final_before_kin_method.gaz:2

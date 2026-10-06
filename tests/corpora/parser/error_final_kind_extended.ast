@@ -1,0 +1,1 @@
+Error: Kind Fancy can't extend Page: it is final at tests/corpora/parser/error_final_kind_extended.gaz:4

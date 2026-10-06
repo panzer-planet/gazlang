@@ -232,14 +232,7 @@
 					<key>name</key>
 					<string>storage.modifier.gaz</string>
 					<key>match</key>
-					<string>\b(abstract|extends|implements|pub|kin|static|shared)\b</string>
-				</dict>
-				<!-- Reserved for a feature decided but not built, so an error for now -->
-				<dict>
-					<key>name</key>
-					<string>invalid.illegal.reserved.gaz</string>
-					<key>match</key>
-					<string>\b(final)\b</string>
+					<string>\b(abstract|final|extends|implements|pub|kin|static|shared)\b</string>
 				</dict>
 			</array>
 		</dict>

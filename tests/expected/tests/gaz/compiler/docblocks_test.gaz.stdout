@@ -4,6 +4,7 @@ ok every declaration, with the docblock right above it
 ok CRLF line endings
 ok CRLF overview
 ok an interface and its methods
+ok a final kind and a final method
 ok no namespace
 ok no overview without a namespace line
 ok a docblock on the first line

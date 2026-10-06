@@ -1,0 +1,36 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+NEW G 0
+GET_METHOD area
+CALL_METHOD 0 area
+PRINT
+
+kind P
+method area P pub final
+locals
+LOAD_THIS
+RET
+
+fn P.area 0 0
+locals
+PUSH "final"
+RET
+
+kind C extends P
+locals
+LOAD_THIS
+RET
+
+kind G extends C
+method area G pub
+locals
+LOAD_THIS
+RET
+
+fn G.area 0 0
+locals
+PUSH "G overrode it"
+RET

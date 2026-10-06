@@ -1,0 +1,1 @@
+Error: Method Square.area can't override Shape.area: it is final at tests/corpora/parser/error_final_method_overridden_privately.gaz:7

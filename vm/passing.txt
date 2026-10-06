@@ -767,10 +767,18 @@ tests/corpora/bytecode/error_empty_stack_path.gzb
 tests/corpora/bytecode/error_end_try_without_a_try.gzb
 tests/corpora/bytecode/error_error_kind_without_its_fields.gzb
 tests/corpora/bytecode/error_extends_an_interface.gzb
+tests/corpora/bytecode/error_extends_final_kind.gzb
 tests/corpora/bytecode/error_extra_argument.gzb
 tests/corpora/bytecode/error_field_declarer_undefined.gzb
 tests/corpora/bytecode/error_field_in_a_lambda_made_at_top_level.gzb
 tests/corpora/bytecode/error_field_type_then_more.gzb
+tests/corpora/bytecode/error_final_kind_header.gzb
+tests/corpora/bytecode/error_final_method_left_out.gzb
+tests/corpora/bytecode/error_final_method_no_longer_final.gzb
+tests/corpora/bytecode/error_final_method_overridden.gzb
+tests/corpora/bytecode/error_final_method_overridden_by_a_grandchild.gzb
+tests/corpora/bytecode/error_final_method_overridden_still_final.gzb
+tests/corpora/bytecode/error_final_private_method.gzb
 tests/corpora/bytecode/error_first_block_not_top.gzb
 tests/corpora/bytecode/error_fn_arity_backwards.gzb
 tests/corpora/bytecode/error_fn_arity_missing.gzb
@@ -819,6 +827,7 @@ tests/corpora/bytecode/error_map_set_in_an_int.gzb
 tests/corpora/bytecode/error_method_called_as_a_function.gzb
 tests/corpora/bytecode/error_method_declarer_undefined.gzb
 tests/corpora/bytecode/error_method_definer_undefined.gzb
+tests/corpora/bytecode/error_method_line_too_long.gzb
 tests/corpora/bytecode/error_method_without_block.gzb
 tests/corpora/bytecode/error_missing_argument.gzb
 tests/corpora/bytecode/error_new_an_interface.gzb
@@ -886,6 +895,7 @@ tests/corpora/bytecode/error_value_variable.gzb
 tests/corpora/bytecode/error_value_with_a_hash.gzb
 tests/corpora/bytecode/error_value_with_an_arrow.gzb
 tests/corpora/bytecode/error_version.gzb
+tests/corpora/bytecode/final.gzb
 tests/corpora/bytecode/foreach_next.gzb
 tests/corpora/bytecode/interfaces.gzb
 tests/corpora/bytecode/map_extend.gzb
@@ -902,6 +912,7 @@ tests/corpora/codegen/assignments.gaz
 tests/corpora/codegen/braced_constant.gaz
 tests/corpora/codegen/concat_assign_paths.gaz
 tests/corpora/codegen/expressions.gaz
+tests/corpora/codegen/final.gaz
 tests/corpora/codegen/functions.gaz
 tests/corpora/codegen/interfaces.gaz
 tests/corpora/codegen/kinds.gaz
@@ -946,6 +957,7 @@ tests/corpora/parser/captures.gaz
 tests/corpora/parser/constant_edges.gaz
 tests/corpora/parser/constant_values.gaz
 tests/corpora/parser/constants.gaz
+tests/corpora/parser/final.gaz
 tests/corpora/parser/functions.gaz
 tests/corpora/parser/interfaces.gaz
 tests/corpora/parser/interpolation.gaz
@@ -1153,6 +1165,7 @@ tests/gaz/lists/pattern_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
+tests/gaz/objects/final_test.gaz
 tests/gaz/objects/interfaces/geometry.gaz
 tests/gaz/objects/interfaces_test.gaz
 tests/gaz/objects/kind_members_by_name_test.gaz

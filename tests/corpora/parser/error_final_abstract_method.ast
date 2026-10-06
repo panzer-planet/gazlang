@@ -1,0 +1,1 @@
+Error: A method can't be both abstract and final: an abstract method is there to be defined by a child at tests/corpora/parser/error_final_abstract_method.gaz:2

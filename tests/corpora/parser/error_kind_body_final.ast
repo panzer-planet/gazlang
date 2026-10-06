@@ -1,1 +1,1 @@
-Error: final is reserved at tests/corpora/parser/error_kind_body_final.gaz:3
+Error: Method Account.deposit escapes only Account, so no child can override it: make it kin or pub, or drop final at tests/corpora/parser/error_kind_body_final.gaz:3

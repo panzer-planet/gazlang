@@ -112,7 +112,7 @@ RET
 PUSH null
 RET
 
-kind Html
+final kind Html
 field text Html pub
 method _ Html pub
 method to_string Html pub

@@ -882,12 +882,13 @@ static Block *read_block(const char *header) {
             const char *dot = strrchr(b->name->data, '.');
             if (dot) b->owner_name = str_intern(b->name->data, (size_t)(dot - b->name->data));
         }
-    } else if (!strcmp(block_word, "kind") || !strcmp(block_word, "abstract")) {
+    } else if (!strcmp(block_word, "kind") || !strcmp(block_word, "abstract") || !strcmp(block_word, "final")) {
         b->kind = B_KIND;
         b->is_abstract = !strcmp(block_word, "abstract");
+        b->is_final = !strcmp(block_word, "final");
         int from = 1;
-        if (b->is_abstract) {
-            if (w.n < 2 || strcmp(w.w[1], "kind")) fail("Expected 'abstract kind'");
+        if (b->is_abstract || b->is_final) {
+            if (w.n < 2 || strcmp(w.w[1], "kind")) fail("Expected '%s kind'", block_word);
             from = 2;
         }
         int rest = w.n - from;
@@ -953,12 +954,18 @@ static Block *read_block(const char *header) {
             b->static_type_texts = push_name(b->static_type_texts, &b->nstatic_types, type);
         } else if (!strcmp(first, "method") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *definer = intern(word(&w, 2));
+            /* final, last, after the marker it needs: a method its kind's own is never overridden */
+            bool final = w.n > 4 && !strcmp(w.w[w.n - 1], "final");
+            int words = final ? w.n - 1 : w.n;
             /* The declarer, when an override made it differ from the definer */
-            Str *declarer = w.n > 4 ? intern(w.w[4]) : definer;
+            Str *declarer = words > 4 ? intern(w.w[4]) : definer;
+            if (words > 5) fail("Expected the end of the line after method %s but found '%s'", name->data, w.w[5]);
             int n = b->nmethods;
             b->method_names = push_name(b->method_names, &n, name);
             n = b->nmethods;
-            b->method_vis = push_vis(b->method_vis, &n, read_vis(&w, 3));
+            b->method_final = xrealloc(b->method_final, (size_t)(n + 1) * sizeof(bool));
+            b->method_final[n] = final;
+            b->method_vis = push_vis(b->method_vis, &n, words > 3 ? read_vis(&w, 3) : V_OWN);
             n = b->nmethods;
             b->method_declarers = push_name(b->method_declarers, &n, declarer);
             b->method_definers = push_name(b->method_definers, &b->nmethods, definer);
@@ -1425,6 +1432,32 @@ static void check_implementer(Kind *c) {
     }
 }
 
+/* What final forbids: a child of a final kind, and a child whose entry of a final method's name
+   runs another version or no longer says final (or a grandchild could then override it). A
+   private entry of that name is the child's own, not an override, so it is left alone. */
+static void check_final(Kind *c) {
+    Kind *parent = c->parent;
+    if (!parent) return;
+    const char *kind = c->name->data;
+    if (parent->block->is_final) fail_at(false, "Kind %s extends final kind %s", kind, parent->name->data);
+    Block *pb = parent->block, *b = c->block;
+    /* Every final entry of the parent must be in the child, unchanged: checking each kind against
+       its parent then holds for every generation, since a child can't drop one for a grandchild
+       to fill */
+    for (int p = 0; p < pb->nmethods; p++) {
+        if (!pb->method_final[p]) continue;
+        const char *method = pb->method_names[p]->data, *definer = pb->method_definers[p]->data;
+        bool kept = false;
+        for (int m = 0; m < b->nmethods; m++) {
+            if (b->method_names[m] != pb->method_names[p] || b->method_vis[m] == V_OWN) continue;
+            if (b->method_definers[m] != pb->method_definers[p]) fail_at(false, "Kind %s overrides final method %s of %s", kind, method, definer);
+            if (!b->method_final[m]) fail_at(false, "Kind %s inherits final method %s of %s without saying final", kind, method, definer);
+            kept = true;
+        }
+        if (!kept) fail_at(false, "Kind %s leaves out final method %s of %s", kind, method, definer);
+    }
+}
+
 static void build_kinds(void) {
     int n = 0;
     for (int i = 0; i < prog->nblocks; i++) {
@@ -1516,6 +1549,7 @@ static void build_kinds(void) {
             if (k == c) fail_at(false, "Kind %s extends itself, through its parents", c->name->data);
         }
     }
+    for (int i = 0; i < prog->nkinds; i++) check_final(&prog->kinds[i]);
     bool *flattened = xcalloc((size_t)prog->nkinds + 1, sizeof(bool));
     for (int i = 0; i < prog->nkinds; i++) flatten_interfaces(&prog->kinds[i], flattened);
     free(flattened);

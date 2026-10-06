@@ -750,9 +750,10 @@ bool append_string(Value v, Buf *out) {
 }
 
 /*
- * The text .., ..= and join() make, which is echo's except for an Html (or a kind extending it):
- * joined into a plain string, it would be escaped again by {{ }}, so it is refused, without
- * naming its contents. echo, print and to_string() stay append_string()'s.
+ * The text .., ..= and join() make, which is echo's except for an Html: joined into a plain
+ * string, it would be escaped again by {{ }}, so it is refused, without naming its contents.
+ * Html is final, but a kind extending it is still asked about: bytecode written before final
+ * can hold one, and it loads. echo, print and to_string() stay append_string()'s.
  */
 bool append_joined(Value v, Buf *out) {
     if (v.type == T_OBJECT && program->html_kind && kind_is_a(v.o->kind, program->html_kind)) {

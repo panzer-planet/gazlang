@@ -1,0 +1,74 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ 26
+NEW Tile 0
+GET_METHOD area
+CALL_METHOD 0 area
+PRINT
+@ 27
+NEW Tile 0
+PRINT
+
+kind Shape
+method area Shape pub final
+method side Shape kin
+locals
+@ 4
+LOAD_THIS
+RET
+
+fn Shape.area 0 0
+locals
+@ 6
+PUSH 1
+RET
+@ 5
+PUSH null
+RET
+
+fn Shape.side 0 0
+locals
+@ 10
+PUSH 1
+RET
+@ 9
+PUSH null
+RET
+
+kind Square extends Shape
+method area Shape pub final
+method side Square kin Shape final
+locals
+@ 14
+LOAD_THIS
+RET
+
+fn Square.side 0 0
+locals
+@ 16
+PUSH 2
+RET
+@ 15
+PUSH null
+RET
+
+final kind Tile extends Square
+method area Shape pub final
+method side Square kin Shape final
+method to_string Tile pub
+locals
+@ 20
+LOAD_THIS
+RET
+
+fn Tile.to_string 0 0
+locals
+@ 22
+PUSH "tile"
+RET
+@ 21
+PUSH null
+RET

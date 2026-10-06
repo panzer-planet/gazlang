@@ -1,0 +1,49 @@
+// final on a kind and on methods: what each shape dumps, and what stays allowed
+interface Titled {
+    fn title();
+}
+
+abstract kind Page implements Titled {
+    kin final fn frame($body) {
+        return "[" .. $body .. "]";
+    }
+
+    pub abstract fn body();
+
+    // A private method is the kind's own, so a child may declare one of the name
+    fn note() {
+        return "page";
+    }
+}
+
+kind Article extends Page {
+    // Defining an abstract method may close it
+    pub final fn body() {
+        return "text";
+    }
+
+    pub fn title() {
+        return #frame(#body());
+    }
+
+    fn note() {
+        return "article";
+    }
+}
+
+pub final kind Letter
+    extends Article {
+    pub fn title() {
+        return "Dear " .. ##title();
+    }
+
+    pub static fn make() {
+        return Letter();
+    }
+}
+
+final kind Stamp {
+}
+
+echo Letter::make().title();
+echo Stamp();

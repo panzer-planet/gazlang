@@ -1,0 +1,13 @@
+kind Shape {
+    pub final fn area() {
+        return 1;
+    }
+}
+
+kind Square extends Shape {
+    pub fn side() {}
+
+    pub fn area() {
+        return 2;
+    }
+}

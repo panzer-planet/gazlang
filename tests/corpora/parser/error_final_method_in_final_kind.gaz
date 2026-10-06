@@ -1,0 +1,3 @@
+final kind Page {
+    pub final fn title() {}
+}

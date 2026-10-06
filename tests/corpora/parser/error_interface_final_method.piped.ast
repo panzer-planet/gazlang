@@ -1,1 +1,1 @@
-Error: final is reserved on line 2
+Error: An interface's methods are there to be defined, so none can be final on line 2
