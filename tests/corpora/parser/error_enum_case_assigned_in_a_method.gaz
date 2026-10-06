@@ -1,0 +1,8 @@
+enum Level {
+    Low;
+    High;
+
+    pub fn lower() {
+        #High = #Low;
+    }
+}

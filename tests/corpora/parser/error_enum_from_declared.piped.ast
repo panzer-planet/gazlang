@@ -1,0 +1,1 @@
+Error: Enum Filter has from() already: every enum has cases(), and one with values from() too on line 4

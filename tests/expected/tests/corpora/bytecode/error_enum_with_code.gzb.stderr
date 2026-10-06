@@ -1,0 +1,1 @@
+Error: An enum has no code, since nothing constructs one, but 'PUSH' is an instruction at tests/corpora/bytecode/error_enum_with_code.gzb:11

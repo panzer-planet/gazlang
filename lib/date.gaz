@@ -151,7 +151,6 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 3600;
 const SECONDS_PER_DAY = 86400;
 const ZONEINFO = "/usr/share/zoneinfo";
-const RESOLUTIONS = ["reject", "earlier", "later", "compatible"];
 const LAST_RFC3339_YEAR = 9999;
 const MOST_OFFSET_HOURS = 24;       // in a rule, as POSIX allows
 const MOST_CHANGE_HOURS = 167;      // a rule's change of clocks, as RFC 8536 allows
@@ -293,6 +292,34 @@ pub fn parse_date(string $text, $default = NoDefault()) {
 }
 
 /**
+ * What Zone.time() does with a reading of the clocks that doesn't name one time: when the clocks
+ * go back, an hour of readings happens twice, and when they go forward, an hour never happens.
+ * Each choice but Reject is one of the two times the reading is, with the offsets before and
+ * after the change.
+ */
+pub enum Resolution {
+    /**
+     * An error saying which happened
+     */
+    Reject;
+    /**
+     * The earlier time: when the clocks went back, the first time the reading was shown, and
+     * when they went forward, a time they show as that much earlier
+     */
+    Earlier;
+    /**
+     * The later time: the second time the reading was shown, or a time the clocks show as that
+     * much later
+     */
+    Later;
+    /**
+     * Earlier when the clocks went back and Later when they went forward, which is when an alarm
+     * set for that reading goes off
+     */
+    Compatible;
+}
+
+/**
  * A time zone: the offsets from UTC its clocks have kept, and when each began. Made by
  * date::utc(), date::fixed(), date::zone() and date::tzif().
  */
@@ -315,21 +342,10 @@ pub kind Zone {
      * (date::time_of_day() counts those).
      *
      * When the clocks go back, an hour of readings happens twice, and when they go forward, an
-     * hour never happens. $resolve says what to do then, each choice being one of the two times
-     * the reading is with the offsets before and after the change:
-     *
-     * - "reject", unless another is given: an error saying which happened
-     * - "earlier": the earlier time; when the clocks went back, the first time the reading was
-     *   shown, and when they went forward, a time they show as that much earlier
-     * - "later": the later time; the second time it was shown, or a time the clocks show as that
-     *   much later
-     * - "compatible": "earlier" when the clocks went back and "later" when they went forward,
-     *   which is when an alarm set for that reading goes off
+     * hour never happens. $resolve says what to do then (see date::Resolution), an error unless
+     * it says otherwise.
      */
-    pub fn time(int $days, int $seconds, string $resolve = "reject"): int {
-        if (!in_array($resolve, RESOLUTIONS)) {
-            throw "Zone.time() resolves by " .. join(map(RESOLUTIONS, quote), ", ") .. ", not " .. quote($resolve);
-        }
+    pub fn time(int $days, int $seconds, Resolution $resolve = Resolution::Reject): int {
         $fitting = #occurrences($days, $seconds);
         if (len($fitting) == 1) {
             return $fitting[0];
@@ -369,15 +385,15 @@ pub kind Zone {
         return [min($before, $after), max($before, $after)];
     }
 
-    fn resolve(list $readings, bool $twice, string $resolve, int $wall): int {
+    fn resolve(list $readings, bool $twice, Resolution $resolve, int $wall): int {
         $earlier = $readings[0];
         $later = last($readings);
 
         return match ($resolve) {
-            "earlier" => $earlier,
-            "later" => $later,
-            "compatible" => $twice ? $earlier : $later,
-            "reject" => throw #ambiguity($twice, $wall),
+            Resolution::Earlier => $earlier,
+            Resolution::Later => $later,
+            Resolution::Compatible => $twice ? $earlier : $later,
+            Resolution::Reject => throw #ambiguity($twice, $wall),
         };
     }
 
@@ -385,10 +401,10 @@ pub kind Zone {
         $reading = utc().at($wall);
         $shown = iso($reading.days) .. " " .. $reading.clock();
         if ($twice) {
-            return "{$shown} happens twice in {#name}, as the clocks go back: say \"earlier\" or \"later\"";
+            return "{$shown} happens twice in {#name}, as the clocks go back: say date::Resolution::Earlier or Later";
         }
 
-        return "{$shown} never happens in {#name}, as the clocks go forward: say \"earlier\", \"later\" or \"compatible\"";
+        return "{$shown} never happens in {#name}, as the clocks go forward: say date::Resolution::Earlier, Later or Compatible";
     }
 
     fn offset_at(int $time): Offset {

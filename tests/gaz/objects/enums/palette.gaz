@@ -1,0 +1,22 @@
+/*
+ * Enums in a namespace, which the test uses from outside it: a pub one escapes the namespace as a
+ * pub kind does, cases, cases() and from() with it, and one that isn't pub stays inside
+ */
+namespace palette;
+
+pub enum Colour: string {
+    Red = "#f00";
+    Green = "#0f0";
+
+    pub fn hex(): string {
+        return #value;
+    }
+}
+
+enum Secret {
+    Hidden;
+}
+
+pub fn hidden(): string {
+    return to_string(Secret::Hidden);
+}

@@ -137,18 +137,30 @@ shell calls are its session and a sequence showing a bug is already a test case.
   implements, its ancestors' included (`Kind.interfaces`), and `kind_is_a()` reads that list only
   after the walk up the parents has failed and the kind asked about is an interface, so a check
   against a kind, and code without types, cost what they did.
+- **An enum is a `Kind` too** (`Kind.is_enum`), so types, `is_a`, methods and interfaces take one
+  with nothing of their own. Its cases are made by `make_cases()` in `vm.c` when a run starts,
+  after the run's object ids and static slots exist, one object each in the static slot the
+  loader found for it, so `Filter::Open` is a `LOAD_STATIC` and `==` compares pointers.
+  `Object.case_number` (in the padding before the fields, so no object grows) says which case one
+  is, for `echo` and errors (`append_case()` in `value.c`), which never run program code. A backed
+  enum's one field, `value`, is typed, so every write into a case goes through
+  `check_field_type()`, which refuses it; the loader refuses `NEW`, `CALL_CONSTRUCTOR` and a store
+  into a case's slot, and calling the enum as a value is refused with an abstract kind. The case
+  values are the record's, dropped with the code's constants at the end, so the leak check counts
+  them as it counts a `PUSH`'s.
 - **The cycle collector** (`gc.c`) is CPython's trial deletion over every list, map, object and
   function, needing no roots, run at a backward jump or call once as many containers have been
   made as were alive after the last collection. There are no destructors, so freeing runs no
   program code. The tested build collects every 64 new containers so the harness exercises it.
 - **Superinstructions** (`fuse()` in `load.c`): the loader puts one in place of the first
-  instruction of a common sequence (`LOAD; PUSH; LT; JZ`, `LOAD x; INC; STORE x`, seven in all,
+  instruction of a common sequence (`LOAD; PUSH; LT; JZ`, `LOAD x; INC; STORE x`, eight in all,
   after `OP_COUNT` so no file can name one) and leaves the sequence where it was, so a jump into
   it still lands on real instructions. A superinstruction's quick path must be one that can't
   fail or run program code; otherwise it runs its first instruction alone and the rest follow,
   so errors and their lines are the sequence's own. `tests/corpora/vm/superinstructions.gaz`
   takes every fallback; `tests/corpora/bytecode/superinstruction_lookalikes.gzb` holds the shapes only
-  hand-written bytecode has.
+  hand-written bytecode has. `LOAD; LOAD_STATIC; op` is for a `match` on an enum's cases: without
+  it each arm took two more dispatches than a string constant's, which `LOAD; PUSH; op` fuses.
 
 ## Speed
 

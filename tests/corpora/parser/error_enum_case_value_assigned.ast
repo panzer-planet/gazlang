@@ -1,0 +1,1 @@
+Error: Cannot change Filter::All: an enum's cases never change at tests/corpora/parser/error_enum_case_value_assigned.gaz:5

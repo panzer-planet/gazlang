@@ -1,0 +1,15 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All Filter::Open
+
+top
+locals
+PUSH_KIND Filter
+CALL_VALUE 0
+POP
+
+enum Filter string
+field value Filter pub string
+case All "all"
+case Open "open"
+locals

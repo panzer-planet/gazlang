@@ -1,0 +1,1 @@
+Error: Kind Higher can't extend Level: it is an enum, whose cases are its only objects at tests/corpora/parser/error_kind_extends_an_enum.gaz:5

@@ -31,7 +31,7 @@ ok one that happens twice is an error unless said otherwise
 ok twice: earlier, later and compatible
 ok 01:00 happens twice and 02:00 once
 ok under the rule, in 2050, too
-ok an unknown way to resolve
+ok a way to resolve is a date::Resolution, not a word
 ok seconds past the day
 ok Johannesburg keeps SAST, and kept summer time in the war
 ok India is five and a half hours ahead

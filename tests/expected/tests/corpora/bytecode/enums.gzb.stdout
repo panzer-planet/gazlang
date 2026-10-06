@@ -1,0 +1,13 @@
+Filter::Open
+open
+true
+false
+Level::Low
+Level::Low is the level
+enum Level
+enum Level
+true
+{"value" => "all"}
+object
+all
+[Level::Low, Filter::Open]

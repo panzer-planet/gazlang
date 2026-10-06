@@ -1,0 +1,5 @@
+enum Filter: string {
+    All = "all";
+
+    pub fn value() {}
+}

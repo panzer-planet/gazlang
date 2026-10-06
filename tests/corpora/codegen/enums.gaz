@@ -1,0 +1,32 @@
+// An enum is a record and no code: enum Name and the type of its values, its one field #value
+// and its methods as a kind's, then a case line each, its value a literal. Each case is a static
+// slot, named first in the statics line, which the VM fills; cases(), from() and to_json() are
+// code the compiler writes, from() checking its value and ending in a THROW
+interface Labelled {
+    fn label(): string;
+}
+
+enum Filter: string implements Labelled {
+    All = "all";
+    Open = "open";
+
+    pub fn label(): string {
+        return match (#) {
+            Filter::All => "All",
+            Filter::Open => "Open",
+        };
+    }
+}
+
+enum Level: int {
+    Low = -1;
+}
+
+enum Direction {
+    North;
+    South;
+}
+
+echo Filter::from("open", Filter::All).label();
+echo Level::from(-1).value;
+echo Direction::cases();

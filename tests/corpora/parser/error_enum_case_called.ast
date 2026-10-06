@@ -1,0 +1,1 @@
+Error: Level::Low is a case, not a function at tests/corpora/parser/error_enum_case_called.gaz:5

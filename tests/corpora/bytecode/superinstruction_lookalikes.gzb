@@ -1,5 +1,6 @@
 GAZLANG BYTECODE 3
 globals
+statics Never::set
 
 top
 locals $x $y
@@ -19,6 +20,10 @@ PRINT
 PUSH 5
 CALL f 1
 PRINT
+LOAD 0
+LOAD_STATIC 0
+EQUALS
+PRINT
 
 fn f 1 1
 locals $n
@@ -27,3 +32,5 @@ RET
 LOAD 0
 PUSH 1
 LT
+LOAD 0
+LOAD_STATIC 0

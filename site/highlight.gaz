@@ -59,8 +59,8 @@ const TEMPLATE_DIRECTIVES = ["template", "if", "elseif", "else", "endif", "forea
 
 // The words in a bytecode header or record line, as against an instruction's name
 const BYTECODE_HEADERS = [
-    "globals", "statics", "top", "fn", "kind", "abstract", "final", "interface", "lambda", "locals",
-    "field", "method", "static", "capture", "self",
+    "globals", "statics", "top", "fn", "kind", "abstract", "final", "interface", "enum", "lambda",
+    "locals", "field", "method", "static", "case", "capture", "self",
 ];
 const BYTECODE_KEYWORDS = ["in", "extends", "implements", "pub", "kin", "final", "local", "captured"];
 
@@ -269,8 +269,8 @@ fn first_word(string $line): list {
 
 /*
  * Bytecode (docs/bytecode.md), a line at a time: a header or record word, or an instruction and
- * its operands. A value (after PUSH, or in an @ location line) is a GazLang literal, which the
- * lexer highlights; the other operands are names, variables and numbers.
+ * its operands. A value (after PUSH or a case's name, or in an @ location line) is a GazLang
+ * literal, which the lexer highlights; the other operands are names, variables and numbers.
  */
 pub fn bytecode(string $source): list {
     $pieces = [];
@@ -301,6 +301,16 @@ fn bytecode_line(string $line): list {
     }
     if ($word == "PUSH") {
         return [Piece(KEYWORD, $word), ...gaz($rest)];
+    }
+    // An enum's case: its name, then its value, if it has one, as a literal
+    if ($word == "case") {
+        [$space, $after] = indented($rest);
+        [$name, $value] = first_word($after);
+        if ($name == "") {
+            return [Piece(TYPE, $word), Piece(PLAIN, $rest)];
+        }
+
+        return [Piece(TYPE, $word), Piece(PLAIN, $space), Piece(operand_class($name), $name), ...gaz($value)];
     }
     $class = in_array($word, BYTECODE_HEADERS) ? TYPE : KEYWORD;
 

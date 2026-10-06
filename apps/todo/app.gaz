@@ -111,11 +111,11 @@ kind Handlers {
     // --- Todos ---
 
     pub fn home(map $request): map {
-        return #list($request, TodoForm(""), {}, 200, TodoFilter::from_query($request));
+        return #list($request, TodoForm(""), {}, 200, Filter::from_query($request));
     }
 
     // The list as $filter shows it, with what is overdue marked against the time now
-    fn list(map $request, TodoForm $form, map $errors, int $status, TodoFilter $filter): map {
+    fn list(map $request, TodoForm $form, map $errors, int $status, Filter $filter): map {
         $todos = filter(#todos.for_user($request["user"].id), $todo -> $filter.shows($todo));
         $page = todos_page(csrf_token($request), $todos, $form, $errors, #zone, $filter, time());
 
@@ -125,7 +125,7 @@ kind Handlers {
     // The forms on the list send its filter, so each goes back to the list as it was
     pub fn create(map $request): map {
         $form = TodoForm::from_request($request);
-        $filter = TodoFilter::from_form($request);
+        $filter = Filter::from_form($request);
         $errors = $form.errors();
         if (len($errors) > 0) {
             return #list($request, $form, $errors, 422, $filter);
@@ -140,7 +140,7 @@ kind Handlers {
         $id = #todo_id($request);
         $todo = $id == null ? null : #todos.toggle($request["user"].id, $id);
 
-        return $todo == null ? not_found($request) : http::redirect(TodoFilter::from_form($request).path());
+        return $todo == null ? not_found($request) : http::redirect(Filter::from_form($request).path());
     }
 
     pub fn remove(map $request): map {
@@ -149,7 +149,7 @@ kind Handlers {
         if (!$removed) {
             return not_found($request);
         }
-        $back = http::redirect(TodoFilter::from_form($request).path());
+        $back = http::redirect(Filter::from_form($request).path());
 
         return http::with_session($back, http::flash($request, "Deleted."));
     }

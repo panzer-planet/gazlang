@@ -174,3 +174,27 @@ kind Box {
 $box = Box();
 attempt("set", () -> $box.set([1, 2]));
 attempt("set again", () -> $box.set("x"));
+
+// LOAD; LOAD_STATIC; operator: a match on an enum's cases, or any comparison with a static
+enum Level {
+    Low;
+    High;
+}
+kind Limit {
+    pub static #top = 10;
+}
+fn is_low($x) { return $x == Level::Low; }
+fn under_top($x) { return $x < Limit::top; }
+fn plus_top($x) { return $x + Limit::top; }
+fn is_low_unset($set) {
+    if ($set) { $x = Level::High; }
+    return $x == Level::Low;
+}
+attempt("Low == Low", () -> is_low(Level::Low));
+attempt("High == Low", () -> is_low(Level::High));
+attempt("a string == Low", () -> is_low("Low"));
+attempt("3 < top", () -> under_top(3));
+attempt("3.5 < top", () -> under_top(3.5));
+attempt("a < top", () -> under_top("a"));
+attempt("max + top", () -> plus_top(MAX));
+attempt("unset == Low", () -> is_low_unset(false));

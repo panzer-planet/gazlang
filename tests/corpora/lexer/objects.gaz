@@ -22,5 +22,5 @@ $query
     .where("x")
     .order("y");
 echo #class #final ## # .x ##..y;
-interface implements final public private protected
-kind extends Kind EXTENDS Interface Final Public
+interface implements final enum case public private protected
+kind extends Kind EXTENDS Interface Final Enum Public

@@ -1,0 +1,1 @@
+Error: string is a type name, so an enum can't be called that at tests/corpora/parser/error_enum_named_a_type.gaz:1

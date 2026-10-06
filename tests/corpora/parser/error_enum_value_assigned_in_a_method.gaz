@@ -1,0 +1,7 @@
+enum Filter: string {
+    All = "all";
+
+    pub fn rename() {
+        #value = "every";
+    }
+}

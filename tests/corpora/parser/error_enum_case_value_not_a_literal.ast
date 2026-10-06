@@ -1,0 +1,1 @@
+Error: A case's value is a literal: write All = "..."; or All = 1; at tests/corpora/parser/error_enum_case_value_not_a_literal.gaz:3

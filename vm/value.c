@@ -647,8 +647,19 @@ static bool append_literal(Value v, Buf *out) {
     return append_string(v, out);
 }
 
+/* A case of an enum as its name, Filter::Open, or false for any other object: how echo shows one
+   whose enum has no to_string(), and how an error names one, since it runs no program code */
+bool append_case(Object *o, Buf *out) {
+    if (!o->case_number) return false;
+    buf_add_str(out, o->kind->name);
+    buf_adds(out, "::");
+    buf_add_str(out, o->kind->block->case_names[o->case_number - 1]);
+    return true;
+}
+
 /* An object as its kind and the fields that are set: Account {#owner => "Werner"} */
 static bool describe_object(Object *o, Buf *out) {
+    if (append_case(o, out)) return true;
     buf_add_str(out, o->kind->name);
     if (o->printing) {
         buf_adds(out, " {...}");
@@ -732,7 +743,7 @@ bool append_string(Value v, Buf *out) {
         return true;
     }
     case T_KIND:
-        buf_adds(out, v.k->interface ? "interface " : "kind ");
+        buf_adds(out, v.k->interface ? "interface " : v.k->is_enum ? "enum " : "kind ");
         buf_add_str(out, v.k->name);
         return true;
     case T_DB:

@@ -1,0 +1,1 @@
+Error: An enum's values are string or int, not 'float' at tests/corpora/bytecode/error_enum_header.gzb:8

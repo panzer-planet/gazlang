@@ -1,0 +1,1 @@
+Error: An enum has no fields: its cases are its only objects, and they never change at tests/corpora/parser/error_enum_field.gaz:3

@@ -1,0 +1,1 @@
+Error: An enum has no static fields: its cases are what it keeps, and they never change on line 3

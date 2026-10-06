@@ -18,9 +18,6 @@ const EMAIL_PATTERN = '[^@ ]+@[^@ ]+\.[^@ ]+';
 // Far enough for a todo, and near enough that the page can write the time in UTC whatever the zone
 const FIRST_DUE_YEAR = 1970;
 const LAST_DUE_YEAR = 2999;
-const FILTERS = {"all" => "All", "open" => "Open", "done" => "Done"};
-const EMPTY_LISTS = {"all" => "Nothing to do. Enjoy it.", "open" => "Nothing left to do.", "done" => "Nothing done yet."};
-const SHOW_ALL = "all";
 
 fn field(map $fields, string $name): string {
     $value = $fields[$name] ?? "";
@@ -189,7 +186,7 @@ kind TodoForm {
         }
         $reading = #reading();
 
-        return $zone.time($reading.days, $reading.seconds, "compatible");
+        return $zone.time($reading.days, $reading.seconds, date::Resolution::Compatible);
     }
 
     // What a person should be told about when it is due, if the clocks skip it or show it twice
@@ -213,39 +210,50 @@ kind TodoForm {
 }
 
 /*
- * Which todos the list shows: "all", "open" or "done", from the list's ?show= or a form's "show"
- * field. Anything else is "all", so path(), where a redirect goes, only ever names one of the three.
+ * Which todos the list shows, from the list's ?show= or a form's "show" field. Anything else is
+ * All, so path(), where a redirect goes, only ever names one of the three.
  */
-kind TodoFilter {
-    pub string #name;
+enum Filter: string {
+    All = "all";
+    Open = "open";
+    Done = "done";
 
-    fn _(string $name) {
-        #name = has_key(FILTERS, $name) ? $name : SHOW_ALL;
+    pub static fn from_query(map $request): Filter {
+        return Filter::from(field(http::query($request, {}), "show"), Filter::All);
     }
 
-    pub static fn from_query(map $request): TodoFilter {
-        return TodoFilter(field(http::query($request, {}), "show"));
-    }
-
-    pub static fn from_form(map $request): TodoFilter {
-        return TodoFilter(field(http::form($request, {}), "show"));
+    pub static fn from_form(map $request): Filter {
+        return Filter::from(field(http::form($request, {}), "show"), Filter::All);
     }
 
     // The list's address with this filter: "/" or "/?show=open"
     pub fn path(): string {
-        return #name == SHOW_ALL ? "/" : "/?show=" .. #name;
+        return # == Filter::All ? "/" : "/?show=" .. #value;
     }
 
     pub fn shows(Todo $todo): bool {
-        return match (#name) {
-            "open" => !$todo.done,
-            "done" => $todo.done,
-            default => true,
+        return match (#) {
+            Filter::All => true,
+            Filter::Open => !$todo.done,
+            Filter::Done => $todo.done,
+        };
+    }
+
+    // What the list's link to it says
+    pub fn label(): string {
+        return match (#) {
+            Filter::All => "All",
+            Filter::Open => "Open",
+            Filter::Done => "Done",
         };
     }
 
     // What the list says when it shows nothing
     pub fn empty_text(): string {
-        return EMPTY_LISTS[#name];
+        return match (#) {
+            Filter::All => "Nothing to do. Enjoy it.",
+            Filter::Open => "Nothing left to do.",
+            Filter::Done => "Nothing done yet.",
+        };
     }
 }

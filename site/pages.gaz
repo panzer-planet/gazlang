@@ -88,7 +88,7 @@ kind EntryView {
 
         return match (#entry.what) {
             "constructor" => "{#namespace}::{#kind}()",
-            "static method", "static field", "constant" => "{#namespace}::{#kind}::{$name}",
+            "static method", "static field", "constant", "case" => "{#namespace}::{#kind}::{$name}",
             default => "{#kind}.{$name}",
         };
     }

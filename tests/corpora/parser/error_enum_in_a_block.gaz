@@ -1,0 +1,5 @@
+if (true) {
+    enum Level {
+        Low;
+    }
+}

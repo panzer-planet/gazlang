@@ -1,0 +1,1 @@
+Error: colours::Secret is not pub, so only namespace colours can use it at tests/corpora/parser/namespaces/error_a_private_enum_qualified.gaz:3

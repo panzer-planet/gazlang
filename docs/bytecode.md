@@ -26,19 +26,19 @@ per global slot, in slot order; a program with no globals writes `globals` on it
 
 A `statics` line may follow, one name per static field slot, in slot order. A name is
 `Kind::field`, the kind being the one that *declares* it, so a kind and its children name
-the same slot. The line is left out by a program with no static fields. The rest of the file
-is blocks.
+the same slot; each case of an enum has one too, named `Enum::Case`. The line is left out by a
+program with no static fields. The rest of the file is blocks.
 
 ## Blocks
 
 A block is a unit of code with its own frame and its own labels: the top level, a function, a
-kind, or a lambda; an interface is a block too, a record with no code. A block starts at its
+kind, or a lambda; an interface and an enum are blocks too, records with no code. A block starts at its
 header line, which begins with a lowercase word, and runs until the next header line or the end
 of the file. Instruction names are uppercase, so a block needs no end marker.
 
 The top level block comes first; a loader starts the program at its first instruction, and
 falling off its end ends the program. Then come the functions in declaration order, then the
-interfaces, then each kind followed by its methods, then the lambdas in index order.
+interfaces, then each kind or enum followed by its methods, then the lambdas in index order.
 
 Every block's header ends with a `locals` line naming the variable in each local slot, in slot
 order, after any record lines and before its first instruction. A block's parameters are its
@@ -155,6 +155,33 @@ method scale Ruler pub
 locals
 ```
 
+An **enum** is a kind whose cases are its only objects. Its header gives its name, and the type
+of its cases' values when they have them, `string` or `int`; then come its record lines as a
+kind's (`implements`, `field`, `method`), a `case` line per case in the order declared, and an
+empty `locals` line, and it has no code, since nothing constructs one: a loader makes each case,
+one object, before the program runs, and keeps it in the static slot the `statics` line names
+`Enum::Case`, so `LOAD_STATIC` reads one as it reads any static field. A case of an enum with
+values gives its value as a literal, and the enum has one field, `value`, `pub` and of that type,
+where each case keeps it; one without values has no field. Its methods are its own, there is no
+constructor, and nothing extends it.
+
+```gzb
+enum Filter string
+field value Filter pub string
+method label Filter pub
+case All "all"
+case Open "open"
+locals
+
+enum Direction
+case North
+case South
+locals
+```
+
+`Filter::cases()`, `Filter::from()` and `Filter.to_json()` are ordinary blocks the compiler
+writes, so a loader learns nothing more of them.
+
 ## Types
 
 A type names what a value may be, and is written as one word: the alternatives of a union
@@ -258,7 +285,7 @@ is a GazLang error a `try` can catch, and gets the location of the instruction t
 | `CONCAT_ASSIGN slot` | `v -- w` | `$s ..= v`: appends to a local and pushes the new value. Fails if it is not set. The string is never loaded onto the stack, so the append is in place and a loop of them is linear; `..` otherwise, converting both sides as `echo` does. |
 | `LOAD_GLOBAL slot`, `LOAD_QUIET_GLOBAL slot`, `STORE_GLOBAL slot`, `CONCAT_ASSIGN_GLOBAL slot` | | The same for a global. |
 | `LOAD_CAPTURED slot`, `LOAD_QUIET_CAPTURED slot`, `STORE_CAPTURED slot`, `CONCAT_ASSIGN_CAPTURED slot` | | The same for a captured variable of the running closure, addressed by capture index. |
-| `LOAD_STATIC slot`, `STORE_STATIC slot` | | The same for a static field, addressed by its slot in the `statics` line. There is no quiet form: a static field always has a value, since the compiler writes its default, a constant, before anything else runs. A store into a static field with a type (a `static` record) checks the value: "Counter::count must be int, got string". |
+| `LOAD_STATIC slot`, `STORE_STATIC slot` | | The same for a static field, addressed by its slot in the `statics` line. There is no quiet form: a static field always has a value, since the compiler writes its default, a constant, before anything else runs, and a loader puts each case of an enum in its slot. A store into a static field with a type (a `static` record) checks the value: "Counter::count must be int, got string". |
 
 ### Operators
 
@@ -346,12 +373,12 @@ block and not in another.
 
 | Instruction | Stack | What it does |
 | --- | --- | --- |
-| `PUSH_KIND kind` | `-- c` | Pushes a kind, or an interface, as a value. Calling an interface fails with "Cannot construct interface Shape". |
+| `PUSH_KIND kind` | `-- c` | Pushes a kind, an interface or an enum as a value. Calling an interface fails with "Cannot construct interface Shape", and an enum with "Cannot construct enum Filter: its cases are its only objects". |
 | `NEW kind count` | `… -- o` | Makes an object of that kind with that many arguments: the kind's block sets the field defaults, calls the constructor and returns the object. |
 | `CALL_CONSTRUCTOR kind` | `-- v` | In a kind's block: runs that kind's `_` on the object being made, with the same arguments. A kind with no constructor is an error when it runs, as the loader doesn't know which methods a kind answers to. |
 | `LOAD_THIS` | `-- o` | Pushes the object the running method or initialiser is on. |
 | `LOAD_FIELD member` | `-- v` | Pushes a field of that object. Fails with "Property x of C is not set". |
-| `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. A field with a type checks the value first, as `SET_PATH` does. |
+| `SET_FIELD member` | `v -- v` | Sets a field of that object, leaving the value. A field with a type checks the value first, as `SET_PATH` does, and a case of an enum, whose one field is typed, fails with "Cannot change Filter::Open: an enum's cases never change", however the write is spelt. |
 | `GET_PROPERTY member` | `o -- v` | Reads a member of an object: a field's value, or a method bound to it. Fails with "C has no member foo", "C.foo is not pub, so only C can use it" or "Cannot use . on map". |
 | `GET_PROPERTY_QUIET member` | `o -- v` | The same, but null for a field that is not set or an object that is null. |
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
@@ -409,6 +436,13 @@ A file that loads is one the VM can run, so the checks are part of the format:
 - Every name in a type, on a `field` or `static` line or in a `CHECK_PARAM` or
   `CHECK_RETURN`, is a `type_of()` name or a kind or interface the file declares, and a
   `static` line names a slot the `statics` header has.
+- An enum has no code and no parent, its methods are its own and none is `_`, its fields are
+  exactly `value`, `pub`, of its values' type and its own when it has values and none when it
+  hasn't, and no kind extends it. Its cases' names are unique, every case has a value of that
+  type or none has one, no two values are equal, and each case has the slot `Enum::Case` in the
+  `statics` line; a name is one enum or one kind, never both or twice. `NEW` and
+  `CALL_CONSTRUCTOR` never name an enum, and `STORE_STATIC`, `SET_PATH_STATIC` and
+  `DELETE_PATH_STATIC` never name a case's slot: nothing makes a case or replaces one.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

@@ -172,8 +172,10 @@ struct Func {
 struct Object {
     Gc gc;
     Kind *kind;
-    int64_t id;         /* object_id(): 1 for the program's first object, 2 for the next, never reused */
+    int64_t id;         /* object_id(): 1 for the first object made, the enum cases first, then the program's; never reused */
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
+    int32_t case_number; /* a case of an enum: which, from 1 (0 for any other object), in the
+                            padding before the fields, so it costs an object nothing */
     Value fields[];
 };
 
@@ -278,6 +280,10 @@ struct Kind {
     bool interface;
     int ninterfaces;
     Kind **interfaces;  /* every interface a kind implements, its ancestors' included */
+    /* An enum is a Kind too, so typed parameters, is_a() and methods take one as they take a
+       kind; its cases are its only objects, one each, made when a run starts (make_cases() in
+       vm.c) and kept in the static slots the statics line names after them. Its block has them. */
+    bool is_enum;
 };
 
 typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA, B_INTERFACE } BlockKind;
@@ -297,6 +303,12 @@ struct Block {
     struct { bool from_closure; int outer; int inner; } *map;   /* lambda: where each capture comes from */
     bool is_abstract;   /* kind */
     bool is_final;      /* kind: no kind may extend it */
+    bool is_enum;       /* kind: an enum, whose cases are its only objects */
+    Str *backing;       /* enum: "string" or "int", the type its cases' values have, or NULL */
+    int ncases;         /* enum: each case, with its value (unset when it isn't backed) */
+    Str **case_names;
+    Value *case_values;
+    int *case_slots;    /* enum: each case's static slot, found once the records are read */
     Str *parent;        /* kind: the parent's name, or NULL */
     /* The kind this block's code is written in, or NULL: what a member use in it is asked for
        by. A method's own name carries it; a static method's and a lambda's header say "in K". */
@@ -420,6 +432,7 @@ enum {
     OP_NOT_JZ,          /* NOT; JZ */
     OP_SET_FIELD_POP,   /* SET_FIELD; POP */
     OP_LOAD_LOAD_INDEX, /* LOAD; LOAD; INDEX_GET */
+    OP_LOAD_STATIC_OP,  /* LOAD; LOAD_STATIC; a quick operator: a match on an enum's cases */
 };
 
 /* ---- value.c --------------------------------------------------------------------------- */
@@ -555,6 +568,7 @@ bool type_admits(TypeSpec *t, Value *v);
 bool type_has(TypeSpec *t, Type type);
 const char *describe_type(Value v);
 bool check_field_type(Object *o, int field, Value *v);
+bool append_case(Object *o, Buf *out);   /* Filter::Open for a case of an enum, else false */
 /* The value may be widened to a float by a typed field's check, which is why it is a pointer */
 bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value *value, Kind *asking, Value *joined);
 bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *asking);

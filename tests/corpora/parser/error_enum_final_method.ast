@@ -1,0 +1,1 @@
+Error: Nothing extends an enum, so its methods need no final at tests/corpora/parser/error_enum_final_method.gaz:3

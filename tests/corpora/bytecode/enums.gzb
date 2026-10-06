@@ -1,0 +1,80 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All Filter::Open Level::Low Level::High
+
+top
+locals
+LOAD_STATIC 1
+PRINT
+LOAD_STATIC 1
+GET_PROPERTY value
+PRINT
+LOAD_STATIC 1
+LOAD_STATIC 1
+EQUALS
+PRINT
+LOAD_STATIC 0
+LOAD_STATIC 1
+EQUALS
+PRINT
+LOAD_STATIC 2
+PRINT
+LOAD_STATIC 2
+GET_METHOD label
+CALL_METHOD 0 label
+PRINT
+LOAD_STATIC 3
+CALL_BUILTIN kind_of 1
+PRINT
+PUSH_KIND Level
+PRINT
+LOAD_STATIC 3
+PUSH_KIND Shown
+CALL_BUILTIN is_a 2
+PRINT
+LOAD_STATIC 0
+CALL_BUILTIN fields 1
+PRINT
+LOAD_STATIC 3
+CALL_BUILTIN type_of 1
+PRINT
+LOAD_STATIC 0
+CALL show 1
+PRINT
+NEW_ARRAY
+LOAD_STATIC 2
+ARRAY_PUSH
+LOAD_STATIC 1
+ARRAY_PUSH
+PRINT
+
+fn show 1 1
+locals $f
+CHECK_PARAM 0 Filter
+LOAD 0
+GET_PROPERTY value
+RET
+
+interface Shown
+method label 0 0
+locals
+
+enum Filter string
+field value Filter pub string
+case All "all"
+case Open "open"
+locals
+
+enum Level
+implements Shown
+method label Level pub
+case Low
+case High
+locals
+
+fn Level.label 0 0
+locals
+LOAD_THIS
+PUSH " is the level"
+CONCAT
+RET

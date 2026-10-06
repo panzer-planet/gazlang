@@ -1,0 +1,4 @@
+const ALL = "all";
+enum Filter: string {
+    All = ALL;
+}

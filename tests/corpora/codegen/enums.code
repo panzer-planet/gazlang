@@ -1,0 +1,190 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All Filter::Open Level::Low Direction::North Direction::South
+
+top
+locals
+@ "enums.gaz" 30
+PUSH "open"
+LOAD_STATIC 0
+CALL Filter::from 2
+GET_METHOD label
+CALL_METHOD 0 label
+PRINT
+@ "enums.gaz" 31
+PUSH 1
+NEG
+CALL Level::from 1
+GET_PROPERTY value
+PRINT
+@ "enums.gaz" 32
+CALL Direction::cases 0
+PRINT
+
+fn Filter::cases 0 0 in Filter
+locals
+@ "enums.gaz" 9
+NEW_ARRAY
+LOAD_STATIC 0
+ARRAY_PUSH
+LOAD_STATIC 1
+ARRAY_PUSH
+RET
+
+fn Filter::from 1 2 in Filter
+locals $value $default
+@ "enums.gaz" 9
+CHECK_PARAM 0 string
+LOAD 0
+PUSH "all"
+EQUALS
+JZ CASE_0
+LOAD_STATIC 0
+RET
+LABEL CASE_0
+LOAD 0
+PUSH "open"
+EQUALS
+JZ CASE_1
+LOAD_STATIC 1
+RET
+LABEL CASE_1
+ARGC
+PUSH 2
+EQUALS
+JZ NO_CASE_2
+LOAD 1
+RET
+LABEL NO_CASE_2
+PUSH "Filter has no case with the value "
+NEW_ARRAY
+LOAD 0
+ARRAY_PUSH
+CALL_BUILTIN to_string 1
+PUSH 1
+PUSH -1
+CALL_BUILTIN slice 3
+CONCAT
+THROW
+
+fn Level::cases 0 0 in Level
+locals
+@ "enums.gaz" 21
+NEW_ARRAY
+LOAD_STATIC 2
+ARRAY_PUSH
+RET
+
+fn Level::from 1 2 in Level
+locals $value $default
+@ "enums.gaz" 21
+CHECK_PARAM 0 int
+LOAD 0
+PUSH -1
+EQUALS
+JZ CASE_0
+LOAD_STATIC 2
+RET
+LABEL CASE_0
+ARGC
+PUSH 2
+EQUALS
+JZ NO_CASE_1
+LOAD 1
+RET
+LABEL NO_CASE_1
+PUSH "Level has no case with the value "
+NEW_ARRAY
+LOAD 0
+ARRAY_PUSH
+CALL_BUILTIN to_string 1
+PUSH 1
+PUSH -1
+CALL_BUILTIN slice 3
+CONCAT
+THROW
+
+fn Direction::cases 0 0 in Direction
+locals
+@ "enums.gaz" 25
+NEW_ARRAY
+LOAD_STATIC 3
+ARRAY_PUSH
+LOAD_STATIC 4
+ARRAY_PUSH
+RET
+
+interface Labelled
+method label 0 0
+locals
+
+enum Filter string
+implements Labelled
+field value Filter pub string
+method label Filter pub
+method to_json Filter pub
+case All "all"
+case Open "open"
+locals
+
+fn Filter.label 0 0
+locals $#match_0
+@ "enums.gaz" 14
+LOAD_THIS
+STORE 0
+LOAD 0
+@ "enums.gaz" 15
+LOAD_STATIC 0
+@ "enums.gaz" 14
+EQUALS
+NOT
+JZ MATCH_ARM_0_0
+LOAD 0
+@ "enums.gaz" 16
+LOAD_STATIC 1
+@ "enums.gaz" 14
+EQUALS
+NOT
+JZ MATCH_ARM_0_1
+LOAD 0
+NO_MATCH
+LABEL MATCH_ARM_0_0
+@ "enums.gaz" 15
+PUSH "All"
+@ "enums.gaz" 14
+JMP MATCH_END_0
+LABEL MATCH_ARM_0_1
+@ "enums.gaz" 16
+PUSH "Open"
+@ "enums.gaz" 14
+JMP MATCH_END_0
+LABEL MATCH_END_0
+CHECK_RETURN string
+RET
+@ "enums.gaz" 13
+PUSH null
+CHECK_RETURN string
+RET
+
+fn Filter.to_json 0 0
+locals
+@ "enums.gaz" 9
+LOAD_FIELD value
+RET
+
+enum Level int
+field value Level pub int
+method to_json Level pub
+case Low -1
+locals
+
+fn Level.to_json 0 0
+locals
+@ "enums.gaz" 21
+LOAD_FIELD value
+RET
+
+enum Direction
+case North
+case South
+locals

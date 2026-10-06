@@ -1,0 +1,1 @@
+Error: Every case of enum Filter has a string value: write Open = ...; at tests/corpora/parser/error_enum_case_without_value.gaz:3

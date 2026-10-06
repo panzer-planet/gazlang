@@ -1,0 +1,51 @@
+// Enums: a kind whose cases are its only objects. A case is a static slot the VM fills, named
+// Enum::Case; one with values has #value, from() and to_json(), and every one has cases(). An
+// enum may implement interfaces and have methods, constants and static methods, but nothing else.
+interface Labelled {
+    fn label(): string;
+}
+
+pub enum Filter: string implements Labelled {
+    All = "all";
+    Open = "open";
+    Done = "done";
+
+    pub const DEFAULT = "all";
+
+    pub fn label(): string {
+        return match (#) {
+            Filter::All => "All",
+            Filter::Open => "Open",
+            default => "Done",
+        };
+    }
+
+    kin fn plain() {
+        return #value;
+    }
+
+    pub static fn first(): Filter {
+        return #All;
+    }
+}
+
+enum Level: int {
+    Low = 1;
+    Below = -1;
+}
+
+enum Direction {
+    North;
+    South;
+}
+
+fn shown(Filter $filter): string {
+    return $filter.label();
+}
+
+echo shown(Filter::from(Filter::DEFAULT));
+echo Filter::from("archived", Filter::Open);
+echo Filter::cases();
+echo Level::from(-1).value;
+echo Direction::North == Direction::South;
+echo Filter::first();

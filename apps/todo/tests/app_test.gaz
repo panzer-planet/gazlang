@@ -317,7 +317,7 @@ expect("a done one isn't", [contains($home, "<li class=\"done overdue\">"), len(
 $at = date::parse("2026-10-05T12:00:00Z").time;
 $todos = [Todo(1, 1, "due at noon", false, 0, $at), Todo(2, 1, "done", true, 0, $at - 1), Todo(3, 1, "never due", false, 0)];
 fn rendered(list $todos, int $now): string {
-    return todos_page("token", $todos, TodoForm(""), {}, date::utc(), TodoFilter("all"), $now).text;
+    return todos_page("token", $todos, TodoForm(""), {}, date::utc(), Filter::All, $now).text;
 }
 expect("at the moment it is due, not yet overdue", contains(rendered($todos, $at), "overdue"), false);
 expect("a second later it is", [contains(rendered($todos, $at + 1), "<li class=\"open overdue\">"), len(split(rendered($todos, $at + 1), "class=\"open overdue\"")) - 1], [true, 1]);

@@ -79,12 +79,14 @@ expect("neither happens in a zone whose clocks don't change", [$skipped.due_note
 /* Which todos the list shows */
 $open = Todo(1, 1, "open", false, 0);
 $done = Todo(2, 1, "done", true, 0);
-expect("all, open and done", [TodoFilter("all").shows($open), TodoFilter("all").shows($done), TodoFilter("open").shows($open), TodoFilter("open").shows($done), TodoFilter("done").shows($open), TodoFilter("done").shows($done)], [true, true, true, false, false, true]);
-expect("their addresses", [TodoFilter("all").path(), TodoFilter("open").path(), TodoFilter("done").path()], ["/", "/?show=open", "/?show=done"]);
+expect("all, open and done", [Filter::All.shows($open), Filter::All.shows($done), Filter::Open.shows($open), Filter::Open.shows($done), Filter::Done.shows($open), Filter::Done.shows($done)], [true, true, true, false, false, true]);
+expect("their addresses", map(Filter::cases(), $filter -> $filter.path()), ["/", "/?show=open", "/?show=done"]);
+expect("their links and empty lists", map(Filter::cases(), $filter -> [$filter.label(), $filter.empty_text()]), [["All", "Nothing to do. Enjoy it."], ["Open", "Nothing left to do."], ["Done", "Nothing done yet."]]);
 foreach (["", "//evil.example", "Open", "done ", "all\r\n"] as $name) {
-    expect("anything else is all: " .. slice(to_string([$name]), 1, -1), [TodoFilter($name).name, TodoFilter($name).path()], ["all", "/"]);
+    $filter = Filter::from($name, Filter::All);
+    expect("anything else is all: " .. slice(to_string([$name]), 1, -1), [$filter, $filter.path()], [Filter::All, "/"]);
 }
 $query = $text -> ({"method" => "GET", "path" => "/", "query" => $text, "headers" => {}, "body" => ""});
-expect("from the query string", [TodoFilter::from_query($query("show=open")).name, TodoFilter::from_query($query("")).name, TodoFilter::from_query($query("show=%zz")).name, TodoFilter::from_query($query("show[]=open")).name], ["open", "all", "all", "all"]);
-expect("from a form", [TodoFilter::from_form(form_request("show=done")).name, TodoFilter::from_form(form_request("")).name], ["done", "all"]);
+expect("from the query string", [Filter::from_query($query("show=open")), Filter::from_query($query("")), Filter::from_query($query("show=%zz")), Filter::from_query($query("show[]=open"))], [Filter::Open, Filter::All, Filter::All, Filter::All]);
+expect("from a form", [Filter::from_form(form_request("show=done")), Filter::from_form(form_request(""))], [Filter::Done, Filter::All]);
 test::done();

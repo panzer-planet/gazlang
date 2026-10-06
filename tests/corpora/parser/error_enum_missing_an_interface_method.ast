@@ -1,0 +1,1 @@
+Error: Enum Level must define method rank of interface Ranked at tests/corpora/parser/error_enum_missing_an_interface_method.gaz:5

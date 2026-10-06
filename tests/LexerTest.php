@@ -238,8 +238,8 @@ class LexerTest extends GazLangTestCase
     public function test_kind_keywords_and_other_languages_words()
     {
         $this->assertSame(
-            ['KIND', 'EXTENDS', 'ABSTRACT', 'INTERFACE', 'IMPLEMENTS', 'FINAL', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER'],
-            array_column($this->pairs('kind extends abstract interface implements final public private protected function class'), 0)
+            ['KIND', 'EXTENDS', 'ABSTRACT', 'INTERFACE', 'IMPLEMENTS', 'FINAL', 'ENUM', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER'],
+            array_column($this->pairs('kind extends abstract interface implements final enum public private protected function class case'), 0)
         );
     }
 

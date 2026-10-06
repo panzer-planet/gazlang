@@ -1,0 +1,22 @@
+GAZLANG BYTECODE 3
+globals
+statics Level::Low
+
+top
+locals
+
+kind Other
+method name Other pub
+locals
+LOAD_THIS
+RET
+
+fn Other.name 0 0
+locals
+PUSH "other"
+RET
+
+enum Level
+method name Other pub
+case Low
+locals

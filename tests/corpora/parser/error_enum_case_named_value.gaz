@@ -1,0 +1,3 @@
+enum Filter: string {
+    value = "v";
+}

@@ -876,6 +876,44 @@ and methods a table in C.
   the loader checks each kind against its parent alone (`check_final()` in `load.c`). Old files
   load unchanged, so the version stays 3.
 
+## Enums
+
+- **A closed kind whose cases are its only objects**, so typed parameters, `is_a`, `kind_of`,
+  methods and `implements` need nothing new, and `==` and `match` compare a case by identity. A
+  KindDeclarationAST with `#cases` set (`enum_declaration()` in `parser.gaz`), in `#kinds`, so
+  everything that takes a kind takes one and only what must refuse it asks (`is_enum()`).
+- **A case is a static slot the VM fills** (`make_cases()` in `vm.c`, when a run starts, since
+  object ids and statics are the run's), so `Filter::Open` is `LOAD_STATIC` and the parser
+  registers each case as a static (`check_new_static()`): nothing below the parser learns a new
+  way to name one. Writing one, or under one, is refused when the program is read
+  (`case_never_changes()`), as is constructing one.
+- **Values are all or nothing, `string` or `int` literals, unique**, so `from()` finds one case.
+  Literals rather than constant expressions: the restrictive choice, loosening it breaks nothing.
+- **`cases()`, `from()` and `to_json()` are the compiler's code, not source** (`#generated` on
+  the node, `compile_function()` in `codegen.gaz`): `from($value, $default)` needs to know whether
+  its default was passed, which is `ARGC` and no GazLang can say, and nothing in C would serve a
+  builtin taking its name from every program. A backed enum's `to_json()` is its value, so
+  `json.gaz` learns nothing; one the enum writes itself wins. `.value` is a real `pub` field,
+  typed with the backing type, so reading it is an ordinary field read with the inline cache.
+- **Immutability is the type check's**: every write into a typed field goes through
+  `check_field_type()`, which refuses a case (`Object.case_number`), so no write path needs a check
+  of its own and untyped code pays nothing. An enum without values has no fields to write.
+- **No fields, static fields, constructor, `extends`, `abstract` or `final`**, each an error that
+  says why: the restrictive choices. No exhaustiveness for `match`: the subject's type isn't known
+  when the program is read. A case is not a map key, as no object is (`ponytail:` key by
+  `.value`).
+- **In bytecode**: an `enum Name [string|int]` block, its record as a kind's, a `case NAME
+  [literal]` line each, and no code; the loader checks the record (`check_enum()`,
+  `find_case_slots()` in `load.c`) and refuses `NEW`, `CALL_CONSTRUCTOR` and a store into a
+  case's slot. Old files load unchanged, so the version stays 3. `LOAD; LOAD_STATIC; op` is a
+  superinstruction so a `match` on cases costs what one on string constants did.
+- **`lib/web.gaz`'s scanner states and placements are private enums**, so a misspelt state is an
+  error when the library is read. Measured on one binary, `web::html` costs what it did with string
+  constants once a template is scanned, and a percent or two more scanning a new one: identity is
+  a pointer compare, as comparing two constant strings in effect was, so enums buy checking, not
+  speed. `date::Resolution` replaced `Zone.time()`'s strings, and `apps/todo`'s filter
+  is `enum Filter: string` with `label()` and `empty_text()` in place of parallel maps.
+
 ## Command line arguments
 
 - **Builder methods, not a spec map**, so a misspelt method is caught when the program is read

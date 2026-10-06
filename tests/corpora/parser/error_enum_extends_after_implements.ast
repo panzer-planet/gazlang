@@ -1,0 +1,1 @@
+Error: An enum extends nothing, and nothing extends it: its cases are its only objects at tests/corpora/parser/error_enum_extends_after_implements.gaz:3

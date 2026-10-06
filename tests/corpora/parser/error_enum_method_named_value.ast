@@ -1,0 +1,1 @@
+Error: Every case of enum Filter has its value in #value, so nothing else in it can be called value at tests/corpora/parser/error_enum_method_named_value.gaz:4

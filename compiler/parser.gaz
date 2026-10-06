@@ -432,6 +432,9 @@ final kind Html {
     }
 }';
 
+    // Why an enum's body can't hold a field
+    const ENUM_HAS_NO_FIELDS = "An enum has no fields: its cases are its only objects, and they never change";
+
     // Why abstract and final can't mark one kind or method
     const ABSTRACT_AND_FINAL = {
         "kind" => "A kind can't be both abstract and final: an abstract kind is there to be extended",
@@ -443,7 +446,7 @@ final kind Html {
     // How source with no file is known as a module
     const MAIN = "<main>";
     // Why a statement can't be in a file that is imported
-    const STATEMENT_IN_MODULE = "An imported file only declares (fn, kind, interface, const): move this statement into a function, or into the program's main file";
+    const STATEMENT_IN_MODULE = "An imported file only declares (fn, kind, interface, enum, const): move this statement into a function, or into the program's main file";
 
     // Every call by name and bare name used as a value, in source order, as [the node, its
     // file's scope, the kind it is written in or null], checked against the declared
@@ -2389,6 +2392,8 @@ final kind Html {
             #fail(#ABSTRACT_AND_FINAL[$what]);
         } else if ($token.type == "INTERFACE") {
             #fail("An interface can't be final: it is there to be implemented");
+        } else if ($token.type == "ENUM") {
+            #fail("An enum needs no final: nothing extends one");
         } else if ($token.type != upper($what)) {
             #fail("Only a kind or a method can be final: nothing else is extended or overridden");
         }
@@ -2417,6 +2422,9 @@ final kind Html {
             #eat("ABSTRACT");
             if (#current_token.type == "FINAL") {
                 #fail(#ABSTRACT_AND_FINAL["kind"]);
+            }
+            if (#current_token.type == "ENUM") {
+                #fail("An enum can't be abstract: its cases are its objects");
             }
         }
         $final = $start.type == "FINAL";
@@ -2503,7 +2511,7 @@ final kind Html {
 
     // The interfaces a kind claims ([IMPLEMENTS name (COMMA name)*]), as written: after its
     // parent, if it has one
-    fn implements_clause($kind) {
+    fn implements_clause($kind, $enum = false) {
         $claims = [];
         if (#current_token.type == "IMPLEMENTS") {
             #eat("IMPLEMENTS");
@@ -2513,7 +2521,7 @@ final kind Html {
                 $claims[] = #claimed_name();
             }
         }
-        if ($claims != [] && #current_token.type == "EXTENDS") {
+        if ($claims != [] && #current_token.type == "EXTENDS" && !$enum) {
             #fail("extends comes before implements: write 'kind " .. #split_name($kind)[1] .. " extends Parent implements ...'");
         }
 
@@ -2561,6 +2569,226 @@ final kind Html {
         #eat("RIGHT_BRACE");
 
         return $interface;
+    }
+
+    /*
+     * Parse an enum declaration (ENUM IDENTIFIER [COLON (string | int)] [IMPLEMENTS name (COMMA
+     * name)*] LBRACE (case | method | constant | static method)* RBRACE), case: IDENTIFIER
+     * [ASSIGN literal] SEMICOLON
+     *
+     * Only at the top level. An enum is a kind whose cases are its only objects, each a static
+     * slot the VM fills before the program runs, so Filter::Open is read as a static field is.
+     * It has no fields (a backed one has #value, the compiler's), no constructor, no extends and
+     * no children, so nothing can make a case or change one. Every enum has cases(), and one with
+     * values has from() and to_json() too (unless it writes its own to_json()): their code is the
+     * compiler's (see #generated), never source a program could spell differently.
+     */
+    fn enum_declaration($pub) {
+        $start = #current_token;
+        #eat("ENUM");
+        #check_new_name();
+        if (in_array(#current_token.value, #TYPE_NAMES)) {
+            #fail("{#current_token.value} is a type name, so an enum can't be called that");
+        }
+        $name = #qualify(#current_token.value);
+        #eat("IDENTIFIER");
+        #refuse_enum_extends();
+        $backing = #enum_backing($name);
+        #refuse_enum_extends();
+        $claims = #implements_clause($name, true);
+        #refuse_enum_extends();
+
+        $kind = #at(KindDeclarationAST($name, null, false), $start);
+        [$kind.cases, $kind.case_lines] = [{}, {}];
+        #kinds[$name] = $kind;
+        #declare($name, $pub);
+        if ($claims != []) {
+            $kind.interfaces = $claims;
+            #interface_claims[] = [$kind, #scope];
+        }
+        #enum_helper($kind, $start, "cases", [], 0);
+        if ($backing != null) {
+            $kind.backing = $backing;
+            #declare_field($kind, "value", null, "pub", $start.line, #make_type([$backing], $start));
+            #enum_helper($kind, $start, "from", ["\$value", "\$default"], [1, 2]);
+        }
+        #eat("LEFT_BRACE");
+        #kind = $kind;
+        while (#current_token.type != "RIGHT_BRACE") {
+            #enum_member($kind);
+        }
+        #kind = null;
+        #eat("RIGHT_BRACE");
+        if ($kind.cases == {}) {
+            #fail_at("Enum {$name} has no cases: an enum is the cases it names, as Name;", #file, $start.line);
+        }
+        // A case of an enum with values is written to JSON as its value, unless the enum says
+        // otherwise, or has another member of that name
+        $taken = has_key($kind.methods, "to_json") || has_key($kind.static_methods, "to_json")
+            || has_key($kind.constants, "to_json") || has_key($kind.cases, "to_json");
+        if ($backing != null && !$taken) {
+            $method = #at(FunctionDeclarationAST("to_json", [], [], CompoundAST(), 0), $start);
+            $method.kind = $name;
+            $method.generated = "to_json";
+            $kind.methods["to_json"] = $method;
+            $kind.vis["to_json"] = "pub";
+        }
+
+        return $kind;
+    }
+
+    fn refuse_enum_extends() {
+        if (#current_token.type == "EXTENDS") {
+            #fail("An enum extends nothing, and nothing extends it: its cases are its only objects");
+        }
+    }
+
+    // The type an enum's values have ([COLON (string | int)]), or null for an enum without values
+    fn enum_backing($name) {
+        if (#current_token.type != "COLON") {
+            return null;
+        }
+        #eat("COLON");
+        $token = #current_token;
+        if ($token.type != "IDENTIFIER" || !in_array($token.value, ["string", "int"])) {
+            $short = #split_name($name)[1];
+            #fail("An enum's values are strings or ints: write 'enum {$short}: string' or 'enum {$short}: int', not " .. #describe($token));
+        }
+        #eat("IDENTIFIER");
+
+        return $token.value;
+    }
+
+    /*
+     * A static method every enum is given, as a function named Enum::name whose code the code
+     * generator writes (#generated): cases(), and from() for an enum with values
+     */
+    fn enum_helper($kind, $start, $name, $params, $arity) {
+        $full = "{$kind.name}::{$name}";
+        #functions[$full] = $arity;
+        #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
+        $node = #at(FunctionDeclarationAST($full, $params, map($params, $_ -> null), CompoundAST(), $arity), $start);
+        $node.kind = $kind.name;
+        $node.generated = $name;
+        $kind.static_methods[$name] = $node;
+        $kind.vis[$name] = "pub";
+        #static_functions[] = $node;
+    }
+
+    // One member of an enum's body: a case, a method, a constant or a static method
+    fn enum_member($kind) {
+        $vis = "";
+        if (#current_token.type == "PUB" || #current_token.type == "KIN") {
+            $vis = #current_token.type == "PUB" ? "pub" : "kin";
+            #eat(#current_token.type);
+        }
+        $type = #current_token.type;
+        if ($type == "IDENTIFIER") {
+            #enum_case($kind, $vis);
+        } else if ($type == "HASH_IDENTIFIER" || $type == "QUESTION" || in_array($type, #TYPE_KEYWORDS)) {
+            #fail(#ENUM_HAS_NO_FIELDS);
+        } else if ($type == "CONST") {
+            #constant_declaration($kind, false, $vis);
+        } else if ($type == "FN") {
+            #method_declaration($kind, $vis);
+        } else if ($type == "STATIC") {
+            #static_declaration($kind, $vis);
+        } else if ($type == "ABSTRACT") {
+            #fail("An enum's methods can't be abstract: nothing extends an enum to define them");
+        } else if ($type == "FINAL") {
+            #fail("Nothing extends an enum, so its methods need no final");
+        } else {
+            #refuse_reserved_member();
+            #fail("Expected a case (Name;), a method (fn), a constant (const) or a static method but found " .. #describe(#current_token));
+        }
+    }
+
+    // Parse a case (IDENTIFIER [ASSIGN literal] SEMICOLON): a value when the enum has values, of
+    // their type, and no two cases with one value, since a value finds its case
+    fn enum_case($kind, $vis) {
+        $token = #current_token;
+        $name = $token.value;
+        #eat("IDENTIFIER");
+        // A name before a #field would have been the field's type
+        if (#current_token.type == "HASH_IDENTIFIER") {
+            #fail(#ENUM_HAS_NO_FIELDS);
+        }
+        if ($vis != "") {
+            #fail_at("A case is pub already, so it needs no {$vis}", #file, $token.line);
+        }
+        #check_new_case($kind, $name);
+        $value = null;
+        if (#current_token.type == "ASSIGN") {
+            if (($kind.backing ?? null) == null) {
+                $short = #split_name($kind.name)[1];
+                #fail("Enum {$kind.name} has no values, so case {$name} takes none: write 'enum {$short}: string' (or int) to give its cases values");
+            }
+            #eat("ASSIGN");
+            $value = #case_value($kind, $name);
+        } else if (($kind.backing ?? null) != null) {
+            #fail("Every case of enum {$kind.name} has a {$kind.backing} value: write {$name} = ...;");
+        }
+        #eat("SEMICOLON");
+        foreach ($kind.cases as $other => $other_value) {
+            if ($value != null && $other_value == $value) {
+                #fail_at("Cases {$kind.name}::{$other} and {$kind.name}::{$name} have the same value " .. quote($value) .. ": a value finds one case", #file, $token.line);
+            }
+        }
+        $kind.cases[$name] = $value;
+        $kind.case_lines[$name] = $token.line;
+        $kind.vis[$name] = "pub";
+    }
+
+    // A case's value: a string or int literal (a negative int too) of the enum's type
+    fn case_value($kind, $name) {
+        $start = #current_token;
+        #in_constant = true;
+        $expr = #expr();
+        #in_constant = false;
+        $literal = is_a($expr, StringAST) || is_a($expr, NumAST)
+            || is_a($expr, UnaryOpAST) && $expr.op.type == "MINUS" && is_a($expr.expr, NumAST);
+        if (!$literal) {
+            #fail_at("A case's value is a literal: write {$name} = \"...\"; or {$name} = 1;", #file, $start.line);
+        }
+        $value = #fold($expr, $kind);
+        if (type_of($value) != $kind.backing) {
+            #fail_at("Case {$kind.name}::{$name} must have a {$kind.backing} value, as its enum says, not " .. type_of($value), #file, $start.line);
+        }
+
+        return $value;
+    }
+
+    // A case's name must be the enum's only member of that name
+    fn check_new_case($kind, $name) {
+        if (has_key($kind.cases, $name)) {
+            #fail("Enum {$kind.name} already has a case {$name}");
+        }
+        if (($kind.backing ?? null) != null && $name == "value") {
+            #fail(#value_is_taken($kind));
+        }
+        if (($kind.static_methods[$name].generated ?? null) != null) {
+            #fail(#already_generated($kind, $name));
+        }
+        $member = match {
+            has_key($kind.constants, $name) => "constant {$name}",
+            has_key($kind.methods, $name) => "method {$name}",
+            has_key($kind.static_methods, $name) => "static method {$name}",
+            default => null,
+        };
+        if ($member != null) {
+            #fail("{$kind.name} already has a {$member}: cases, constants, methods and statics share names");
+        }
+    }
+
+    // Why nothing in an enum can be called cases, nor from in one with values: the static
+    // methods every enum is given
+    fn already_generated($kind, $name) {
+        return "Enum {$kind.name} has {$name}() already: every enum has cases(), and one with values from() too";
+    }
+
+    // Why nothing in an enum with values can be called value
+    fn value_is_taken($kind) {
+        return "Every case of enum {$kind.name} has its value in #value, so nothing else in it can be called value";
     }
 
     // Parse one method an interface names (FN name parameters [COLON type] SEMICOLON), refusing
@@ -2660,13 +2888,18 @@ final kind Html {
         $name = $token.value;
         if ($kind == null) {
             #check_new_name();
-        } else if ($token.type == "IDENTIFIER" && (has_key($kind.constants, $name) || has_key($kind.fields, $name) || has_key($kind.methods, $name))) {
+        } else if ($token.type == "IDENTIFIER" && (has_key($kind.constants, $name) || has_key($kind.fields, $name) || has_key($kind.methods, $name) || has_key($kind.cases ?? {}, $name))) {
+            if (($kind.backing ?? null) != null && $name == "value") {
+                #fail(#value_is_taken($kind));
+            }
             $member = match {
+                has_key($kind.cases ?? {}, $name) => "case {$name}",
                 has_key($kind.constants, $name) => "constant {$name}",
                 has_key($kind.methods, $name) => "method {$name}",
                 default => "field #{$name}",
             };
-            #fail("{$kind.name} already has a {$member}: constants, fields and methods share names");
+            $shared = #is_enum($kind) ? "cases, constants, methods and statics" : "constants, fields and methods";
+            #fail("{$kind.name} already has a {$member}: {$shared} share names");
         }
         #eat("IDENTIFIER");
         #eat("ASSIGN");
@@ -3410,6 +3643,26 @@ final kind Html {
         return #kind_static($kind, $last);
     }
 
+    // Whether a static's key ("Filter::Open") is a case of an enum
+    fn is_case($key) {
+        if ($key == null) {
+            return false;
+        }
+        [$prefix, $last] = #split_name($key);
+        $kind = #kinds[$prefix] ?? null;
+
+        return $kind != null && has_key($kind.cases ?? {}, $last);
+    }
+
+    // Whether a kind is an enum
+    fn is_enum($kind) {
+        return ($kind.cases ?? null) != null;
+    }
+
+    fn case_never_changes($key) {
+        return "Cannot change {$key}: an enum's cases never change";
+    }
+
     // What is wrong with a qualified name nothing declares, or null when the name has no ::
     // or names a namespace, where being undefined is all there is to say
     fn qualified_error($name) {
@@ -3446,6 +3699,9 @@ final kind Html {
         $token = #current_token;
         if ($token.type != "HASH_IDENTIFIER") {
             #fail("Expected a static field (#name) or a static method (fn) but found " .. #describe($token));
+        }
+        if (#is_enum($kind)) {
+            #fail("An enum has no static fields: its cases are what it keeps, and they never change");
         }
         $name = slice($token.value, 1);
         #check_new_member($kind, $name);
@@ -3532,6 +3788,9 @@ final kind Html {
         // A constructor is reached by constructing rather than by naming, so it escapes its
         // kind whatever it says: a child's _ overrides its parent's, and a marker on one
         // would be saying what is already true
+        if ($name == "_" && #is_enum($kind)) {
+            #fail("An enum has no constructor: its cases are made once, before the program runs");
+        }
         if ($name == "_") {
             if ($vis != "") {
                 #fail("A constructor is reached by constructing, so it needs no {$vis}");
@@ -3603,6 +3862,15 @@ final kind Html {
     // $promoting is whether the name being declared is a constructor's promoted parameter
     fn check_new_member($kind, $name, $promoting = false) {
         $field = #current_token.type == "HASH_IDENTIFIER";
+        if (has_key($kind.cases ?? {}, $name)) {
+            #fail("{$kind.name} already has a case {$name}: cases, constants, methods and statics share names");
+        }
+        if (($kind.backing ?? null) != null && $name == "value") {
+            #fail(#value_is_taken($kind));
+        }
+        if (($kind.static_methods[$name].generated ?? null) != null) {
+            #fail(#already_generated($kind, $name));
+        }
         if (has_key($kind.statics, $name) || has_key($kind.static_methods, $name)) {
             $member = has_key($kind.statics, $name) ? "static field #{$name}" : "static method {$name}";
             #fail("{$kind.name} already has a {$member}: constants, fields, methods and statics share names");
@@ -3662,6 +3930,8 @@ final kind Html {
             #fail("Kinds can only be declared at the top level");
         } else if ($type == "INTERFACE") {
             #fail("Interfaces can only be declared at the top level");
+        } else if ($type == "ENUM") {
+            #fail("Enums can only be declared at the top level");
         } else if ($type == "CONST") {
             #fail("Constants can only be declared at the top level or in a kind");
         } else if ($type == "INCLUDE") {
@@ -3762,7 +4032,7 @@ final kind Html {
         $root.statements = #top_level();
         if (#main_imported != null && #main_statement != null) {
             [$importer, $imported_line, $written] = #main_imported;
-            #fail_at("Cannot import \"{$written}\": it is the program's main file, which has a statement on line " .. #main_statement .. ", and an imported file only declares (fn, kind, interface, const)", $importer, $imported_line);
+            #fail_at("Cannot import \"{$written}\": it is the program's main file, which has a statement on line " .. #main_statement .. ", and an imported file only declares (fn, kind, interface, enum, const)", $importer, $imported_line);
         }
         // Every name a file wrote becomes the name a declaration made, before anything below
         // is checked, so only this pass ever learns that namespaces exist
@@ -3839,11 +4109,12 @@ final kind Html {
             $name = #as_asked($use.name, $asker);
             $static = #static_key($name);
             if ($static != null) {
+                $what = #is_case($static) ? "a case" : "a static field";
                 if (is_a($use, FunctionRefAST) && ($use.braced ?? false)) {
-                    #fail_braced_name($use, "a static field");
+                    #fail_braced_name($use, $what);
                 }
                 if (is_a($use, FunctionCallAST)) {
-                    #fail_at("{$use.name} is a static field, not a function", $use.file, $use.line);
+                    #fail_at("{$use.name} is {$what}, not a function", $use.file, $use.line);
                 }
                 #check_member_escapes($use, $asker, $name);
                 $use.static_name = $static;
@@ -3867,6 +4138,10 @@ final kind Html {
             if (has_key(#kinds, $use.name)) {
                 $kind = #kinds[$use.name];
                 if (is_a($use, FunctionCallAST)) {
+                    if (#is_enum($kind)) {
+                        $first = keys($kind.cases)[0];
+                        #fail_at("Cannot construct enum {$use.name}: its cases are its only objects, so name one, as {$use.name}::{$first}", $use.file, $use.line);
+                    }
                     if ($kind.abstract) {
                         #fail_at("Cannot construct abstract kind {$use.name}", $use.file, $use.line);
                     }
@@ -3915,6 +4190,9 @@ final kind Html {
 
         // Only a static field of the ones reached by name is a slot, so only it can be written
         foreach (#static_writes as [$node, $operator]) {
+            if (#is_case($node.static_name)) {
+                #fail_at(#case_never_changes($node.static_name), $node.file, $node.line);
+            }
             if ($node.static_name == null) {
                 #fail_at($node.constant
                     ? "Cannot change constant {$node.name}"
@@ -4066,6 +4344,9 @@ final kind Html {
             if ($parent.final ?? false) {
                 #fail_at("Kind {$kind.name} can't extend {$parent.name}: it is final", $kind.file, $kind.line);
             }
+            if (#is_enum($parent)) {
+                #fail_at("Kind {$kind.name} can't extend {$parent.name}: it is an enum, whose cases are its only objects", $kind.file, $kind.line);
+            }
             $chain[] = $kind.name;
             if (in_array($parent.name, $chain)) {
                 // From the parent's first appearance in the chain, round to it again
@@ -4115,6 +4396,10 @@ final kind Html {
 
         foreach ($kind.statics as $name => $_) {
             #check_new_static($kind, $name, $kind.static_lines[$name], false);
+        }
+        // A case is a static slot, which the VM fills before the program runs
+        foreach ($kind.cases ?? {} as $name => $_) {
+            #check_new_static($kind, $name, $kind.case_lines[$name], false);
         }
         foreach ($kind.static_methods as $name => $method) {
             #check_new_static($kind, $name, $method.line, true);
@@ -4284,6 +4569,9 @@ final kind Html {
         $name = $signature.name;
         $definer = $kind.members[$name] ?? $kind.abstract_methods[$name] ?? null;
         if ($definer == null) {
+            if (#is_enum($kind)) {
+                #fail_at("Enum {$kind.name} must define method {$name} of interface {$interface}", $kind.file, $kind.line);
+            }
             if (!$kind.abstract) {
                 $hidden = has_key($kind.hidden, $name) ? " ({$kind.hidden[$name]}.{$name} is not pub, so it can't)" : "";
                 #fail_at("Kind {$kind.name} must define method {$name} of interface {$interface}, or be abstract{$hidden}", $kind.file, $kind.line);
@@ -4468,6 +4756,9 @@ final kind Html {
                     #fail_at($error, $node.file, $node.line);
                 }
             }
+            if (($written || $assigned) && #is_case($static)) {
+                #fail_at(#case_never_changes($static), $node.file, $node.line);
+            }
             $node.static_name = $static;
 
             return;
@@ -4489,6 +4780,9 @@ final kind Html {
             return;
         }
         if (has_key($kind.layout, $node.name)) {
+            if (($written || $assigned) && #is_enum($kind)) {
+                #fail_at("Cannot change #{$node.name}: an enum's cases never change", $node.file, $node.line);
+            }
             $node.field = true;
 
             return;
@@ -4549,7 +4843,7 @@ final kind Html {
                 }
             } else if ($type == "INCLUDE") {
                 #include_is_gone();
-            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "FINAL", "INTERFACE", "CONST"])) {
+            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "FINAL", "INTERFACE", "ENUM", "CONST"])) {
                 #module.declaring = true;
                 foreach (#declaration() as $declared) {
                     $statements[] = $declared;
@@ -4566,7 +4860,7 @@ final kind Html {
     }
 
     /*
-     * Parse a top level declaration ([PUB] (function_declaration | kind_declaration | interface_declaration | constant_declaration)),
+     * Parse a top level declaration ([PUB] (function_declaration | kind_declaration | interface_declaration | enum_declaration | constant_declaration)),
      * giving what it adds to the program's statements
      */
     fn declaration() {
@@ -4578,10 +4872,10 @@ final kind Html {
         if ($type == "FN") {
             return [#function_declaration($pub)];
         }
-        if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL") {
+        if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL" || $type == "ENUM") {
             // A static method is a function, so it is spliced in after its kind
             $from = len(#static_functions);
-            $statements = [#kind_declaration($pub)];
+            $statements = [$type == "ENUM" ? #enum_declaration($pub) : #kind_declaration($pub)];
             while ($from < len(#static_functions)) {
                 $statements[] = #static_functions[$from];
                 $from++;
@@ -4597,7 +4891,7 @@ final kind Html {
 
             return [];
         }
-        #fail("Expected a function (fn), a kind, an interface or a constant (const) after pub but found " .. #describe(#current_token));
+        #fail("Expected a function (fn), a kind, an interface, an enum or a constant (const) after pub but found " .. #describe(#current_token));
     }
 
     /*

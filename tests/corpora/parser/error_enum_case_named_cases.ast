@@ -1,0 +1,1 @@
+Error: Enum Level has cases() already: every enum has cases(), and one with values from() too at tests/corpora/parser/error_enum_case_named_cases.gaz:3

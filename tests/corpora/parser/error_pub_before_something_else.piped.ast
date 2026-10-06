@@ -1,1 +1,1 @@
-Error: Expected a function (fn), a kind, an interface or a constant (const) after pub but found 'echo' on line 1
+Error: Expected a function (fn), a kind, an interface, an enum or a constant (const) after pub but found 'echo' on line 1

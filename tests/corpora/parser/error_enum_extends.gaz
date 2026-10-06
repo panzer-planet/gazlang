@@ -1,0 +1,4 @@
+kind Base {}
+enum Level extends Base {
+    Low;
+}

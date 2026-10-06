@@ -620,6 +620,90 @@ interface Shape
 - **`to_string()` and `to_json()` stay protocols**, not interfaces: a kind has them or not, and
   printing and encoding ask.
 
+## Enums
+
+An enum is a closed set of named values: a kind whose cases are its only objects. A status or a
+choice written as an enum is checked where a string never is: `Filter::Opne` is an error when the
+program is read, and a parameter typed `Filter` takes nothing else.
+
+```gaz
+enum Filter: string {
+    All = "all";
+    Open = "open";
+    Done = "done";
+
+    pub fn label(): string {
+        return match (#) {
+            Filter::All => "Everything",
+            Filter::Open => "To do",
+            Filter::Done => "Finished",
+        };
+    }
+}
+
+enum Direction {
+    North;
+    South;
+}
+
+fn shown(Filter $filter): string {
+    return $filter.label() .. " (" .. $filter.value .. ")";
+}
+
+$filter = Filter::from("open", Filter::All);
+echo shown($filter);
+echo Filter::from("archived", Filter::All);
+echo Filter::cases();
+echo $filter == Filter::Open;
+echo Direction::North;
+```
+```
+To do (open)
+Filter::All
+[Filter::All, Filter::Open, Filter::Done]
+true
+Direction::North
+```
+
+- **Cases are bare lines**, `North;`, named `Direction::North` anywhere and `#North` inside the
+  enum, as a static field is. An enum is top level only, shares the namespace of functions, kinds
+  and constants, and follows `pub` and namespaces as a kind does (`palette::Colour::Red`). It
+  needs at least one case, and every case is `pub`.
+- **A case is one object, made before the program runs**, so `==` and `match` compare it as
+  itself: `Filter::Open == Filter::from("open")`. `type_of` is `"object"`, `kind_of` the enum,
+  `is_a($x, Filter)` asks whether it is one of its cases, and a parameter, return or field typed
+  `Filter` (or `?Filter`) takes its cases and nothing else. `match` promises no exhaustiveness: a
+  case no arm names is the usual error, which names it without running anything, `No arm matches
+  Filter::Done`.
+- **Values are optional, and all or nothing**: `enum Filter: string` (or `: int`) gives every
+  case a literal value of that type, `Open = "open";`, no two the same. Such an enum has three
+  members it didn't write: `.value` on a case (`Filter::Open.value` is `"open"`),
+  `Filter::from($value, $default)`, the case with that value, and `to_json()`, its value. `from()`
+  without a default is an error for a value no case has (`Filter has no case with the value
+  "archived"`), and with one gives the default instead, as `to_int($text, $default)` does; a value
+  of another type is always an error (`Filter::from() expects $value to be string, got int`).
+  `.value` on an enum without values is `Direction has no member value: enum Direction has no
+  values, so its cases have none`.
+- **Every enum has `cases()`**, its cases in the order declared.
+- **Methods and constants, but no fields**: an enum may have methods (`pub`, `kin` or its own),
+  constants and static methods, and may implement interfaces (`enum Filter: string implements
+  Labelled`), checked as a kind's claim is. It has no fields, static fields or constructor,
+  extends nothing and nothing extends it, so `abstract`, `final` and `extends` are errors. Its
+  members share its cases' names, so a case can't be called like a method, and in an enum with
+  values nothing else can be called `value`, `from` or `cases`.
+- **Nothing makes a case or changes one**: `Filter()` is an error when the program is read (`Cannot
+  construct enum Filter: its cases are its only objects, so name one, as Filter::All`), and so is
+  assigning to a case or its value (`Cannot change Filter::Open: an enum's cases never change`);
+  through a variable, or an enum held as a value, it is the same error when it runs.
+- **It prints as its name**, `Filter::Open`, unless the enum has a `to_string()`; the enum itself
+  prints as `enum Filter`.
+- **JSON**: `json::encode` writes a case with a value as its value, through the `to_json()` the
+  enum is given (an enum may write its own instead); a case without one is the usual `Direction has
+  no member to_json`. Decoding never makes a case: a document must not choose which objects are
+  built, so read the value and write `Filter::from($value, $default)`.
+- **A case is not a map key**, as no object is: key a map by its `.value`, or give the enum a
+  method that answers by `match`.
+
 ## Types
 
 Types are optional, and checked when the program runs. Leaving one out means anything; writing
@@ -825,7 +909,7 @@ comment, it can't appear in a docblock's text.
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
 default const import try catch finally throw true false kind extends abstract interface
-implements final namespace use pub kin static shared`, and `include` stays a keyword so that
+implements final enum namespace use pub kin static shared`, and `include` stays a keyword so that
 writing it says to write `import`. Other
 languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 
@@ -833,8 +917,8 @@ Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$wh
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
 own namespaces, so `$default`, `@match` and `fn match()` were always fine.
 
-Functions, kinds, interfaces, builtins and top level constants share one namespace, and so do all of a
-kind's fields, methods and constants across its hierarchy.
+Functions, kinds, interfaces, enums, builtins and top level constants share one namespace, and so do
+all of a kind's fields, methods and constants across its hierarchy, and an enum's cases with its members.
 
 ## Builtins
 
@@ -1928,7 +2012,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `sorting.gaz` | `sorting::values`, `sorting::by` |
 | `lists.gaz` | Plain functions over plain lists, the list always first so each reads well after `\|>`; a key or predicate function is called once per element, with the element alone (`map()` and `filter()` pass an index too, these don't). `lists::flatten($lists)` (one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order), `lists::group_by($xs, $key)` (a map from each key, an int or a string, to the list of elements with it, in the order the keys first come), `lists::count_by($xs, $key)` (the same with counts), `lists::partition($xs, $predicate)` (`[$matching, $rest]`), `lists::chunk($xs, $size)`, `lists::zip($a, $b)` (pairs, as many as the shorter list has), `lists::take($xs, $n)` and `lists::drop($xs, $n)` (`$n` is 0 or more; more than the list has is fine), `lists::pluck($xs, $key)` (that key of each map), `lists::sum_by($xs, $key)`, `lists::avg($xs)` and `lists::avg_by($xs, $key)` (a float; an error for an empty list), `lists::first($xs)` (an error for an empty list, as `last()` is), `lists::find($xs, $predicate)` (the first element it is true for, or `null`) and `lists::contains_by($xs, $predicate)` |
 | `text.gaz` | `text::quote($value)`: a value as the literal that reads back as it, for a message (a string quoted, so a space or a NUL byte shows); `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input; `text::indentation($line)`: how many spaces and tabs a line starts with, and `text::unindented($line)` the line without them; `text::trim_start($s, $chars)` and `text::trim_end($s, $chars)`, `trim()`'s two halves (whitespace unless `$chars` names the bytes) |
-| `json.gaz` | `json::decode`, `json::encode`; JSON is UTF-8, so decoding refuses a document that isn't well formed UTF-8 or that escapes half a surrogate pair, and encoding refuses a string or key that isn't well formed UTF-8; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
+| `json.gaz` | `json::decode`, `json::encode`; JSON is UTF-8, so decoding refuses a document that isn't well formed UTF-8 or that escapes half a surrogate pair, and encoding refuses a string or key that isn't well formed UTF-8; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error; a case of an enum with values is its value (see "Enums"), and one without values is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
 | `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)` and `db::ident($name)`; see "Databases" under Builtins |
 | `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see [the notes on cryptography](library.md#cryptography) |
@@ -1939,7 +2023,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, [$kind,] $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
 | `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir)`, a handler that serves files under `$dir`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
 | `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough), and `web::csrf_field($token, $field = "_csrf")`, the hidden field carrying a form's token for `http::csrf()`; see "Templates" |
-| `date.gaz` | Dates as whole numbers of days: `date::days($year, $month, $day)` (day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). Times as whole seconds since 1970 in UTC, as `time()` gives them, and the zones that show them: `date::utc()`, `date::fixed($seconds)` and `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone database, daylight saving time and all), or `date::tzif($name, $bytes)`; `$zone.at($time)` is a `date::Moment` (its date, time of day, offset and abbreviation there, with `rfc3339()`, `clock()`, `short_clock()` and `offset_text()`), and `$zone.time($days, $seconds, $resolve = "reject")` the time its clocks show a date and `date::time_of_day($hour, $minute, $second = 0)` (`$zone.occurrences($days, $seconds)` every such time: none, one or two); `date::parse($text, $default)` reads RFC 3339, `date::parse_date($text, $default)` a `2026-08-08` and `date::parse_reading($text, $default)` a `2026-08-08T14:02` with no offset (a `date::Reading`, its `#days` and `#seconds`). Nothing reads the clock: a program that needs today works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed times; see below |
+| `date.gaz` | Dates as whole numbers of days: `date::days($year, $month, $day)` (day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (0 Monday to 6 Sunday), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). Times as whole seconds since 1970 in UTC, as `time()` gives them, and the zones that show them: `date::utc()`, `date::fixed($seconds)` and `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone database, daylight saving time and all), or `date::tzif($name, $bytes)`; `$zone.at($time)` is a `date::Moment` (its date, time of day, offset and abbreviation there, with `rfc3339()`, `clock()`, `short_clock()` and `offset_text()`), and `$zone.time($days, $seconds, $resolve = date::Resolution::Reject)` the time its clocks show a date and `date::time_of_day($hour, $minute, $second = 0)` (`$zone.occurrences($days, $seconds)` every such time: none, one or two); `date::parse($text, $default)` reads RFC 3339, `date::parse_date($text, $default)` a `2026-08-08` and `date::parse_reading($text, $default)` a `2026-08-08T14:02` with no offset (a `date::Reading`, its `#days` and `#seconds`). Nothing reads the clock: a program that needs today works it out (`intdiv(time(), 86400)` is today in UTC), which also keeps date code testable with fixed times; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with`: a string where `$0` is the whole match, `$1`, `$2`, ... a group (`""` if it took no part) and `$$` a `$`, a missing group or any other `$` an error before anything is replaced; or a function given the match's groups as `regex::groups` gives them and returning a string; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`; `\d` (a digit), `\w` (a letter, digit or `_`), `\s` (space, tab, newline, carriage return) and their negations `\D \W \S`, also inside `[...]`, ASCII bytes as `chars.gaz` classifies them; `\t \n \r`; `\` before any other byte that isn't a letter or digit is that byte, and before a letter or digit an error; the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking |
 | `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
@@ -2068,11 +2152,11 @@ echo date::parse("2026-08-08T14:02:09+02:00").time;  // 1786190529
   change of offset in it, and the rule at its end for times after them. A name it doesn't have is
   an error. Load a zone once and keep it.
 - When the clocks go back an hour happens twice, and when they go forward an hour never happens, so
-  `$zone.time()` is an error for such a reading unless its `$resolve` says what to do: `"earlier"`
-  or `"later"` of the two times it is with the offsets either side of the change, or
-  `"compatible"`, the earlier when it happens twice and the later when it never happens, which is
-  when an alarm set for it goes off. `$zone.occurrences()` gives every time a reading is, so a form can
-  tell the three cases apart and say which happened.
+  `$zone.time()` is an error for such a reading unless its `$resolve`, a `date::Resolution`, says
+  what to do: `Earlier` or `Later` of the two times it is with the offsets either side of the
+  change, or `Compatible`, the earlier when it happens twice and the later when it never happens,
+  which is when an alarm set for it goes off. `$zone.occurrences()` gives every time a reading is,
+  so a form can tell the three cases apart and say which happened.
 - `date::parse()` reads `2026-08-08T14:02:09+02:00`, `...Z`, a space for the `T`, a fraction of a
   second (dropped), and an offset of hours alone (`+02`, as PostgreSQL writes a `timestamptz`);
   `rfc3339()` writes what it reads. Anything else, a leap second or a date that doesn't exist is an
@@ -2080,7 +2164,7 @@ echo date::parse("2026-08-08T14:02:09+02:00").time;  // 1786190529
   `to_int($text, $default)` does.
 - `date::parse_reading()` reads what a `datetime-local` field sends, `2026-08-08T14:02` or with
   seconds, and no offset: a `Reading` is a date and a clock reading and no time until a zone says
-  which, `$zone.time($reading.days, $reading.seconds, "compatible")`.
+  which, `$zone.time($reading.days, $reading.seconds, date::Resolution::Compatible)`.
 
 **Command line arguments**, with `std/cli.gaz`:
 

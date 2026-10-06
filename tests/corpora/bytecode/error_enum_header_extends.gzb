@@ -1,0 +1,13 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+kind Base
+locals
+LOAD_THIS
+RET
+
+enum Level extends Base
+locals

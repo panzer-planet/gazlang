@@ -1,0 +1,11 @@
+// Enums in a namespace: a pub one escapes it, as a kind would, and a private one doesn't
+namespace colours;
+
+pub enum Colour: string {
+    Red = "#f00";
+    Green = "#0f0";
+}
+
+enum Secret {
+    Hidden;
+}

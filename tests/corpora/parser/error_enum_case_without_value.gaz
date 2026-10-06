@@ -1,0 +1,4 @@
+enum Filter: string {
+    All = "all";
+    Open;
+}

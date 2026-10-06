@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 3
+globals
+statics a::E::B
+
+top
+locals
+LOAD_STATIC 0
+PRINT
+
+enum a
+case E::B
+locals
+
+enum a::E
+case B
+locals

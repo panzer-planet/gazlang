@@ -1,0 +1,1 @@
+Error: An enum's methods can't be abstract: nothing extends an enum to define them at tests/corpora/parser/error_enum_abstract_method.gaz:3

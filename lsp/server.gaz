@@ -299,7 +299,7 @@ fn import_line($lines, $path, $file) {
 }
 
 // The completion item kind for what a declaration is: a Function, Class, Interface or Constant
-const COMPLETION_KINDS = {"function" => 3, "kind" => 7, "interface" => 8, "constant" => 21};
+const COMPLETION_KINDS = {"function" => 3, "kind" => 7, "interface" => 8, "enum" => 13, "constant" => 21};
 
 /*
  * A completion for each function, kind and constant declared in $files (the same reach

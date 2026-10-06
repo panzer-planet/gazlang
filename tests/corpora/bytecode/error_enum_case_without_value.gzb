@@ -1,0 +1,11 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All
+
+top
+locals
+
+enum Filter string
+field value Filter pub string
+case All
+locals

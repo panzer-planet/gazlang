@@ -718,7 +718,7 @@ function bytecodeBlocks(array $lines): array
     $blocks = [];
     $at = -1;
     foreach ($lines as $i => $line) {
-        if (preg_match('/^(top|fn |lambda |kind |abstract kind |final kind |interface )/', $line)) {
+        if (preg_match('/^(top|fn |lambda |kind |abstract kind |final kind |interface |enum )/', $line)) {
             $blocks[] = ['body' => [], 'locals' => 0, 'labels' => []];
             $at = count($blocks) - 1;
         }
@@ -811,6 +811,9 @@ final class ProgramGenerator
     /** Whether the program has the interface I0, which C0 implements, naming its methods */
     private bool $interface = false;
 
+    /** @var array{cases: int, backing: string|null}|null The enum E0, if the program has it: how many cases, and the type of their values */
+    private ?array $enum = null;
+
     /**
      * @param  array<string, array{0: int, 1: int}>  $builtins
      */
@@ -821,6 +824,7 @@ final class ProgramGenerator
         $this->functions = [];
         $this->kinds = [];
         $this->interface = false;
+        $this->enum = null;
         $out = '';
         for ($i = $this->int(0, 4); $i >= 0; $i--) {
             $required = $this->int(0, 2);
@@ -841,6 +845,9 @@ final class ProgramGenerator
                 $out .= "    fn c0m{$m}(".($arity > 0 ? '$p0' : '').");\n";
             }
             $out .= "}\nfn i0(?I0 \$x): ?I0 { return \$x; }\n";
+        }
+        if ($this->chance(2)) {
+            $out .= $this->enumDeclaration();
         }
         foreach ($this->functions as $f => [$required, $total]) {
             $this->scope = ['kind' => 'function', 'index' => $f, 'owner' => null, 'params' => $total, 'loop' => 0];
@@ -863,6 +870,27 @@ final class ProgramGenerator
         }
 
         return $out;
+    }
+
+    /**
+     * The enum E0: one to three cases, with string or int values or none, a method that matches
+     * on its own cases, and a function typed by it, which its uses (kindUse()) pass anything to
+     */
+    private function enumDeclaration(): string
+    {
+        $this->enum = ['cases' => $this->int(1, 3), 'backing' => [null, 'string', 'int'][$this->int(0, 2)]];
+        $out = 'enum E0'.($this->enum['backing'] === null ? '' : ": {$this->enum['backing']}")." {\n";
+        for ($c = 0; $c < $this->enum['cases']; $c++) {
+            $value = match ($this->enum['backing']) {
+                'string' => " = \"v{$c}\"",
+                'int' => ' = '.($c - 1),
+                default => '',
+            };
+            $out .= "    C{$c}{$value};\n";
+        }
+        $out .= "    pub fn rank() { return match (#) { E0::C0 => 0, default => 1 }; }\n";
+
+        return $out."}\nfn e0(?E0 \$x): ?E0 { return \$x; }\n";
     }
 
     /**
@@ -1016,10 +1044,33 @@ final class ProgramGenerator
      */
     private function kindUse(): string
     {
+        if ($this->enum !== null && $this->chance(3)) {
+            return $this->enumUse();
+        }
+
         return match ($this->interface ? $this->int(0, 3) : 3) {
             0 => "is_a({$this->expr()}, I0)",
             1 => "i0({$this->expr()})",
             default => $this->kinds === [] ? 'null' : $this->construct(),
+        };
+    }
+
+    /**
+     * A case of E0, its cases, one found by a value (most often none, so the default), its value,
+     * a match on one, or a value asked about E0 or passed through the function typed by it
+     */
+    private function enumUse(): string
+    {
+        $case = 'E0::C'.$this->int(0, $this->enum['cases'] - 1);
+
+        return match ($this->int(0, 6)) {
+            0 => $case,
+            1 => 'E0::cases()',
+            2 => $this->enum['backing'] === null ? "{$case}.rank()" : "E0::from({$this->expr()}, null)",
+            3 => "({$this->expr()}).value",
+            4 => "match ({$this->expr()}) { {$case} => 1, default => 2 }",
+            5 => "is_a({$this->expr()}, E0)",
+            default => "e0({$this->expr()})",
         };
     }
 

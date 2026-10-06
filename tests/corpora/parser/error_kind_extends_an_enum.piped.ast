@@ -1,0 +1,1 @@
+Error: Kind Higher can't extend Level: it is an enum, whose cases are its only objects on line 5

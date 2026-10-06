@@ -1,0 +1,4 @@
+enum Level {
+    Low;
+    const Low = 1;
+}

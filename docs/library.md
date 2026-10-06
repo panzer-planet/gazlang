@@ -303,8 +303,8 @@ behind them:
     refused. Tests read `tests/fixtures/zoneinfo`, never the machine's; `DateTest` compares with
     PHP's own database, on zones whose rules the two copies agree on.
   - **A clock reading that happens twice or never is an error unless the call says**
-    (`"earlier"`, `"later"`, `"compatible"`): the two candidates are the reading at the offsets a
-    day before and after it. `ponytail:` two changes within two days would hide the first.
+    (`date::Resolution`, an enum, so a misspelt choice is an error when the program is read): the
+    two candidates are the reading at the offsets a day before and after it. `ponytail:` two changes within two days would hide the first.
   - **`parse()` is RFC 3339 and what PostgreSQL writes** (a space for the `T`, `+02`); a leap
     second is refused and a fraction dropped (`ponytail:`, until times have nanoseconds). Its
     `$default` is told from none by a private kind (`NoDefault`), as a parameter can't say

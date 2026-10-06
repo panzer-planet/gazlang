@@ -66,3 +66,11 @@ falsy map: falsy
 falsy null: falsy
 set: [1, 2]
 set again: x
+Low == Low: true
+High == Low: false
+a string == Low: false
+3 < top: true
+3.5 < top: true
+a < top: Cannot use < on string and int (line 187)
+max + top: Integer overflow (line 188)
+unset == Low: Undefined variable: $x (line 191)

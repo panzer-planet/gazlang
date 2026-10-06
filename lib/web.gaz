@@ -33,26 +33,30 @@ namespace web;
 import "std/chars.gaz" use char_at, is_alnum, is_alpha;
 
 // Where a value lands, which is how it is written
-const MARKUP = "markup";
-const PLAIN = "plain";
-const URL_START = "url start";
-const URL_PART = "url part";
+enum Placement {
+    Markup;
+    Plain;
+    UrlStart;
+    UrlPart;
+}
 
 // What the scanner is in the middle of reading, as the HTML tokenizer is
-const DATA = "data";
-const RC_DATA = "rcdata";
-const RAW_TEXT = "rawtext";
-const TAG_NAME = "tag name";
-const BEFORE_ATTRIBUTE = "before attribute";
-const ATTRIBUTE_NAME = "attribute name";
-const AFTER_ATTRIBUTE_NAME = "after attribute name";
-const BEFORE_VALUE = "before value";
-const DOUBLE_QUOTED = "double quoted";
-const SINGLE_QUOTED = "single quoted";
-const UNQUOTED = "unquoted";
-const END_TAG = "end tag";
-const DECLARATION = "declaration";
-const COMMENT = "comment";
+enum State {
+    Data;
+    RcData;
+    RawText;
+    TagName;
+    BeforeAttribute;
+    AttributeName;
+    AfterAttributeName;
+    BeforeValue;
+    DoubleQuoted;
+    SingleQuoted;
+    Unquoted;
+    EndTag;
+    Declaration;
+    Comment;
+}
 
 // Elements whose content is text up to their end tag: raw text, where nothing is decoded, so
 // escaping would be wrong and is no help; and text where character references are decoded
@@ -116,10 +120,10 @@ pub fn csrf_field(string $token, string $field = "_csrf"): Html {
 // A value as its place needs it
 fn written($value, $placement) {
     return match ($placement) {
-        MARKUP => markup($value),
-        PLAIN => plain($value),
-        URL_START => url_start($value),
-        URL_PART => url_part($value),
+        Placement::Markup => markup($value),
+        Placement::Plain => plain($value),
+        Placement::UrlStart => url_start($value),
+        Placement::UrlPart => url_part($value),
     };
 }
 
@@ -289,7 +293,7 @@ kind Scans {
  * with a reason, so a wrong guess is an error and not a hole.
  */
 kind Scanner {
-    #state = DATA;
+    #state = State::Data;
     // The part being read, and where in it
     #text = "";
     #at = 0;
@@ -336,7 +340,7 @@ kind Scanner {
 
     // The text must end as text: a tag opened in one tagged string is not closed in another
     pub fn finish() {
-        if (#state != DATA) {
+        if (#state != State::Data) {
             throw "web::html's text ends inside " .. #describe() .. ": a tagged string must be whole markup";
         }
     }
@@ -344,16 +348,16 @@ kind Scanner {
     // Where a value goes now, or an error saying why it can't
     pub fn place() {
         match (#state) {
-            DATA => { return #markup_placement(); }
-            RC_DATA => { return #text_element_placement(); }
-            COMMENT => { return PLAIN; }
-            DOUBLE_QUOTED, SINGLE_QUOTED => { return #attribute_placement(); }
-            RAW_TEXT => { #refuse("inside <" .. #tag .. ">", "HTML escaping doesn't make a value safe in " .. #tag .. "; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html"); }
-            UNQUOTED, BEFORE_VALUE => { #refuse("in an unquoted attribute", "put the value in quotes"); }
-            TAG_NAME => { #refuse("in a tag name", "only text and quoted attribute values take a value"); }
-            BEFORE_ATTRIBUTE, ATTRIBUTE_NAME, AFTER_ATTRIBUTE_NAME => { #refuse("as an attribute or between attributes", "only text and quoted attribute values take a value"); }
-            END_TAG => { #refuse("in an end tag", "only text and quoted attribute values take a value"); }
-            DECLARATION => { #refuse("in a declaration", "only text and quoted attribute values take a value"); }
+            State::Data => { return #markup_placement(); }
+            State::RcData => { return #text_element_placement(); }
+            State::Comment => { return Placement::Plain; }
+            State::DoubleQuoted, State::SingleQuoted => { return #attribute_placement(); }
+            State::RawText => { #refuse("inside <" .. #tag .. ">", "HTML escaping doesn't make a value safe in " .. #tag .. "; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html"); }
+            State::Unquoted, State::BeforeValue => { #refuse("in an unquoted attribute", "put the value in quotes"); }
+            State::TagName => { #refuse("in a tag name", "only text and quoted attribute values take a value"); }
+            State::BeforeAttribute, State::AttributeName, State::AfterAttributeName => { #refuse("as an attribute or between attributes", "only text and quoted attribute values take a value"); }
+            State::EndTag => { #refuse("in an end tag", "only text and quoted attribute values take a value"); }
+            State::Declaration => { #refuse("in a declaration", "only text and quoted attribute values take a value"); }
         }
     }
 
@@ -370,7 +374,7 @@ kind Scanner {
             #refuse("right after a <", "it could make a tag; write the whole tag in the text");
         }
 
-        return MARKUP;
+        return Placement::Markup;
     }
 
     // In <title> and <textarea> a value is text, but not where it could finish the end tag
@@ -380,7 +384,7 @@ kind Scanner {
             #refuse("inside the end tag of <" .. #tag .. ">", "write the whole end tag in the text");
         }
 
-        return MARKUP;
+        return Placement::Markup;
     }
 
     // What follows the last < in the text read just before this value, or null if there is none
@@ -402,7 +406,7 @@ kind Scanner {
         if (in_array([#tag, $name], RESOURCE_URLS)) {
             #refuse($where, "it loads code or a document into the page, so a URL isn't enough to trust");
         }
-        $placement = in_array($name, URL_ATTRIBUTES) ? #url_placement($where) : PLAIN;
+        $placement = in_array($name, URL_ATTRIBUTES) ? #url_placement($where) : Placement::Plain;
         #attribute_values++;
 
         return $placement;
@@ -421,7 +425,7 @@ kind Scanner {
             if (url_start_text($text) == "") {
                 #after_start = true;
 
-                return URL_START;
+                return Placement::UrlStart;
             }
             $scheme = url_scheme($text);
             if ($scheme != null && !in_array($scheme, ALLOWED_SCHEMES)) {
@@ -432,7 +436,7 @@ kind Scanner {
             #refuse($where, "with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
         }
 
-        return URL_PART;
+        return Placement::UrlPart;
     }
 
     /*
@@ -466,9 +470,9 @@ kind Scanner {
     // What the scanner is in, for an error
     fn describe() {
         return match (#state) {
-            RAW_TEXT, RC_DATA => "<" .. #tag .. ">",
-            COMMENT => "a comment",
-            DOUBLE_QUOTED, SINGLE_QUOTED, UNQUOTED, BEFORE_VALUE => "an attribute",
+            State::RawText, State::RcData => "<" .. #tag .. ">",
+            State::Comment => "a comment",
+            State::DoubleQuoted, State::SingleQuoted, State::Unquoted, State::BeforeValue => "an attribute",
             default => "a tag",
         };
     }
@@ -478,18 +482,18 @@ kind Scanner {
     // Read some of the text in the state the scanner is in; each goes forward or changes the state
     fn step() {
         match (#state) {
-            DATA => #read_data(),
-            RC_DATA, RAW_TEXT => #read_text_element(),
-            TAG_NAME => #read_tag_name(),
-            BEFORE_ATTRIBUTE => #read_between_attributes(),
-            ATTRIBUTE_NAME => #read_attribute_name(),
-            AFTER_ATTRIBUTE_NAME => #read_after_attribute_name(),
-            BEFORE_VALUE => #read_before_value(),
-            DOUBLE_QUOTED => #read_quoted("\""),
-            SINGLE_QUOTED => #read_quoted("'"),
-            UNQUOTED => #read_unquoted(),
-            END_TAG, DECLARATION => #skip_to_tag_end(),
-            COMMENT => #read_comment(),
+            State::Data => #read_data(),
+            State::RcData, State::RawText => #read_text_element(),
+            State::TagName => #read_tag_name(),
+            State::BeforeAttribute => #read_between_attributes(),
+            State::AttributeName => #read_attribute_name(),
+            State::AfterAttributeName => #read_after_attribute_name(),
+            State::BeforeValue => #read_before_value(),
+            State::DoubleQuoted => #read_quoted("\""),
+            State::SingleQuoted => #read_quoted("'"),
+            State::Unquoted => #read_unquoted(),
+            State::EndTag, State::Declaration => #skip_to_tag_end(),
+            State::Comment => #read_comment(),
         }
     }
 
@@ -508,11 +512,11 @@ kind Scanner {
             #begin_tag($open + 1, false);
         } else if (starts_with(#text, "!--", $open + 1)) {
             #at = $open + 4;
-            #state = COMMENT;
+            #state = State::Comment;
             #skip_empty_comment();
         } else if ($next == "!" || $next == "?") {
             #at = $open + 2;
-            #state = DECLARATION;
+            #state = State::Declaration;
         } else {
             #at = $open + 1;
         }
@@ -523,17 +527,17 @@ kind Scanner {
         #tag = "";
         #closing = $closing;
         #self_closing = false;
-        #state = TAG_NAME;
+        #state = State::TagName;
     }
 
     // <!--> and <!---> are comments that end where they start
     fn skip_empty_comment() {
         if (starts_with(#text, ">", #at)) {
             #at++;
-            #state = DATA;
+            #state = State::Data;
         } else if (starts_with(#text, "->", #at)) {
             #at += 2;
-            #state = DATA;
+            #state = State::Data;
         }
     }
 
@@ -543,7 +547,7 @@ kind Scanner {
         $bang = index_of(#text, "--!>", #at);
         if ($bang != null && ($end == null || $bang < $end)) {
             #at = $bang + 4;
-            #state = DATA;
+            #state = State::Data;
 
             return;
         }
@@ -553,7 +557,7 @@ kind Scanner {
             return;
         }
         #at = $end + 3;
-        #state = DATA;
+        #state = State::Data;
     }
 
     fn read_tag_name() {
@@ -568,7 +572,7 @@ kind Scanner {
         if (#closing) {
             #end_tag_named();
         } else {
-            #state = BEFORE_ATTRIBUTE;
+            #state = State::BeforeAttribute;
         }
     }
 
@@ -580,7 +584,7 @@ kind Scanner {
         if (in_array(#tag, FOREIGN_TAGS)) {
             #foreign = max(#foreign - 1, 0);
         }
-        #state = END_TAG;
+        #state = State::EndTag;
     }
 
     // The ends of a tag, a declaration and an end tag: up to its >
@@ -592,7 +596,7 @@ kind Scanner {
             return;
         }
         #at = $end + 1;
-        #state = DATA;
+        #state = State::Data;
     }
 
     fn read_between_attributes() {
@@ -609,10 +613,10 @@ kind Scanner {
             // An = where a name should start is part of the name, as the tokenizer reads it
             #attribute = "=";
             #at++;
-            #state = ATTRIBUTE_NAME;
+            #state = State::AttributeName;
         } else {
             #attribute = "";
-            #state = ATTRIBUTE_NAME;
+            #state = State::AttributeName;
         }
     }
 
@@ -627,9 +631,9 @@ kind Scanner {
         }
         if (#text[#at] == "=") {
             #at++;
-            #state = BEFORE_VALUE;
+            #state = State::BeforeValue;
         } else {
-            #state = AFTER_ATTRIBUTE_NAME;
+            #state = State::AfterAttributeName;
         }
     }
 
@@ -643,12 +647,12 @@ kind Scanner {
             #at++;
         } else if ($c == "=") {
             #at++;
-            #state = BEFORE_VALUE;
+            #state = State::BeforeValue;
         } else if ($c == "/" || $c == ">") {
-            #state = BEFORE_ATTRIBUTE;
+            #state = State::BeforeAttribute;
         } else {
             #attribute = "";
-            #state = ATTRIBUTE_NAME;
+            #state = State::AttributeName;
         }
     }
 
@@ -658,14 +662,14 @@ kind Scanner {
             #at++;
         } else if ($c == "\"") {
             #at++;
-            #begin_value(DOUBLE_QUOTED);
+            #begin_value(State::DoubleQuoted);
         } else if ($c == "'") {
             #at++;
-            #begin_value(SINGLE_QUOTED);
+            #begin_value(State::SingleQuoted);
         } else if ($c == ">") {
-            #state = BEFORE_ATTRIBUTE;
+            #state = State::BeforeAttribute;
         } else {
-            #state = UNQUOTED;
+            #state = State::Unquoted;
         }
     }
 
@@ -689,7 +693,7 @@ kind Scanner {
             return;
         }
         #at = $end + 1;
-        #state = BEFORE_ATTRIBUTE;
+        #state = State::BeforeAttribute;
     }
 
     fn read_unquoted() {
@@ -697,7 +701,7 @@ kind Scanner {
             #at++;
         }
         if (#at < len(#text)) {
-            #state = BEFORE_ATTRIBUTE;
+            #state = State::BeforeAttribute;
         }
     }
 
@@ -708,11 +712,11 @@ kind Scanner {
         }
         #self_closing = false;
         if (in_array(#tag, RAW_TEXT_TAGS)) {
-            #state = RAW_TEXT;
+            #state = State::RawText;
         } else if (in_array(#tag, RC_DATA_TAGS) && #foreign == 0) {
-            #state = RC_DATA;
+            #state = State::RcData;
         } else {
-            #state = DATA;
+            #state = State::Data;
         }
     }
 
@@ -728,7 +732,7 @@ kind Scanner {
             return;
         }
         #at = $end + 2 + len(#tag);
-        #state = END_TAG;
+        #state = State::EndTag;
     }
 
     /*

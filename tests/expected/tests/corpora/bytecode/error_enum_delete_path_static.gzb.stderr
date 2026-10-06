@@ -1,0 +1,1 @@
+Error: DELETE_PATH_STATIC changes Filter::Open, a case of an enum, which never changes in the top level

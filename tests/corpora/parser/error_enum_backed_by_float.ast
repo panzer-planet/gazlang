@@ -1,0 +1,1 @@
+Error: An enum's values are strings or ints: write 'enum Level: string' or 'enum Level: int', not 'float' at tests/corpora/parser/error_enum_backed_by_float.gaz:1

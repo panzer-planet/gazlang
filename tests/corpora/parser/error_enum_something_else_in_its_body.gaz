@@ -1,0 +1,4 @@
+enum Level {
+    Low;
+    echo 1;
+}

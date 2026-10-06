@@ -1,0 +1,1 @@
+Error: An enum has no fields: its cases are its only objects, and they never change on line 3

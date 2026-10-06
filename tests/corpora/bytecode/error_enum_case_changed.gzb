@@ -1,0 +1,17 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All Filter::Open
+
+top
+locals $f
+LOAD_STATIC 0
+STORE 0
+PUSH "none"
+SET_PATH .value 0
+POP
+
+enum Filter string
+field value Filter pub string
+case All "all"
+case Open "open"
+locals

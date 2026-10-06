@@ -52,7 +52,7 @@ pub fn read(string $name, string $source): Library {
             if ($declaration.pub) {
                 $entry = entry($declaration);
                 $entries[] = $entry;
-                $kind = in_array($declaration.what, [Declaration::KIND, Declaration::INTERFACE]) ? $entry : null;
+                $kind = in_array($declaration.what, [Declaration::KIND, Declaration::INTERFACE, Declaration::ENUM]) ? $entry : null;
             }
         } else if ($kind != null && is_listed_member($declaration)) {
             $kind.members[] = entry($declaration);

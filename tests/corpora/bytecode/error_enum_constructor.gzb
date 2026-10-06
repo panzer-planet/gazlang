@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 3
+globals
+statics Level::Low
+
+top
+locals
+
+enum Level
+method _ Level pub
+case Low
+locals
+
+fn Level._ 0 0
+locals
+PUSH null
+RET

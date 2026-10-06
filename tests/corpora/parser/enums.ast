@@ -1,0 +1,414 @@
+Compound
+  statements:
+@ "tests/corpora/parser/enums.gaz"
+    0: InterfaceDeclaration 4
+      name: "Labelled"
+      methods:
+        label: FunctionDeclaration 5
+          name: "label"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 5
+            names: ["string"]
+          kind: "Labelled"
+          abstract: false
+    1: KindDeclaration 8
+      name: "Filter"
+      parent: null
+      abstract: false
+      interfaces: ["Labelled"]
+      cases: {"All" => "all", "Open" => "open", "Done" => "done"}
+      case_lines: {"All" => 9, "Open" => 10, "Done" => 11}
+      backing: "string"
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 8
+          name: "Filter::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Filter"
+          abstract: false
+          generated: "cases"
+        from: FunctionDeclaration 8
+          name: "Filter::from"
+          params: ["\$value", "\$default"]
+          defaults: [null, null]
+          body: Compound
+            statements: []
+          arity: [1, 2]
+          kind: "Filter"
+          abstract: false
+          generated: "from"
+        first: FunctionDeclaration 27
+          name: "Filter::first"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 28
+                expr: Property 28
+                  target: This 28
+                  name: "All"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: "Filter::All"
+          arity: 0
+          return_type: Type 27
+            names: ["Filter"]
+          kind: "Filter"
+          abstract: false
+      static_owners: {"All" => "Filter", "Open" => "Filter", "Done" => "Filter", "cases" => "Filter", "from" => "Filter", "first" => "Filter"}
+      static_is_method: {"All" => false, "Open" => false, "Done" => false, "cases" => true, "from" => true, "first" => true}
+      vis: {"cases" => "pub", "value" => "pub", "from" => "pub", "All" => "pub", "Open" => "pub", "Done" => "pub", "DEFAULT" => "pub", "label" => "pub", "plain" => "kin", "first" => "pub", "to_json" => "pub"}
+      fields: {"value" => null}
+      field_types:
+        value: Type 8
+          names: ["string"]
+      field_lines: {"value" => 8}
+      methods:
+        label: FunctionDeclaration 15
+          name: "label"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 16
+                expr: Match 16
+                  subject: This 16
+                  arms:
+                    0:
+                      0:
+                        0: FunctionRef 17
+                          name: "Filter::All"
+                          constant: false
+                          value: null
+                          static_name: "Filter::All"
+                      1: String 17
+                        token: 17 STRING "All"
+                        value: "All"
+                      2: false
+                    1:
+                      0:
+                        0: FunctionRef 18
+                          name: "Filter::Open"
+                          constant: false
+                          value: null
+                          static_name: "Filter::Open"
+                      1: String 18
+                        token: 18 STRING "Open"
+                        value: "Open"
+                      2: false
+                    2:
+                      0: null
+                      1: String 19
+                        token: 19 STRING "Done"
+                        value: "Done"
+                      2: false
+          arity: 0
+          return_type: Type 15
+            names: ["string"]
+          kind: "Filter"
+          abstract: false
+        plain: FunctionDeclaration 23
+          name: "plain"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 24
+                expr: Property 24
+                  target: This 24
+                  name: "value"
+                  field: true
+                  constant: false
+                  value: null
+                  static_name: null
+          arity: 0
+          kind: "Filter"
+          abstract: false
+        to_json: FunctionDeclaration 8
+          name: "to_json"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Filter"
+          abstract: false
+          generated: "to_json"
+      constants:
+        DEFAULT: String 13
+          token: 13 STRING "all"
+          value: "all"
+      constant_lines: {"DEFAULT" => 13}
+      constant_owners: {"DEFAULT" => "Filter"}
+      layout: {"value" => "Filter"}
+      members: {"label" => "Filter", "plain" => "Filter", "to_json" => "Filter"}
+      abstract_methods: []
+      slots: [["value", "Filter", "pub"]]
+      method_table: [["label", "Filter", "pub", "Filter"], ["plain", "Filter", "kin", "Filter"], ["to_json", "Filter", "pub", "Filter"]]
+      owner_vis: {"DEFAULT" => "pub", "All" => "pub", "Open" => "pub", "Done" => "pub", "cases" => "pub", "from" => "pub", "first" => "pub", "value" => "pub", "label" => "pub", "plain" => "kin", "to_json" => "pub"}
+      declared_at: {"label" => "Filter", "plain" => "Filter", "to_json" => "Filter"}
+      hidden: []
+      hidden_fields: []
+    2: FunctionDeclaration 8
+      name: "Filter::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "Filter"
+      abstract: false
+      generated: "cases"
+    3: FunctionDeclaration 8
+      name: "Filter::from"
+      params: ["\$value", "\$default"]
+      defaults: [null, null]
+      body: Compound
+        statements: []
+      arity: [1, 2]
+      kind: "Filter"
+      abstract: false
+      generated: "from"
+    4: FunctionDeclaration 27
+      name: "Filter::first"
+      params: []
+      defaults: []
+      body: Compound
+        statements:
+          0: ReturnStatement 28
+            expr: Property 28
+              target: This 28
+              name: "All"
+              field: false
+              constant: false
+              value: null
+              static_name: "Filter::All"
+      arity: 0
+      return_type: Type 27
+        names: ["Filter"]
+      kind: "Filter"
+      abstract: false
+    5: KindDeclaration 32
+      name: "Level"
+      parent: null
+      abstract: false
+      cases: {"Low" => 1, "Below" => -1}
+      case_lines: {"Low" => 33, "Below" => 34}
+      backing: "int"
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 32
+          name: "Level::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Level"
+          abstract: false
+          generated: "cases"
+        from: FunctionDeclaration 32
+          name: "Level::from"
+          params: ["\$value", "\$default"]
+          defaults: [null, null]
+          body: Compound
+            statements: []
+          arity: [1, 2]
+          kind: "Level"
+          abstract: false
+          generated: "from"
+      static_owners: {"Low" => "Level", "Below" => "Level", "cases" => "Level", "from" => "Level"}
+      static_is_method: {"Low" => false, "Below" => false, "cases" => true, "from" => true}
+      vis: {"cases" => "pub", "value" => "pub", "from" => "pub", "Low" => "pub", "Below" => "pub", "to_json" => "pub"}
+      fields: {"value" => null}
+      field_types:
+        value: Type 32
+          names: ["int"]
+      field_lines: {"value" => 32}
+      methods:
+        to_json: FunctionDeclaration 32
+          name: "to_json"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Level"
+          abstract: false
+          generated: "to_json"
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"value" => "Level"}
+      members: {"to_json" => "Level"}
+      abstract_methods: []
+      slots: [["value", "Level", "pub"]]
+      method_table: [["to_json", "Level", "pub", "Level"]]
+      owner_vis: {"Low" => "pub", "Below" => "pub", "cases" => "pub", "from" => "pub", "value" => "pub", "to_json" => "pub"}
+      declared_at: {"to_json" => "Level"}
+      hidden: []
+      hidden_fields: []
+    6: FunctionDeclaration 32
+      name: "Level::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "Level"
+      abstract: false
+      generated: "cases"
+    7: FunctionDeclaration 32
+      name: "Level::from"
+      params: ["\$value", "\$default"]
+      defaults: [null, null]
+      body: Compound
+        statements: []
+      arity: [1, 2]
+      kind: "Level"
+      abstract: false
+      generated: "from"
+    8: KindDeclaration 37
+      name: "Direction"
+      parent: null
+      abstract: false
+      cases: {"North" => null, "South" => null}
+      case_lines: {"North" => 38, "South" => 39}
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 37
+          name: "Direction::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Direction"
+          abstract: false
+          generated: "cases"
+      static_owners: {"North" => "Direction", "South" => "Direction", "cases" => "Direction"}
+      static_is_method: {"North" => false, "South" => false, "cases" => true}
+      vis: {"cases" => "pub", "North" => "pub", "South" => "pub"}
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"North" => "pub", "South" => "pub", "cases" => "pub"}
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    9: FunctionDeclaration 37
+      name: "Direction::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "Direction"
+      abstract: false
+      generated: "cases"
+    10: FunctionDeclaration 42
+      name: "shown"
+      params: ["\$filter"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 43
+            expr: MethodCall 43
+              property: Property 43
+                target: Variable 43
+                  token: 43 VAR_IDENTIFIER $filter
+                  value: "\$filter"
+                name: "label"
+                field: false
+                constant: false
+                value: null
+                static_name: null
+              args: []
+      arity: 1
+      param_types:
+        0: Type 42
+          names: ["Filter"]
+      return_type: Type 42
+        names: ["string"]
+      kind: null
+      abstract: false
+    11: EchoStatement 46
+      expr: FunctionCall 46
+        name: "shown"
+        args:
+          0: FunctionCall 46
+            name: "Filter::from"
+            args:
+              0: FunctionRef 46
+                name: "Filter::DEFAULT"
+                constant: true
+                value: "all"
+                static_name: null
+    12: EchoStatement 47
+      expr: FunctionCall 47
+        name: "Filter::from"
+        args:
+          0: String 47
+            token: 47 STRING "archived"
+            value: "archived"
+          1: FunctionRef 47
+            name: "Filter::Open"
+            constant: false
+            value: null
+            static_name: "Filter::Open"
+    13: EchoStatement 48
+      expr: FunctionCall 48
+        name: "Filter::cases"
+        args: []
+    14: EchoStatement 49
+      expr: Property 49
+        target: FunctionCall 49
+          name: "Level::from"
+          args:
+            0: UnaryOp 49
+              op: 49 MINUS -
+              expr: Num 49
+                token: 49 INTEGER 1
+                value: 1
+        name: "value"
+        field: false
+        constant: false
+        value: null
+        static_name: null
+    15: EchoStatement 50
+      expr: BinOp 50
+        left: FunctionRef 50
+          name: "Direction::North"
+          constant: false
+          value: null
+          static_name: "Direction::North"
+        token: 50 EQUALS ==
+        op: 50 EQUALS ==
+        right: FunctionRef 50
+          name: "Direction::South"
+          constant: false
+          value: null
+          static_name: "Direction::South"
+    16: EchoStatement 51
+      expr: FunctionCall 51
+        name: "Filter::first"
+        args: []

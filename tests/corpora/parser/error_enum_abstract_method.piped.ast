@@ -1,0 +1,1 @@
+Error: An enum's methods can't be abstract: nothing extends an enum to define them on line 3

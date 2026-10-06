@@ -1,0 +1,1 @@
+Error: Expected 'enum Name', or 'enum Name string' or 'enum Name int' for one with values at tests/corpora/bytecode/error_enum_header_extends.gzb:12

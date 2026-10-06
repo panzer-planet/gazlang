@@ -759,6 +759,7 @@ static void read_code(Block *b) {
             fail("Unknown instruction '%s'", w.w[0]);
         }
         if (b->kind == B_INTERFACE) fail("An interface has no code, but '%s' is an instruction", w.w[0]);
+        if (b->is_enum) fail("An enum has no code, since nothing constructs one, but '%s' is an instruction", w.w[0]);
         const InstrInfo *info = &INFO[op];
         RawInstr r = {0};
         r.op = op;
@@ -855,6 +856,38 @@ static Str **push_name(Str **names, int *n, Str *name) {
     return names;
 }
 
+/* Where a line's text goes on after its first n words and the spaces after them */
+static const char *after_words(const char *line, int n) {
+    const char *p = line;
+    for (int i = 0; i < n; i++) {
+        while (*p && !is_space(*p)) p++;
+        while (*p && is_space(*p)) p++;
+    }
+    return p;
+}
+
+/* A case of an enum: its name, then its value as a literal when the enum has values, which must
+   be of their type. No two cases share a name or a value, since a value finds its case. */
+static void read_case(Block *b, const char *line, Words *w) {
+    Str *name = intern(word(w, 1));
+    Value value = w->n > 2 ? read_value(after_words(line, 2)) : v_unset();
+    const char *kind = b->name->data;
+    if (b->backing && value.type == T_UNSET) fail("Case %s of enum %s has no value, but its cases are %s", name->data, kind, b->backing->data);
+    if (!b->backing && value.type != T_UNSET) fail("Case %s of enum %s has a value, but the enum has none", name->data, kind);
+    if (b->backing && strcmp(type_name(value), b->backing->data)) {
+        fail("Case %s of enum %s is %s, but its cases are %s", name->data, kind, type_name(value), b->backing->data);
+    }
+    for (int i = 0; i < b->ncases; i++) {
+        if (b->case_names[i] == name) fail("Enum %s has case %s twice", kind, name->data);
+        if (b->backing && values_equal(b->case_values[i], value)) {
+            fail("Cases %s and %s of enum %s have the same value", b->case_names[i]->data, name->data, kind);
+        }
+    }
+    b->case_values = xrealloc(b->case_values, (size_t)(b->ncases + 1) * sizeof(Value));
+    b->case_values[b->ncases] = value;
+    b->case_names = push_name(b->case_names, &b->ncases, name);
+}
+
 static Block *read_block(const char *header) {
     Words w;
     split_words(header, &w);
@@ -898,6 +931,21 @@ static Block *read_block(const char *header) {
         if (rest == 0) fail("Unexpected end of line");
         b->name = intern(w.w[from]);
         b->parent = rest == 3 ? intern(w.w[from + 2]) : NULL;
+        Buf k = {0};
+        buf_adds(&k, "new ");
+        buf_add_str(&k, b->name);
+        b->key = str_intern(k.data, k.len);
+        free(k.data);
+    } else if (!strcmp(block_word, "enum")) {
+        /* A kind whose cases are its only objects: a record, and no code (see check_enum()) */
+        b->kind = B_KIND;
+        b->is_enum = true;
+        if (w.n < 2 || w.n > 3 || b->owner_name) fail("Expected 'enum Name', or 'enum Name string' or 'enum Name int' for one with values");
+        b->name = intern(w.w[1]);
+        if (w.n == 3) {
+            if (strcmp(w.w[2], "string") && strcmp(w.w[2], "int")) fail("An enum's values are string or int, not '%s'", w.w[2]);
+            b->backing = intern(w.w[2]);
+        }
         Buf k = {0};
         buf_adds(&k, "new ");
         buf_add_str(&k, b->name);
@@ -982,6 +1030,8 @@ static Block *read_block(const char *header) {
             b->sig_lo[b->nsigs] = lo;
             b->sig_hi[b->nsigs] = hi;
             b->sig_names = push_name(b->sig_names, &b->nsigs, name);
+        } else if (!strcmp(first, "case") && b->is_enum) {
+            read_case(b, line, &w);
         } else if (!strcmp(first, "capture") && b->kind == B_LAMBDA) {
             const char *where = word(&w, 2);
             if (strcmp(where, "local") && strcmp(where, "captured")) fail("Expected 'local' or 'captured'");
@@ -1134,6 +1184,42 @@ static void check_interface(Block *b) {
         for (int j = 0; j < i; j++) {
             if (b->sig_names[j] == b->sig_names[i]) fail_at(false, "Interface %s names method %s twice", name, b->sig_names[i]->data);
         }
+    }
+}
+
+/* The record of the kind a name means, which is the last kind block of that name, as find_kind()
+   finds the last kind: what says, before the kinds are built, whether it is an enum */
+static Block *kind_block(Str *name) {
+    for (int i = prog->nblocks - 1; i >= 0; i--) {
+        if (prog->blocks[i]->kind == B_KIND && prog->blocks[i]->name == name) return prog->blocks[i];
+    }
+    return NULL;
+}
+
+/* Which static slots hold a case of an enum, which nothing may store into: worked out while the
+   file is checked (find_case_slots()) */
+static bool *case_slot;
+
+/* Each case of an enum is kept in the static slot the statics line names Enum::Case, which the
+   loader fills before the program runs. Two names can spell one slot (enum a::E's case B and
+   enum a's case E::B are both a::E::B), so a slot a case already has is refused for another. */
+static void find_case_slots(Block *b) {
+    if (kind_block(b->name) != b) fail_at(false, "Enum %s is declared twice", b->name->data);
+    b->case_slots = xmalloc((size_t)b->ncases * sizeof(int) + 1);
+    for (int c = 0; c < b->ncases; c++) {
+        Buf full = {0};
+        buf_add_str(&full, b->name);
+        buf_adds(&full, "::");
+        buf_add_str(&full, b->case_names[c]);
+        Str *key = str_intern(full.data, full.len);
+        free(full.data);
+        b->case_slots[c] = -1;
+        for (int i = 0; i < prog->nstatics; i++) {
+            if (prog->statics[i] == key) b->case_slots[c] = i;
+        }
+        if (b->case_slots[c] < 0) fail_at(false, "Case %s has no slot in the statics line", key->data);
+        if (case_slot[b->case_slots[c]]) fail_at(false, "Case %s shares its slot with another enum's case", key->data);
+        case_slot[b->case_slots[c]] = true;
     }
 }
 
@@ -1305,6 +1391,14 @@ static void check_block(Block *b) {
                 }
                 }
             }
+            /* An enum's cases are its only objects, made before the program runs, and stay what
+               they are: nothing constructs one, and nothing stores into a case's slot */
+            if ((r->op == OP_NEW || r->op == OP_CALL_CONSTRUCTOR) && kind_block(r->names[0])->is_enum) {
+                FAIL("%s makes an object of enum %s, whose cases are its only objects", info->name, r->names[0]->data);
+            }
+            if ((r->op == OP_STORE_STATIC || r->op == OP_SET_PATH_STATIC || r->op == OP_DELETE_PATH_STATIC) && case_slot[r->ints[r->op == OP_STORE_STATIC ? 0 : 1]]) {
+                FAIL("%s changes %s, a case of an enum, which never changes", info->name, prog->statics[r->ints[r->op == OP_STORE_STATIC ? 0 : 1]]->data);
+            }
             /* The block it calls, which a kind's method table lists but a call to a parent's
                method names outright: there must be one, or the call has nothing to run */
             if (r->op == OP_CALL_PARENT && !find_function(method_key(r->names[0], r->names[1]))) {
@@ -1458,6 +1552,31 @@ static void check_final(Kind *c) {
     }
 }
 
+/* An enum's record: what keeps its cases its only objects, and each one's value where it is put.
+   A backed enum has one field, value, pub and typed with what its cases are, so every write into
+   it goes through check_field_type(), which refuses a case; an enum without values has none. Its
+   methods are its own, since it has no parent, and it has no constructor: nothing makes one. */
+static void check_enum(Kind *c) {
+    Block *b = c->block;
+    const char *name = c->name->data;
+    if (b->backing) {
+        Str *value = str_intern("value", 5);
+        if (b->nfields != 1 || b->field_names[0] != value || c->field_declarers[0] != c || b->field_vis[0] != V_PUB
+            || b->field_type_texts[0] != b->backing) {
+            fail_at(false, "Enum %s must have one field, 'field value %s pub %s', where each case keeps its value", name, name, b->backing->data);
+        }
+    } else if (b->nfields) {
+        fail_at(false, "Enum %s has no values, so it has no fields", name);
+    }
+    for (int m = 0; m < c->nmethods; m++) {
+        const char *method = c->methods[m]->data;
+        if (c->definers[m] != c || c->method_declarers[m] != c) {
+            fail_at(false, "Method %s of enum %s is another kind's, but an enum's methods are its own", method, name);
+        }
+        if (!strcmp(method, "_")) fail_at(false, "Enum %s has a constructor, but nothing constructs one", name);
+    }
+}
+
 static void build_kinds(void) {
     int n = 0;
     for (int i = 0; i < prog->nblocks; i++) {
@@ -1472,6 +1591,7 @@ static void build_kinds(void) {
         Kind *c = &prog->kinds[n++];
         c->name = b->name;
         c->abstract = b->is_abstract;
+        c->is_enum = b->is_enum;
         c->block = b;
         c->nfields = b->nfields;
         c->fields = b->field_names;
@@ -1549,6 +1669,11 @@ static void build_kinds(void) {
             if (k == c) fail_at(false, "Kind %s extends itself, through its parents", c->name->data);
         }
     }
+    for (int i = 0; i < prog->nkinds; i++) {
+        Kind *c = &prog->kinds[i];
+        if (c->parent && c->parent->is_enum) fail_at(false, "Kind %s extends enum %s, whose cases are its only objects", c->name->data, c->parent->name->data);
+        if (c->is_enum) check_enum(c);
+    }
     for (int i = 0; i < prog->nkinds; i++) check_final(&prog->kinds[i]);
     bool *flattened = xcalloc((size_t)prog->nkinds + 1, sizeof(bool));
     for (int i = 0; i < prog->nkinds; i++) flatten_interfaces(&prog->kinds[i], flattened);
@@ -1594,6 +1719,8 @@ static void fuse(Instr *in, Instr *end) {
                 in->op = comparison(third->orig) && in + 3 < end && in[3].orig == OP_JZ ? OP_LOAD_PUSH_OP_JZ : OP_LOAD_PUSH_OP;
             } else if (next->orig == OP_LOAD && quick_operator(third->orig)) {
                 in->op = OP_LOAD_LOAD_OP;
+            } else if (next->orig == OP_LOAD_STATIC && quick_operator(third->orig)) {
+                in->op = OP_LOAD_STATIC_OP;
             } else if (next->orig == OP_LOAD && third->orig == OP_INDEX_GET) {
                 in->op = OP_LOAD_LOAD_INDEX;
             } else if ((next->orig == OP_INC || next->orig == OP_DEC) && third->orig == OP_STORE && third->a == in->a) {
@@ -1852,9 +1979,11 @@ Program *load(const char *text, size_t len, const char *path) {
         if (prog->blocks[i]->kind == B_INTERFACE) prog->interfaces[prog->blocks[i]->index].name = prog->blocks[i]->name;
     }
     (void)nc;
+    case_slot = xcalloc((size_t)prog->nstatics + 1, sizeof(bool));
     for (int i = 0; i < prog->nblocks; i++) {
         if (prog->blocks[i]->kind == B_KIND) check_record(prog->blocks[i]);
         if (prog->blocks[i]->kind == B_INTERFACE) check_interface(prog->blocks[i]);
+        if (prog->blocks[i]->is_enum) find_case_slots(prog->blocks[i]);
         Str *owner = prog->blocks[i]->owner_name;
         if (owner && !find_kind(owner)) {
             fail_at(false, "Block %s is written in undefined kind '%s'",
@@ -1862,9 +1991,12 @@ Program *load(const char *text, size_t len, const char *path) {
         }
     }
     mark_objectless();
+    /* An interface and an enum are records with no code */
     for (int i = 0; i < prog->nblocks; i++) {
-        if (prog->blocks[i]->kind != B_INTERFACE) check_block(prog->blocks[i]);
+        if (prog->blocks[i]->kind != B_INTERFACE && !prog->blocks[i]->is_enum) check_block(prog->blocks[i]);
     }
+    free(case_slot);
+    case_slot = NULL;
 
     build_kinds();
     /* What a catch sees is made as an Error (caught() in vm.c), so a file that can catch needs

@@ -1,0 +1,1 @@
+Error: Cannot construct enum Level: its cases are its only objects, so name one, as Level::Low on line 5

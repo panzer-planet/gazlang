@@ -461,6 +461,9 @@ kind FunctionDeclarationAST extends AST {
     pub #abstract = false;
     // Whether it is a final method: set only when it is, so a method without dumps as it always did
     pub #final;
+    // Which member every enum is given this is ("cases", "from" or "to_json"), whose code the
+    // compiler writes itself: set only on one, which has no body of its own
+    pub #generated;
 
     fn _($name, $params, $defaults, $body, $arity) {
         #name = $name;
@@ -517,6 +520,12 @@ kind KindDeclarationAST extends AST {
     // The interfaces it claims itself, in the order written: set only when it claims any, so a
     // kind without dumps as it always did (fields() leaves out what was never set)
     pub #interfaces;
+    // An enum's cases in the order declared, each with its value (null in an enum without
+    // values), by name, and the line each is declared on: set only for an enum, as #interfaces is
+    pub #cases;
+    pub #case_lines;
+    // The type an enum's values have, "string" or "int": set only for an enum with values
+    pub #backing;
     // Each declared static field's default expression, and the line it is declared on, by name
     pub #statics = {};
     // Each declared static field's TypeAST, by name: set only once one has a type, so an

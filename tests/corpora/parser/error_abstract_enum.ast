@@ -1,0 +1,1 @@
+Error: An enum can't be abstract: its cases are its objects at tests/corpora/parser/error_abstract_enum.gaz:1

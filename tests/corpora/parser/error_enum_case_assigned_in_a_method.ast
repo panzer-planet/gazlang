@@ -1,0 +1,1 @@
+Error: Cannot change Level::High: an enum's cases never change at tests/corpora/parser/error_enum_case_assigned_in_a_method.gaz:6

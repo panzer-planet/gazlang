@@ -1,0 +1,7 @@
+enum Level {
+    Low;
+
+    pub fn clear() {
+        delete #Low[0];
+    }
+}

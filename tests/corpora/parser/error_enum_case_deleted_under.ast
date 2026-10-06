@@ -1,0 +1,1 @@
+Error: Cannot change Level::Low: an enum's cases never change at tests/corpora/parser/error_enum_case_deleted_under.gaz:5

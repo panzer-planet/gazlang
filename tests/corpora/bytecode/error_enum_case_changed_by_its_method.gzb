@@ -1,0 +1,25 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All Filter::Open
+
+top
+locals
+LOAD_STATIC 1
+GET_METHOD rename
+CALL_METHOD 0 rename
+POP
+
+enum Filter string
+field value Filter pub string
+method rename Filter pub
+case All "all"
+case Open "open"
+locals
+
+fn Filter.rename 0 0
+locals
+PUSH "shut"
+SET_FIELD value
+POP
+PUSH null
+RET

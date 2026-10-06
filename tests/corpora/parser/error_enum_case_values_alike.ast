@@ -1,0 +1,1 @@
+Error: Cases Filter::All and Filter::Every have the same value "all": a value finds one case at tests/corpora/parser/error_enum_case_values_alike.gaz:3

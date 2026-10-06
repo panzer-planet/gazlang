@@ -1,0 +1,5 @@
+interface Ranked {}
+kind Base {}
+enum Level implements Ranked extends Base {
+    Low;
+}

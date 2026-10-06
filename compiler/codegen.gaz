@@ -1079,11 +1079,17 @@ kind CodeGenerator {
                 #interfaces[$statement.name] = $statement;
             }
         }
+        // Every case of every enum has a static slot, which the VM fills before the program runs
+        foreach (#kinds as $kind) {
+            foreach ($kind.cases ?? {} as $case => $_) {
+                #static_addresses["{$kind.name}::{$case}"] = len(#static_addresses);
+            }
+        }
         #visit(#tree);
         #block({"kind" => "top"});
 
         foreach (#functions as $function) {
-            #compile_body($function, $function.params);
+            #compile_function($function);
             #block({"kind" => "fn", "name" => $function.name, "arity" => $function.arity,
                 "owner" => $function.kind});
         }
@@ -1098,16 +1104,23 @@ kind CodeGenerator {
         // A kind block holds its record and the code that makes one of its objects; its methods
         // are functions named "Kind.name", which no function name can be
         foreach (#kinds as $kind) {
-            #compile_initialiser($kind);
+            $enum = ($kind.cases ?? null) != null;
+            // An enum's cases are made by the VM, so its block is a record with no code
+            if ($enum) {
+                [#var_addresses, #instructions] = [{}, []];
+            } else {
+                #compile_initialiser($kind);
+            }
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
                 "implements" => $kind.interfaces ?? [], "abstract" => $kind.abstract, "final" => $kind.final ?? false,
                 "fields" => #field_records($kind), "methods" => #method_records($kind),
-                "statics" => #typed_statics($kind),
+                "statics" => #typed_statics($kind), "enum" => $enum, "backing" => $kind.backing ?? null,
+                "cases" => $kind.cases ?? {},
             });
             foreach ($kind.methods as $method) {
                 if (!$method.abstract) {
-                    #compile_body($method, $method.params);
+                    #compile_function($method);
                     #block({"kind" => "fn", "name" => "{$kind.name}.{$method.name}", "arity" => $method.arity,
                         "owner" => $kind.name});
                 }
@@ -1187,6 +1200,81 @@ kind CodeGenerator {
             #emit("POP");
         }
         #emit("LOAD_THIS");
+        #emit("RET");
+    }
+
+    // A function or method: its body, or for a member every enum is given, the code for it
+    fn compile_function($function) {
+        if (($function.generated ?? null) == null) {
+            #compile_body($function, $function.params);
+
+            return;
+        }
+        #var_addresses = {};
+        foreach ($function.params as $slot => $name) {
+            #var_addresses[$name] = $slot;
+        }
+        #captures = {};
+        [#file, #line] = [$function.file, $function.line];
+        $enum = #kinds[$function.kind];
+        match ($function.generated) {
+            "cases" => #enum_cases($enum),
+            "from" => #enum_from($enum),
+            "to_json" => #enum_to_json(),
+        }
+    }
+
+    // Enum::cases(): a list of every case, in the order declared
+    fn enum_cases($enum) {
+        #emit("NEW_ARRAY");
+        foreach ($enum.cases as $case => $_) {
+            #emit_static("LOAD", "{$enum.name}::{$case}");
+            #emit("ARRAY_PUSH");
+        }
+        #emit("RET");
+    }
+
+    /*
+     * Enum::from($value, $default): the case with that value, or $default when it was passed
+     * and no case has the value, which is otherwise an error, as to_int($text, $default) does.
+     * $value must be of the enum's type, as a typed parameter must.
+     */
+    fn enum_from($enum) {
+        #emit("CHECK_PARAM", [0, $enum.backing]);
+        foreach ($enum.cases as $case => $value) {
+            $next = "CASE_" .. #label_counter++;
+            #emit("LOAD", [0]);
+            #emit("PUSH", [$value]);
+            #emit("EQUALS");
+            #emit("JZ", [$next]);
+            #emit_static("LOAD", "{$enum.name}::{$case}");
+            #emit("RET");
+            #emit("LABEL", [$next]);
+        }
+        $refuse = "NO_CASE_" .. #label_counter++;
+        #emit("ARGC");
+        #emit("PUSH", [2]);
+        #emit("EQUALS");
+        #emit("JZ", [$refuse]);
+        #emit("LOAD", [1]);
+        #emit("RET");
+        #emit("LABEL", [$refuse]);
+        // The value as a literal, quoted if it is a string, as text::quote() writes it
+        #emit("PUSH", ["{$enum.name} has no case with the value "]);
+        #emit("NEW_ARRAY");
+        #emit("LOAD", [0]);
+        #emit("ARRAY_PUSH");
+        #emit("CALL_BUILTIN", ["to_string", 1]);
+        #emit("PUSH", [1]);
+        #emit("PUSH", [-1]);
+        #emit("CALL_BUILTIN", ["slice", 3]);
+        #emit("CONCAT");
+        #emit("THROW");
+    }
+
+    // A case's to_json(): its value, which is what JSON gets of it
+    fn enum_to_json() {
+        #emit("LOAD_FIELD", ["value"]);
         #emit("RET");
     }
 
@@ -1312,6 +1400,9 @@ kind Program {
     }
 
     fn kind_header($block) {
+        if ($block["enum"]) {
+            return #enum_header($block);
+        }
         $marker = "";
         if ($block["abstract"]) {
             $marker = "abstract ";
@@ -1333,6 +1424,28 @@ kind Program {
         // Only a static field with a type has a line: its slot is in the statics line already
         foreach ($block["statics"] as [$static, $type]) {
             $lines[] = "static {$static} {$type}";
+        }
+
+        return $lines;
+    }
+
+    /*
+     * An enum's header: its name and the type of its values, if it has them, then its record as a
+     * kind's (the one field a backed enum has, its methods), then each case, with its value
+     */
+    fn enum_header($block) {
+        $lines = ["enum {$block["name"]}" .. ($block["backing"] == null ? "" : " {$block["backing"]}")];
+        foreach ($block["implements"] as $interface) {
+            $lines[] = "implements {$interface}";
+        }
+        foreach ($block["fields"] as [$field, $declarer, $vis, $type]) {
+            $lines[] = "field {$field} {$declarer} {$vis} {$type}";
+        }
+        foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final]) {
+            $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}");
+        }
+        foreach ($block["cases"] as $case => $value) {
+            $lines[] = "case {$case}" .. ($value == null ? "" : " " .. #literal($value));
         }
 
         return $lines;

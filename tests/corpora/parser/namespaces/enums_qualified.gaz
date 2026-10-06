@@ -1,0 +1,12 @@
+// An enum from another namespace, its cases and cases() reached by its qualified name and by the
+// name a use clause gives it
+import "./lib/colours.gaz";
+import "./lib/colours.gaz" use Colour;
+
+fn hex(colours::Colour $colour): string {
+    return $colour.value;
+}
+
+echo hex(Colour::Green);
+echo colours::Colour::cases();
+echo Colour::from("#f00");

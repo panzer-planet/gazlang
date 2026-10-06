@@ -1,0 +1,1 @@
+Error: Enum Level already has a case Low at tests/corpora/parser/error_enum_case_twice.gaz:3

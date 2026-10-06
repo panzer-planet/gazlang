@@ -1,0 +1,13 @@
+GAZLANG BYTECODE 3
+globals
+statics Level::Low
+
+top
+locals
+LOAD_STATIC 0
+GET_PROPERTY value
+PRINT
+
+enum Level
+case Low
+locals

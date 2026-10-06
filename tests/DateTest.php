@@ -124,7 +124,7 @@ class DateTest extends GazLangTestCase
                     $days = intdiv($wall - ($wall % 86400 + 86400) % 86400, 86400);
                     $reading = date::utc().at($wall);
                     $seconds = $wall - $days * 86400;
-                    echo date::iso($days) .. " " .. $reading.clock() .. " " .. $zone.time($days, $seconds, "earlier") .. " " .. $zone.time($days, $seconds, "later");
+                    echo date::iso($days) .. " " .. $reading.clock() .. " " .. $zone.time($days, $seconds, date::Resolution::Earlier) .. " " .. $zone.time($days, $seconds, date::Resolution::Later);
                 }'."\n";
             foreach ($times as $time) {
                 $expected[] = self::shown($zone, $time);

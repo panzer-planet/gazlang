@@ -1,0 +1,1 @@
+Error: Case Low of enum Level has a value, but the enum has none at tests/corpora/bytecode/error_enum_case_with_value.gzb:9

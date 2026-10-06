@@ -1,0 +1,1 @@
+Error: Cases Low and High of enum Level have the same value at tests/corpora/bytecode/error_enum_case_value_twice.gzb:11

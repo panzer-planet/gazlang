@@ -1,0 +1,1 @@
+Error: Enums can only be declared at the top level at tests/corpora/parser/error_enum_in_a_block.gaz:2

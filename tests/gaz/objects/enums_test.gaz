@@ -1,0 +1,165 @@
+import "std/test.gaz" use expect, throws;
+import "std/json.gaz";
+import "./enums/palette.gaz";
+import "./enums/palette.gaz" use Colour;
+
+// Enums at run time: identity, match and ==, typed parameters, from(), cases() and .value,
+// printing, JSON, interfaces, a namespaced enum, and what refuses to make or change a case. The
+// checks when the program is read are the parser corpus's (tests/corpora/parser/error_enum_*).
+
+interface Labelled {
+    fn label(): string;
+}
+
+enum Filter: string implements Labelled {
+    All = "all";
+    Open = "open";
+    Done = "done";
+
+    pub fn label(): string {
+        return match (#) {
+            Filter::All => "All",
+            Filter::Open => "Open",
+            Filter::Done => "Done",
+        };
+    }
+
+    // A case in its own enum is named with # too, as a static field is
+    pub fn is_open(): bool {
+        return # == #Open;
+    }
+}
+
+enum Level: int {
+    Low = 1;
+    High = 10;
+    Below = -1;
+}
+
+enum Suit {
+    Hearts;
+    Spades;
+
+    pub fn to_string() {
+        return "the suit of " .. lower(kind_name(#)) .. " " .. index_of_case(#);
+    }
+}
+
+// An enum may say how its cases are written to JSON, as any kind may
+enum Code: int {
+    Ok = 200;
+    Gone = 410;
+
+    pub fn to_json() {
+        return {"code" => #value};
+    }
+}
+
+// An enum without values names its cases, and that is all
+enum Direction {
+    North;
+    South;
+}
+
+fn index_of_case(Suit $suit): int {
+    foreach (Suit::cases() as $i => $case) {
+        if ($case == $suit) {
+            return $i;
+        }
+    }
+
+    return -1;
+}
+
+fn filtered(Filter $filter): string {
+    return "showing " .. $filter.value;
+}
+
+fn maybe(?Filter $filter): string {
+    return $filter?.label() ?? "nothing";
+}
+
+fn turned(Direction $direction): Direction {
+    return match ($direction) {
+        Direction::North => Direction::South,
+        Direction::South => Direction::North,
+    };
+}
+
+// Identity: a case is the one object of its name, made once, so == and match compare it as itself
+$open = Filter::Open;
+expect("a case is equal to itself", $open == Filter::Open, true);
+expect("and to nothing else", $open == Filter::Done, false);
+expect("not even its value", $open == "open", false);
+expect("nor a case of another enum", Direction::North == Suit::Hearts, false);
+expect("one case, however reached", Filter::from("open") == $open, true);
+expect("its object_id is the same each time", object_id(Filter::Open) == object_id($open), true);
+expect("match takes a case by identity", $open.label(), "Open");
+expect("a match on cases", turned(Direction::North), Direction::South);
+expect("# is the case in its methods", Filter::Open.is_open(), true);
+expect("and is not another", Filter::All.is_open(), false);
+throws("a case no arm names is named in the error", () -> match (Filter::Done) { Filter::All => 1 }, "No arm matches Filter::Done");
+throws("by its name, even when its enum has to_string()", () -> match (Suit::Spades) { Suit::Hearts => 1 }, "No arm matches Suit::Spades");
+
+// Typed parameters, returns and is_a take an enum as they take a kind
+expect("a typed parameter takes a case", filtered(Filter::Done), "showing done");
+expect("?Filter takes null", maybe(null), "nothing");
+expect("?Filter takes a case", maybe(Filter::All), "All");
+expect("a typed return", turned(Direction::South), Direction::North);
+throws("a parameter refuses a case of another enum", () -> filtered(Direction::North), "filtered() expects \$filter to be Filter, got Direction");
+throws("and a value of its type", () -> filtered("open"), "filtered() expects \$filter to be Filter, got string");
+expect("is_a takes the enum", is_a(Filter::Open, Filter), true);
+expect("and is false for another", is_a(Filter::Open, Direction), false);
+expect("type_of says object", type_of(Filter::Open), "object");
+expect("kind_of gives the enum", kind_of(Filter::Open) == Filter, true);
+expect("kind_name gives its name", kind_name(Filter::Open), "Filter");
+
+// from(), cases() and .value
+expect("from() finds the case with a value", Filter::from("done"), Filter::Done);
+expect("and in an enum of ints", Level::from(10), Level::High);
+expect("a negative one too", Level::from(-1), Level::Below);
+expect("from() with a default gives the default for a value no case has", Filter::from("archived", Filter::All), Filter::All);
+expect("a null default is a default", Filter::from("archived", null), null);
+expect("and a case it finds wins over the default", Filter::from("open", Filter::All), Filter::Open);
+throws("without a default, a value no case has is an error", () -> Filter::from("archived"), "Filter has no case with the value \"archived\"");
+throws("an int is shown as itself", () -> Level::from(5), "Level has no case with the value 5");
+throws("a value of another type is the parameter's error, default or not", () -> Filter::from(1, Filter::All), "Filter::from() expects \$value to be string, got int");
+expect("cases() lists them in the order declared", Filter::cases(), [Filter::All, Filter::Open, Filter::Done]);
+expect("an enum without values has cases() too", Direction::cases(), [Direction::North, Direction::South]);
+expect("from() is a function value as any static method is", map(["all", "done"], Filter::from), [Filter::All, Filter::Done]);
+expect(".value is the case's value", Filter::Open.value, "open");
+expect("of the enum's type", Level::Below.value, -1);
+expect("fields() shows it", fields(Level::High), {"value" => 10});
+throws(".value on an enum without values", () -> Direction::North.value, "Direction has no member value: enum Direction has no values, so its cases have none");
+
+// Printing: the case's name, unless the enum says otherwise
+expect("echo shows a case by its name", to_string(Filter::Open), "Filter::Open");
+expect("in a list too", to_string([Direction::North]), "[Direction::North]");
+expect("joined into a string", "going " .. Direction::South, "going Direction::South");
+expect("an enum's to_string() is used when it has one", to_string(Suit::Spades), "the suit of suit 1");
+expect("an enum prints as one", to_string(Filter), "enum Filter");
+
+// JSON: a case with a value is its value, one without is an error, and decoding never makes one
+expect("a case encodes as its value", json::encode(Filter::Open), "\"open\"");
+expect("an int one as its int", json::encode({"level" => Level::High}), "{\"level\":10}");
+throws("a case without a value can't be encoded", () -> json::encode(Direction::North), "Direction has no member to_json");
+expect("an enum's own to_json() is used when it has one", json::encode([Code::Gone]), "[{\"code\":410}]");
+expect("decoding gives the value, which from() turns back into the case", Filter::from(json::decode("\"done\"")), Filter::Done);
+
+// Interfaces
+expect("an enum implements an interface", is_a(Filter::Done, Labelled), true);
+expect("and is taken where the interface is asked for", map(Filter::cases(), $f -> $f.label()), ["All", "Open", "Done"]);
+
+// A namespaced pub enum
+expect("a pub enum from another namespace", palette::Colour::Red.hex(), "#f00");
+expect("by the name a use clause gives it", Colour::from("#0f0"), Colour::Green);
+expect("its cases print with the namespace", to_string(Colour::Green), "palette::Colour::Green");
+expect("one that isn't pub is used inside its namespace", palette::hidden(), "palette::Secret::Hidden");
+
+// Nothing makes a case or changes one
+$enum = Filter;
+throws("calling an enum held as a value", () -> $enum(), "Cannot construct enum Filter: its cases are its only objects");
+throws("a case's value can't be written", () -> ($open.value = "shut"), "Cannot change Filter::Open: an enum's cases never change");
+throws("nor appended to", () -> ($open.value ..= "!"), "Cannot change Filter::Open: an enum's cases never change");
+expect("so it is still what it was", Filter::Open.value, "open");
+throws("a field it doesn't have is the usual error", () -> ($open.other = 1), "Filter has no member other");

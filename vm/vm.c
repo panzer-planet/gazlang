@@ -339,6 +339,13 @@ bool call_method(Object *o, Kind *definer, Str *name, Value *out) {
     return ok;
 }
 
+/* A kind value called that nothing constructs: an interface, an abstract kind, or an enum, whose
+   cases are its only objects */
+static bool raise_unconstructable(Kind *c) {
+    if (c->is_enum) return raisef("Cannot construct enum %s: its cases are its only objects", c->name->data);
+    return raisef("Cannot construct %s %s", c->interface ? "interface" : "abstract kind", c->name->data);
+}
+
 /*
  * Start a call of the value below argc arguments on the stack for call_value(), checked as
  * CALL_VALUE checks it (which does the same inline: sharing this cost lambda calls 8%): a builtin
@@ -354,7 +361,7 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
     *entered = NULL;
     if (callee.type == T_KIND) {
         Kind *c = callee.k;
-        if (c->abstract) return raisef("Cannot construct %s %s", c->interface ? "interface" : "abstract kind", c->name->data);
+        if (c->abstract || c->is_enum) return raise_unconstructable(c);
         if (!arity_fits(c->lo, c->hi, argc)) {
             Buf what = {0};
             buf_adds(&what, "Kind ");
@@ -732,6 +739,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Buf m = {0};
             buf_adds(&m, "No arm matches ");
             if (a.type == T_STRING) quote(a.s, &m);
+            else if (a.type == T_OBJECT && a.o->case_number) append_case(a.o, &m);
             else if (a.type == T_INT || a.type == T_FLOAT || a.type == T_BOOL || a.type == T_NULL || a.type == T_KIND
                      || a.type == T_FUNCTION) append_string(a, &m);
             else buf_adds(&m, type_name(a));
@@ -793,6 +801,15 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         }
         case OP_LOAD_LOAD_OP:
             a = fp->base[in->a], b = fp->base[in[1].a];
+            if (a.type != T_UNSET && b.type != T_UNSET && quick_binary(in[2].orig, a, b, &r)) {
+                PUSH(r);
+                pc = in + 3;
+                break;
+            }
+            op = in->orig;
+            goto dispatch;
+        case OP_LOAD_STATIC_OP:
+            a = fp->base[in->a], b = statics[in[1].a];
             if (a.type != T_UNSET && b.type != T_UNSET && quick_binary(in[2].orig, a, b, &r)) {
                 PUSH(r);
                 pc = in + 3;
@@ -1337,8 +1354,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Value callee = *callee_slot;
             if (callee.type == T_KIND) {
                 Kind *c = callee.k;
-                if (c->abstract) {
-                    raisef("Cannot construct %s %s", c->interface ? "interface" : "abstract kind", c->name->data);
+                if (c->abstract || c->is_enum) {
+                    raise_unconstructable(c);
                     goto error;
                 }
                 if (!arity_fits(c->lo, c->hi, argc)) {
@@ -1624,6 +1641,24 @@ static char *read_all(const char *path, size_t *len) {
     return b.data;
 }
 
+/* Make every enum's cases, each into the static slot that holds it, before the program's first
+   instruction: an object of a run, as the run's ids and statics are, though the loader is what
+   read them. A backed case's value goes in its one field. */
+static void make_cases(void) {
+    for (int i = 0; i < program->nkinds; i++) {
+        Kind *c = &program->kinds[i];
+        for (int n = 0; c->is_enum && n < c->block->ncases; n++) {
+            Object *o = object_new(c);
+            o->case_number = n + 1;
+            if (c->block->backing) {
+                o->fields[0] = c->block->case_values[n];
+                incref(o->fields[0]);
+            }
+            set_slot(&statics[c->block->case_slots[n]], v_object(o));
+        }
+    }
+}
+
 /* What was alive before the program was loaded: nothing, or for source what the compiler's run
    left, which is nothing but its own constants */
 static int64_t loaded;
@@ -1656,6 +1691,7 @@ static int run_program(bool check) {
     /* Every program starts unpredictable, as if it had called rand_seed(), whatever ran before */
     random_seed_unpredictable();
     next_object_id = 1;
+    make_cases();
 
     Block *top = program->blocks[0];
     fp = frames;
@@ -1706,6 +1742,11 @@ static int run_program(bool check) {
            over like any other rather than a count one too high on something still held */
         for (int i = 0; i < program->ncode; i++) {
             if (program->code[i].orig == OP_PUSH) set_slot(&program->code[i].v, v_unset());
+        }
+        /* And so do the values of enums' cases, which their records hold as the code holds a PUSH's */
+        for (int i = 0; i < program->nkinds; i++) {
+            Block *b = program->kinds[i].block;
+            for (int n = 0; b->is_enum && n < b->ncases; n++) set_slot(&b->case_values[n], v_unset());
         }
         fprintf(stderr, "gazvm: %lld values leaked, at most %lld lists, maps, objects and functions alive at once\n",
                 (long long)(counted - loaded), (long long)peak);

@@ -143,6 +143,29 @@
 					<key>match</key>
 					<string>^\s*(interface)\s+([A-Za-z_][\w:.]*)\s*$</string>
 				</dict>
+				<!-- An enum: its name and the type of its cases' values, if they have them -->
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.type.enum.gzb</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.type.enum.gzb</string>
+						</dict>
+						<key>3</key>
+						<dict>
+							<key>name</key>
+							<string>entity.name.type.gzb</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>^\s*(enum)\s+([A-Za-z_][\w:.]*)(?:\s+(string|int))?\s*$</string>
+				</dict>
 				<dict>
 					<key>captures</key>
 					<dict>
@@ -945,6 +968,39 @@
 					</dict>
 					<key>match</key>
 					<string>^\s*(method)\s+(\w+)\s+([A-Za-z_][\w:.]*)(?:\s+(pub|kin)(?:\s+(?!final\b)([A-Za-z_][\w:.]*))?(?:\s+(final))?)?\s*$</string>
+				</dict>
+				<!-- A case of an enum: its name, and its value as a literal when the enum has values -->
+				<dict>
+					<key>begin</key>
+					<string>^\s*(case)\s+(\w+)</string>
+					<key>beginCaptures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>storage.type.case.gzb</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>variable.other.enummember.gzb</string>
+						</dict>
+					</dict>
+					<key>end</key>
+					<string>$</string>
+					<key>patterns</key>
+					<array>
+						<dict>
+							<key>include</key>
+							<string>#literal</string>
+						</dict>
+						<dict>
+							<key>match</key>
+							<string>\S+</string>
+							<key>name</key>
+							<string>invalid.illegal.gzb</string>
+						</dict>
+					</array>
 				</dict>
 				<!-- An interface's method: its name and the arity an implementer must accept -->
 				<dict>

@@ -1,0 +1,60 @@
+ok a case is equal to itself
+ok and to nothing else
+ok not even its value
+ok nor a case of another enum
+ok one case, however reached
+ok its object_id is the same each time
+ok match takes a case by identity
+ok a match on cases
+ok # is the case in its methods
+ok and is not another
+ok a case no arm names is named in the error
+ok by its name, even when its enum has to_string()
+ok a typed parameter takes a case
+ok ?Filter takes null
+ok ?Filter takes a case
+ok a typed return
+ok a parameter refuses a case of another enum
+ok and a value of its type
+ok is_a takes the enum
+ok and is false for another
+ok type_of says object
+ok kind_of gives the enum
+ok kind_name gives its name
+ok from() finds the case with a value
+ok and in an enum of ints
+ok a negative one too
+ok from() with a default gives the default for a value no case has
+ok a null default is a default
+ok and a case it finds wins over the default
+ok without a default, a value no case has is an error
+ok an int is shown as itself
+ok a value of another type is the parameter's error, default or not
+ok cases() lists them in the order declared
+ok an enum without values has cases() too
+ok from() is a function value as any static method is
+ok .value is the case's value
+ok of the enum's type
+ok fields() shows it
+ok .value on an enum without values
+ok echo shows a case by its name
+ok in a list too
+ok joined into a string
+ok an enum's to_string() is used when it has one
+ok an enum prints as one
+ok a case encodes as its value
+ok an int one as its int
+ok a case without a value can't be encoded
+ok an enum's own to_json() is used when it has one
+ok decoding gives the value, which from() turns back into the case
+ok an enum implements an interface
+ok and is taken where the interface is asked for
+ok a pub enum from another namespace
+ok by the name a use clause gives it
+ok its cases print with the namespace
+ok one that isn't pub is used inside its namespace
+ok calling an enum held as a value
+ok a case's value can't be written
+ok nor appended to
+ok so it is still what it was
+ok a field it doesn't have is the usual error

@@ -1,0 +1,14 @@
+GAZLANG BYTECODE 3
+globals
+statics Filter::All Filter::Open
+
+top
+locals
+PUSH 0
+DELETE_PATH_STATIC [k] 1
+
+enum Filter string
+field value Filter pub string
+case All "all"
+case Open "open"
+locals

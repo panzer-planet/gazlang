@@ -2,12 +2,12 @@ namespace todo;
 import "std/web.gaz";
 import "forms.gaz";
 import "std/date.gaz";
-@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors, date::Zone $zone, TodoFilter $filter, int $now)
+@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors, date::Zone $zone, Filter $filter, int $now)
 <h1>Your todos</h1>
 
 <form method="post" action="/todos" class="add">
     {{ web::csrf_field($csrf) }}
-    <input type="hidden" name="show" value="{{ $filter.name }}">
+    <input type="hidden" name="show" value="{{ $filter.value }}">
     <input
         type="text"
         name="title"
@@ -28,8 +28,8 @@ import "std/date.gaz";
 @endif
 
 <nav class="filters" aria-label="Show">
-    @foreach (FILTERS as $name => $label)
-        <a href="{{ TodoFilter($name).path() }}" aria-current="{{ $name == $filter.name ? "page" : "false" }}">{{ $label }}</a>
+    @foreach (Filter::cases() as $shown)
+        <a href="{{ $shown.path() }}" aria-current="{{ $shown == $filter ? "page" : "false" }}">{{ $shown.label() }}</a>
     @endforeach
 </nav>
 
@@ -41,7 +41,7 @@ import "std/date.gaz";
             <li class="{{ $todo.done ? "done" : "open" }}{{ $todo.is_overdue($now) ? " overdue" : "" }}">
                 <form method="post" action="/todos/{{ $todo.id }}/toggle" class="inline">
                     {{ web::csrf_field($csrf) }}
-                    <input type="hidden" name="show" value="{{ $filter.name }}">
+                    <input type="hidden" name="show" value="{{ $filter.value }}">
                     <button
                         type="submit"
                         class="check"
@@ -58,7 +58,7 @@ import "std/date.gaz";
 
                 <form method="post" action="/todos/{{ $todo.id }}/delete" class="inline">
                     {{ web::csrf_field($csrf) }}
-                    <input type="hidden" name="show" value="{{ $filter.name }}">
+                    <input type="hidden" name="show" value="{{ $filter.value }}">
                     <button type="submit" class="link danger">Delete</button>
                 </form>
             </li>

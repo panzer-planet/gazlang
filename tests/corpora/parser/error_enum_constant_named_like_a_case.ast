@@ -1,0 +1,1 @@
+Error: Level already has a case Low: cases, constants, methods and statics share names at tests/corpora/parser/error_enum_constant_named_like_a_case.gaz:3

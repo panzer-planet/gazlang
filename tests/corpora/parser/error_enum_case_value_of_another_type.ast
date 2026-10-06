@@ -1,0 +1,1 @@
+Error: Case Filter::All must have a string value, as its enum says, not int at tests/corpora/parser/error_enum_case_value_of_another_type.gaz:2

@@ -414,6 +414,9 @@ static bool raise_undefined_member(Kind *c, Str *name) {
         return raisef("%s.%s is not pub, so only %s can use it",
                       c->name->data, name->data, declarer->name->data);
     }
+    if (c->is_enum && !c->block->backing && !strcmp(name->data, "value")) {
+        return raisef("%s has no member value: enum %s has no values, so its cases have none", c->name->data, c->name->data);
+    }
     return raisef("%s has no member %s", c->name->data, name->data);
 }
 
@@ -451,10 +454,20 @@ bool type_admits(TypeSpec *t, Value *v) {
 const char *describe_type(Value v) {
     if (v.type == T_OBJECT) return v.o->kind->name->data;
     if (v.type == T_KIND && v.k->interface) return "interface";
+    if (v.type == T_KIND && v.k->is_enum) return "enum";
     return type_name(v);
 }
 
+/* Every write into a typed field comes here, so this is where a case of an enum, whose one field
+   is typed (check_enum() in load.c), is kept as it is */
 bool check_field_type(Object *o, int field, Value *v) {
+    if (o->case_number) {
+        Buf name = {0};
+        append_case(o, &name);
+        bool raised = raisef("Cannot change %s: an enum's cases never change", name.data);
+        free(name.data);
+        return raised;
+    }
     TypeSpec *t = o->kind->field_types ? o->kind->field_types[field] : NULL;
     if (!t || type_admits(t, v)) return true;
     return raisef("%s #%s must be %s, got %s", o->kind->field_declarers[field]->name->data,

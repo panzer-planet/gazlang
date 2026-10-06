@@ -1,0 +1,1 @@
+Error: Case All of enum Filter has no value, but its cases are string at tests/corpora/bytecode/error_enum_case_without_value.gzb:10

@@ -1,0 +1,4 @@
+enum Level {
+    Low;
+    pub final fn rank() {}
+}

@@ -1,0 +1,176 @@
+Compound
+  statements:
+@ "tests/corpora/parser/namespaces/lib/colours.gaz"
+    0: KindDeclaration 4
+      name: "colours::Colour"
+      parent: null
+      abstract: false
+      cases: {"Red" => "#f00", "Green" => "#0f0"}
+      case_lines: {"Red" => 5, "Green" => 6}
+      backing: "string"
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 4
+          name: "colours::Colour::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "colours::Colour"
+          abstract: false
+          generated: "cases"
+        from: FunctionDeclaration 4
+          name: "colours::Colour::from"
+          params: ["\$value", "\$default"]
+          defaults: [null, null]
+          body: Compound
+            statements: []
+          arity: [1, 2]
+          kind: "colours::Colour"
+          abstract: false
+          generated: "from"
+      static_owners: {"Red" => "colours::Colour", "Green" => "colours::Colour", "cases" => "colours::Colour", "from" => "colours::Colour"}
+      static_is_method: {"Red" => false, "Green" => false, "cases" => true, "from" => true}
+      vis: {"cases" => "pub", "value" => "pub", "from" => "pub", "Red" => "pub", "Green" => "pub", "to_json" => "pub"}
+      fields: {"value" => null}
+      field_types:
+        value: Type 4
+          names: ["string"]
+      field_lines: {"value" => 4}
+      methods:
+        to_json: FunctionDeclaration 4
+          name: "to_json"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "colours::Colour"
+          abstract: false
+          generated: "to_json"
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"value" => "colours::Colour"}
+      members: {"to_json" => "colours::Colour"}
+      abstract_methods: []
+      slots: [["value", "colours::Colour", "pub"]]
+      method_table: [["to_json", "colours::Colour", "pub", "colours::Colour"]]
+      owner_vis: {"Red" => "pub", "Green" => "pub", "cases" => "pub", "from" => "pub", "value" => "pub", "to_json" => "pub"}
+      declared_at: {"to_json" => "colours::Colour"}
+      hidden: []
+      hidden_fields: []
+    1: FunctionDeclaration 4
+      name: "colours::Colour::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "colours::Colour"
+      abstract: false
+      generated: "cases"
+    2: FunctionDeclaration 4
+      name: "colours::Colour::from"
+      params: ["\$value", "\$default"]
+      defaults: [null, null]
+      body: Compound
+        statements: []
+      arity: [1, 2]
+      kind: "colours::Colour"
+      abstract: false
+      generated: "from"
+    3: KindDeclaration 9
+      name: "colours::Secret"
+      parent: null
+      abstract: false
+      cases: {"Hidden" => null}
+      case_lines: {"Hidden" => 10}
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 9
+          name: "colours::Secret::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "colours::Secret"
+          abstract: false
+          generated: "cases"
+      static_owners: {"Hidden" => "colours::Secret", "cases" => "colours::Secret"}
+      static_is_method: {"Hidden" => false, "cases" => true}
+      vis: {"cases" => "pub", "Hidden" => "pub"}
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: {"Hidden" => "pub", "cases" => "pub"}
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    4: FunctionDeclaration 9
+      name: "colours::Secret::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "colours::Secret"
+      abstract: false
+      generated: "cases"
+@ "tests/corpora/parser/namespaces/enums_qualified.gaz"
+    5: FunctionDeclaration 6
+      name: "hex"
+      params: ["\$colour"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 7
+            expr: Property 7
+              target: Variable 7
+                token: 7 VAR_IDENTIFIER $colour
+                value: "\$colour"
+              name: "value"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+      arity: 1
+      param_types:
+        0: Type 6
+          names: ["colours::Colour"]
+      return_type: Type 6
+        names: ["string"]
+      kind: null
+      abstract: false
+    6: EchoStatement 10
+      expr: FunctionCall 10
+        name: "hex"
+        args:
+          0: FunctionRef 10
+            name: "colours::Colour::Green"
+            constant: false
+            value: null
+            static_name: "colours::Colour::Green"
+    7: EchoStatement 11
+      expr: FunctionCall 11
+        name: "colours::Colour::cases"
+        args: []
+    8: EchoStatement 12
+      expr: FunctionCall 12
+        name: "colours::Colour::from"
+        args:
+          0: String 12
+            token: 12 STRING "#f00"
+            value: "#f00"

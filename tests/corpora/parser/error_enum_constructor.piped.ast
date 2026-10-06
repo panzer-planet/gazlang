@@ -1,0 +1,1 @@
+Error: An enum has no constructor: its cases are made once, before the program runs on line 3

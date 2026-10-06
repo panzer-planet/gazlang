@@ -1,0 +1,7 @@
+interface Ranked {
+    fn rank(): int;
+}
+
+enum Level implements Ranked {
+    Low;
+}
