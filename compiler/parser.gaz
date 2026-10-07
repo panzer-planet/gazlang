@@ -3672,6 +3672,19 @@ final kind Html {
         [$prefix, $last] = #split_name($name);
         $kind = #kinds[$prefix] ?? null;
         if ($kind != null) {
+            // An object's method or field, private to a parent or not, is wrong before it is hidden
+            $owner = $kind.members[$last] ?? $kind.abstract_methods[$last] ?? $kind.hidden[$last] ?? null;
+            if ($last == "_" && $owner != null) {
+                return "{$name} is the constructor, which runs when one is made: write {$prefix}(...)";
+            }
+            if ($owner != null && has_key(#kinds[$owner].methods, $last)) {
+                return "{$name} is not static: {$last} is a method of an object, so call it on one, as \$obj.{$last}()";
+            }
+            $hidden_field = $owner != null && has_key(#kinds[$owner].fields, $last);
+            if (has_key($kind.layout, $last) || $hidden_field) {
+                return "{$name} is not static: #{$last} is a field of an object, so read it from one, as \$obj.{$last}";
+            }
+
             return #not_pub($kind, $last) ?? "Kind {$kind.name} has no constant {$last}";
         }
 

@@ -1,0 +1,1 @@
+Error: Counter::_ is the constructor, which runs when one is made: write Counter(...) at tests/corpora/parser/error_constructor_through_kind.gaz:6

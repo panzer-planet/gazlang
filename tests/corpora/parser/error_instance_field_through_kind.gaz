@@ -1,0 +1,7 @@
+// A field named through a kind is not static, before it is private to the parent
+kind Counter {
+    #n = 0;
+}
+kind Tally extends Counter {
+}
+echo Tally::n;

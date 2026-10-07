@@ -1,0 +1,9 @@
+// An instance method named through a kind is not static, before it is private to the parent
+kind Counter {
+    fn m() {
+        return 1;
+    }
+}
+kind Tally extends Counter {
+}
+echo Tally::m();

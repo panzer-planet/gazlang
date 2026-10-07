@@ -1,0 +1,6 @@
+// A constructor named through a kind is reached by making one, not as a static
+kind Counter {
+    fn _() {
+    }
+}
+echo Counter::_;

@@ -1,0 +1,1 @@
+Error: Counter::_ is the constructor, which runs when one is made: write Counter(...) on line 6

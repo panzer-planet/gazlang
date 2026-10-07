@@ -1,0 +1,1 @@
+Error: Tally::n is not static: #n is a field of an object, so read it from one, as $obj.n on line 7

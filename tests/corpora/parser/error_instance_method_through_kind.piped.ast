@@ -1,0 +1,1 @@
+Error: Tally::m is not static: m is a method of an object, so call it on one, as $obj.m() on line 9
