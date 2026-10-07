@@ -173,3 +173,24 @@ expect("an empty match is replaced too", regex::replace("ab", "x*", $g -> "-"), 
 expect("its $ is text", regex::replace("ab", "a", $g -> "$1"), "$1b");
 throws("it must return a string", () -> regex::replace("ab", "a", $g -> 1), "regex: replace()'s function must return a string, not int");
 throws("a replacement is a string or a function", () -> regex::replace("ab", "a", null), "regex: replace() takes a string or a function, not null");
+
+/* A pattern's compiled size is capped, so its size alone can't make matching slow */
+$words = [];
+for ($i = 0; $i < 100; $i++) {
+    $words[] = "word" .. $i;
+}
+$hundred_words = join($words, "|");
+expect("an alternation of a hundred words", regex::matches("word57", $hundred_words), true);
+expect("searched for in a longer string", regex::find("no words but word99 here", "(" .. $hundred_words .. ")!?"), 13);
+expect("2000 instructions, the match included, is the most", regex::matches(repeat("a", 1999), repeat("a", 1999)), true);
+throws("one more is refused", () -> regex::matches("a", repeat("a", 2000)), "regex: a pattern can compile to at most 2000 instructions, and this one (2000 bytes) needs more");
+throws("before anything is matched", () -> regex::matches("", repeat("a?", 1000) .. repeat("a", 1000)), "regex: a pattern can compile to at most 2000 instructions, and this one (3000 bytes) needs more");
+throws("each byte of a class counts", () -> regex::search("b", "[" .. repeat("a", 2000) .. "]"), "regex: a pattern can compile to at most 2000 instructions, and this one (2002 bytes) needs more");
+throws("a pattern too long for any program is refused before it is read", () -> regex::matches("a", repeat(")", 10001)), "regex: a pattern can compile to at most 2000 instructions, and this one (10001 bytes) needs more");
+throws("a byte shorter, it is read", () -> regex::matches("a", repeat(")", 10000)), "regex: unexpected ')' at 0 in /" .. repeat(")", 10000) .. "/");
+throws("and so does replace()", () -> regex::replace("a", repeat("a", 2100), "$0"), "regex: a pattern can compile to at most 2000 instructions, and this one (2100 bytes) needs more");
+$timestamp = '(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)(\.\d+)?(Z|[+-]\d\d:\d\d)';
+expect("a pattern with a handful of groups", regex::groups("2026-10-07T09:30:15Z", $timestamp), ["2026-10-07T09:30:15Z", "2026", "10", "07", "09", "30", "15", null, "Z"]);
+expect("100 groups is the most", len(regex::groups("a", repeat("(", 100) .. "a" .. repeat(")", 100))), 101);
+throws("101 groups are refused", () -> regex::search("a", repeat("()", 101)), "regex: a pattern can have at most 100 groups, and this one (202 bytes) has more");
+throws("groups cost more than their instructions", () -> regex::search(repeat("b", 100), repeat("()", 990) .. "z"), "regex: a pattern can have at most 100 groups, and this one (1981 bytes) has more");

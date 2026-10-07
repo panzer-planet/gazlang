@@ -24,8 +24,6 @@ a fix goes into the next one rather than back into an older one.
 
 These are open already, so they don't need a new report:
 
-- [#64](https://github.com/panzer-planet/gazlang/issues/64): a regex has no budget on pattern
-  size; matching time is proportional to the pattern's size, so cap an untrusted pattern's length.
 - [#65](https://github.com/panzer-planet/gazlang/issues/65): a request handler has no time limit,
   so even a small regex over a large body can hold a worker for seconds.
 - [#66](https://github.com/panzer-planet/gazlang/issues/66): UTF-8 isn't validated at the HTTP

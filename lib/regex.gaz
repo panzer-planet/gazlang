@@ -25,11 +25,29 @@
  * earlier alternatives give. No backreferences, no lookahead: patterns compile to a Thompson
  * NFA (Pike's VM, each thread carrying where its groups started and ended; plain GazLang) and
  * run in time linear in the string for a given pattern, so there is no catastrophic backtracking.
- * The time is also proportional to the pattern's size, so cap the length of an untrusted pattern.
+ *
+ * The time for each byte of the string grows with the size of the compiled pattern, so that size
+ * is capped: a pattern that compiles to more than 2000 instructions (each byte, range or
+ * shorthand inside a "[...]" counting one more) is an error before anything is matched, and so
+ * is one with more than 100 groups, since each thread carries a slot for each group's start and
+ * end and copies them as it passes one. A date or an email address compiles to tens of
+ * instructions and a few groups, an alternation of a hundred words to under a thousand
+ * instructions, so only a pattern built to be expensive comes near either.
  */
 namespace regex;
 
 import "std/chars.gaz";
+
+/*
+ * The most instructions a pattern may compile to, and the most groups it may have, which
+ * together bound the work done for each byte of the string: a group's slots are copied each
+ * time a thread passes its "(" or ")", so groups cost by their number squared. At both limits a
+ * byte costs about what it does at 2000 instructions without groups. ponytail: a trusted
+ * pattern can't raise them; that needs an options argument or a compiled pattern value, once a
+ * program has a bigger pattern to run.
+ */
+const MAX_INSTRUCTIONS = 2000;
+const MAX_GROUPS = 100;
 
 kind Parser {
     #pat;
@@ -107,6 +125,9 @@ kind Parser {
         if ($c == "(") {
             #advance();
             #groups += 1;
+            if (#groups > MAX_GROUPS) {
+                throw "regex: a pattern can have at most " .. MAX_GROUPS .. " groups, and this one (" .. #len .. " bytes) has more";
+            }
             $n = #groups;
             $node = #parse_alt();
             #expect(")");
@@ -226,6 +247,11 @@ fn is_word($c) {
     return chars::is_alnum($c) || $c == "_";
 }
 
+// A pattern too big to run, named by its length since quoting it would be as long
+fn refuse_size($pattern) {
+    throw "regex: a pattern can compile to at most " .. MAX_INSTRUCTIONS .. " instructions, and this one (" .. len($pattern) .. " bytes) needs more";
+}
+
 /*
  * Compiles an AST to a flat instruction list ("prog"): char/any/class/bol/eol consume or
  * assert, split/jmp are epsilon transitions (split's x first, the greedy or earlier way), save
@@ -235,12 +261,27 @@ fn is_word($c) {
  */
 kind Compiler {
     pub #prog;
+    #pattern;
+    // The instructions so far, and the entries of each class, which are tested one by one
+    #size = 0;
 
-    fn _() { #prog = []; }
+    fn _($pattern) {
+        #prog = [];
+        #pattern = $pattern;
+    }
 
     pub fn emit($instr) {
         #prog[] = $instr;
+        #count(1);
         return len(#prog) - 1;
+    }
+
+    // Stops as soon as the program is too big, so refusing a huge pattern costs no more
+    fn count($n) {
+        #size += $n;
+        if (#size > MAX_INSTRUCTIONS) {
+            refuse_size(#pattern);
+        }
     }
 
     pub fn compile($node) {
@@ -248,7 +289,11 @@ kind Compiler {
         if ($op == "empty") { return; }
         if ($op == "lit") { #emit({"op" => "char", "c" => $node["c"]}); return; }
         if ($op == "any") { #emit({"op" => "any"}); return; }
-        if ($op == "class") { #emit($node); return; }
+        if ($op == "class") {
+            #emit($node);
+            #count(len($node["ranges"]) + len($node["chars"]) + len($node["sets"]));
+            return;
+        }
         if ($op == "bol") { #emit({"op" => "bol"}); return; }
         if ($op == "eol") { #emit({"op" => "eol"}); return; }
         if ($op == "concat") {
@@ -303,11 +348,18 @@ kind Compiler {
     }
 }
 
-// The program for $pattern, and how many groups it has
+/*
+ * The program for $pattern, and how many groups it has. No instruction takes more than five
+ * bytes of the pattern (a range of two escapes, "\.-\/"), so a longer pattern is refused before
+ * it is read.
+ */
 fn compile($pattern) {
+    if (len($pattern) > 5 * MAX_INSTRUCTIONS) {
+        refuse_size($pattern);
+    }
     $parser = Parser($pattern);
     $ast = $parser.parse();
-    $c = Compiler();
+    $c = Compiler($pattern);
     $c.compile($ast);
     $c.emit({"op" => "match"});
     return [$c.prog, $parser.groups];

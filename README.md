@@ -58,10 +58,12 @@ Both work on SQLite and PostgreSQL, and you can write your own tags: any functio
 
 `regex.gaz` runs a pattern as a Thompson NFA, one pass over the input however the pattern is
 written, so there is no backtracking and no catastrophic case: for a given pattern, time grows in
-step with the input. It also grows with the pattern's size, and the engine is GazLang the VM runs,
-so a pattern of thousands of terms over a few kilobytes takes seconds: cap the length of a pattern
-that comes from a user or a request. This is the textbook case, on the input that makes a
-backtracking engine run for longer than you'll wait:
+step with the input. The time for each byte also grows with the pattern's size, so the library caps
+it: a pattern that compiles to more than 2000 instructions, or has more than 100 groups, is an
+error before anything is matched. A date or an email address compiles to tens of instructions and
+a few groups, and an alternation of a hundred words to under a thousand instructions, so a pattern from a user or a request can make each byte cost only so much, and the
+length of the input is what is left for you to limit. This is the textbook case, on the input that
+makes a backtracking engine run for longer than you'll wait:
 
 ```gaz
 import "std/regex.gaz";

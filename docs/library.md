@@ -312,8 +312,18 @@ behind them:
   before anything but a digit or `$` is an error, never a literal. The replacement is read and
   checked once, before the first match. **`$with` may be a function** of the match's groups (as
   `regex::groups` gives them) that returns a string, for a replacement computed from the match;
-  its arity is the call's own error. Tested by `tests/gaz/lib/regex_test.gaz`, every shorthand in
-  each form against all 256 bytes.
+  its arity is the call's own error. **A pattern compiles to at most 2000 instructions and has at
+  most 100 groups** (`MAX_INSTRUCTIONS`, each entry of a `[...]` counting one more, since a class
+  tests them one by one; `MAX_GROUPS`, since every thread copies its two slots a group each time
+  it passes a `(` or `)`, so groups cost by their number squared), each an error before anything
+  is matched, since the work for each byte of the input grows with both and a pattern may come
+  from a request. At both limits a byte costs about what it does at 2000 instructions without
+  groups; ordinary patterns compile to tens of instructions and a few groups, so the limits only
+  meet one built to be expensive. The count stops the compiler as soon as it is passed, and a
+  pattern longer than five bytes an instruction is refused unread, so refusing reads at most
+  10000 bytes of the pattern (about a tenth of a second). `ponytail:` a trusted pattern can't
+  raise them; that needs an options argument or a compiled pattern value. Tested by `tests/gaz/lib/regex_test.gaz`, every shorthand in each form against
+  all 256 bytes.
 - `http.gaz`: the client and the server have [a page of their own](http.md).
 - `date.gaz` has no clock, since a program that asked one what day it is could not be recorded:
   every function is given the time.
