@@ -50,7 +50,7 @@ const BuiltinInfo builtin_info[] = {
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"program_path", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
-    {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 1}, {"socket_write", 2, 2},
+    {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 2}, {"socket_write", 2, 2},
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
@@ -1871,9 +1871,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             || !want(index, timeout, INT | M(T_FLOAT))) return false;
         return net_open(a.s, b.i, tls.b, timeout.type == T_INT ? (double)timeout.i : timeout.f, out);
     }
-    case B_SOCKET_READ:
-        if (!want(index, a, M(T_SOCKET))) return false;
-        return net_read(a.sock, out);
+    case B_SOCKET_READ: {
+        /* socket_read($socket, $seconds = its own timeout) */
+        if (!want(index, a, M(T_SOCKET)) || (argc > 1 && !want(index, b, INT | M(T_FLOAT)))) return false;
+        double seconds = argc < 2 ? 0 : b.type == T_INT ? (double)b.i : b.f;
+        if (argc > 1 && !(seconds > 0)) return raisef("socket_read() expects a timeout above 0 seconds");
+        return net_read(a.sock, seconds, out);
+    }
     case B_SOCKET_WRITE:
         if (!want(index, a, M(T_SOCKET)) || !want(index, b, STRING)) return false;
         if (!net_write(a.sock, b.s)) return false;

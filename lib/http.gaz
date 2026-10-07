@@ -240,16 +240,26 @@ fn resolve($target, $location) {
 
 // Reads a message from a socket: lines up to a delimiter, a count of bytes, or the rest
 kind Reader {
-    #deadline = null;   // a monotonic_time() after which a read is refused (408), or null
-    #heard_at = null;   // the monotonic_time() the message being read began to come, or null
+    #deadline = null;           // a monotonic_time() after which a read is refused (408), or null
+    #message_deadline = null;   // the whole message's, which #deadline becomes once its head is in
+    #heard_at = null;           // the monotonic_time() the message being read began to come, or null
 
     // #data: read but not taken yet, kept between messages; with no socket, the whole message
     fn _(#socket, #data = "");
 
-    // Give the message about to be read until $deadline, a monotonic_time()
-    pub fn start($deadline) {
-        #deadline = $deadline;
+    /*
+     * Give the message about to be read until $deadline, a monotonic_time(), and its head (up to
+     * its blank line) until $head_deadline, which is no later
+     */
+    pub fn start($head_deadline, $deadline) {
+        #deadline = $head_deadline;
+        #message_deadline = $deadline;
         #heard_at = #data == "" ? null : monotonic_time();
+    }
+
+    // The head is in: the rest of the message has until the whole message's deadline
+    pub fn head_read() {
+        #deadline = #message_deadline;
     }
 
     // Up to $most empty lines (a bare CRLF each) dropped from the start of what has been read, without reading more
@@ -295,16 +305,29 @@ kind Reader {
 
     // Read more; false at the end of the stream
     fn more() {
-        if (#deadline != null && monotonic_time() > #deadline) {
-            throw Refusal(408, "HTTP error: the request took too long to arrive");
+        if (#socket == null) {
+            return false;
         }
-        $chunk = #socket == null ? "" : socket_read(#socket);
+        $chunk = #deadline == null ? socket_read(#socket) : #read_by_deadline();
         if ($chunk == "") {
             return false;
         }
         #data ..= $chunk;
         #heard_at ??= monotonic_time();
         return true;
+    }
+
+    /*
+     * A read that waits no longer than the deadline leaves, or the socket's own timeout if that is
+     * sooner, so the deadline holds to the moment; past it, a 408
+     */
+    fn read_by_deadline() {
+        $left = #deadline - monotonic_time();
+        $chunk = $left > 0 ? socket_read(#socket, $left) : null;
+        if ($chunk == null) {
+            throw Refusal(408, "HTTP error: the request took too long to arrive");
+        }
+        return $chunk;
     }
 
     /*
@@ -508,7 +531,7 @@ const REASONS = {
 const SERVER_OPTIONS = {
     "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
     "idle_timeout" => 5, "requests_per_connection" => 100, "access_log" => true,
-    "handler_timeout" => 10,
+    "handler_timeout" => 10, "header_timeout" => 10,
 };
 const LONGEST_HANDLER_TIMEOUT = 100000000;   // seconds, worker_deadline()'s own ceiling: three years
 const MAX_EMPTY_LINES = 4;  // skipped before a request line, as RFC 9112 asks; more is a 400
@@ -583,7 +606,11 @@ kind Refusal extends Error {
  *   new client is waiting for a worker (see another_request()).
  * - Options: "timeout", seconds each read and write may wait, and a connection's first request
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
- *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
+ *   answered 408, so a client trickling a byte at a time can't hold a worker; "header_timeout",
+ *   seconds its request line and headers may take, out of those (10, at most "request_timeout",
+ *   null for only "request_timeout"), also a 408, and the body then has what is left of
+ *   "request_timeout"; both start when a connection is taken for its first request, and when a
+ *   later request's first byte comes; "max_body", in bytes
  *   (1MB); "idle_timeout", seconds to wait for a connection's next request (5);
  *   "requests_per_connection" (100; 1 never keeps one open); "max_requests" (see serve());
  *   "access_log", true for a line on standard error for each request answered (see
@@ -594,8 +621,10 @@ kind Refusal extends Error {
  *   so a longer handler_timeout can be cut short by one.
  * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
  *   is answered.
- * - ponytail: the request's deadline is checked before each read, so it can overrun by one
- *   "timeout"; writing the response has only the per-write timeout. TLS is a proxy's job in front.
+ * - In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy): a
+ *   worker answers one connection at a time, so without one, each client sending slowly holds a
+ *   worker for up to "header_timeout", or "request_timeout" with a body. TLS is the proxy's job too.
+ * - ponytail: writing the response has only the per-write timeout.
  */
 pub fn serve($listener, $handler, $options = {}) {
     $options = server_options($options);
@@ -816,7 +845,7 @@ kind Turns {
  * the request's method and target for the access log once they are read.
  */
 fn answer($reader, $socket, $handler, $address, $options, $last, $line = RequestLine()) {
-    $reader.start(monotonic_time() + $options["request_timeout"]);
+    start_reading($reader, $options);
     try {
         $read = read_request($reader, $socket, $address, $options["max_body"], $line);
     } catch (Error $e) {
@@ -850,6 +879,19 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
         clear_deadline($socket, $limit);
     }
     return [refusal(500, $head), false];
+}
+
+/*
+ * The request's deadlines, from now: when answer() starts, which is when the connection is taken
+ * for its first request and when the next one's first byte is seen (or the response before it is
+ * written, if it was already read) for the rest, since the wait between requests is idle_timeout's.
+ * The head has "header_timeout", the whole request "request_timeout".
+ */
+fn start_reading($reader, $options) {
+    $now = monotonic_time();
+    $deadline = $now + $options["request_timeout"];
+    $head_limit = $options["header_timeout"];
+    $reader.start($head_limit == null ? $deadline : $now + $head_limit, $deadline);
 }
 
 /*
@@ -914,12 +956,17 @@ fn error_prefix($request) {
     return "http::serve: $method $path: ";
 }
 
-fn server_options($options) {
-    $options = with_defaults("http::serve()", $options, SERVER_OPTIONS);
+fn server_options($given) {
+    $options = with_defaults("http::serve()", $given, SERVER_OPTIONS);
     $idle = $options["idle_timeout"];
     if (!in_array(type_of($idle), ["int", "float"]) || $idle <= 0) {
         throw "http::serve() expects an idle_timeout above 0 seconds, got " .. quote($idle);
     }
+    $whole = $options["request_timeout"];
+    if (!in_array(type_of($whole), ["int", "float"]) || $whole <= 0) {
+        throw "http::serve() expects a request_timeout above 0 seconds, got " .. quote($whole);
+    }
+    $options["header_timeout"] = header_timeout($given, $options["header_timeout"], $whole);
     $most = $options["requests_per_connection"];
     if (type_of($most) != "int" || $most < 1) {
         throw "http::serve() expects a requests_per_connection of 1 or more, got " .. quote($most);
@@ -934,6 +981,23 @@ fn server_options($options) {
         throw "http::serve() expects a handler_timeout $range, or null, got " .. quote($limit);
     }
     return $options;
+}
+
+/*
+ * The head's deadline, which can't be later than the whole request's: one given that is would never
+ * be reached, so it is refused as a mistake, while the default gives way to a shorter
+ * request_timeout, so that setting request_timeout alone is never an error
+ */
+fn header_timeout($given, $limit, $whole) {
+    if (!has_key($given, "header_timeout")) {
+        return min($limit, $whole);
+    }
+    $number = in_array(type_of($limit), ["int", "float"]);
+    if ($limit != null && (!$number || $limit <= 0 || $limit > $whole)) {
+        $range = "above 0 seconds and at most the request_timeout ($whole)";
+        throw "http::serve() expects a header_timeout $range, or null, got " .. quote($limit);
+    }
+    return $limit;
 }
 
 const LOGGED_METHOD = 20;    // bytes of a method the access log shows, escapes included
@@ -1069,6 +1133,7 @@ fn read_request($reader, $socket, $address, $max_body, $request_line) {
         }
         return null;
     }
+    $reader.head_read();
     $lines = split($head, "\r\n");
     // "GET /path?query HTTP/1.1"
     $words = split($lines[0], " ");

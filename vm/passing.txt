@@ -91,6 +91,7 @@ snippet:173d8e69619c
 snippet:175b4a4457bd
 snippet:17e025d858b2
 snippet:180344615ceb
+snippet:183d6db94675
 snippet:1918cbfd3986
 snippet:1930a0c47d35
 snippet:1937ae4edbd7
@@ -110,6 +111,7 @@ snippet:1def6fe4fb03
 snippet:1e5ff0963997
 snippet:1ef1d66358e3
 snippet:1f8b7c831abf
+snippet:1f8b8f9cba36
 snippet:1fb57a99dd2c
 snippet:1fb972d2bb51
 snippet:20134c9e9ed5
@@ -187,6 +189,7 @@ snippet:339d8f35fec9
 snippet:342ae59e2597
 snippet:346e887e5437
 snippet:3493bbb7c52d
+snippet:353b75f3afc1
 snippet:3559119466bf
 snippet:36c94ddbd61c
 snippet:36dabea58898
@@ -520,6 +523,7 @@ snippet:afda55473682
 snippet:afe641fce35c
 snippet:b0c01160b0b8
 snippet:b0ce086b05be
+snippet:b0cfa8465d13
 snippet:b129876b97e4
 snippet:b18a69e3f4bb
 snippet:b1b465eab522
@@ -570,6 +574,7 @@ snippet:c1ea8a9f1f73
 snippet:c34942efa185
 snippet:c3db4962331c
 snippet:c3ee1b81c3a8
+snippet:c429fa10cac9
 snippet:c4376f87ee7b
 snippet:c50e2d8b12a7
 snippet:c5b64773ed37
@@ -739,6 +744,7 @@ snippet:fd9483585108
 snippet:fe1b959f904b
 snippet:fea346c212bc
 snippet:fef41ba077a6
+snippet:fff09b153f8a
 snippet:fff0fce3fd64
 tests/corpora/bytecode/concat_path_without_steps.gzb
 tests/corpora/bytecode/enums.gzb

@@ -29,4 +29,9 @@ These are open already, so they don't need a new report:
 - [#67](https://github.com/panzer-planet/gazlang/issues/67): `web::html` takes the `content` of
   `<meta http-equiv="refresh">` as plain attribute text, not a URL.
 - [#68](https://github.com/panzer-planet/gazlang/issues/68): slow clients can stall a small worker
-  pool; run behind a reverse proxy.
+  pool. Each holds a worker for at most `header_timeout` (10 seconds) while its request line and
+  headers come, or `request_timeout` (30) with its body. Then a client that sent part of a request
+  is answered 408 (or 400 sooner, if it went quiet for longer than the per-read `timeout`), and one
+  that sent nothing is closed without a word. So as many slow clients as there are workers can
+  hold them all that long. In production, run behind a reverse
+  proxy that buffers whole requests (nginx, Caddy), which keeps slow clients off the workers.

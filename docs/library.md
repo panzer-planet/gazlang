@@ -106,7 +106,14 @@ own](http.md).
   `SSL_CERT_FILE`; an IP is checked as an address, with no SNI. SIGPIPE is ignored around each
   call and put back after, as curl does: per socket only macOS can turn it off, and ignoring it for
   good would change what a program writing to a closed pipe does. OpenSSL reports a socket timeout
-  as wanting to read; `net.c` says `timed out`.
+  as wanting to read; `net.c` says `timed out`. `socket_read($socket, $seconds)` waits in a
+  `poll()` first when `$seconds` is shorter than the socket's own timeout, and gives `null` rather
+  than an error when it runs out, since running out is what the caller asked about (a deadline,
+  `http::serve()`'s); the socket's own timeout is set once, by `setsockopt()`, and stays the error.
+  Over TLS a readable socket is no promise of data (a TLS 1.3 session ticket after the handshake,
+  part of a record), so there the descriptor is non-blocking for that one call and `SSL_read()`'s
+  wants (to read, or to write for a key update) are waited for in `poll()` for the time left
+  (`tls_read_within()`); tested against `tests/fixtures/http_server.php` by `HttpTest`.
   `socket_wait()` exists for kept-alive connections: a worker idle on one must see a stop
   (`socket_read()` retries on `EINTR`, so a stop never interrupts it) and a client waiting on the
   shared listener, both one `poll()`, waited a second at a time as `socket_accept()` does. A

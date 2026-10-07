@@ -636,7 +636,7 @@ bool net_port(Socket *s, Value *out);
 bool net_peer(Socket *s, Value *out);
 #define SOCKET_WAIT_MAX 16   /* socket_wait()'s most sockets at once */
 bool net_wait(List *sockets, double seconds, Value *out);
-bool net_read(Socket *s, Value *out);
+bool net_read(Socket *s, double seconds, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
 

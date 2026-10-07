@@ -817,6 +817,139 @@ class HttpServerTest extends GazLangTestCase
         $this->assertLessThan(4, microtime(true) - $start);
     }
 
+    /**
+     * Send part of a request on a new connection, then the rest a byte every $gap seconds (none
+     * without a gap), and give how long until the server closed it and what it answered
+     *
+     * @return array{float, string}
+     */
+    private static function sendSlowly(int $port, string $part, string $rest = '', float $gap = 0): array
+    {
+        $socket = self::connect($port);
+        $start = microtime(true);
+        fwrite($socket, $part);
+        stream_set_blocking($socket, false);
+        $response = '';
+        foreach (str_split($rest) as $byte) {
+            usleep((int) ($gap * 1000000));
+            @fwrite($socket, $byte);
+            $response .= (string) fread($socket, 8192);
+            if ($response !== '') {
+                break;
+            }
+        }
+        stream_set_blocking($socket, true);
+        $response .= (string) stream_get_contents($socket);
+        fclose($socket);
+
+        return [microtime(true) - $start, $response];
+    }
+
+    /**
+     * Options where a read may wait 3 seconds, so a deadline that waited for a read to end would
+     * be seconds late, or a 400 for the read's own timeout
+     */
+    private const SLOW_READS = '"timeout" => 3, "request_timeout" => 1.5, "header_timeout" => 0.5';
+
+    public function test_a_head_that_stops_coming_is_a_408_at_the_header_timeout_to_the_moment()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startSmallServer(1, '{'.self::SLOW_READS.'}', log: $log);
+        try {
+            [$seconds, $response] = self::sendSlowly($port, "GET /stalled HTTP/1.1\r\nHost: x\r\n");
+            $this->assertSame(408, self::response($response)['status']);
+            $this->assertGreaterThan(0.45, $seconds);
+            $this->assertLessThan(1.2, $seconds);
+
+            // Logged as the other refusals are, "-" for the request line no head was read for
+            $line = self::loggedLine($log, '/ 408 /');
+            $this->assertSame(1, preg_match('/^\S+ 127\.0\.0\.1 - - 408 16 (\d+\.\d{3})ms$/', $line[0], $m), $line[0]);
+            $this->assertGreaterThan(450, (float) $m[1]);
+            $this->assertLessThan(1200, (float) $m[1]);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
+    public function test_a_head_trickling_in_is_a_408_at_the_header_timeout()
+    {
+        [$server, $port] = self::startSmallServer(1, '{'.self::SLOW_READS.'}');
+        try {
+            [$seconds, $response] = self::sendSlowly($port, 'G', "ET / HTTP/1.1\r\nHost: x\r\nX-Slow: ".str_repeat('a', 40), 0.1);
+            $this->assertSame(408, self::response($response)['status']);
+            $this->assertLessThan(1.2, $seconds);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_body_has_the_rest_of_the_request_timeout_once_its_head_is_in()
+    {
+        [$server, $port] = self::startSmallServer(1, '{'.self::SLOW_READS.'}', '$r -> ({"body" => $r["body"]})');
+        try {
+            // A body that comes in time though it takes longer than the head may
+            $head = "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nConnection: close\r\n\r\n";
+            [$seconds, $response] = self::sendSlowly($port, $head, 'hello', 0.2);
+            $this->assertSame([200, 'hello'], [self::response($response)['status'], self::response($response)['body']]);
+            $this->assertGreaterThan(0.9, $seconds);
+
+            // One that doesn't is a 408 at the request_timeout, not the head's
+            $head = "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n";
+            [$seconds, $response] = self::sendSlowly($port, $head, str_repeat('a', 100), 0.2);
+            $this->assertSame(408, self::response($response)['status']);
+            $this->assertGreaterThan(1.4, $seconds);
+            $this->assertLessThan(2.2, $seconds);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_header_timeout_of_null_leaves_the_request_timeout_alone()
+    {
+        [$server, $port] = self::startSmallServer(1, '{"timeout" => 3, "request_timeout" => 1, "header_timeout" => null}');
+        try {
+            [$seconds, $response] = self::sendSlowly($port, "GET / HTTP/1.1\r\n");
+            $this->assertSame(408, self::response($response)['status']);
+            $this->assertGreaterThan(0.95, $seconds);
+            $this->assertLessThan(1.7, $seconds);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_kept_open_connections_next_head_has_its_header_timeout_from_its_first_byte()
+    {
+        [$server, $port] = self::startSmallServer(1, '{'.self::SLOW_READS.', "idle_timeout" => 3}');
+        try {
+            $socket = self::connect($port);
+            fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+            $this->assertSame(200, self::response(self::readResponse($socket))['status']);
+
+            // Idle for longer than header_timeout, then a head that takes most of it
+            usleep(800000);
+            fwrite($socket, "GET / HTTP/1.1\r\n");
+            usleep(300000);
+            fwrite($socket, "Host: x\r\n\r\n");
+            $this->assertSame(200, self::response(self::readResponse($socket))['status']);
+
+            // And one that stops coming is a 408 that long after its first byte
+            fwrite($socket, "GET / HTTP/1.1\r\n");
+            [$seconds, $rest] = self::untilClosed($socket);
+            fclose($socket);
+            $this->assertSame(408, self::response($rest)['status']);
+            $this->assertGreaterThan(0.45, $seconds);
+            $this->assertLessThan(1.2, $seconds);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
     public function test_stopping_lets_the_request_in_hand_finish()
     {
         [$server, $port] = self::startServer(2, '/dev/null');
@@ -1194,6 +1327,12 @@ class HttpServerTest extends GazLangTestCase
             'a negative handler timeout' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => -1.5});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got -1.5'],
             'a handler timeout past the timer\'s ceiling' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => 1e300});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got 1.0E+300'],
             'a handler timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => "10"});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got "10"'],
+            'no request timeout' => ['import "std/http.gaz"; http::serve(null, null, {"request_timeout" => 0});', 'http::serve() expects a request_timeout above 0 seconds, got 0'],
+            'a request timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"request_timeout" => null});', 'http::serve() expects a request_timeout above 0 seconds, got null'],
+            'no header timeout' => ['import "std/http.gaz"; http::serve(null, null, {"header_timeout" => 0});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (30), or null, got 0'],
+            'a negative header timeout' => ['import "std/http.gaz"; http::serve(null, null, {"header_timeout" => -0.5});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (30), or null, got -0.5'],
+            'a header timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"header_timeout" => "10"});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (30), or null, got "10"'],
+            'a header timeout past the request timeout' => ['import "std/http.gaz"; http::serve(null, null, {"request_timeout" => 5, "header_timeout" => 6});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (5), or null, got 6'],
             'an access log not a bool' => ['import "std/http.gaz"; http::serve(null, null, {"access_log" => "off"});', 'http::serve() expects an access_log of true or false, got "off"'],
         ];
     }

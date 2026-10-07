@@ -1412,7 +1412,7 @@ it.
 | Builtin | What it does |
 | --- | --- |
 | `socket_open($host, $port, $tls = false, $timeout = 30)` | Connects over TCP or TLS, and gives a `socket` |
-| `socket_read($socket)` | What has arrived, up to 64KB, or `""` once the other end has closed |
+| `socket_read($socket, $seconds)` | What has arrived, up to 64KB, or `""` once the other end has closed |
 | `socket_write($socket, $string)` | Sends the whole string |
 | `socket_close($socket)` | Closes the socket |
 | `socket_listen($host, $port, $backlog = 128)` | A `socket` listening for connections |
@@ -1427,8 +1427,10 @@ A socket is a connection over TCP, or TLS for `$tls = true`:
   name has, and gives a `socket`. With TLS the server's certificate must be one the system
   trusts (or that the file `SSL_CERT_FILE` names) and must name `$host`; TLS 1.2 or later.
   `$timeout` (seconds, an int or a float) bounds connecting and each read and write.
-- `socket_read($socket)` — what has arrived, up to 64KB, waiting for something to; `""` once
-  the other end has closed.
+- `socket_read($socket, $seconds)` — what has arrived, up to 64KB, waiting for something
+  to; `""` once the other end has closed. `$seconds` may be left out; given (above 0) and shorter than the socket's own
+  timeout, it waits only that long, and gives `null` if nothing came: a deadline that holds to the
+  moment.
 - `socket_write($socket, $string)` — sends all of it.
 - `socket_close($socket)` — closes it; closing again does nothing. A socket no variable holds
   any more is closed too.
@@ -2129,7 +2131,7 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   at once.
 - A request that isn't well formed never reaches the handler: 400 (a bad request line or header
   line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
-  408 (the request took longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
+  408 (the request line and headers took longer than `header_timeout`, or the whole request longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
   than `100-continue`, which is answered before the body is read), 501 (a transfer coding other than
   chunked), 505 (not HTTP/1.x). A connection that closes, or goes quiet, before sending anything
   gets nothing.
@@ -2160,7 +2162,11 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   and ends nothing.
 - Options: `"timeout"`, seconds each read and write may wait, and the wait for a connection's first
   request (10); `"request_timeout"`, seconds each request may take to arrive (30), after which it is
-  a 408, so a client sending a byte at a time can't hold a worker; `"max_body"` in bytes (1048576);
+  a 408, so a client sending a byte at a time can't hold a worker; `"header_timeout"`, seconds its
+  request line and headers may take (10, at most `request_timeout`, `null` for `request_timeout`
+  alone), also a 408, the body then having what is left of `request_timeout` (both count from when
+  a connection is taken for its first request, and from a later request's first byte);
+  `"max_body"` in bytes (1048576);
   `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
   `"requests_per_connection"` (100; 1 closes every connection after its first request);
   `"access_log"` (true; false writes no access log, the errors still); `"handler_timeout"`,
@@ -2177,6 +2183,10 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   until its replacement is ready, so a retiring worker never leaves clients waiting for one; then
   `worker_recycle()`. Without `workers()` it calls `worker_recycle()` at once.
 - It returns when its worker is asked to stop, after answering the request in hand.
+- In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy). A
+  worker answers one connection at a time, so without one, each client that sends slowly holds a
+  worker for up to `header_timeout` (or `request_timeout`, once its headers are in), and as many
+  such clients as there are workers hold them all that long.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 
 **Dates and times**, with `std/date.gaz`:

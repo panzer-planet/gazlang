@@ -93,8 +93,21 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   `tests/programs/web_server.gaz` and speaks to it over raw sockets, so requests no client would
   send can be sent.
 - **`"request_timeout"`** exists because the per-read `"timeout"` alone let a client trickling a
-  byte every few seconds hold a worker for hours; `Reader` checks it before each read, so it can
-  overrun by one read's timeout.
+  byte every few seconds hold a worker for hours. **`"header_timeout"`** (10 seconds) is a shorter
+  deadline for the request line and headers, which a real client sends at once, out of the same
+  time, so a slow client is cut off sooner while a body (an upload) still has the rest of
+  `request_timeout`. Both start together, when `answer()` starts: when a connection is taken for
+  its first request, so a client that connects and waits is bounded too, and at a later request's
+  first byte, since the wait between requests is `idle_timeout`'s, which also gives way to a
+  waiting client. A `header_timeout` above `request_timeout` would never be reached, so one given
+  is refused; the default gives way to a shorter `request_timeout`, so setting that alone is never
+  an error. No ceiling, unlike `handler_timeout`: a deadline is arithmetic on `monotonic_time()`,
+  and no read waits longer than the socket's own timeout. `null` leaves `request_timeout` alone.
+- **A deadline holds to the moment**: `Reader` reads with `socket_read($socket, $left)`, which
+  waits only what is left of the deadline when that is shorter than the socket's own timeout, in a
+  `poll()` before the read (`readable_within()` in `net.c`, which retries an interrupted `poll()`
+  for what is left, so a stop doesn't cut a request in hand short), and gives `null` for the 408.
+  The read's own timeout still applies when it is the shorter one (a 400, as before).
 - **`"max_requests"` is opt-in**, since forcing it by default would be gaz second-guessing an app
   that has no accumulating state to worry about.
 - **Keep-alive is on by default**, since every browser and proxy expects it and a TCP handshake
@@ -143,6 +156,29 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,
     responses compared byte for byte without the `Date` line) and `HttpServerTest` (idle close,
     stop while idle, `max_requests` on one connection, a 500 closing, the yield both ways).
+
+### Slow clients and the reverse proxy
+
+- **In production, run behind a reverse proxy that buffers whole requests** (nginx's default
+  `proxy_request_buffering`, Caddy): the proxy reads each request however slowly it comes and
+  hands a worker only a complete one, so slow clients never reach the workers. TLS is the proxy's
+  job too.
+- **Without one, the timeouts bound the damage, they don't remove it**: a worker answers one
+  connection at a time, so a client trickling its headers holds a worker for up to
+  `header_timeout`, one trickling a body for up to `request_timeout`, and N such clients hold N
+  workers that long; a pool of four is held by four connections. One that sent part of a request
+  is answered 408 (400 if it was quiet past the per-read `timeout` first) and logged, so it shows;
+  one that sent nothing is closed without a word, as any quiet connection is.
+- `ponytail:` a worker reads its own requests, which is why a slow client costs a worker; the
+  structural fix is the master (or a reader thread) reading heads for many connections at once,
+  with `poll()`, and handing workers only complete requests, as the proxy does.
+- **No `TCP_DEFER_ACCEPT`**: Linux's listener option, which accepts a connection only once it has
+  sent something, would change `socket_listen()` for every program, not only HTTP: a protocol where
+  the server speaks first would wait out the deferral before every connection, and so do the tests
+  that accept a connection before writing to it. A connection still deferred when the time is up
+  is accepted anyway once its client acknowledges again, which any real TCP stack does, so it
+  delays a silent client rather than keeping it off a worker. macOS has nothing like it: its
+  headers leave `SO_ACCEPTFILTER` out (FreeBSD's accept filters) and it ships no filter.
 
 ### The handler's deadline
 

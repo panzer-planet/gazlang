@@ -392,22 +392,91 @@ bool net_peer(Socket *s, Value *out) {
     return true;
 }
 
-/* socket_read($socket): what has arrived, up to 64KB, waiting for something; "" at the end */
-bool net_read(Socket *s, Value *out) {
+/* Whole milliseconds left until a monotonic_seconds() deadline, rounded up, or 0 once it passed */
+static int ms_until(double deadline) {
+    double left = deadline - monotonic_seconds();
+    return left > 0 ? (int)(left * 1000) + 1 : 0;
+}
+
+/* Wait up to ms for something to read on a plain socket, retrying an interrupted poll() for what
+   is left; false if nothing came. A hang-up or an error counts, as in socket_wait(), so the read
+   after it gives "" or the error. */
+static bool readable_within(Socket *s, int ms) {
+    double deadline = monotonic_seconds() + ms / 1000.0;
+    struct pollfd p = {.fd = s->fd, .events = POLLIN};
+    int ready;
+    while ((ready = poll(&p, 1, ms)) < 0 && errno == EINTR) {
+        ms = ms_until(deadline);
+    }
+    return ready != 0;
+}
+
+#ifdef GAZ_TLS
+/*
+ * SSL_read() waiting at most ms, giving SSL_read()'s result and its SSL_get_error() in *error, or
+ * setting *timed_out. A readable socket is no promise of data over TLS: the bytes may be a session
+ * ticket (TLS 1.3 sends them after the handshake) or part of a record, and a blocking SSL_read()
+ * would take them and then wait out the socket's own timeout. So the descriptor is non-blocking for
+ * this call alone, SSL_read() says what it wants (to read, or to write, as a key update can), and
+ * poll() waits for that for the time left. The descriptor's flags are put back on every path.
+ */
+static int tls_read_within(Socket *s, char *buffer, int size, int ms, int *error, bool *timed_out) {
+    double deadline = monotonic_seconds() + ms / 1000.0;
+    int flags = fcntl(s->fd, F_GETFL);
+    fcntl(s->fd, F_SETFL, flags | O_NONBLOCK);
+    int r;
+    for (;;) {
+        ERR_clear_error();
+        errno = 0;   /* as in net_read(): an end without TLS's goodbye leaves errno alone */
+        r = SSL_read(s->tls, buffer, size);
+        *error = r > 0 ? SSL_ERROR_NONE : SSL_get_error(s->tls, r);
+        if (*error != SSL_ERROR_WANT_READ && *error != SSL_ERROR_WANT_WRITE) break;
+        int left = ms_until(deadline);
+        struct pollfd p = {.fd = s->fd, .events = *error == SSL_ERROR_WANT_READ ? POLLIN : POLLOUT};
+        /* An interrupted poll() goes round again: SSL_read() asks once more, and poll() waits for what is left */
+        if (left == 0 || poll(&p, 1, left) == 0) {
+            *timed_out = true;
+            break;
+        }
+    }
+    int saved = errno;
+    fcntl(s->fd, F_SETFL, flags);
+    errno = saved;
+    return r;
+}
+#endif
+
+/* socket_read($socket, $seconds): what has arrived, up to 64KB, waiting for something; "" at the
+   end. With $seconds shorter than the socket's own timeout, it waits only that long and gives null
+   if nothing came, which is how a deadline holds to the moment (http::serve()'s request_timeout);
+   seconds = 0 is no $seconds, builtins.c having refused 0 and below. */
+bool net_read(Socket *s, double seconds, Value *out) {
     if (s->fd < 0) return raisef("socket_read() on a closed socket");
     if (s->listening) return raisef("socket_read() on a listening socket: socket_accept() a connection");
     if (s->owner != vm_process) return refuse_inherited("socket_read", "socket");
+    /* The wait $seconds asks for, in ms, or 0 to wait as long as the socket's own timeout */
+    int limit = seconds > 0 && to_ms(seconds) < s->timeout_ms ? to_ms(seconds) : 0;
     char chunk[65536];
     ssize_t n;
-    sigpipe_ignore();
 #ifdef GAZ_TLS
     if (s->tls) {
-        ERR_clear_error();
-        /* An end without TLS's goodbye is SSL_ERROR_SYSCALL with errno untouched, so clear it */
-        errno = 0;
-        int r = SSL_read(s->tls, chunk, sizeof chunk);
-        int e = r > 0 ? SSL_ERROR_NONE : SSL_get_error(s->tls, r);
+        int r, e;
+        bool timed_out = false;
+        sigpipe_ignore();
+        if (limit > 0) {
+            r = tls_read_within(s, chunk, sizeof chunk, limit, &e, &timed_out);
+        } else {
+            ERR_clear_error();
+            /* An end without TLS's goodbye is SSL_ERROR_SYSCALL with errno untouched, so clear it */
+            errno = 0;
+            r = SSL_read(s->tls, chunk, sizeof chunk);
+            e = r > 0 ? SSL_ERROR_NONE : SSL_get_error(s->tls, r);
+        }
         sigpipe_restore();
+        if (timed_out) {
+            *out = v_null();
+            return true;
+        }
         if (r > 0) n = r;
         else if (e == SSL_ERROR_ZERO_RETURN || (e == SSL_ERROR_SYSCALL && errno == 0)) n = 0;
         else if (e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE) return raisef("socket_read() timed out");
@@ -417,6 +486,11 @@ bool net_read(Socket *s, Value *out) {
         return true;
     }
 #endif
+    if (limit > 0 && !readable_within(s, limit)) {
+        *out = v_null();
+        return true;
+    }
+    sigpipe_ignore();
     while ((n = read(s->fd, chunk, sizeof chunk)) < 0 && errno == EINTR) {}
     sigpipe_restore();
     if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return raisef("socket_read() timed out");

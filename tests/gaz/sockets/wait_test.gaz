@@ -25,6 +25,17 @@ expect("waiting reads nothing", socket_read($served), "hello");
 expect("so the other still has its data", socket_wait([$served, $other], 0), 1);
 socket_read($other);
 
+// socket_read() with seconds shorter than the socket's own timeout waits only that long
+$start = monotonic_time();
+expect("a read given a twentieth of a second, with nothing to read", socket_read($served, 0.05), null);
+$waited = monotonic_time() - $start;
+expect("which it waited for, and no more", $waited >= 0.04 && $waited < 1.0, true);
+socket_write($client, "more");
+expect("and what has come, when something has", socket_read($served, 5), "more");
+throws("seconds of 0", () -> socket_read($served, 0), "socket_read() expects a timeout above 0 seconds");
+throws("seconds below 0", () -> socket_read($served, -1.5), "socket_read() expects a timeout above 0 seconds");
+throws("seconds not a number", () -> socket_read($served, "1"), "socket_read() expects int or float, got string");
+
 $third_client = socket_open("127.0.0.1", $port);
 expect("a listener with a connection queued", socket_wait([$served, $listener], 5), 1);
 $third = socket_accept($listener);

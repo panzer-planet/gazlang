@@ -1,4 +1,4 @@
 Error: http::serve() expects a requests_per_connection of 1 or more, got 0
-  http::server_options at <std>/http.gaz:925
-  http::serve at <std>/http.gaz:601
+  http::server_options at <std>/http.gaz:972
+  http::serve at <std>/http.gaz:630
   top level on line 1

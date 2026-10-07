@@ -1,0 +1,5 @@
+Error: http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (5), or null, got 6
+  http::header_timeout at <std>/http.gaz:998
+  http::server_options at <std>/http.gaz:969
+  http::serve at <std>/http.gaz:630
+  top level on line 1

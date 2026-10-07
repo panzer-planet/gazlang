@@ -236,6 +236,32 @@ class HttpTest extends GazLangTestCase
         $this->assertNotSame('no error', $this->failure("http::get(\"http://localhost:{$port}/\")"));
     }
 
+    /**
+     * A read given seconds holds to them over TLS too, though what poll() sees after the handshake
+     * may be a session ticket rather than data, or a record only partly come
+     */
+    public function test_a_tls_read_given_seconds_waits_only_that_long()
+    {
+        $trusted = ['SSL_CERT_FILE' => self::ROOT.'/tests/fixtures/tls/cert.pem'];
+        $port = self::$tlsPort;
+        $out = $this->gaz(<<<GAZ
+            \$s = socket_open("localhost", {$port}, true, 5);
+            \$start = monotonic_time();
+            echo to_string([socket_read(\$s, 0.2)]) .. " " .. (monotonic_time() - \$start < 1.5);
+            socket_write(\$s, "GET /missing HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n");
+            \$got = "";
+            while (!contains(\$got, "not here")) {
+                \$chunk = socket_read(\$s, 3);
+                if (\$chunk == null || \$chunk == "") {
+                    break;
+                }
+                \$got ..= \$chunk;
+            }
+            echo slice(\$got, 0, 22);
+            GAZ, $trusted);
+        $this->assertSame("[null] true\nHTTP/1.1 404 Not Found\n", $out);
+    }
+
     public function test_a_socket_is_a_handle_that_closes()
     {
         $port = substr(self::$url, strrpos(self::$url, ':') + 1);

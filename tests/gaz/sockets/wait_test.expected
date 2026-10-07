@@ -8,6 +8,12 @@ ok the first of two that have data
 ok whichever comes first in the list
 ok waiting reads nothing
 ok so the other still has its data
+ok a read given a twentieth of a second, with nothing to read
+ok which it waited for, and no more
+ok and what has come, when something has
+ok seconds of 0
+ok seconds below 0
+ok seconds not a number
 ok a listener with a connection queued
 ok the other end gone
 ok which reads as the end
