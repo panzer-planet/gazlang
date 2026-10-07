@@ -253,7 +253,12 @@ unless the cost is a defect the feature would bring, not the effort of building 
 Judge new features by how they fit **in C**: value semantics suit reference counting, and
 anything that leans on a platform's behaviour (hashing, string conversion, float formatting,
 rounding) must be a rule GazLang defines and writes out step by step. Grow the language by
-writing real GazLang and fixing what hurts, and when a workaround in the repository's GazLang is
+writing real GazLang and fixing what hurts. **A feature is built when a real program asks for it,
+or when it is foundational and plainly going to be needed**: other features would be built on it,
+or every web server or CLI tool will reach for it (an access log, caching headers, a test client
+for handlers), so waiting for the first program to trip on it only delays the obvious. "Nobody has
+asked" alone is no longer a reason to wait; what stays gated on a program is a shape that isn't
+clear yet, or a builtin that would take a name from every program for the sake of one. When a workaround in the repository's GazLang is
 the evidence for a gap, check with `git log` when it was written: code older than a feature
 can't have used it. Re-measure before trusting a recorded number.
 
