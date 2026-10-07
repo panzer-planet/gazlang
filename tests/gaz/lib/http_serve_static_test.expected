@@ -1,5 +1,7 @@
 ok an existing file
+ok its Content-Type
 ok / serves index.html
+ok as html
 ok a directory without a slash
 ok a directory with a slash
 ok an unknown extension
@@ -7,8 +9,27 @@ ok a missing file
 ok literal .. is refused
 ok percent-encoded .. is refused
 ok a bad escape is a 404 too
+ok a name too long to look up is a 404, not an error
 ok ..%2f is refused
 ok %2e%2e%2f is refused
 ok ..%2f after a directory is refused
 ok a / inside one segment is refused
 ok %2F is never a separator, even for a file that is there
+ok the first fetch carries the validators
+ok a matching If-None-Match is a 304 with no body
+ok HEAD is answered the same
+ok another tag is a 200
+ok a list naming it
+ok a list not naming it
+ok * is any tag
+ok compared weakly: the strong spelling matches
+ok * is no file for a missing one
+ok If-Modified-Since at Last-Modified is a 304
+ok any other date is a 200
+ok If-None-Match wins over If-Modified-Since
+ok a POST is never a 304
+ok a touched file is a 200
+ok with a new tag
+ok a rewritten file of another size has another tag
+ok cache_control sets Cache-Control
+ok an unknown option

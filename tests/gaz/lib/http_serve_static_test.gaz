@@ -1,21 +1,27 @@
-import "std/test.gaz" use expect;
+import "std/test.gaz" use expect, throws;
 import "std/http.gaz";
+import "std/fs.gaz";
 
-fn request($path) {
-    return {"method" => "GET", "path" => $path, "query" => "", "headers" => {}, "body" => ""};
+const MILLENNIUM = 946684800;       // 2000-01-01T00:00:00Z
+const MILLENNIUM_DATE = "Sat, 01 Jan 2000 00:00:00 GMT";
+const LATER_DATE = "Sun, 02 Jan 2000 00:00:00 GMT";
+const FOREVER = "public, max-age=31536000, immutable";
+
+fn request($path, $headers = {}, $method = "GET") {
+    return {"method" => $method, "path" => $path, "query" => "", "headers" => $headers, "body" => ""};
 }
 
 $serve = http::serve_static("tests/fixtures/static_site");
 
-/* A file, and its Content-Type from the extension */
-expect("an existing file", $serve(request("/style.css")), {
-    "status" => 200, "headers" => {"Content-Type" => "text/css"}, "body" => "body { color: red; }\n",
-});
+/* A file, and its Content-Type from the extension (its validators are below, on a file of this run's own) */
+$style = $serve(request("/style.css"));
+expect("an existing file", [$style["status"], $style["body"]], [200, "body { color: red; }\n"]);
+expect("its Content-Type", $style["headers"]["Content-Type"], "text/css");
 
 /* / resolves to index.html */
-expect("/ serves index.html", $serve(request("/")), {
-    "status" => 200, "headers" => {"Content-Type" => "text/html; charset=utf-8"}, "body" => "<h1>home</h1>\n",
-});
+$home = $serve(request("/"));
+expect("/ serves index.html", [$home["status"], $home["body"]], [200, "<h1>home</h1>\n"]);
+expect("as html", $home["headers"]["Content-Type"], "text/html; charset=utf-8");
 
 /* A directory, with or without its trailing slash, serves its own index.html */
 expect("a directory without a slash", $serve(request("/sub"))["body"], "<p>sub</p>\n");
@@ -33,6 +39,7 @@ expect("a missing file", $serve(request("/nope.txt")), {
 expect("literal .. is refused", $serve(request("/../style.css"))["status"], 404);
 expect("percent-encoded .. is refused", $serve(request("/%2e%2e/style.css"))["status"], 404);
 expect("a bad escape is a 404 too", $serve(request("/%zz"))["status"], 404);
+expect("a name too long to look up is a 404, not an error", $serve(request("/" .. repeat("a", 300)))["status"], 404);
 
 /*
  * A %2F decodes to a / inside one segment, so ..%2f is a .. the segment check never sees; each of
@@ -43,3 +50,59 @@ expect("%2e%2e%2f is refused", $serve(request("/%2e%2e%2fread_me.txt"))["status"
 expect("..%2f after a directory is refused", $serve(request("/sub/..%2f..%2fread_me.txt"))["status"], 404);
 expect("a / inside one segment is refused", $serve(request("/sub%2f..%2f..%2fread_me.txt"))["status"], 404);
 expect("%2F is never a separator, even for a file that is there", $serve(request("/sub%2findex.html"))["status"], 404);
+
+/*
+ * Validators and conditional requests, on a file of this run's own whose time is set, so nothing
+ * depends on the clock or on when the checkout was made
+ */
+fn validators(string $dir): null {
+    $path = $dir .. "/app.css";
+    write_file($path, "a { }\n");
+    set_mtime($path, MILLENNIUM);
+    $serve = http::serve_static($dir);
+    $tag = "W/\"6-" .. MILLENNIUM .. "\"";
+
+    expect("the first fetch carries the validators", $serve(request("/app.css")), {
+        "status" => 200,
+        "headers" => {"Content-Type" => "text/css", "Cache-Control" => "no-cache", "ETag" => $tag, "Last-Modified" => MILLENNIUM_DATE},
+        "body" => "a { }\n",
+    });
+    expect("a matching If-None-Match is a 304 with no body", $serve(request("/app.css", {"if-none-match" => $tag})), {
+        "status" => 304,
+        "headers" => {"Cache-Control" => "no-cache", "ETag" => $tag, "Last-Modified" => MILLENNIUM_DATE},
+        "body" => "",
+    });
+    expect("HEAD is answered the same", $serve(request("/app.css", {"if-none-match" => $tag}, "HEAD"))["status"], 304);
+    expect("another tag is a 200", $serve(request("/app.css", {"if-none-match" => "W/\"6-1\""}))["status"], 200);
+    expect("a list naming it", $serve(request("/app.css", {"if-none-match" => "\"x\", $tag ,\"y\""}))["status"], 304);
+    expect("a list not naming it", $serve(request("/app.css", {"if-none-match" => "\"x\", \"y\""}))["status"], 200);
+    expect("* is any tag", $serve(request("/app.css", {"if-none-match" => "*"}))["status"], 304);
+    expect("compared weakly: the strong spelling matches", $serve(request("/app.css", {"if-none-match" => "\"6-" .. MILLENNIUM .. "\""}))["status"], 304);
+    expect("* is no file for a missing one", $serve(request("/gone.css", {"if-none-match" => "*"}))["status"], 404);
+
+    expect("If-Modified-Since at Last-Modified is a 304", $serve(request("/app.css", {"if-modified-since" => MILLENNIUM_DATE}))["status"], 304);
+    expect("any other date is a 200", $serve(request("/app.css", {"if-modified-since" => LATER_DATE}))["status"], 200);
+    $both = {"if-none-match" => "\"x\"", "if-modified-since" => MILLENNIUM_DATE};
+    expect("If-None-Match wins over If-Modified-Since", $serve(request("/app.css", $both))["status"], 200);
+
+    expect("a POST is never a 304", $serve(request("/app.css", {"if-none-match" => $tag}, "POST"))["status"], 200);
+
+    set_mtime($path, MILLENNIUM + 1);
+    $touched = $serve(request("/app.css", {"if-none-match" => $tag}));
+    expect("a touched file is a 200", $touched["status"], 200);
+    expect("with a new tag", $touched["headers"]["ETag"], "W/\"6-" .. (MILLENNIUM + 1) .. "\"");
+    write_file($path, "a { color: blue; }\n");
+    set_mtime($path, MILLENNIUM);
+    expect("a rewritten file of another size has another tag", $serve(request("/app.css"))["headers"]["ETag"], "W/\"19-" .. MILLENNIUM .. "\"");
+
+    $forever = http::serve_static($dir, {"cache_control" => FOREVER});
+    expect("cache_control sets Cache-Control", $forever(request("/app.css"))["headers"]["Cache-Control"], FOREVER);
+    throws("an unknown option", () -> http::serve_static($dir, {"max_age" => 1}), "http::serve_static() has no option \"max_age\": only cache_control");
+}
+
+$dir = fs::temp_dir("serve-static-test");
+try {
+    validators($dir);
+} finally {
+    fs::remove_tree($dir);
+}

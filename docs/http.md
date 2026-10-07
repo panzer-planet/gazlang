@@ -198,6 +198,22 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   can, since `import` takes a string literal resolved at parse time, never a runtime-named file
   (the same reason there is no type-tag deserialization). Tested by
   `tests/gaz/lib/http_serve_static_test.gaz` and, end to end, `DevServerTest`.
+  - **The ETag is `W/"size-mtime"`, weak**, since a size and a time in whole seconds are one
+    `file_info()` call where hashing would read the whole file on every request, and they can't
+    promise the bytes are the same: a rewrite of the same size within one second keeps its tag.
+    `ponytail:` nanoseconds in `file_info()` would narrow that window.
+  - **`Cache-Control: no-cache` by default**, the one value that is right for any file: the browser
+    keeps it and revalidates each time, which the tag makes a 304. A long `max-age` is right only
+    when a file's name changes with its contents, which only the program knows, so it is the
+    `"cache_control"` option (refused names as `with_defaults()` refuses them elsewhere).
+  - **Conditional requests follow RFC 9110**: only GET and HEAD; `If-None-Match` (a list, or `*`)
+    compared weakly, as a GET may, and when it is present `If-Modified-Since` is ignored. A 304
+    carries the three validator headers and no body (the writer already sends no
+    `Content-Length` for one). `ponytail:` `If-Modified-Since` matches only `Last-Modified`'s own
+    text, as browsers send it back, so a later date gets a 200, never a wrong 304; parsing HTTP
+    dates would lift it.
+  - A path that is neither a file nor a directory (a pipe, a device) is a 404, as `file_info()`'s
+    `"kind"` says, rather than the error `read_file()` gives.
 
 ## Cookies, sessions and middleware
 

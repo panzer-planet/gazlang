@@ -10,7 +10,7 @@ Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
 (handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), and
-the redirect, the timestamps, the due dates and the CSRF field in 10. Half done: 9 (decoding needs no
+the redirect, the timestamps, the due dates, the CSRF field and static files in 10. Half done: 9 (decoding needs no
 `try`; the request is still parsed twice). Open: 6, 7, 8, the rest of 9, and the rest of 10, each
 linking the issue that tracks it (label `todo-app`).
 
@@ -244,7 +244,9 @@ have caught running out of call depth.
   is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
   is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute
   would read better, and templates are frozen until the app has used them more ([#59](https://github.com/panzer-planet/gazlang/issues/59)).
-- **Static files** have no `Cache-Control`/`ETag`, so every page load refetches the stylesheet
+- **Static files** (resolved: `http::serve_static()` sends a weak `ETag`, `Last-Modified` and
+  `Cache-Control: no-cache`, and answers a matching conditional GET with a 304) had no
+  `Cache-Control`/`ETag`, so every page load refetched the stylesheet
   ([#60](https://github.com/panzer-planet/gazlang/issues/60)).
 - **No access log**: `http::serve` prints errors and nothing else (it is on the roadmap as a line per
   request "when a program asks"). Checking the live server, the only record of what was asked
