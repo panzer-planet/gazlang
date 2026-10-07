@@ -679,6 +679,102 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
+    /** A handler that takes the seconds its path names ("/0.25"), then answers "ok" */
+    private const SLEEPY = '$r -> { sleep(to_float(slice($r["path"], 1), 0)); return {"body" => "ok"}; }';
+
+    /** What a handler past its deadline gets, exactly: no Date, since it was made before it was sent */
+    private const TIMED_OUT = "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 20\r\n\r\n";
+
+    /**
+     * The log once its text matches a pattern, or fails after 5 seconds
+     */
+    private static function logOnceItHas(string $log, string $pattern): string
+    {
+        for ($wait = 0; ! preg_match($pattern, $text = (string) file_get_contents($log)) && $wait < 100; $wait++) {
+            usleep(50000);
+        }
+        if (! preg_match($pattern, $text)) {
+            throw new \RuntimeException("Nothing matching {$pattern} in the log:\n{$text}");
+        }
+
+        return $text;
+    }
+
+    public function test_a_handler_past_its_deadline_is_answered_503_and_its_worker_replaced()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startSmallServer(1, '{"handler_timeout" => 0.3}', self::SLEEPY, '', $log);
+        try {
+            $start = microtime(true);
+            $response = self::exchange("GET /5 HTTP/1.1\r\nHost: x\r\n\r\n", $port);
+            $this->assertSame(self::TIMED_OUT."Service Unavailable\n", $response);
+            $this->assertLessThan(2, microtime(true) - $start);
+            // A HEAD's 503 has the headers alone
+            $this->assertSame(self::TIMED_OUT, self::exchange("HEAD /5 HTTP/1.1\r\nHost: x\r\n\r\n", $port));
+
+            $text = self::logOnceItHas($log, '/(timed out.*\n.*){2}/s');
+            $this->assertSame(2, preg_match_all('/^gaz: worker 1 timed out on a request; starting another$/m', $text));
+            $this->assertDoesNotMatchRegularExpression('/died of signal/', $text);
+            // The access log has each, with the deadline as its time taken
+            $this->assertMatchesRegularExpression('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ 127\.0\.0\.1 GET \/5 503 20 300\.000ms$/m', $text);
+            $this->assertMatchesRegularExpression('/^\S+ 127\.0\.0\.1 HEAD \/5 503 0 300\.000ms$/m', $text);
+
+            // The next request is a new worker's
+            $next = self::response(self::exchange("GET /0 HTTP/1.1\r\nHost: x\r\n\r\n", $port));
+            $this->assertSame([200, 'ok'], [$next['status'], $next['body']]);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
+    public function test_a_deadline_is_cleared_once_the_handler_returns_or_raises()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        $handler = '$r -> $r["path"] == "/fail" ? throw "failed" : ('.self::SLEEPY.')($r)';
+        [$server, $port] = self::startSmallServer(1, '{"handler_timeout" => 0.4}', $handler, '', $log);
+        try {
+            // Under the deadline, then idle on the kept-open connection past it: no timer is left
+            $socket = self::connect($port);
+            fwrite($socket, "GET /0.2 HTTP/1.1\r\nHost: x\r\n\r\n");
+            $this->assertSame(200, self::response(self::readResponse($socket))['status']);
+            usleep(600000);
+            fwrite($socket, "GET /0 HTTP/1.1\r\nHost: x\r\n\r\n");
+            $this->assertSame(200, self::response(self::readResponse($socket))['status']);
+            fclose($socket);
+
+            // A handler that raises: a 500, then the worker waits for a connection past the deadline
+            $this->assertSame(500, self::response(self::exchange("GET /fail HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            usleep(600000);
+            $this->assertSame(200, self::response(self::exchange("GET /0 HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            $this->assertStringNotContainsString('timed out', (string) file_get_contents($log));
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
+    /**
+     * null and the longest handler_timeout are accepted and serve a handler slower than the test's
+     * own deadlines. That null sets no timer at all (set_deadline() returns before worker_deadline())
+     * can't be seen from outside, nor told from the 10 second default in a test this short; the
+     * longest is the one whose deadline's log stamp once raised and ended the worker on every request.
+     */
+    public function test_a_handler_timeout_of_null_or_the_longest_serves_a_slow_handler()
+    {
+        foreach (['null', '100000000'] as $limit) {
+            [$server, $port] = self::startSmallServer(1, "{\"handler_timeout\" => {$limit}}", self::SLEEPY);
+            try {
+                $this->assertSame(200, self::response(self::exchange("GET /0.5 HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status'], $limit);
+            } finally {
+                proc_terminate($server);
+                proc_close($server);
+            }
+        }
+    }
+
     public function test_a_signal_ignored_when_the_server_started_stays_ignored()
     {
         // As nohup leaves SIGHUP: the terminal closing must not stop the server
@@ -1094,6 +1190,10 @@ class HttpServerTest extends GazLangTestCase
             'an idle timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"idle_timeout" => "5"});', 'http::serve() expects an idle_timeout above 0 seconds, got "5"'],
             'no requests on a connection' => ['import "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 0});', 'http::serve() expects a requests_per_connection of 1 or more, got 0'],
             'a fraction of a request' => ['import "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 1.5});', 'http::serve() expects a requests_per_connection of 1 or more, got 1.5'],
+            'no handler timeout' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => 0});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got 0'],
+            'a negative handler timeout' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => -1.5});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got -1.5'],
+            'a handler timeout past the timer\'s ceiling' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => 1e300});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got 1.0E+300'],
+            'a handler timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"handler_timeout" => "10"});', 'http::serve() expects a handler_timeout above 0 seconds and at most 100000000, or null, got "10"'],
             'an access log not a bool' => ['import "std/http.gaz"; http::serve(null, null, {"access_log" => "off"});', 'http::serve() expects an access_log of true or false, got "off"'],
         ];
     }

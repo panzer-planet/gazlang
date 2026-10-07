@@ -508,8 +508,10 @@ const REASONS = {
 const SERVER_OPTIONS = {
     "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
     "idle_timeout" => 5, "requests_per_connection" => 100, "access_log" => true,
+    "handler_timeout" => 10,
 };
-const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
+const LONGEST_HANDLER_TIMEOUT = 100000000;   // seconds, worker_deadline()'s own ceiling: three years
+const MAX_EMPTY_LINES = 4;  // skipped before a request line, as RFC 9112 asks; more is a 400
 const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
 const TURN = 0.05;           // seconds a connection keeps its worker from a waiting client, at least
 const HOT_GAP = 0.005;       // a client that asks again within this of a response is kept on
@@ -526,6 +528,13 @@ const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 kind RequestLine {
     pub #method = null;
     pub #target = null;
+    #shown = null;
+
+    // The method and target as the log shows them, worked out once for a deadline's line and the real one
+    pub fn logged() {
+        #shown ??= logged_text(#method, LOGGED_METHOD) .. " " .. logged_text(#target, LOGGED_TARGET);
+        return #shown;
+    }
 }
 
 // A request refused before the handler sees it, with the status to answer
@@ -576,9 +585,13 @@ kind Refusal extends Error {
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
  *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
  *   (1MB); "idle_timeout", seconds to wait for a connection's next request (5);
- *   "requests_per_connection" (100; 1 never keeps one open); "max_requests" (see serve()); and
+ *   "requests_per_connection" (100; 1 never keeps one open); "max_requests" (see serve());
  *   "access_log", true for a line on standard error for each request answered (see
- *   access_line()), false for none.
+ *   access_line()), false for none; and "handler_timeout", seconds the handler may take (10, at most
+ *   100000000, null for no limit), after which the client is answered 503 and the worker ends, for
+ *   the master to start another. The deadline needs workers(): in a single process nobody would
+ *   start another, so there is none. A stop or a hand-over still gives a worker only 10 seconds,
+ *   so a longer handler_timeout can be cut short by one.
  * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
  *   is answered.
  * - ponytail: the request's deadline is checked before each read, so it can overrun by one
@@ -662,7 +675,7 @@ fn connection($socket, $turns, $handler, $options, $left) {
                 // From the request's first byte, so a wait before it counts for no request
                 $seconds = monotonic_time() - $reader.first_byte_at();
                 // One print_error(), which is one write, so lines from several workers never mix
-                print_error(access_line($line, $address, $bytes, $seconds) .. "\n");
+                print_error(access_line($line, $address, $bytes, $seconds, LogClock::now()) .. "\n");
             }
             if (!$sent) {
                 break;
@@ -820,7 +833,10 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
     [$request, $persistent] = $read;
     $close = $last || !$persistent;
     $head = $request["method"] == "HEAD";
+    $limit = $options["handler_timeout"];
     try {
+        // In the try, so anything it raises is a 500 rather than the end of the worker
+        set_deadline($socket, $limit, $head, $line, $address, $options["access_log"]);
         return write_response($handler($request), $head, $close);
     } catch (Undecodable $e) {
         // The client's own request, which a decoder refused: a 400, and nothing for the log
@@ -829,8 +845,65 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
         print_error(error_prefix($request) .. describe_error($e) .. "\n");
     } catch ($e) {
         print_error(error_prefix($request) .. "the handler raised $e\n");
+    } finally {
+        // Whatever happened, so no timer is left to end the worker in its next request's wait
+        clear_deadline($socket, $limit);
     }
     return [refusal(500, $head), false];
+}
+
+/*
+ * The handler's deadline ("handler_timeout"), set just before it is called: past it the worker
+ * writes a 503 to the client, the access log's line for it to standard error, and ends, and the
+ * master starts another (worker_deadline()). Nothing has been written to the client by then, since
+ * connection() sends the response once answer() returns, so the 503 is the whole of what it hears.
+ * Outside workers() it does nothing, there being nobody to start another worker; so too for
+ * http::TestClient, which has no socket.
+ */
+fn set_deadline($socket, $limit, $head, $line, $address, $logged) {
+    if ($socket == null || $limit == null) {
+        return;
+    }
+    [$answer, $tail] = TimedOut::parts($head, $limit);
+    $log = "";
+    if ($logged) {
+        // access_line() but for the tail, which is the same for every request with this limit
+        $log = LogClock::later($limit) .. " " .. ($address ?? "-") .. " " .. $line.logged() .. $tail;
+    }
+    worker_deadline($socket, $limit, $answer, $log);
+}
+
+fn clear_deadline($socket, $limit) {
+    if ($socket != null && $limit != null) {
+        worker_deadline($socket, 0);
+    }
+}
+
+/*
+ * The 503 a handler past its deadline is answered with, and the end of its access line (its status,
+ * bytes and the deadline as its time taken), made once for a HEAD and once for the rest, and again
+ * only if the limit changes. No Date header (RFC 9110 lets a 5xx leave it out): one written when
+ * the deadline is set would be stale by the time it is sent.
+ */
+kind TimedOut {
+    static #limit = null;
+    static #made = {};
+
+    // [the 503's bytes, the end of its access line with its line end]
+    pub static fn parts($head, $limit) {
+        if ($limit != #limit) {
+            #limit = $limit;
+            #made = {};
+        }
+        $key = $head ? "HEAD" : "other";
+        #made[$key] ??= TimedOut::make($head, $limit);
+        return #made[$key];
+    }
+
+    static fn make($head, $limit) {
+        $answer = refusal(503, $head, false);
+        return [$answer, access_tail($answer, $limit) .. "\n"];
+    }
 }
 
 // How a 500's line on standard error starts, the method and path escaped as the access log's are
@@ -854,6 +927,12 @@ fn server_options($options) {
     if (type_of($options["access_log"]) != "bool") {
         throw "http::serve() expects an access_log of true or false, got " .. quote($options["access_log"]);
     }
+    $limit = $options["handler_timeout"];
+    $number = in_array(type_of($limit), ["int", "float"]);
+    if ($limit != null && (!$number || $limit <= 0 || $limit > LONGEST_HANDLER_TIMEOUT)) {
+        $range = "above 0 seconds and at most " .. LONGEST_HANDLER_TIMEOUT;
+        throw "http::serve() expects a handler_timeout $range, or null, got " .. quote($limit);
+    }
     return $options;
 }
 
@@ -862,13 +941,27 @@ const LOGGED_TARGET = 360;   // and of a target, so a line fits the 512 bytes a 
 // The bytes the access log writes as they are: printable ASCII, "!" to "~", but the backslash
 const LOGGED_AS_IS = "!\"#\$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz\{|}~";
 
-// The access log's time, written out once a second rather than for every request
+/*
+ * The access log's time, written out once a second rather than for every request: one clock for
+ * now, and one for the second a handler's deadline would pass, which its line is stamped with
+ */
 kind LogClock {
-    static #second = null;
-    static #text = "";
+    static #current = null;
+    static #ahead = null;
+    #second = null;
+    #text = "";
 
     pub static fn now() {
-        $second = time();
+        #current ??= LogClock();
+        return #current.at(time());
+    }
+
+    pub static fn later($seconds) {
+        #ahead ??= LogClock();
+        return #ahead.at(to_int(time() + $seconds));
+    }
+
+    pub fn at($second) {
         if ($second != #second) {
             #second = $second;
             #text = date::utc().at($second).rfc3339();
@@ -880,7 +973,7 @@ kind LogClock {
 
 /*
  * The access log's line for a request answered with $bytes, from $address, $seconds after its first
- * byte came, without its line end:
+ * byte came, at $time (as LogClock writes it), without its line end:
  *
  *   2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms
  *
@@ -891,15 +984,17 @@ kind LogClock {
  * X-Forwarded-For header is the client's to write, and only the program knows which proxies to
  * trust (client_address()).
  */
-fn access_line($line, $address, $bytes, $seconds) {
-    $time = LogClock::now();
+fn access_line($line, $address, $bytes, $seconds, $time) {
+    return "$time " .. ($address ?? "-") .. " " .. $line.logged() .. access_tail($bytes, $seconds);
+}
+
+// The end of an access line, from the status on: " 200 1234 0.412ms"
+fn access_tail($bytes, $seconds) {
     $status = slice($bytes, len("HTTP/1.1 "), 3);
     $body = len($bytes) - index_of($bytes, "\r\n\r\n") - 4;
-    $method = logged_text($line.method, LOGGED_METHOD);
-    $target = logged_text($line.target, LOGGED_TARGET);
     $milliseconds = milliseconds_text($seconds);
 
-    return "$time " .. ($address ?? "-") .. " $method $target $status $body {$milliseconds}ms";
+    return " $status $body {$milliseconds}ms";
 }
 
 /*
@@ -1080,7 +1175,7 @@ fn has_control($text, $spaces = false) {
  * connection stays open after it]. It closes if $close says so or the handler asked to, and then
  * says Connection: close, which this is the one place to write.
  */
-fn write_response($response, $head, $close = true) {
+fn write_response($response, $head, $close = true, $dated = true) {
     if (type_of($response) != "map") {
         throw "the handler returned " .. type_of($response) .. ", not a map of status, headers and body";
     }
@@ -1134,7 +1229,10 @@ fn write_response($response, $head, $close = true) {
     if (!$bodiless) {
         $lines[] = "Content-Length: " .. len($body);
     }
-    $first = [status_line($status), "Date: " .. http_date(time())];
+    $first = [status_line($status)];
+    if ($dated) {
+        $first[] = "Date: " .. http_date(time());
+    }
     if ($close) {
         $first[] = "Connection: close";
     }
@@ -1166,11 +1264,14 @@ fn with_html_type($headers) {
     return $headers;
 }
 
-// A response the server writes itself, the status and its reason as plain text, before it closes
-fn refusal($status, $head = false) {
+/*
+ * A response the server writes itself, the status and its reason as plain text, before it closes;
+ * $dated false leaves out the Date header
+ */
+fn refusal($status, $head = false, $dated = true) {
     $text = (REASONS[$status] ?? "Error") .. "\n";
     $response = {"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text};
-    return write_response($response, $head)[0];
+    return write_response($response, $head, true, $dated)[0];
 }
 
 fn status_line($status) {

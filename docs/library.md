@@ -98,7 +98,11 @@ own](http.md).
   spelling differs between systems; checked against Python's `ipaddress` on 295 addresses
   (`tests/IpTextTest.php`, on its own so no network is needed) and by
   `tests/gaz/sockets/peer_test.gaz`. `workers($n)` is `workers.c` (see [HTTP](http.md#serving-prefork-workers)); the fuzzer
-  skips it with the socket builtins. `HttpTest` trusts `tests/fixtures/tls/` through
+  skips it with the socket builtins, and `worker_recycle()`, `worker_retire()` and
+  `worker_deadline()` too. `worker_deadline()` is the handler's deadline's (see [HTTP](http.md#the-handlers-deadline)):
+  a SIGALRM timer whose handler writes what it was given and ends the worker, a no-op giving `false`
+  outside a worker, since a single process has nobody to start another; it still checks its socket
+  (open, a connection, plain TCP, this process's) and seconds there. `HttpTest` trusts `tests/fixtures/tls/` through
   `SSL_CERT_FILE`; an IP is checked as an address, with no SNI. SIGPIPE is ignored around each
   call and put back after, as curl does: per socket only macOS can turn it off, and ignoring it for
   good would change what a program writing to a closed pipe does. OpenSSL reports a socket timeout

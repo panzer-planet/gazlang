@@ -51,6 +51,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -142,6 +144,96 @@ bool worker_retire(void) {
     return true;
 }
 
+/*
+ * worker_deadline(): a timer on the request in hand (http::serve's handler_timeout). When it fires
+ * the handler is still running, and the worker writes the answer it was given (a 503) to the
+ * client, the line it was given to standard error, and ends by SIGALRM, which the master reports
+ * and replaces it for. Only a worker has one: in a single process nobody would start another, so
+ * ending it would end the server.
+ *
+ * The signal handler may only make async-signal-safe calls, so everything it writes was copied
+ * here when the timer was set, and it writes with write()/send(), no stdio, no malloc; it never
+ * returns, so whatever it interrupted (a sleep(), a query) is never resumed. A worker is one thread
+ * (a fork copies only the thread that forked), so the signal lands on the program's thread and
+ * can't run alongside the code that clears the timer. Clearing sets `armed` to 0 before cancelling,
+ * so a signal that lands between the two finds nothing to do and returns.
+ */
+static volatile sig_atomic_t deadline_armed;
+static volatile sig_atomic_t deadline_fd = -1;
+static char *deadline_answer, *deadline_line;
+static size_t deadline_answer_len, deadline_line_len;
+
+/* All of `len` bytes to fd, as far as it takes them: a send that fails or times out (the socket's
+   SO_SNDTIMEO) ends it, since the worker is about to end anyway */
+static void write_out(int fd, const char *p, size_t len, bool to_socket) {
+    while (len > 0) {
+        ssize_t n;
+#ifdef MSG_NOSIGNAL
+        n = to_socket ? send(fd, p, len, MSG_NOSIGNAL) : write(fd, p, len);
+#else
+        (void)to_socket;   /* a system without the flag (Linux and macOS both have it): a worker ignores SIGPIPE */
+        n = write(fd, p, len);
+#endif
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) return;
+        p += n;
+        len -= (size_t)n;
+    }
+}
+
+static void on_deadline(int sig) {
+    if (!deadline_armed) return;
+    write_out(deadline_fd, deadline_answer, deadline_answer_len, true);
+    write_out(2, deadline_line, deadline_line_len, false);
+    /* End as SIGALRM's default does, so the master can tell why */
+    struct sigaction dfl = {.sa_handler = SIG_DFL};
+    sigemptyset(&dfl.sa_mask);
+    sigaction(sig, &dfl, NULL);
+    raise(sig);
+}
+
+/* A copy of s (NULL for nothing) in *to, grown as needed: only while the timer isn't set, so the
+   handler never sees one half made */
+static void keep_copy(char **to, size_t *len, Str *s) {
+    *len = s ? s->len : 0;
+    *to = xrealloc(*to, *len + 1);
+    if (s) memcpy(*to, s->data, s->len);
+}
+
+static void set_timer(double seconds) {
+    struct itimerval t = {0};
+    t.it_value.tv_sec = (time_t)seconds;
+    t.it_value.tv_usec = (suseconds_t)((seconds - (double)t.it_value.tv_sec) * 1e6);
+    setitimer(ITIMER_REAL, &t, NULL);
+}
+
+/* setitimer() refuses more than 100000000 seconds on macOS, three years, which is no limit anyway */
+#define LONGEST_DEADLINE 100000000.0
+
+bool worker_deadline(int fd, double seconds, Str *answer, Str *line) {
+    if (!vm_worker) return false;
+    deadline_armed = 0;
+    set_timer(0);
+    if (seconds <= 0) return true;
+    static bool handled;
+    if (!handled) {
+        /* SA_RESTART, for the signal that finds nothing to do and returns */
+        struct sigaction on = {.sa_handler = on_deadline, .sa_flags = SA_RESTART};
+        sigemptyset(&on.sa_mask);
+        sigaction(SIGALRM, &on, NULL);
+        handled = true;
+    }
+    keep_copy(&deadline_answer, &deadline_answer_len, answer);
+    keep_copy(&deadline_line, &deadline_line_len, line);
+    deadline_fd = fd;
+    deadline_armed = 1;
+    /* At least a microsecond, as a zero would cancel the timer instead */
+    if (seconds < 1e-6) seconds = 1e-6;
+    if (seconds > LONGEST_DEADLINE) seconds = LONGEST_DEADLINE;
+    set_timer(seconds);
+    return true;
+}
+
 /* What the master had before it took the signals over, which a worker gets back */
 static struct sigaction saved_stop[NSTOP];
 
@@ -182,6 +274,11 @@ static pid_t fork_worker(int number, volatile Slot *slots, Value *out) {
 
 /* How a worker ended, for the master's message, and the exit code that stands for it */
 static int describe(int status, char *text, size_t size) {
+    if (WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM) {
+        /* worker_deadline()'s end: its answer and its line are written already */
+        snprintf(text, size, "timed out on a request");
+        return 128 + SIGALRM;
+    }
     if (WIFSIGNALED(status)) {
         snprintf(text, size, "died of signal %d", WTERMSIG(status));
         return 128 + WTERMSIG(status);

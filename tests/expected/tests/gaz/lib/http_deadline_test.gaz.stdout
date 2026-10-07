@@ -1,0 +1,11 @@
+ok a handler past its deadline finishes in a single process
+ok and with no deadline
+ok worker_deadline() outside a worker is false
+ok and nothing ended
+ok clearing it is false too
+ok without a socket
+ok negative seconds
+ok seconds not a number
+ok an answer not a string
+ok a listener
+ok a closed socket

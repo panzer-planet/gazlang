@@ -1,0 +1,53 @@
+/*
+ * The handler's deadline outside workers(): worker_deadline() does nothing and says so, since in a
+ * single process nobody would start another, so http::handle() lets a handler run past its
+ * "handler_timeout". What it refuses, it refuses here too. A worker's deadline is HttpServerTest's.
+ */
+import "std/test.gaz" use expect, throws;
+import "std/http.gaz";
+
+const SLOW = 0.3;    // seconds the slow handler takes, past its deadline
+const LIMIT = 0.1;
+
+fn slow($request) {
+    sleep(SLOW);
+    return {"body" => "finished"};
+}
+
+// What http::handle() answers a GET of / with, its Date line taken out
+fn handled($handler, $options) {
+    $listener = socket_listen("127.0.0.1", 0);
+    $client = socket_open("127.0.0.1", socket_port($listener));
+    socket_write($client, "GET / HTTP/1.1\r\nHost: example.test\r\nConnection: close\r\n\r\n");
+    $served = socket_accept($listener, 5);
+    http::handle($served, $handler, {"access_log" => false, ...$options});
+    $received = "";
+    while (($chunk = socket_read($client)) != "") {
+        $received ..= $chunk;
+    }
+    socket_close($client);
+    socket_close($listener);
+    return join(filter(split($received, "\r\n"), $line -> !starts_with($line, "Date: ")), "\r\n");
+}
+
+$finished = "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 8\r\n\r\nfinished";
+expect("a handler past its deadline finishes in a single process", handled(slow, {"handler_timeout" => LIMIT}), $finished);
+expect("and with no deadline", handled(slow, {"handler_timeout" => null}), $finished);
+
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$served = socket_accept($listener, 5);
+expect("worker_deadline() outside a worker is false", worker_deadline($served, LIMIT, "answer", "line\n"), false);
+sleep(SLOW);
+expect("and nothing ended", true, true);
+expect("clearing it is false too", worker_deadline($served, 0), false);
+expect("without a socket", worker_deadline(null, LIMIT), false);
+
+throws("negative seconds", () -> worker_deadline($served, -1), "worker_deadline() expects 0 seconds or more, got -1");
+throws("seconds not a number", () -> worker_deadline($served, "1"), "worker_deadline() expects int or float or null, got string");
+throws("an answer not a string", () -> worker_deadline($served, 1, 503), "worker_deadline() expects string, got int");
+throws("a listener", () -> worker_deadline($listener, 1), "worker_deadline() on a listening socket: socket_accept() a connection");
+socket_close($served);
+throws("a closed socket", () -> worker_deadline($served, 1), "worker_deadline() on a closed socket");
+socket_close($client);
+socket_close($listener);

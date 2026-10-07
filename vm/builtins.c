@@ -71,7 +71,7 @@ const BuiltinInfo builtin_info[] = {
     {"rename_file", 2, 2},
     {"chmod", 2, 2}, {"symlink", 2, 2}, {"readlink", 1, 1}, {"file_sync", 1, 1}, {"sync_dir", 1, 1},
     {"file_truncate", 2, 2}, {"set_mtime", 2, 2}, {"chdir", 1, 1},
-    {"worker_retire", 0, 0},
+    {"worker_retire", 0, 0}, {"worker_deadline", 2, 4},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -102,7 +102,7 @@ enum {
     B_RENAME_FILE,
     B_CHMOD, B_SYMLINK, B_READLINK, B_FILE_SYNC, B_SYNC_DIR,
     B_FILE_TRUNCATE, B_SET_MTIME, B_CHDIR,
-    B_WORKER_RETIRE,
+    B_WORKER_RETIRE, B_WORKER_DEADLINE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -2193,6 +2193,33 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
            workers.c. False outside a worker, or once asked: there is nothing more to hand over. */
         *out = v_bool(worker_retire());
         return true;
+    case B_WORKER_DEADLINE: {
+        /* worker_deadline($socket, $seconds, $answer = "", $line = ""): see workers.c. The socket
+           and the seconds are checked in a single process too, where it then does nothing (false),
+           so a mistake shows before the program meets workers() */
+        if (!want(index, a, M(T_SOCKET) | M(T_NULL)) || !want(index, b, INT | M(T_FLOAT) | M(T_NULL))
+            || (argc > 2 && !want(index, c, STRING)) || (argc > 3 && !want(index, args[3], STRING))) return false;
+        Str *answer = argc > 2 ? c.s : NULL, *line = argc > 3 ? args[3].s : NULL;
+        double seconds = b.type == T_INT ? (double)b.i : b.type == T_FLOAT ? b.f : 0;
+        if (!(seconds >= 0)) {
+            Buf m = {0};
+            append_string(b, &m);
+            raisef("worker_deadline() expects 0 seconds or more, got %s", m.data);
+            free(m.data);
+            return false;
+        }
+        if (a.type == T_NULL) {
+            *out = v_bool(false);
+            return true;
+        }
+        Socket *s = a.sock;
+        if (s->fd < 0) return raisef("worker_deadline() on a closed socket");
+        if (s->listening) return raisef("worker_deadline() on a listening socket: socket_accept() a connection");
+        if (s->tls) return raisef("worker_deadline() on a TLS connection, which it can't write to");
+        if (s->owner != vm_process) return refuse_inherited("worker_deadline", "socket");
+        *out = v_bool(worker_deadline(s->fd, seconds, answer, line));
+        return true;
+    }
     }
     return raisef("Unknown builtin: %d", index);
 }

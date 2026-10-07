@@ -144,6 +144,74 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
     responses compared byte for byte without the `Date` line) and `HttpServerTest` (idle close,
     stop while idle, `max_requests` on one connection, a 500 closing, the yield both ways).
 
+### The handler's deadline
+
+- **`"handler_timeout"` (10 seconds, `null` for none) bounds the handler, and the worker enforces
+  it**: past it the client is answered 503, the access log gets the line, and the worker ends, for
+  the master to start another, as PHP's `max_execution_time` ends a script, but in wall time and
+  with a response. On by default, since one slow request (a regex over a megabyte body takes
+  seconds) holding a worker for ever is the failure the option exists for. It covers the handler
+  and what is done with its answer before anything is sent: from just before `$handler($request)`
+  in `answer()`, through `write_response()` turning the response into bytes (a template's
+  `to_string()` included) and a 500's error line, to a `finally` after them (so an error path can't
+  leave the timer running into the next request's wait). Setting it is inside the `try`, so
+  anything that raises there is a 500, never a dead worker; reading is
+  `request_timeout`'s 408, and writing the response has the per-write `timeout`.
+- **`worker_deadline($socket, $seconds, $answer, $line)`**, in `workers.c`: SIGALRM by
+  `setitimer(ITIMER_REAL)`, whose handler writes `$answer` to the socket with `send(MSG_NOSIGNAL)`
+  (Linux and macOS both have the flag; `write()` on a system without it, a worker ignoring SIGPIPE
+  anyway) and `$line` to standard error with `write()`, then puts SIGALRM's default
+  back and raises it: only async-signal-safe calls, both texts copied into the process's own buffers
+  when the timer is set. Not `alarm()`, which takes whole seconds, and not `timer_create()`, which
+  macOS lacks. Clearing sets the armed flag to 0 before cancelling the timer, so a signal landing
+  between the two finds nothing to do (`SA_RESTART`, so what it interrupted carries on). A worker is
+  one thread (a fork copies only the forking thread), so the signal can't run beside the code that
+  clears it. The send is bounded by the socket's `SO_SNDTIMEO` (`timeout`). Named `worker_` with
+  `worker_recycle()` and `worker_retire()` because it is about the worker: it ends the process, and
+  like them it does nothing outside a worker (`false`, as `worker_retire()` gives), the socket being
+  only where the answer goes. The socket and the seconds are still checked in a single process, so a
+  mistake shows before `workers()`.
+- **The deadline needs `workers()`**: in a single process (`gaz -S`, `http::handle()` outside
+  workers, `http::TestClient`, which has no socket) nobody would start another, so ending it would
+  end the server, and the handler runs on.
+- **Why the worker and not the VM**: a deadline inside the VM would need an error `catch` can't
+  swallow, or a handler's `catch (Error)` would answer it, and it can't interrupt time spent in C (a
+  query, a `sleep()`, a regex in a builtin). Not speed: the dispatch loop already tests a flag
+  (`gc_wanted`) at backward jumps and calls. Ending the process also throws away whatever the
+  handler had half done, which nothing could vouch for.
+- **A 503 is always safe to send**: nothing has gone to the client when the timer can fire
+  (`connection()` sends the response after `answer()` returns, and `100 Continue` comes while
+  reading), so no record of bytes written is needed. It is `refusal(503, $head)` (HEAD and
+  `Connection: close` handled), made once (`TimedOut`) **without a Date header**, which RFC 9110
+  §6.6.1 lets a 5xx leave out and which, stamped when the timer is set, would be stale. **HTTP stays
+  in GazLang**: the access line is made when the timer is set (status 503, the request's method and
+  target, the deadline as its time taken, stamped with the second it would fire), so C never learns
+  the log's format. **Cheap**, since it is made for every request and almost never sent: the part
+  from the status on is made once per limit (`TimedOut`, from the `access_tail()` the real line
+  uses), the method and target escaped once for both lines (`RequestLine.logged()`), and the fire
+  second has a `LogClock` of its own; measured, the deadline costs about 4µs a request with the log
+  on (about 9µs before these), on a trivial handler's ~85µs.
+- **At most 100000000 seconds** (`LONGEST_HANDLER_TIMEOUT`), `worker_deadline()`'s own ceiling,
+  which macOS's `setitimer()` sets; a larger value is refused by `server_options()` rather than
+  quietly shortened.
+- **The master reports it**: `describe()` tells a worker that died of SIGALRM apart, so the line is
+  `gaz: worker N timed out on a request; starting another` (or `... while retiring`), not "died of
+  signal 14". A timed-out worker has accepted a connection, so it never counts as one that can't
+  start.
+- **10 seconds is `STOP_GRACE`**, so a handler the deadline permits isn't cut short by a stop's
+  grace before the deadline could answer. A longer `handler_timeout` can still be cut by a stop or
+  a hand-over's grace, killed with no 503.
+- Tested by `HttpServerTest` (the exact 503 bytes for GET and HEAD, the master's line, the access
+  lines, the next request on a fresh worker; a handler under the deadline, and one that raises, then
+  an idle wait past it with no stale timer, which fails with the clearing taken out; `null`; the
+  option's refusals) and `tests/gaz/lib/http_deadline_test.gaz` (nothing outside a worker, and what
+  the builtin refuses).
+- `ponytail:` a program `run()` started outlives a worker that timed out (killing the process group
+  would need `run()` to start one); a PostgreSQL query keeps running on the server after its worker
+  dies, so an app sets `statement_timeout` below the deadline (`SET statement_timeout = 5000`); a single-process server has no deadline;
+  what the handler printed and not yet flushed is lost; the access line's time is the second the
+  timer should fire, not when it did.
+
 ### The access log
 
 - **A line per request answered, on standard error, on by default** (`access_line()` in

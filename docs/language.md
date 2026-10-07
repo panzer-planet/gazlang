@@ -1510,6 +1510,7 @@ or the other.
 | `workers($count)` | Turns the program into `$count` processes, and gives each its number |
 | `worker_recycle()` | Ends this worker on purpose; the master replaces it, keeping the pool `$count` wide |
 | `worker_retire()` | Asks for this worker's replacement now, and serves on until it is ready; `true`, or `false` outside a worker |
+| `worker_deadline($socket, $seconds, $answer = "", $line = "")` | Ends this worker in `$seconds` unless asked again first, writing `$answer` to `$socket` and `$line` to standard error; 0 or `null` seconds clears it; `true`, or `false` outside a worker |
 
 `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
@@ -1559,6 +1560,16 @@ start after `workers()` (connecting to a database, building an app), and empty w
 retires at once, which an evenly spread load makes them do. For that moment two processes have one
 worker number. It gives `true`, or `false` outside a worker and when asked a second time, when there
 is nothing to hand over.
+
+`worker_deadline($socket, $seconds, $answer, $line)` is how `http::serve()`'s `handler_timeout`
+ends a worker whose handler takes too long: if it is still set `$seconds` later (an int or a float),
+the worker writes `$answer` to the connection `$socket`, `$line` to standard error, and ends, and the
+master reports `gaz: worker N timed out on a request; starting another` and starts another. Calling
+it again sets it afresh, and 0 or `null` seconds clears it. What the worker was doing is never
+finished, and what it printed and hadn't flushed is lost. Outside a worker it does nothing and gives
+`false`, as it does with a `null` socket: in a single process nobody would start another, so the
+deadline needs `workers()`. The socket must be an open, plain connection of this process's (not a
+listener, not TLS), checked in a single process too.
 
 ```gaz
 $listener = socket_listen("0.0.0.0", 8080);
@@ -2152,7 +2163,14 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   a 408, so a client sending a byte at a time can't hold a worker; `"max_body"` in bytes (1048576);
   `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
   `"requests_per_connection"` (100; 1 closes every connection after its first request);
-  `"access_log"` (true; false writes no access log, the errors still); and
+  `"access_log"` (true; false writes no access log, the errors still); `"handler_timeout"`,
+  seconds the handler may take (10; at most 100000000; `null` for no limit), after which the client is answered `503
+  Service Unavailable`, the access log has its line with the deadline as its time, and the worker
+  ends, for the master to start another (`worker_deadline()`): it needs `workers()`, and in a single
+  process (`gaz -S`) the handler runs on, since nobody would start another. A stop or a hand-over
+  gives a worker 10 seconds to finish, so a larger value can be cut short by one, with no 503. A
+  program `run()` started carries on after its worker ends, and so does a PostgreSQL query on the
+  database's side, so set `statement_timeout` below it; and
   `"max_requests"` (unset, no limit), requests answered, however many connections they came on,
   after which the worker retires, so a long-lived worker's accumulated state doesn't outlive it: it
   calls `worker_retire()` and serves on, one request to a connection so it can leave at any moment,

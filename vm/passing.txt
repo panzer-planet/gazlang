@@ -177,6 +177,7 @@ snippet:311a6abac31c
 snippet:31d304ac3e52
 snippet:31e8b83fab5d
 snippet:32a34dbd9497
+snippet:32c92b20084e
 snippet:331d2c507656
 snippet:33299ce9f229
 snippet:333484c01e65
@@ -208,6 +209,7 @@ snippet:3d52a8fcb38e
 snippet:3d7cc0ab2e92
 snippet:3d7f28ec0e49
 snippet:3df1abbe541e
+snippet:3e577a6ed9fa
 snippet:3e988168a50b
 snippet:3f523d72d93e
 snippet:3f7690432a3f
@@ -518,6 +520,7 @@ snippet:afda55473682
 snippet:afe641fce35c
 snippet:b0c01160b0b8
 snippet:b0ce086b05be
+snippet:b129876b97e4
 snippet:b18a69e3f4bb
 snippet:b1b465eab522
 snippet:b1bc5d2cc15d
@@ -547,6 +550,7 @@ snippet:b951b636d906
 snippet:b9c1a6faaaa1
 snippet:b9fbb0726c04
 snippet:ba249aa46de8
+snippet:bada378c84af
 snippet:baf1196ea08e
 snippet:baf60d42e684
 snippet:bb33aad3d823
@@ -1183,6 +1187,7 @@ tests/gaz/lib/functional_test.gaz
 tests/gaz/lib/http_causes_test.gaz
 tests/gaz/lib/http_client_address_test.gaz
 tests/gaz/lib/http_connection_test.gaz
+tests/gaz/lib/http_deadline_test.gaz
 tests/gaz/lib/http_decode_test.gaz
 tests/gaz/lib/http_multipart_test.gaz
 tests/gaz/lib/http_redirect_test.gaz

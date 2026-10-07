@@ -651,6 +651,9 @@ bool workers_stopping(void);   /* a worker has been asked to stop: socket_accept
 void worker_accepted(void);    /* a worker has taken a connection, so it did start */
 void worker_listening(void);   /* a worker waits for connections, so it can take over from one retiring */
 bool worker_retire(void);      /* worker_retire(): ask for a replacement and serve on until it is ready */
+/* worker_deadline(): set (or, at 0 seconds, clear) the timer that writes `answer` to fd and `line`
+   to standard error and ends this worker; false outside a worker */
+bool worker_deadline(int fd, double seconds, Str *answer, Str *line);
 
 /* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */
 
