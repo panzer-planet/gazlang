@@ -1,5 +1,5 @@
-Error: http::serve() has no option "port": only timeout, request_timeout, max_body, max_requests, idle_timeout, requests_per_connection
-  http::with_defaults at <std>/http.gaz:2339
-  http::server_options at <std>/http.gaz:811
-  http::serve at <std>/http.gaz:571
+Error: http::serve() has no option "port": only timeout, request_timeout, max_body, max_requests, idle_timeout, requests_per_connection, access_log
+  http::with_defaults at <std>/http.gaz:2468
+  http::server_options at <std>/http.gaz:845
+  http::serve at <std>/http.gaz:588
   top level on line 1

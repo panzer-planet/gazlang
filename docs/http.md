@@ -144,6 +144,57 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
     responses compared byte for byte without the `Date` line) and `HttpServerTest` (idle close,
     stop while idle, `max_requests` on one connection, a 500 closing, the yield both ways).
 
+### The access log
+
+- **A line per request answered, on standard error, on by default** (`access_line()` in
+  `http.gaz`): `2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms`, the time,
+  peer address, method, target, status, body bytes sent and milliseconds. Standard error because
+  that is where the 500s' lines already go and where a process manager collects a server's
+  output; on by default because a server that is silent until something fails was the todo app's
+  friction; `"access_log" => false` turns it off, with no format option until a program asks for
+  one.
+- **Written in `connection()` after the response is sent**, timed from the request's first byte
+  (`Reader.first_byte_at()`) to its response written, so a connection's first request doesn't
+  count the wait before its client spoke when a kept-open one doesn't count its idle wait; every
+  answer gets one line: a
+  handler's, the server's refusals (400, 408, 413, ...), a 500 (after its error line, which
+  stays) and each request on a kept-open connection; a response the client didn't stay for is
+  logged as answered. A connection that closes, or goes quiet, before a byte of a request has no
+  line, as it gets no response. `http::TestClient` calls `answer()` and so writes none: a test's
+  output stays its own. A refusal after the request line is logged with its method and target
+  (`RequestLine`, which `read_request()` fills as soon as it has them), one before it with `-`.
+- **ISO 8601 UTC time, not `http_date()`**: it sorts as text, has no spaces, and says its zone.
+  **The peer's address, not `client_address()`'s**: X-Forwarded-For is the client's to write and
+  only the program knows which proxies to trust; behind one, the proxy's own log has the client.
+- **Escaping is one rule**: every byte of the method and target outside printable ASCII (`!` to
+  `~`), and a backslash, is `\xHH`, so a line break, a terminal escape or bytes that aren't UTF-8
+  can't reach the log as they are, and an escape always means one (a backslash in the text is
+  `\x5C`). Not UTF-8 passed through: a bidirectional override is valid UTF-8 too. Fields are split
+  by single spaces and none holds one; `-` for what is unknown. A 500's error line shows the
+  method and path the same way (`error_prefix()`), since 0x9B and U+0085 are C1 controls a
+  terminal acts on.
+- **Cheap where it can be**: the time is written out once a second (`LogClock`), text with
+  nothing to escape is found by one `trim()` against the bytes that stay (`LOGGED_AS_IS`) rather
+  than a loop over its bytes, and the milliseconds are made from whole microseconds, since writing
+  out a float cost more than the rest of the line.
+- **A closed standard error ends nothing**: `workers()` ignores SIGPIPE in the master and its
+  workers for good, so a write to a pipe whose reader has gone (`gaz server.gaz 2>&1 | head`, a
+  log shipper restarting) fails with EPIPE and the line is lost, where the default would end a
+  worker at its next line and the master, with the pool, at its "starting another". For good,
+  since neither goes back to code that wants the default; `run()` gives what it starts the
+  default back (`POSIX_SPAWN_SETSIGDEF`), as an ignored signal stays ignored through exec; and a
+  program that never calls `workers()` keeps it, so `gaz tool | head` still ends quietly.
+  `ponytail:` `http::serve()` without `workers()` (`gaz -S`) still ends on a closed standard
+  error; ignoring SIGPIPE around each `print_error()` would lift it. Tested by `HttpServerTest`
+  (started through perl, since PHP ignores SIGPIPE and what it starts inherits that) and
+  `tests/gaz/workers/sigpipe_test.gaz`.
+- **One line is one `write()`**: `print_error()` writes its whole text in one system call
+  (`write_whole()` in `builtins.c`), since macOS's stdio writes an unbuffered stream 1024 bytes at
+  a time and workers share standard error. A pipe takes only `PIPE_BUF` bytes (512 at the least)
+  whole, so the method is cut at 20 bytes and the target at 360, with `\...`, keeping a line under
+  512. Tested by `HttpServerTest` (the shape, a forged line and terminal escape in a target, a cut
+  target, a line per kept-open request, refusals, the off switch).
+
 ### Not built: jitter and a pool that grows
 
 - **`"max_requests"` jitter, not built** ([#23](https://github.com/panzer-planet/gazlang/issues/23)): workers under an evenly spread load retire together; the

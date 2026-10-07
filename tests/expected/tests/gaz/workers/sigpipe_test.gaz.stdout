@@ -1,0 +1,2 @@
+ok a program run() starts in a worker is ended by SIGPIPE
+ok and the master ended cleanly

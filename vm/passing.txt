@@ -171,6 +171,7 @@ snippet:304dbf784cd2
 snippet:30801682fb27
 snippet:30b3340cd5e4
 snippet:30bf95286a30
+snippet:30f03b1e1811
 snippet:3117abe9a5c9
 snippet:311a6abac31c
 snippet:31d304ac3e52
@@ -1248,6 +1249,7 @@ tests/gaz/workers/inherited_test.gaz
 tests/gaz/workers/inherited_writer_test.gaz
 tests/gaz/workers/retire_grace_test.gaz
 tests/gaz/workers/retire_test.gaz
+tests/gaz/workers/sigpipe_test.gaz
 tests/programs/cat_facts.gaz
 tests/programs/csv_report.gaz
 tests/programs/errors.gaz

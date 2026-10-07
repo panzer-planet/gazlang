@@ -2128,11 +2128,31 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   `http::form_all()` refuses (see below), left uncaught, is answered 400 instead, with nothing
   logged, as the client's mistake: whenever they refuse, even on a request map the program built
   itself, which the server can't tell apart.
+- Every request answered is a line on standard error, the access log, written once its response
+  has been sent:
+
+  ```
+  2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms
+  ```
+
+  the time (UTC), the client's address (the connection's, so a proxy's behind one), the method and
+  target as the request line gave them, the status, the bytes of body sent (0 for a HEAD) and how
+  long the request took from its first byte to its response written, in milliseconds to three
+  places. That holds for the server's own refusals and 500s too (a 500's error is written first,
+  as before), and for each request on a kept-open connection; a connection that closes, or goes
+  quiet, before sending anything has no line. Fields are split by single spaces and none holds
+  one: `-` is what wasn't read (a request line that couldn't be), every byte of the method and
+  target other than the printable ASCII from `!` to `~` is written `\xHH`, and so is a backslash,
+  so a request can't write a line or a terminal escape of its own (a 500's error line shows the
+  method and path the same way); a target past 360 bytes is cut off with `\...`. Under
+  `workers()`, a standard error nobody reads any more (a log reader that stopped) loses the lines
+  and ends nothing.
 - Options: `"timeout"`, seconds each read and write may wait, and the wait for a connection's first
   request (10); `"request_timeout"`, seconds each request may take to arrive (30), after which it is
   a 408, so a client sending a byte at a time can't hold a worker; `"max_body"` in bytes (1048576);
   `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
-  `"requests_per_connection"` (100; 1 closes every connection after its first request); and
+  `"requests_per_connection"` (100; 1 closes every connection after its first request);
+  `"access_log"` (true; false writes no access log, the errors still); and
   `"max_requests"` (unset, no limit), requests answered, however many connections they came on,
   after which the worker retires, so a long-lived worker's accumulated state doesn't outlive it: it
   calls `worker_retire()` and serves on, one request to a connection so it can leave at any moment,

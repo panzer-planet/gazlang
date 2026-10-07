@@ -1,5 +1,5 @@
 Error: HTTP error: bad header name: "X-A: b\r\nX-B"
-  http::check_token at <std>/http.gaz:475
+  http::check_token at <std>/http.gaz:480
   http::checked_header at <std>/http.gaz:102
   http::request at <std>/http.gaz:61
   http::get at <std>/http.gaz:37

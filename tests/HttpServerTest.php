@@ -70,11 +70,11 @@ class HttpServerTest extends GazLangTestCase
      *
      * @return array{resource, int}
      */
-    private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})', string $startup = ''): array
+    private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})', string $startup = '', string $log = '/dev/null'): array
     {
         $code = 'import "std/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
             ."workers({$workers}); {$startup} http::serve(\$l, {$handler}, {$options});";
-        $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
+        $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', $log, 'w']], $pipes, self::ROOT);
         if ($server === false) {
             throw new \RuntimeException('Cannot start a server');
         }
@@ -168,6 +168,24 @@ class HttpServerTest extends GazLangTestCase
     }
 
     /**
+     * The access log's lines in a log matching a pattern, once there is one: a worker writes its
+     * line after the response, so the client may read the response first. Fails after 5 seconds.
+     *
+     * @return list<string>
+     */
+    private static function loggedLine(string $log, string $pattern): array
+    {
+        for ($wait = 0; $wait < 100; $wait++) {
+            $lines = preg_grep($pattern, explode("\n", (string) file_get_contents($log)));
+            if ($lines !== [] && $lines !== false) {
+                return array_values($lines);
+            }
+            usleep(50000);
+        }
+        throw new \RuntimeException("No line matching {$pattern} in the log:\n".file_get_contents($log));
+    }
+
+    /**
      * A response in parts: status, headers by lowercased name, body
      *
      * @return array{status: int, headers: array<string, string>, body: string}
@@ -242,8 +260,9 @@ class HttpServerTest extends GazLangTestCase
         $this->assertSame(400, self::get('/decoded?%c3=1')['status']);
         $this->assertSame(400, self::get('/hello?name=%C0%AF')['status']);
         $this->assertSame(200, self::get('/hello?name=%E2%82%AC')['status']);
-        $this->assertStringNotContainsString('GET /decoded', (string) file_get_contents(self::$log));
-        $this->assertStringNotContainsString('GET /hello', (string) file_get_contents(self::$log));
+        self::loggedLine(self::$log, '/ GET \/hello\?name=%C0%AF 400 12 /');
+        $this->assertStringNotContainsString('http::serve: GET /decoded', (string) file_get_contents(self::$log));
+        $this->assertStringNotContainsString('http::serve: GET /hello', (string) file_get_contents(self::$log));
     }
 
     public function test_a_template_is_served_as_html()
@@ -363,6 +382,119 @@ class HttpServerTest extends GazLangTestCase
         $this->assertStringContainsString('http::serve: GET /fail: the handler failed on purpose at tests/programs/web_server.gaz:', $log);
         $this->assertStringContainsString('http::serve: GET /bad-header: HTTP error: header X-Split has a line break or NUL byte in its value', $log);
         $this->assertStringContainsString('http::serve: GET /url-decode: bad percent-escape "%" at 3', $log);
+        // The error's line stays, and the request has its access line as well
+        self::loggedLine(self::$log, '/ GET \/fail 500 22 /');
+    }
+
+    public function test_each_request_answered_is_a_line_in_the_access_log()
+    {
+        $this->assertSame(404, self::get('/access-log?a=1&b=%20')['status']);
+        $this->assertSame(404, self::get('/access-log-head', 'HEAD')['status']);
+
+        // time, address, method, target as sent, status, body bytes, milliseconds
+        $line = self::loggedLine(self::$log, '/ GET \/access-log\?/');
+        $this->assertCount(1, $line);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ 127\.0\.0\.1 GET \/access-log\?a=1&b=%20 404 '.strlen("no page at /access-log\n").' \d+\.\d+ms$/', $line[0]);
+        // A HEAD sends no body
+        self::loggedLine(self::$log, '/^\S+ 127\.0\.0\.1 HEAD \/access-log-head 404 0 \d+\.\d+ms$/');
+    }
+
+    public function test_the_access_log_escapes_what_the_request_sent()
+    {
+        // A line break, a terminal's escape, a backslash and bytes that aren't ASCII, in a target refused for them
+        $forged = "/forged\n2026-01-01T00:00:00Z 6.6.6.6 GET /fake 200 0 0.1ms\x1b[31m\\x0a\xff\xc3\xa9";
+        $response = self::response(self::exchange('GET '.str_replace(' ', '_', $forged)." HTTP/1.1\r\nHost: x\r\n\r\n"));
+        $this->assertSame(400, $response['status']);
+
+        $line = self::loggedLine(self::$log, '/ GET \/forged/');
+        $this->assertMatchesRegularExpression('/ GET \/forged\\\\x0A2026-01-01T00:00:00Z_6\.6\.6\.6_GET_\/fake_200_0_0\.1ms\\\\x1B\[31m\\\\x5Cx0a\\\\xFF\\\\xC3\\\\xA9 400 12 \d+\.\d+ms$/', $line[0]);
+        $this->assertDoesNotMatchRegularExpression('/^2026-01-01T00:00:00Z/m', (string) file_get_contents(self::$log));
+
+        // A long target is cut off at a whole escape, so a line stays short enough to be written whole
+        $this->assertSame(404, self::get('/long-'.str_repeat('a', 2000))['status']);
+        $line = self::loggedLine(self::$log, '/ GET \/long-a/');
+        $this->assertMatchesRegularExpression('/ GET \/long-a{354}\\\\\.\.\. 404 \d+ /', $line[0]);
+        $this->assertLessThan(512, strlen($line[0]) + 1);
+    }
+
+    public function test_the_access_log_has_a_line_for_each_request_on_a_kept_open_connection_and_each_refusal()
+    {
+        $socket = self::connect();
+        fwrite($socket, "GET /kept-1 HTTP/1.1\r\nHost: x\r\n\r\nGET /kept-2 HTTP/1.1\r\nHost: x\r\n\r\n");
+        self::readResponse($socket);
+        self::readResponse($socket);
+        fclose($socket);
+        $this->assertCount(1, self::loggedLine(self::$log, '/ GET \/kept-1 404 /'));
+        $this->assertCount(1, self::loggedLine(self::$log, '/ GET \/kept-2 404 /'));
+
+        // Refused after the request line, with its status; before it, with "-" for what wasn't read
+        $this->assertSame(413, self::response(self::exchange("POST /too-big HTTP/1.1\r\nHost: x\r\nContent-Length: 200000\r\n\r\n"))['status']);
+        self::loggedLine(self::$log, '/ POST \/too-big 413 \d+ /');
+        $this->assertSame(400, self::response(self::exchange("NONSENSE\r\n\r\n"))['status']);
+        self::loggedLine(self::$log, '/^\S+ 127\.0\.0\.1 - - 400 12 /');
+    }
+
+    public function test_the_access_log_times_a_request_from_its_first_byte()
+    {
+        // A client that connects and waits before asking: the wait is no request's
+        $socket = self::connect();
+        usleep(600000);
+        fwrite($socket, "GET /slow-to-ask HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+        stream_get_contents($socket);
+        fclose($socket);
+
+        $line = self::loggedLine(self::$log, '/ GET \/slow-to-ask 404 /');
+        $this->assertSame(1, preg_match('/ (\d+\.\d{3})ms$/', $line[0], $m));
+        $this->assertLessThan(300, (float) $m[1], $line[0]);
+    }
+
+    public function test_a_closed_standard_error_ends_neither_a_worker_nor_the_master()
+    {
+        /*
+         * Standard error a pipe whose reader goes away, as a log reader that stops or restarts does.
+         * PHP ignores SIGPIPE and a program it starts inherits that, so perl puts the default back
+         * first, as a shell or a process manager starts a server.
+         */
+        if (trim((string) shell_exec('command -v perl')) === '') {
+            $this->markTestSkipped('needs perl to start the server with SIGPIPE at its default');
+        }
+        $command = ['perl', '-e', '$SIG{PIPE} = "DEFAULT"; exec @ARGV or die', self::binary(), '-f', 'tests/programs/web_server.gaz', '--', '0', '1'];
+        $server = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $this->assertNotFalse($server);
+        try {
+            $this->assertSame(1, preg_match('/^listening on (\d+)$/', trim((string) fgets($pipes[1])), $m), 'web_server.gaz should listen');
+            $port = (int) $m[1];
+            fclose($pipes[2]);
+            // Each answer writes an access line, the 500 an error line too, into the closed pipe
+            for ($i = 0; $i < 3; $i++) {
+                $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+                $this->assertSame(500, self::response(self::exchange("GET /fail HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            }
+            // The worker exits, and the master writes that it starts another into the closed pipe
+            self::exchange("GET /exit HTTP/1.1\r\nHost: x\r\n\r\n", $port);
+            $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            $this->assertTrue(proc_get_status($server)['running'], 'the master should still be running');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_the_access_log_can_be_turned_off()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startSmallServer(1, '{"access_log" => false}', '$r -> (starts_with($r["path"], "/fail") ? throw "failed" : {"body" => "ok"})', '', $log);
+        try {
+            $this->assertSame(200, self::response(self::exchange("GET /quiet HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            $this->assertSame(500, self::response(self::exchange("GET /fail\x9b[2J\xc2\x85 HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            // Only the 500's error line, written before its response, its path escaped as the access
+            // log's is (0x9B and U+0085 are the C1 controls CSI and NEL)
+            $this->assertMatchesRegularExpression("/\\Ahttp::serve: GET \\/fail\\\\x9B\\[2J\\\\xC2\\\\x85: failed at line 1\n(  .*\n)+\\z/", (string) file_get_contents($log));
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
     }
 
     /**
@@ -962,6 +1094,7 @@ class HttpServerTest extends GazLangTestCase
             'an idle timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"idle_timeout" => "5"});', 'http::serve() expects an idle_timeout above 0 seconds, got "5"'],
             'no requests on a connection' => ['import "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 0});', 'http::serve() expects a requests_per_connection of 1 or more, got 0'],
             'a fraction of a request' => ['import "std/http.gaz"; http::serve(null, null, {"requests_per_connection" => 1.5});', 'http::serve() expects a requests_per_connection of 1 or more, got 1.5'],
+            'an access log not a bool' => ['import "std/http.gaz"; http::serve(null, null, {"access_log" => "off"});', 'http::serve() expects an access_log of true or false, got "off"'],
         ];
     }
 

@@ -1,0 +1,14 @@
+import "std/test.gaz" use expect;
+
+/*
+ * A worker ignores SIGPIPE, so a closed standard error can't end it, but a program it starts with
+ * run() gets the default back: an ignored signal would otherwise stay ignored through exec. A
+ * program of its own, run with run(), since the master never returns from workers().
+ */
+$program = '
+    workers(1);
+    print(run(["sh", "-c", "kill -PIPE \$\$; echo survived"])["status"] .. "\n");
+';
+$result = run([program_path(), "-e", $program]);
+expect("a program run() starts in a worker is ended by SIGPIPE", $result["stdout"], "-13\n");
+expect("and the master ended cleanly", $result["status"], 0);

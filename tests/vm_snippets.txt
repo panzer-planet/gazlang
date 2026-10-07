@@ -275,6 +275,7 @@
 "import \"std/http.gaz\"; http::serve(null, null, {\"idle_timeout\" => \"5\"});"
 "import \"std/http.gaz\"; http::serve(null, null, {\"requests_per_connection\" => 0});"
 "import \"std/http.gaz\"; http::serve(null, null, {\"requests_per_connection\" => 1.5});"
+"import \"std/http.gaz\"; http::serve(null, null, {\"access_log\" => \"off\"});"
 "import \"std/http.gaz\"; http::get(\"http://localhost/\", {\"Bad Name\" => 1});"
 "import \"std/http.gaz\"; http::get(\"http://localhost/\", {\"X-A: b\\r\\nX-B\" => 1});"
 "import \"std/http.gaz\"; http::get(\"http://localhost/\", {\"X\" => \"a\\r\\nY: b\"});"

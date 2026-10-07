@@ -241,7 +241,7 @@ fn resolve($target, $location) {
 // Reads a message from a socket: lines up to a delimiter, a count of bytes, or the rest
 kind Reader {
     #deadline = null;   // a monotonic_time() after which a read is refused (408), or null
-    #heard = false;     // whether any of the message being read has come
+    #heard_at = null;   // the monotonic_time() the message being read began to come, or null
 
     // #data: read but not taken yet, kept between messages; with no socket, the whole message
     fn _(#socket, #data = "");
@@ -249,7 +249,7 @@ kind Reader {
     // Give the message about to be read until $deadline, a monotonic_time()
     pub fn start($deadline) {
         #deadline = $deadline;
-        #heard = #data != "";
+        #heard_at = #data == "" ? null : monotonic_time();
     }
 
     // Up to $most empty lines (a bare CRLF each) dropped from the start of what has been read, without reading more
@@ -268,7 +268,12 @@ kind Reader {
 
     // Whether any byte of the message being read has come, since start()
     pub fn heard_anything() {
-        return #heard;
+        return #heard_at != null;
+    }
+
+    // When the message being read began to come, a monotonic_time(), or null if nothing has
+    pub fn first_byte_at() {
+        return #heard_at;
     }
 
     // Up to $most empty lines (a bare CRLF each) dropped from where the next message starts
@@ -298,7 +303,7 @@ kind Reader {
             return false;
         }
         #data ..= $chunk;
-        #heard = true;
+        #heard_at ??= monotonic_time();
         return true;
     }
 
@@ -502,7 +507,7 @@ const REASONS = {
 };
 const SERVER_OPTIONS = {
     "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
-    "idle_timeout" => 5, "requests_per_connection" => 100,
+    "idle_timeout" => 5, "requests_per_connection" => 100, "access_log" => true,
 };
 const MAX_EMPTY_LINES = 4;   // skipped before a request line, as RFC 9112 asks; more is a 400
 const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
@@ -512,6 +517,16 @@ const CROWDED = 5;           // seconds a worker hands over at responses after g
 const OWN_CLIENT = 0;        // socket_wait()'s answer for an idle connection's own socket
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/*
+ * A request's method and target as the access log shows them, set once its line is read: kept
+ * apart from the request map so that a request refused after its line (a 413, a 408) is logged
+ * with them, and one refused before it with "-"
+ */
+kind RequestLine {
+    pub #method = null;
+    pub #target = null;
+}
 
 // A request refused before the handler sees it, with the status to answer
 kind Refusal extends Error {
@@ -561,7 +576,9 @@ kind Refusal extends Error {
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
  *   answered 408, so a client trickling a byte at a time can't hold a worker; "max_body", in bytes
  *   (1MB); "idle_timeout", seconds to wait for a connection's next request (5);
- *   "requests_per_connection" (100; 1 never keeps one open); and "max_requests" (see serve()).
+ *   "requests_per_connection" (100; 1 never keeps one open); "max_requests" (see serve()); and
+ *   "access_log", true for a line on standard error for each request answered (see
+ *   access_line()), false for none.
  * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
  *   is answered.
  * - ponytail: the request's deadline is checked before each read, so it can overrun by one
@@ -633,13 +650,21 @@ fn connection($socket, $turns, $handler, $options, $left) {
                 break;
             }
             $last = $answered + 1 == $most || $turns.hands_over($accepted);
-            $answer = answer($reader, $socket, $handler, $address, $options, $last);
+            $line = RequestLine();
+            $answer = answer($reader, $socket, $handler, $address, $options, $last, $line);
             if ($answer == null) {
                 break;
             }
             [$bytes, $keep] = $answer;
             $answered++;
-            if (!send_quietly($socket, $bytes)) {
+            $sent = send_quietly($socket, $bytes);
+            if ($options["access_log"]) {
+                // From the request's first byte, so a wait before it counts for no request
+                $seconds = monotonic_time() - $reader.first_byte_at();
+                // One print_error(), which is one write, so lines from several workers never mix
+                print_error(access_line($line, $address, $bytes, $seconds) .. "\n");
+            }
+            if (!$sent) {
                 break;
             }
         }
@@ -774,12 +799,13 @@ kind Turns {
 /*
  * The next request on a connection read and answered: [the response's bytes, whether to keep
  * the connection open for another], or null if it closed, or went quiet, before asking anything.
- * $last says the connection closes after this one whatever the request says.
+ * $last says the connection closes after this one whatever the request says, and $line is given
+ * the request's method and target for the access log once they are read.
  */
-fn answer($reader, $socket, $handler, $address, $options, $last) {
+fn answer($reader, $socket, $handler, $address, $options, $last, $line = RequestLine()) {
     $reader.start(monotonic_time() + $options["request_timeout"]);
     try {
-        $read = read_request($reader, $socket, $address, $options["max_body"]);
+        $read = read_request($reader, $socket, $address, $options["max_body"], $line);
     } catch (Error $e) {
         // Refused, cut off, timed out or malformed: say so, unless nothing came at all
         if (!$reader.heard_anything()) {
@@ -800,11 +826,19 @@ fn answer($reader, $socket, $handler, $address, $options, $last) {
         // The client's own request, which a decoder refused: a 400, and nothing for the log
         return [refusal(400, $head), false];
     } catch (Error $e) {
-        print_error("http::serve: {$request["method"]} {$request["path"]}: " .. describe_error($e) .. "\n");
+        print_error(error_prefix($request) .. describe_error($e) .. "\n");
     } catch ($e) {
-        print_error("http::serve: {$request["method"]} {$request["path"]}: the handler raised $e\n");
+        print_error(error_prefix($request) .. "the handler raised $e\n");
     }
     return [refusal(500, $head), false];
+}
+
+// How a 500's line on standard error starts, the method and path escaped as the access log's are
+fn error_prefix($request) {
+    $method = logged_text($request["method"], LOGGED_METHOD);
+    $path = logged_text($request["path"], LOGGED_TARGET);
+
+    return "http::serve: $method $path: ";
 }
 
 fn server_options($options) {
@@ -817,7 +851,99 @@ fn server_options($options) {
     if (type_of($most) != "int" || $most < 1) {
         throw "http::serve() expects a requests_per_connection of 1 or more, got " .. quote($most);
     }
+    if (type_of($options["access_log"]) != "bool") {
+        throw "http::serve() expects an access_log of true or false, got " .. quote($options["access_log"]);
+    }
     return $options;
+}
+
+const LOGGED_METHOD = 20;    // bytes of a method the access log shows, escapes included
+const LOGGED_TARGET = 360;   // and of a target, so a line fits the 512 bytes a pipe writes whole
+// The bytes the access log writes as they are: printable ASCII, "!" to "~", but the backslash
+const LOGGED_AS_IS = "!\"#\$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz\{|}~";
+
+// The access log's time, written out once a second rather than for every request
+kind LogClock {
+    static #second = null;
+    static #text = "";
+
+    pub static fn now() {
+        $second = time();
+        if ($second != #second) {
+            #second = $second;
+            #text = date::utc().at($second).rfc3339();
+        }
+
+        return #text;
+    }
+}
+
+/*
+ * The access log's line for a request answered with $bytes, from $address, $seconds after its first
+ * byte came, without its line end:
+ *
+ *   2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms
+ *
+ * the time (UTC), the client's address, the method and target as the request line gave them, the
+ * status, the body's length in bytes as sent (0 for a HEAD), and the milliseconds taken. Fields are
+ * split by single spaces and none holds one; what isn't known (no address, a request line that
+ * couldn't be read) is "-". The address is the connection's peer, a proxy's behind one: the
+ * X-Forwarded-For header is the client's to write, and only the program knows which proxies to
+ * trust (client_address()).
+ */
+fn access_line($line, $address, $bytes, $seconds) {
+    $time = LogClock::now();
+    $status = slice($bytes, len("HTTP/1.1 "), 3);
+    $body = len($bytes) - index_of($bytes, "\r\n\r\n") - 4;
+    $method = logged_text($line.method, LOGGED_METHOD);
+    $target = logged_text($line.target, LOGGED_TARGET);
+    $milliseconds = milliseconds_text($seconds);
+
+    return "$time " .. ($address ?? "-") .. " $method $target $status $body {$milliseconds}ms";
+}
+
+/*
+ * Seconds as milliseconds to three places, "0.412" or "1500.000", from whole microseconds: writing
+ * out a float costs more than the rest of the line together
+ */
+fn milliseconds_text($seconds) {
+    $micros = to_int(round($seconds * 1000000));
+    $fraction = to_string($micros % 1000);
+
+    return intdiv($micros, 1000) .. "." .. repeat("0", 3 - len($fraction)) .. $fraction;
+}
+
+/*
+ * Text from a request as the access log shows it, so a request can't write a line of its own, a
+ * terminal's escape or anything that isn't plain ASCII into the log: every byte but the printable
+ * ASCII ones from "!" to "~" is written \xHH, and so is a backslash, so an escape always means one.
+ * Text that runs past $most bytes is cut off at a whole escape and ends "\..."; null or "" is "-".
+ */
+fn logged_text($text, $most) {
+    if ($text == null || $text == "") {
+        return "-";
+    }
+    // The common case, nothing to escape, in one pass in C: trim() takes away every byte that stays
+    if (len($text) <= $most && trim($text, LOGGED_AS_IS) == "") {
+        return $text;
+    }
+    $shown = "";
+    foreach (split($text, "") as $c) {
+        $piece = logged_byte($c);
+        if (len($shown) + len($piece) > $most) {
+            return $shown .. "\\...";
+        }
+        $shown ..= $piece;
+    }
+    return $shown;
+}
+
+fn logged_byte($c) {
+    $byte = ord($c);
+    if ($byte < 33 || $byte > 126 || $c == "\\") {
+        return "\\x" .. HEX[intdiv($byte, 16)] .. HEX[$byte % 16];
+    }
+    return $c;
 }
 
 /*
@@ -836,9 +962,10 @@ fn remote_address($socket) {
 
 /*
  * The request on a connection from $address and whether its client would keep the connection
- * open after it, or null if it closed before sending anything
+ * open after it, or null if it closed before sending anything; its method and target go into
+ * $request_line as soon as they are read
  */
-fn read_request($reader, $socket, $address, $max_body) {
+fn read_request($reader, $socket, $address, $max_body, $request_line) {
     $reader.skip_empty_lines(MAX_EMPTY_LINES);
     $head = $reader.line("\r\n\r\n", MAX_HEAD);
     if ($head == null) {
@@ -854,6 +981,8 @@ fn read_request($reader, $socket, $address, $max_body) {
         throw Refusal(400, "HTTP error: bad request line");
     }
     [$method, $target, $version] = $words;
+    $request_line.method = $method;
+    $request_line.target = $target;
     if ($version != "HTTP/1.1" && $version != "HTTP/1.0") {
         throw Refusal(starts_with($version, "HTTP/") ? 505 : 400, "HTTP error: bad version");
     }

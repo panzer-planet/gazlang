@@ -62,7 +62,7 @@ http::handle(socket_accept($listener), $request -> {
     $seen = $request;
 
     return {"body" => "ok"};
-});
+}, {"access_log" => false});
 expect("repeated headers read as one list", http::client_address($seen, ["127.0.0.1"]), CLIENT);
 expect("and the connection's address without trust", http::client_address($seen), "127.0.0.1");
 

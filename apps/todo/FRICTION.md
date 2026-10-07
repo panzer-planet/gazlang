@@ -255,6 +255,7 @@ have caught running out of call depth.
   `Cache-Control: no-cache`, and answers a matching conditional GET with a 304) had no
   `Cache-Control`/`ETag`, so every page load refetched the stylesheet
   ([#60](https://github.com/panzer-planet/gazlang/issues/60)).
-- **No access log**: `http::serve` prints errors and nothing else (it is on the roadmap as a line per
+- **No access log** (resolved: `http::serve` writes a line per request to standard error, on by
+  default, `{"access_log" => false}` to turn it off): `http::serve` prints errors and nothing else (it is on the roadmap as a line per
   request "when a program asks"). Checking the live server, the only record of what was asked
   and answered was the client's own; the server's side was silent unless something failed ([#21](https://github.com/panzer-planet/gazlang/issues/21)).

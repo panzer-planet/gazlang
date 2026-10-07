@@ -713,8 +713,18 @@ static bool run_process(List *args, Str *input, Value *out) {
     char **argv = xmalloc((args->len + 1) * sizeof *argv);
     for (size_t i = 0; i < args->len; i++) argv[i] = args->items[i].s->data;
     argv[args->len] = NULL;
+    /* SIGPIPE at its default in the program, whatever gaz does with it (a worker ignores it, and an
+       ignored signal stays ignored through exec), so `yes | head` in it ends as anywhere else */
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    sigset_t pipe_default;
+    sigemptyset(&pipe_default);
+    sigaddset(&pipe_default, SIGPIPE);
+    posix_spawnattr_setsigdefault(&attr, &pipe_default);
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
     pid_t pid;
-    int err = posix_spawnp(&pid, argv[0], &actions, NULL, argv, environ);
+    int err = posix_spawnp(&pid, argv[0], &actions, &attr, argv, environ);
+    posix_spawnattr_destroy(&attr);
     posix_spawn_file_actions_destroy(&actions);
     free(argv);
     close(pipes[0][1]);
@@ -1229,14 +1239,33 @@ static Value keys_of(Value v) {
     return v_list(l);
 }
 
+/* print_error()'s text in one write() where the system takes it all at once: stderr is unbuffered,
+   and macOS's stdio writes an unbuffered stream 1024 bytes at a time, so a line from one worker could
+   be split by another's (http::serve's access log, where several workers share standard error). A
+   pipe takes up to PIPE_BUF bytes (512 at least) whole, which is why the log keeps its lines shorter.
+   A failed write is dropped, as fwrite() to stderr would drop it. */
+static void write_whole(int fd, const char *data, size_t len) {
+    while (len > 0) {
+        ssize_t n = write(fd, data, len);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) return;
+        data += n;
+        len -= (size_t) n;
+    }
+}
+
 static bool write_text(FILE *stream, Value v) {
     Buf b = {0};
     if (!append_string(v, &b)) {
         free(b.data);
         return false;
     }
-    if (stream == stderr) flush_output();
-    fwrite(b.data ? b.data : "", 1, b.len, stream);
+    if (stream == stderr) {
+        flush_output();
+        write_whole(STDERR_FILENO, b.data, b.len);
+    } else {
+        fwrite(b.data ? b.data : "", 1, b.len, stream);
+    }
     free(b.data);
     return true;
 }

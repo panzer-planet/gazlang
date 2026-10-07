@@ -32,7 +32,8 @@ fn exchange($writes, $options = {}, $timeout = 5) {
         socket_write($client, $bytes);
     }
     $served = socket_accept($listener, $timeout);
-    http::handle($served, answer_path, {"idle_timeout" => IDLE, ...$options});
+    // The access log has times in it, so it is off here; HttpServerTest checks it
+    http::handle($served, answer_path, {"idle_timeout" => IDLE, "access_log" => false, ...$options});
     $received = "";
     while (($chunk = socket_read($client)) != "") {
         $received ..= $chunk;

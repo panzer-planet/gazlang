@@ -13,7 +13,7 @@ http::handle($served, $request -> {
     $seen = $request;
 
     return {"body" => "ok"};
-});
+}, {"access_log" => false});
 
 expect("the handler is given the client's address", $seen["remote_address"], "127.0.0.1");
 expect("it is the last key, after the ones that were always there", keys($seen), ["method", "path", "query", "headers", "body", "remote_address"]);

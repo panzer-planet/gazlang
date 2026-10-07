@@ -331,6 +331,16 @@ bool start_workers(int64_t count, Value *out) {
     pool.pids = xcalloc(2 * (size_t)n, sizeof *pool.pids);
     pool.started = xcalloc((size_t)n, sizeof *pool.started);
     pool.relieved = xcalloc((size_t)n, sizeof *pool.relieved);
+    /* The master and its workers write lines to standard error (http::serve's access log, the
+       master's "starting another"), which may be a pipe to a log reader that goes away. At its
+       default SIGPIPE would end a worker at its next line and the master, and so the whole pool, at
+       its; ignored, such a write fails with EPIPE and the line is lost. For good, since neither
+       process goes back to code that wants the default (the master ends in C, and a worker is a
+       server, whose sockets already ignore it), and run() gives what it starts the default back.
+       A program that never calls workers() keeps it, so `gaz tool | head` still ends quietly. */
+    struct sigaction ignore_pipe = {.sa_handler = SIG_IGN}, saved_pipe;
+    sigemptyset(&ignore_pipe.sa_mask);
+    sigaction(SIGPIPE, &ignore_pipe, &saved_pipe);
     for (int i = 0; i < n; i++) {
         pid_t pid = fork_worker(i + 1, pool.slots, out);
         if (pid == 0) {
@@ -341,6 +351,7 @@ bool start_workers(int64_t count, Value *out) {
             int err = errno;
             stop_all(pool.pids, n);
             restore_signals();
+            sigaction(SIGPIPE, &saved_pipe, NULL);
             pool_free(&pool);
             return raisef("workers() cannot start a worker: %s", strerror(err));
         }
