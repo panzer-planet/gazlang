@@ -1,0 +1,61 @@
+ok a first visit
+ok the session cookie is kept
+ok and sent back
+ok its session can be read with the secret
+ok another client has a session of its own
+ok a forgotten cookie starts again
+ok a client with no cookies has no session
+ok a cookie is kept as sent
+ok a Max-Age of 0 forgets it
+ok forgetting what isn't there is nothing
+ok a cookie without a name is skipped, the rest kept
+ok the token in the page is the session's
+ok a page without the field
+ok or without one of that name
+ok a form without its token is refused
+ok a form with its token gets through
+ok form-encoded
+ok as a form
+ok which the handler can decode
+ok with its length
+ok the token in a header does as well
+ok from another site it is refused
+ok from this site it isn't
+ok a PUT with a JSON body
+ok a HEAD has no body, as a browser sees it
+ok the path
+ok the query
+ok which decodes
+ok header names lower-cased
+ok the Host
+ok the address
+ok a GET has no body
+ok a Cookie header given is sent instead of the kept ones
+ok the options
+ok an Html body is text
+ok with its type
+ok header names lower-cased
+ok with the length the server writes
+ok an unknown path
+ok a wrong method
+ok a handler that fails is a 500, logged as the server logs it
+ok a request the server can't read is a 400
+ok a header value with a line break
+ok a header name that isn't a token
+ok a target with a line break
+ok a method that isn't a token
+ok a client that waits for 100 Continue
+ok a chunked body
+ok is sent without a Content-Length
+ok a body over the server's max_body
+ok the app's own max_body
+ok a redirect is answered as it is
+ok and followed when asked
+ok a location on this site by its full URL
+ok following what isn't a redirect
+ok following one to another site
+ok or to another site without its scheme
+ok a relative query is read against the last request
+ok a relative path
+ok this site's origin alone
+ok an option it doesn't have

@@ -2394,6 +2394,39 @@ $r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "app
 echo $r["status"] .. " " .. $r["headers"]["content-type"];
 ```
 
+**Testing a handler**, with `http::TestClient($handler, $options = {})`:
+a browser for one site that the handler answers as `http::serve()` would, with no server.
+
+```gaz
+import "std/test.gaz" use expect;
+import "std/http.gaz";
+
+$client = http::TestClient($app.handler());
+$page = $client.get("/login");
+$done = $client.post("/login", {"_csrf" => http::form_token($page), "email" => "ada@example.com"});
+expect("logging in goes home", [$done["status"], $done["headers"]["location"]], [303, "/"]);
+expect("and the next page knows who it is", $client.session($secret)["user_id"], 1);
+```
+
+- `$client.get($target, $headers = {})`, `$client.post($target, $fields, $headers = {})` (the
+  fields form-encoded) and `$client.request($method, $target, $headers = {}, $body = "")` give
+  the response as `http::request()` does: header names lowercased, an `Html` body as text with its
+  `Content-Type`. `$target` is a path with its query (`"/search?q=gaz"`).
+- The request is written out as HTTP and read by the server's code, and the response written by
+  it, so a test sees what a browser would: a target the server can't read is a 400, a body over
+  `"max_body"` a 413, and a handler that raises a 500, logged as `http::serve()` logs it. A method,
+  header or target that could end a line of the request is an error, as with `http::request()`.
+- The cookies a response sets are kept and sent with every later request (`Max-Age=0` forgets one);
+  `$client.cookie($name)` and `$client.forget($name)` read and drop one, and a `Cookie` header
+  given to a request is sent instead. `$client.session($secret)` is the session the cookie holds.
+- `http::form_token($response, $field = "_csrf")` is the CSRF token a page carries, as
+  `web::csrf_field()` writes it.
+- A redirect is answered as it is; `$client.follow($response)` fetches where it points with a GET,
+  a relative `Location` read against the last request's target. One on another site is an error.
+- `$options`: `"host"`, the `Host` sent (`"example.test"`), `"remote_address"` (`"192.0.2.1"`,
+  `null` for a client the system no longer knows), and `"max_body"`, `http::serve()`'s, so an app
+  is tested against its own limit.
+
 `term.gaz` is the terminal, on `term_raw`, `term_read`, `term_size` and `term_is_tty` (see the
 builtins). Drawing functions *return* the escape sequence, so `print(...)` draws and results
 compose with `..`; nothing in it needs a terminal but raw mode.

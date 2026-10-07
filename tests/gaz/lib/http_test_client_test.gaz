@@ -1,0 +1,170 @@
+import "std/test.gaz" use expect, throws;
+import "std/http.gaz";
+import "std/json.gaz";
+import "std/web.gaz";
+
+/*
+ * http::TestClient driving a small app through the library's own middleware: a session kept in a
+ * cookie, a form that needs its CSRF token, and what a browser would see of each response.
+ */
+
+const SECRET = "a secret for the tests, long enough to sign with";
+
+// The request the handler last saw, to check what the client sent
+kind Seen {
+    pub static #request = null;
+}
+
+fn counter($request) {
+    $count = ($request["session"]["count"] ?? 0) + 1;
+
+    return http::with_session({"body" => "count $count"}, {...$request["session"], "count" => $count});
+}
+
+fn echo_request($request) {
+    Seen::request = $request;
+
+    return {"headers" => {"X-Seen" => $request["method"]}, "body" => $request["body"]};
+}
+
+fn form_page($request) {
+    $field = web::csrf_field($request["session"]["csrf_token"]);
+
+    return {"body" => web::html"<form method=\"post\">{$field}</form>"};
+}
+
+// The first page of a list sends the browser on to the second with a relative Location
+fn list_page($request) {
+    if ($request["query"] == "") {
+        return {"status" => 302, "headers" => {"Location" => "?page=2"}};
+    }
+
+    return echo_request($request);
+}
+
+fn app() {
+    $app = http::Router();
+    $app.use(http::security_headers());
+    $app.use(http::sessions(SECRET));
+    $app.use(http::csrf());
+    $app.get("/count", counter);
+    $app.get("/echo", echo_request);
+    $app.post("/echo", echo_request);
+    $app.route("PUT", "/echo", echo_request);
+    $app.get("/page", $request -> ({"body" => web::html"<p>{$request["query"]}</p>"}));
+    $app.get("/form", form_page);
+    $app.get("/away", $request -> http::redirect("/count"));
+    $app.get("/far", $request -> http::redirect("https://elsewhere.example/"));
+    $app.get("/here", $request -> http::redirect("http://example.test/count?full"));
+    $app.get("/broken", $request -> { throw 42; });
+    $app.get("/bye", $request -> http::set_cookie({"body" => "bye"}, "extra", "", {"max_age" => 0}));
+    $app.get("/extra", $request -> http::set_cookie({"body" => "set"}, "extra", "a b"));
+    $app.get("/nameless", $request -> ({"headers" => {"Set-Cookie" => ["a=1", "flag", "=2", "b=3"]}}));
+    $app.get("/list/", list_page);
+    $app.get("/list/first", $request -> ({"status" => 302, "headers" => {"Location" => "next"}}));
+    $app.get("/list/next", $request -> ({"body" => "next"}));
+    $app.get("/home", $request -> ({"status" => 302, "headers" => {"Location" => "http://example.test"}}));
+    $app.get("/sideways", $request -> ({"status" => 302, "headers" => {"Location" => "//evil.example/x"}}));
+
+    return $app.handler();
+}
+
+/* Cookies: the session a response sets comes back with the next request */
+$client = http::TestClient(app());
+expect("a first visit", $client.get("/count")["body"], "count 1");
+expect("the session cookie is kept", $client.cookie("session") != null, true);
+expect("and sent back", $client.get("/count")["body"], "count 2");
+expect("its session can be read with the secret", $client.session(SECRET)["count"], 2);
+expect("another client has a session of its own", http::TestClient(app()).get("/count")["body"], "count 1");
+$client.forget("session");
+expect("a forgotten cookie starts again", $client.get("/count")["body"], "count 1");
+expect("a client with no cookies has no session", http::TestClient(app()).session(SECRET), {});
+
+$client.get("/extra");
+expect("a cookie is kept as sent", $client.cookie("extra"), "a%20b");
+$client.get("/bye");
+expect("a Max-Age of 0 forgets it", $client.cookie("extra"), null);
+expect("forgetting what isn't there is nothing", $client.forget("nothing"), null);
+$client.get("/nameless");
+expect("a cookie without a name is skipped, the rest kept", [$client.cookie("a"), $client.cookie("flag"), $client.cookie(""), $client.cookie("b")], ["1", null, null, "3"]);
+
+/* A form post, with and without the CSRF token its page carries */
+$form = http::TestClient(app());
+$token = http::form_token($form.get("/form"));
+expect("the token in the page is the session's", $form.session(SECRET)["csrf_token"], $token);
+throws("a page without the field", () -> http::form_token($form.get("/count")), "no CSRF field \"_csrf\" in the page");
+throws("or without one of that name", () -> http::form_token($form.get("/form"), "token"), "no CSRF field \"token\" in the page");
+expect("a form without its token is refused", $form.post("/echo", {"a" => "1"})["status"], 403);
+$posted = $form.post("/echo", {"_csrf" => $token, "name" => "Ada Lovelace", "sum" => "1+1"});
+expect("a form with its token gets through", $posted["status"], 200);
+expect("form-encoded", Seen::request["body"], "_csrf=$token&name=Ada%20Lovelace&sum=1%2B1");
+expect("as a form", Seen::request["headers"]["content-type"], "application/x-www-form-urlencoded");
+expect("which the handler can decode", http::form(Seen::request)["name"], "Ada Lovelace");
+expect("with its length", Seen::request["headers"]["content-length"], to_string(len(Seen::request["body"])));
+expect("the token in a header does as well", $form.post("/echo", {}, {"X-CSRF-Token" => $token})["status"], 200);
+expect("from another site it is refused", $form.post("/echo", {"_csrf" => $token}, {"origin" => "http://evil.example"})["status"], 403);
+expect("from this site it isn't", $form.post("/echo", {"_csrf" => $token}, {"origin" => "http://example.test"})["status"], 200);
+
+/* Other methods, and a body as it is */
+$json = $form.request("PUT", "/echo", {"Content-Type" => "application/json", "X-CSRF-Token" => $token}, json::encode({"done" => true}));
+expect("a PUT with a JSON body", [$json["status"], Seen::request["method"], json::decode(Seen::request["body"])], [200, "PUT", {"done" => true}]);
+$head = $form.request("HEAD", "/echo");
+expect("a HEAD has no body, as a browser sees it", [$head["status"], $head["headers"]["x-seen"], $head["body"]], [200, "HEAD", ""]);
+
+/* What the handler is given */
+$client = http::TestClient(app());
+$client.get("/echo?q=gaz%20lang&page=2", {"Accept-Language" => "af"});
+expect("the path", Seen::request["path"], "/echo");
+expect("the query", Seen::request["query"], "q=gaz%20lang&page=2");
+expect("which decodes", http::query(Seen::request), {"q" => "gaz lang", "page" => "2"});
+expect("header names lower-cased", Seen::request["headers"]["accept-language"], "af");
+expect("the Host", Seen::request["headers"]["host"], "example.test");
+expect("the address", Seen::request["remote_address"], "192.0.2.1");
+expect("a GET has no body", Seen::request["body"], "");
+$client.get("/echo", {"cookie" => "session=forged"});
+expect("a Cookie header given is sent instead of the kept ones", Seen::request["headers"]["cookie"], "session=forged");
+$proxied = http::TestClient(app(), {"host" => "app.example", "remote_address" => null});
+$proxied.get("/echo");
+expect("the options", [Seen::request["headers"]["host"], Seen::request["remote_address"]], ["app.example", null]);
+
+/* What a browser is given: the response as the server writes it */
+$page = $client.get("/page?x");
+expect("an Html body is text", $page["body"], "<p>x</p>");
+expect("with its type", $page["headers"]["content-type"], "text/html; charset=utf-8");
+expect("header names lower-cased", $page["headers"]["x-content-type-options"], "nosniff");
+expect("with the length the server writes", $page["headers"]["content-length"], "8");
+expect("an unknown path", $client.get("/nowhere")["status"], 404);
+expect("a wrong method", [$client.request("OPTIONS", "/count")["status"], $client.request("OPTIONS", "/count")["headers"]["allow"]], [405, "GET, HEAD"]);
+expect("a handler that fails is a 500, logged as the server logs it", $client.get("/broken")["status"], 500);
+expect("a request the server can't read is a 400", $client.get("/a b")["status"], 400);
+
+/* Nothing a test gives can end a line of the request, as with http::request() */
+throws("a header value with a line break", () -> $client.get("/echo", {"x-a" => "1\r\nX-Admin: yes"}), "HTTP error: header x-a has a line break or NUL byte in its value");
+throws("a header name that isn't a token", () -> $client.get("/echo", {"bad name" => "x"}), "HTTP error: bad header name: \"bad name\"");
+throws("a target with a line break", () -> $client.get("/echo\r\nX-Admin: yes"), "HTTP error: the target has a line break or NUL byte in it");
+throws("a method that isn't a token", () -> $client.request("GET /x", "/echo"), "HTTP error: bad method: \"GET /x\"");
+
+/* Bodies sent as a client may send them, read by the server's own code */
+$raw = http::TestClient(echo_request);
+$waiting = $raw.request("POST", "/echo", {"expect" => "100-continue"}, "body");
+expect("a client that waits for 100 Continue", [$waiting["status"], $waiting["body"]], [200, "body"]);
+$chunked = $raw.request("POST", "/echo", {"transfer-encoding" => "chunked"}, "3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n");
+expect("a chunked body", [$chunked["status"], $chunked["body"]], [200, "abcde"]);
+expect("is sent without a Content-Length", has_key(Seen::request["headers"], "content-length"), false);
+expect("a body over the server's max_body", $raw.request("POST", "/echo", {}, repeat("x", 1048577))["status"], 413);
+$small = http::TestClient(echo_request, {"max_body" => 4});
+expect("the app's own max_body", [$small.request("POST", "/echo", {}, "four")["status"], $small.request("POST", "/echo", {}, "fives")["status"]], [200, 413]);
+
+/* Redirects are followed only when asked */
+$away = $client.get("/away");
+expect("a redirect is answered as it is", [$away["status"], $away["headers"]["location"]], [303, "/count"]);
+expect("and followed when asked", $client.follow($away)["body"], "count 1");
+expect("a location on this site by its full URL", $client.follow($client.get("/here"))["body"], "count 2");
+throws("following what isn't a redirect", () -> $client.follow($client.get("/count")), "http::TestClient can't follow a 200 response: it is not a redirect");
+throws("following one to another site", () -> $client.follow($client.get("/far")), "http::TestClient follows a redirect only to its own site, not to \"https://elsewhere.example/\"");
+throws("or to another site without its scheme", () -> $client.follow($client.get("/sideways")), "http::TestClient follows a redirect only to its own site, not to \"//evil.example/x\"");
+$client.follow($client.get("/list/"));
+expect("a relative query is read against the last request", [Seen::request["path"], Seen::request["query"]], ["/list/", "page=2"]);
+expect("a relative path", $client.follow($client.get("/list/first"))["body"], "next");
+expect("this site's origin alone", $client.follow($client.get("/home"))["status"], 404);
+throws("an option it doesn't have", () -> http::TestClient(app(), {"port" => 80}), "http::TestClient() has no option \"port\": only host, remote_address, max_body");

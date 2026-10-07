@@ -9,9 +9,10 @@ documentation, and it has been changed since only by moving what it needed into 
 Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
-(handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), and
-the redirect, the timestamps, the due dates, the CSRF field and static files in 10. Half done: 9 (decoding needs no
-`try`; the request is still parsed twice). Open: 6, 7, 8, the rest of 9, and the rest of 10, each
+(handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), 6
+(`http::TestClient`), and the redirect, the timestamps, the due dates, the CSRF field and static files
+in 10. Half done: 9 (decoding needs no `try`; the request is still parsed twice). Open: 7, 8, the rest of
+9, and the rest of 10, each
 linking the issue that tracks it (label `todo-app`).
 
 ## What worked, so it is not lost
@@ -147,16 +148,17 @@ connection's address is the proxy's.
   A constant's name alone in braces now interpolates it, and a name there that isn't a constant is
   an error when the program is read.
 
-## 6. Calling a handler's helpers needs a test client that doesn't exist  (open: [#48](https://github.com/panzer-planet/gazlang/issues/48))
+## 6. Calling a handler's helpers needs a test client that doesn't exist  (resolved: `http::TestClient`)
 
-The tests drive the real router through a `Browser` kind (`tests/support.gaz`, 130 lines with the test database): it builds
-request maps, keeps the cookies a response sets, form-encodes bodies, and finds the CSRF token in a
-page. Every web app's tests will want this. (The request shape, `method`, `path`, `query`,
-lower-cased `headers`, `body` and `remote_address`, is documented in `docs/language.md`.)
+The tests drove the real router through a `Browser` kind (`tests/support.gaz`, 130 lines with the test database): it built
+request maps, kept the cookies a response set, form-encoded bodies, and found the CSRF token in a
+page. Every web app's tests will want this.
 
-- **Today**: `tests/support.gaz`.
-- **Options**: `http::client_for($handler)` giving something with `get`/`post`/cookies in the
-  library (`std/test.gaz` is the neighbour), and the request map documented in `docs/language.md`.
+- **Resolved** by `http::TestClient($handler)` in `std/http.gaz`, with `http::form_token($page)`
+  for the token `web::csrf_field()` writes. The request goes through the server's own reading and
+  writing, so it is stricter than the `Browser` was: a raw space in a query (`/?show=open `) is the
+  400 a real server gives, and the test now sends `open%20`. `tests/support.gaz` keeps only a
+  `browser()` that builds one for the app.
 
 ## 7. Routes are wrapped one at a time  (open: [#49](https://github.com/panzer-planet/gazlang/issues/49))
 

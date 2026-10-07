@@ -261,6 +261,36 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   - **Who the user is stays the app's** (and the login that builds a *new* session, the
     session-fixation defence): the library doesn't know what a user is.
 
+## Testing a handler
+
+- **`http::TestClient` goes through `answer()`, the server's own path**: the
+  request is written out as bytes and read by `read_request()`, the handler's response written by
+  `write_response()` and read back by the client's `read_response()`, over a `Reader` holding the
+  bytes instead of a socket (`Reader(null, $bytes)`). So a test sees what a browser would, refusals
+  and 500s included, and nothing about a request or a response is described twice. Its header
+  names and values go through `checked_header()`, `http::request()`'s own check, so a test can't
+  smuggle a header in; a `Reader` with no socket writes no interim `100 Continue`, and a
+  `Transfer-Encoding` the test gives gets no `Content-Length` beside it. The serve() options the
+  request's reading takes (`"max_body"`) are the client's, by the same names.
+- **In `http.gaz` itself**, as the router is: it needs the server's private functions, and a
+  second file declaring `namespace http` couldn't be compiled by its path, being then another
+  project's namespace (see [the library](library.md)).
+- **A handler that raises is a 500, not an error in the test**, since that is what a client sees;
+  the log line on standard error says why, as the server's does.
+- **Redirects are followed only by `follow()`**, since where a response sends the browser is
+  usually what the test checks. The `Location` is resolved against the last request's target by
+  `resolve()`, as `http::request()` resolves one, and only this host is followed, `//` included.
+  `ponytail:` a 307 or 308 after a POST is followed with a GET; keeping the method needs the
+  request kept.
+- **Cookies are one site's**: Path, Domain, Secure and Expires are not read, `Max-Age` of 0 or less
+  forgets one, and one with no name (no `=`, or nothing before it) is skipped, since no Cookie
+  header could send it back by name. A `Cookie` header a test gives wins over the jar, so a forged cookie can be sent.
+- **`http::form_token()` reads exactly what `web::csrf_field()` writes**, so finding the token needs
+  no app-specific pattern; `session($secret)` reads the cookie as `http::sessions()` does, for what
+  a page doesn't show.
+- Tested by `tests/gaz/lib/http_test_client_test.gaz`, and by the todo app's tests, which drive its router
+  through it.
+
 ## Known limits
 
 - `ponytail:` writing a response has only the per-write timeout; the stop grace

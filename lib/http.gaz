@@ -58,11 +58,7 @@ pub fn request($method, $url, $headers = {}, $body = null) {
     // By lowercased name: [the name as given, its value]
     $sent = {};
     foreach ($headers as $name => $value) {
-        check_token("header name", $name);
-        $value = to_string($value);
-        if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
-            throw "HTTP error: header $name has a line break or NUL byte in its value";
-        }
+        $value = checked_header($name, $value);
         if (in_array(lower($name), ["host", "content-length", "connection", "transfer-encoding"])) {
             throw "HTTP error: header $name is written by http::request";
         }
@@ -99,6 +95,16 @@ pub fn request($method, $url, $headers = {}, $body = null) {
         }
         $target = $next;
     }
+}
+
+// $value as text, for the header $name of a request: an error if either could end its line
+fn checked_header($name, $value) {
+    check_token("header name", $name);
+    $value = to_string($value);
+    if (contains($value, "\r") || contains($value, "\n") || contains($value, "\0")) {
+        throw "HTTP error: header $name has a line break or NUL byte in its value";
+    }
+    return $value;
 }
 
 // One request on its own connection, and its response
@@ -234,11 +240,11 @@ fn resolve($target, $location) {
 
 // Reads a message from a socket: lines up to a delimiter, a count of bytes, or the rest
 kind Reader {
-    #data = "";         // read but not taken yet, kept from one message to the next
     #deadline = null;   // a monotonic_time() after which a read is refused (408), or null
     #heard = false;     // whether any of the message being read has come
 
-    fn _(#socket);
+    // #data: read but not taken yet, kept between messages; with no socket, the whole message
+    fn _(#socket, #data = "");
 
     // Give the message about to be read until $deadline, a monotonic_time()
     pub fn start($deadline) {
@@ -287,7 +293,7 @@ kind Reader {
         if (#deadline != null && monotonic_time() > #deadline) {
             throw Refusal(408, "HTTP error: the request took too long to arrive");
         }
-        $chunk = socket_read(#socket);
+        $chunk = #socket == null ? "" : socket_read(#socket);
         if ($chunk == "") {
             return false;
         }
@@ -341,7 +347,7 @@ kind Reader {
         $parts = [#data];
         #data = "";
         while (true) {
-            $chunk = socket_read(#socket);
+            $chunk = #socket == null ? "" : socket_read(#socket);
             if ($chunk == "") {
                 return join($parts, "");
             }
@@ -891,7 +897,9 @@ fn read_request($reader, $socket, $address, $max_body) {
         if (lower($headers["expect"]) != "100-continue") {
             throw Refusal(417, "HTTP error: an expectation other than 100-continue");
         }
-        socket_write($socket, "HTTP/1.1 100 Continue\r\n\r\n");
+        if ($socket != null) {
+            socket_write($socket, "HTTP/1.1 100 Continue\r\n\r\n");
+        }
     }
     $request["body"] = $chunked ? read_chunked($reader, $max_body) : $reader.bytes($length);
     return [$request, $persistent];
@@ -2257,4 +2265,235 @@ fn same_origin($request) {
     $host = $request["headers"]["host"] ?? "";
 
     return $origin == "http://" .. $host || $origin == "https://" .. $host;
+}
+
+// A test client: requests answered as http::serve() answers them, with no socket
+
+const TEST_CLIENT_OPTIONS = {"host" => "example.test", "remote_address" => "192.0.2.1", "max_body" => 1048576};
+
+/**
+ * A browser for one site, answered by $handler as http::serve() would answer it, with no server
+ * or socket: for testing a handler.
+ *
+ *     $client = http::TestClient($app.handler());
+ *     $page = $client.get("/login");
+ *     $done = $client.post("/login", {"_csrf" => http::form_token($page), "email" => "ada@example.com"});
+ *     expect("logging in goes home", $done["headers"]["location"], "/");
+ *     expect("and is remembered", $client.session(SECRET)["user_id"], 1);
+ *
+ * - Each request method gives the response as http::request() does,
+ *   {"status" => 200, "headers" => {"content-type" => "text/html; charset=utf-8", ...}, "body" => "..."}.
+ * - Each request is written out as HTTP and read by the server's own code, and the response
+ *   written as the server writes it and read back by the client's own, so a test sees what a
+ *   browser would: the same refusals (a 400 for a bad header, a 413 for too big a body), a 500
+ *   for a handler that raises (logged as http::serve() logs it), an Html body as text with its
+ *   Content-Type, and lower-cased header names, a repeated header's values joined with ", ".
+ * - Cookies a response sets are kept and sent back with every later request, as one site's are:
+ *   Path, Domain, Secure and Expires are not read, and a Max-Age of 0 or less forgets the cookie.
+ * - A redirect is followed only when asked, with follow().
+ * - $options: "host", the Host header sent ("example.test", a name kept for examples),
+ *   "remote_address", the address the requests come from ("192.0.2.1", kept for documentation;
+ *   null for a client the system no longer knows), and "max_body", as http::serve() takes it, so
+ *   an app is tested against its own limit.
+ */
+pub kind TestClient {
+    #handler;
+    #options;
+    #server_options;
+    #cookies = {};
+    #last_target = "/";   // what a relative redirect is resolved against
+
+    /**
+     * A client of $handler with no cookies yet; $options as above
+     */
+    fn _($handler, $options = {}) {
+        #handler = $handler;
+        #options = with_defaults("http::TestClient()", $options, TEST_CLIENT_OPTIONS);
+        #server_options = server_options({"max_body" => #options["max_body"]});
+    }
+
+    /**
+     * A GET request for $target, a path with its query ("/search?q=gaz"), with $headers
+     */
+    pub fn get(string $target, map $headers = {}): map {
+        return #request("GET", $target, $headers);
+    }
+
+    /**
+     * A POST request of a form, $fields form-encoded as a browser sends them
+     */
+    pub fn post(string $target, map $fields, map $headers = {}): map {
+        $form_headers = {"content-type" => FORM_TYPE, ...$headers};
+
+        return #request("POST", $target, $form_headers, form_body($fields));
+    }
+
+    /**
+     * A request of any method with $body as it is: for JSON,
+     * `$client.request("PUT", "/api/todo/1", {"content-type" => "application/json"}, json::encode($todo))`.
+     * Header names may be written in any case; a Cookie header given here is sent instead of the
+     * kept cookies.
+     */
+    pub fn request(string $method, string $target, map $headers = {}, string $body = ""): map {
+        check_token("method", $method);
+        if (contains($target, "\r") || contains($target, "\n") || contains($target, "\0")) {
+            throw "HTTP error: the target has a line break or NUL byte in it";
+        }
+        #last_target = $target;
+        $bytes = #exchange(request_text($method, $target, #headers_for($headers, $body), $body));
+        #keep_cookies($bytes);
+
+        return read_response(Reader(null, $bytes), $method);
+    }
+
+    /**
+     * Where a redirect $response sends the browser, fetched with a GET; a relative Location is
+     * read against the last request's target. A Location on another site is an error.
+     */
+    pub fn follow(map $response): map {
+        // ponytail: a 307 or 308 after a POST is followed with a GET too; keeping the method would need the request kept
+        $location = $response["headers"]["location"] ?? null;
+        if (!in_array($response["status"], REDIRECT_STATUSES) || $location == null) {
+            throw "http::TestClient can't follow a " .. $response["status"] .. " response: it is not a redirect";
+        }
+
+        return #get(#target_of($location));
+    }
+
+    /**
+     * The value of the cookie $name as the browser holds it (as sent, still url_encode()d), or null
+     */
+    pub fn cookie(string $name): ?string {
+        return #cookies[$name] ?? null;
+    }
+
+    /**
+     * Take the cookie $name away, as a browser does when its site's data is cleared
+     */
+    pub fn forget(string $name) {
+        if (has_key(#cookies, $name)) {
+            delete #cookies[$name];
+        }
+    }
+
+    /**
+     * The session the kept session cookie holds, read as http::sessions() reads it with $secret
+     * (its "csrf_token" is the one a form must carry), or {} if there is none
+     */
+    pub fn session(string $secret): map {
+        return http::session({"headers" => {"cookie" => #cookie_header()}}, $secret);
+    }
+
+    // The response's bytes, as http::serve() writes them for this request's bytes
+    fn exchange(string $text): string {
+        $address = #options["remote_address"];
+        $answer = answer(Reader(null, $text), null, #handler, $address, #server_options, false);
+
+        return $answer[0];
+    }
+
+    // $headers, checked and lower-cased, with what a browser sends without being asked
+    fn headers_for(map $headers, string $body): map {
+        $given = {};
+        foreach ($headers as $name => $value) {
+            $given[lower($name)] = checked_header($name, $value);
+        }
+        $sent = {"host" => #options["host"]};
+        if (len(#cookies) > 0) {
+            $sent["cookie"] = #cookie_header();
+        }
+        if ($body != "" && !has_key($given, "transfer-encoding")) {
+            $sent["content-length"] = to_string(len($body));
+        }
+
+        return {...$sent, ...$given};
+    }
+
+    fn cookie_header(): string {
+        $pairs = map(keys(#cookies), $name -> $name .. "=" .. #cookies[$name]);
+
+        return join($pairs, "; ");
+    }
+
+    // Each Set-Cookie line of a response's head kept, or forgotten if it has expired
+    fn keep_cookies(string $bytes) {
+        $head = slice($bytes, 0, index_of($bytes, "\r\n\r\n"));
+        foreach (split($head, "\r\n") as $line) {
+            $colon = index_of($line, ":");
+            if ($colon != null && lower(slice($line, 0, $colon)) == "set-cookie") {
+                #keep_cookie(trim(slice($line, $colon + 1)));
+            }
+        }
+    }
+
+    fn keep_cookie(string $value) {
+        $attributes = map(split($value, ";"), trim);
+        $pair = $attributes[0];
+        $equals = index_of($pair, "=");
+        if ($equals == null || $equals == 0) {
+            return;
+        }
+        $name = slice($pair, 0, $equals);
+        if (has_expired(slice($attributes, 1))) {
+            #forget($name);
+            return;
+        }
+        #cookies[$name] = slice($pair, $equals + 1);
+    }
+
+    // A Location as a target on this site, http or https
+    fn target_of(string $location): string {
+        $here = parse_url("http://" .. #options["host"] .. #last_target);
+        $there = parse_url(resolve($here, $location));
+        if ($there["host_header"] != $here["host_header"]) {
+            throw "http::TestClient follows a redirect only to its own site, not to " .. quote($location);
+        }
+
+        return $there["path"];
+    }
+}
+
+/**
+ * The CSRF token in a page's form, as web::csrf_field() writes it, for a test to post back as a
+ * browser would: `$client.post("/todos", {"_csrf" => http::form_token($page), ...})`. $field is
+ * the name http::csrf() was given, "_csrf" unless it said. A page without one is an error.
+ */
+pub fn form_token(map $response, string $field = "_csrf"): string {
+    $before = "<input type=\"hidden\" name=\"$field\" value=\"";
+    $body = $response["body"];
+    $start = index_of($body, $before);
+    if ($start == null) {
+        throw "no CSRF field " .. quote($field) .. " in the page";
+    }
+    $start += len($before);
+
+    return slice($body, $start, index_of($body, "\"", $start) - $start);
+}
+
+// A request as a client writes it: its line, its headers, an empty line and the body
+fn request_text(string $method, string $target, map $headers, string $body): string {
+    $lines = ["$method $target HTTP/1.1"];
+    foreach ($headers as $name => $value) {
+        $lines[] = "$name: $value";
+    }
+
+    return join($lines, "\r\n") .. "\r\n\r\n" .. $body;
+}
+
+fn form_body(map $fields): string {
+    $pairs = map(keys($fields), $name -> url_encode($name) .. "=" .. url_encode(to_string($fields[$name])));
+
+    return join($pairs, "&");
+}
+
+// Whether a Set-Cookie's attributes say the cookie is gone: a Max-Age of 0 or less
+fn has_expired(list $attributes): bool {
+    foreach ($attributes as $attribute) {
+        $equals = index_of($attribute, "=");
+        if ($equals != null && lower(slice($attribute, 0, $equals)) == "max-age") {
+            return to_int(slice($attribute, $equals + 1), 1) <= 0;
+        }
+    }
+
+    return false;
 }

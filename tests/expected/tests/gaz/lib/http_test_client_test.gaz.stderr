@@ -1,0 +1,1 @@
+http::serve: GET /broken: the handler raised 42
