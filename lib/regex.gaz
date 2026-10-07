@@ -18,10 +18,14 @@
  * error, so "\q" can't quietly mean "q". In a double-quoted string each "\" is written "\\";
  * a single-quoted one keeps it as it is: '\d+\.\d+'.
  *
+ * No counted repetition: "{" and "}" are literal bytes, so regex::matches("a{3}", "a{3}") is
+ * true and regex::matches("aaa", "a{3}") false.
+ *
  * Which match is found is the leftmost, and of those the one the greedy repetitions and the
  * earlier alternatives give. No backreferences, no lookahead: patterns compile to a Thompson
  * NFA (Pike's VM, each thread carrying where its groups started and ended; plain GazLang) and
  * run in time linear in the string for a given pattern, so there is no catastrophic backtracking.
+ * The time is also proportional to the pattern's size, so cap the length of an untrusted pattern.
  */
 namespace regex;
 

@@ -57,9 +57,11 @@ Both work on SQLite and PostgreSQL, and you can write your own tags: any functio
 ### Regular expressions that can't hang
 
 `regex.gaz` runs a pattern as a Thompson NFA, one pass over the input however the pattern is
-written, so there is no backtracking and no catastrophic case: a pattern from a user, a config
-file or a request can't take your server down. This is the textbook one, on the input that makes
-a backtracking engine run for longer than you'll wait:
+written, so there is no backtracking and no catastrophic case: for a given pattern, time grows in
+step with the input. It also grows with the pattern's size, and the engine is GazLang the VM runs,
+so a pattern of thousands of terms over a few kilobytes takes seconds: cap the length of a pattern
+that comes from a user or a request. This is the textbook case, on the input that makes a
+backtracking engine run for longer than you'll wait:
 
 ```gaz
 import "std/regex.gaz";
@@ -72,8 +74,9 @@ echo regex::matches($input, "(a+)+$");
 false
 ```
 
-It answers at once, and the price is stated: no backreferences, and no `\d`/`\w` shorthands
-(`std/chars.gaz` has those as functions). The match is the leftmost, repetition is greedy, and the
+It answers at once, and the price is stated: no backreferences, and `{n}` and `{n,m}` aren't
+repetition, so braces are literal (`regex::matches("a{3}", "a{3}")` is true and
+`regex::matches("aaa", "a{3}")` false). The match is the leftmost, repetition is greedy, and the
 first alternative that matches wins.
 
 ### A terminal program you can run without a terminal

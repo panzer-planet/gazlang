@@ -306,7 +306,8 @@ behind them:
   `_` too, as every dialect's does and a name is made of. A shorthand can't end a range
   (`[\d-z]`), being a set. **An escaped letter or digit is a shorthand, `\t`/`\n`/`\r`, or an
   error**, so `\q` (or a future `\b`) can't quietly mean a letter; any other byte escaped is
-  itself. **`$N` in a replacement reads every digit that follows** (`$10` is group 10), and a
+  itself. **Braces are literal**, not counted repetition, so `a{3}` matches the text `a{3}` and
+  not `aaa`. **`$N` in a replacement reads every digit that follows** (`$10` is group 10), and a
   group the pattern hasn't got is an error, so `$1` and then a `0` is the function form's; a `$`
   before anything but a digit or `$` is an error, never a literal. The replacement is read and
   checked once, before the first match. **`$with` may be a function** of the match's groups (as
