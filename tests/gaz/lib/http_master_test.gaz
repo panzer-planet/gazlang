@@ -1,0 +1,48 @@
+/*
+ * worker_accept() and worker_release() outside workers(): false, since in a single process nobody
+ * reads heads for it, which is how http::serve() knows to accept its own connections. What they
+ * refuse, they refuse here too. A worker's side is tests/gaz/workers/handed_test.gaz, the master's
+ * HttpServerTest.
+ */
+import "std/test.gaz" use expect, throws;
+
+const RULE = {
+    "ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536, "within" => 10,
+    "idle" => 5, "max_connections" => 1024, "timeout" => 10,
+};
+
+// RULE with one key changed
+fn rule_with($key, $value) {
+    $rule = RULE;
+    $rule[$key] = $value;
+    return $rule;
+}
+
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$served = socket_accept($listener, 5);
+expect("worker_accept() outside a worker is false", worker_accept($listener, RULE), false);
+expect("worker_release() too", worker_release($served, ""), false);
+socket_write($client, "still open");
+expect("and the connection is left alone", socket_read($served), "still open");
+
+$missing = RULE;
+delete $missing["ready"];
+throws("a rule without a key", () -> worker_accept($listener, $missing), "worker_accept()'s rule has no \"ready\"");
+throws("a key it has no use for", () -> worker_accept($listener, rule_with("body", 1)), "worker_accept()'s rule has no use for \"body\"");
+throws("an empty delimiter", () -> worker_accept($listener, rule_with("ready", "")), "worker_accept() expects the rule's \"ready\" to be a string of 1 to 16 bytes");
+throws("a cap of 0", () -> worker_accept($listener, rule_with("most", 0)), "worker_accept() expects the rule's \"most\" to be an int from 1 to 65536");
+throws("a float count", () -> worker_accept($listener, rule_with("max_connections", 1.5)), "worker_accept() expects the rule's \"max_connections\" to be an int from 1 to 1000000");
+throws("a cap past what a channel holds", () -> worker_accept($listener, rule_with("most", 65537)), "worker_accept() expects the rule's \"most\" to be an int from 1 to 65536");
+throws("no time at all", () -> worker_accept($listener, rule_with("within", 0)), "worker_accept() expects the rule's \"within\" to be seconds above 0");
+throws("a rule not a map", () -> worker_accept($listener, []), "worker_accept() expects map, got list");
+throws("a connection to accept on", () -> worker_accept($served, RULE), "worker_accept() expects a listening socket, got a connection");
+throws("a listener to release", () -> worker_release($listener, ""), "worker_release() on a listening socket: it takes the connection worker_accept() gave");
+throws("bytes not a string", () -> worker_release($served, 1), "worker_release() expects string or null, got int");
+throws("a count not an int", () -> worker_release($served, "", "1"), "worker_release() expects int, got string");
+throws("a count below 0", () -> worker_release($served, "", -1), "worker_release() expects 0 to 4294967295 requests served, got -1");
+socket_close($served);
+throws("a closed socket", () -> worker_release($served, null), "worker_release() on a closed socket");
+socket_close($listener);
+throws("a closed listener", () -> worker_accept($listener, RULE), "worker_accept() on a closed socket");
+socket_close($client);

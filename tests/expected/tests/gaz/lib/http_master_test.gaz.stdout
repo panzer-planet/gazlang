@@ -1,0 +1,18 @@
+ok worker_accept() outside a worker is false
+ok worker_release() too
+ok and the connection is left alone
+ok a rule without a key
+ok a key it has no use for
+ok an empty delimiter
+ok a cap of 0
+ok a float count
+ok a cap past what a channel holds
+ok no time at all
+ok a rule not a map
+ok a connection to accept on
+ok a listener to release
+ok bytes not a string
+ok a count not an int
+ok a count below 0
+ok a closed socket
+ok a closed listener

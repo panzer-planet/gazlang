@@ -116,7 +116,7 @@ composer ci                         # what CI runs, cold: phpstan with no result
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()`, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes, `siphash.c` the hash behind every map.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()` and its master reading request heads, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes, `siphash.c` the hash behind every map.
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -464,7 +464,7 @@ one on the roadmap goes on the Roadmap issue's checklist too.
     `--shrink FILE`. A try costs about 0.1s of the sanitized build's start-up, whatever the
     program, which is why shrinking takes the time, not the run.
   - **Nothing opens a socket, starts a program, exits, waits or writes a file**: a program naming
-    `run`, `exit`, `workers`, `worker_recycle`, `worker_deadline`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
+    `run`, `exit`, `workers`, `worker_recycle`, `worker_retire`, `worker_deadline`, `worker_accept`, `worker_release`, `write_file`, `read_stdin` (or `read_stdin_bytes`),
     `read_line`, `sleep`, `getenv`, a directory builtin, `rename_file`, `chmod`, `symlink`, `readlink`,
     `sync_dir`, `set_mtime`, `chdir`, a `term_` builtin, a `file_` builtin
     (`/dev/stdin` waits and `/dev/zero` never ends) or a `socket_` builtin is skipped (`getenv` since what it gives isn't the seed's; `worker_recycle` and `worker_deadline` since each ends the process by an unhandled signal, which prints no `GAZVM_STATS` line and would fail the harness for a reason that isn't a bug), an imported
@@ -475,8 +475,9 @@ one on the roadmap goes on the Roadmap issue's checklist too.
     mutant imports is the files its bytecode's `@` lines name (as `gaz --watch` finds them, from
     an unsanitized `gaz -c`), not a regex following import lines.
 - **Before changing `lib/http.gaz` or `vm/workers.c`, read `docs/http.md`**: the HTTP client and
-  server (prefork `workers()` processes, keep-alive and the idle connection's yield, the worker
-  hand-over, decoding, routing, sessions, middleware) and the rules each keeps, such as refusing
+  server (prefork `workers()` processes, the master reading request heads and handing workers
+  whole ones, keep-alive and the single process's idle yield, the worker hand-over, decoding,
+  routing, sessions, middleware) and the rules each keeps, such as refusing
   both `Content-Length` and `Transfer-Encoding`, and a handle made before `workers()` being
   abandoned, never closed, by the processes that inherit it.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in

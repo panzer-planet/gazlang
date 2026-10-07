@@ -127,6 +127,7 @@ snippet:225cbff29c1f
 snippet:230995788e8c
 snippet:235bf639ae5e
 snippet:238601630787
+snippet:238f10c9007d
 snippet:23adbaa8df3e
 snippet:23e9eff36bdb
 snippet:23efb2d632ad
@@ -217,6 +218,7 @@ snippet:3e988168a50b
 snippet:3f523d72d93e
 snippet:3f7690432a3f
 snippet:3f99ffb80574
+snippet:402fb3abf887
 snippet:4042651c5e33
 snippet:40a59a6bb642
 snippet:40af1e6a7795
@@ -1195,6 +1197,8 @@ tests/gaz/lib/http_client_address_test.gaz
 tests/gaz/lib/http_connection_test.gaz
 tests/gaz/lib/http_deadline_test.gaz
 tests/gaz/lib/http_decode_test.gaz
+tests/gaz/lib/http_holds_head_test.gaz
+tests/gaz/lib/http_master_test.gaz
 tests/gaz/lib/http_multipart_test.gaz
 tests/gaz/lib/http_redirect_test.gaz
 tests/gaz/lib/http_remote_address_test.gaz
@@ -1256,6 +1260,7 @@ tests/gaz/templates/templates_test.gaz
 tests/gaz/templates/views/shop.gaz
 tests/gaz/templates/web_html_test.gaz
 tests/gaz/workers/chdir_test.gaz
+tests/gaz/workers/handed_test.gaz
 tests/gaz/workers/inherited_test.gaz
 tests/gaz/workers/inherited_writer_test.gaz
 tests/gaz/workers/retire_grace_test.gaz

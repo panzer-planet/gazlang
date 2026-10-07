@@ -249,12 +249,13 @@ kind Reader {
 
     /*
      * Give the message about to be read until $deadline, a monotonic_time(), and its head (up to
-     * its blank line) until $head_deadline, which is no later
+     * its blank line) until $head_deadline, which is no later. $heard_at is when its first byte
+     * came, if that was before this reader had it (the master read it: see handed_request()).
      */
-    pub fn start($head_deadline, $deadline) {
+    pub fn start($head_deadline, $deadline, $heard_at = null) {
         #deadline = $head_deadline;
         #message_deadline = $deadline;
-        #heard_at = #data == "" ? null : monotonic_time();
+        #heard_at = $heard_at ?? (#data == "" ? null : monotonic_time());
     }
 
     // The head is in: the rest of the message has until the whole message's deadline
@@ -274,6 +275,33 @@ kind Reader {
     // Whether anything has been read but not taken
     pub fn pending() {
         return #data != "";
+    }
+
+    // What has been read but not taken: the start of whatever comes next
+    pub fn unread() {
+        return #data;
+    }
+
+    /*
+     * Whether what has been read settles the next head without reading more: it is whole (after up
+     * to $skips empty lines, its end within $most bytes), or it runs past $most bytes without one,
+     * which read_request() refuses. It must agree with the master's head_state() in
+     * vm/workers.c, which reads a head by master_rule() so too: a worker keeps only what the master
+     * would hand straight back, and gives the rest back. Tested by http_holds_head_test.gaz.
+     */
+    pub fn holds_head($skips, $most) {
+        $at = 0;
+        for ($skipped = 0; $skipped < $skips; $skipped++) {
+            if (len(#data) - $at < 2) {
+                return false;
+            }
+            if (slice(#data, $at, $at + 2) != "\r\n") {
+                break;
+            }
+            $at += 2;
+        }
+        $end = index_of(#data, "\r\n\r\n", $at);
+        return ($end != null && $end - $at <= $most) || len(#data) - $at > $most;
     }
 
     // Whether any byte of the message being read has come, since start()
@@ -531,10 +559,11 @@ const REASONS = {
 const SERVER_OPTIONS = {
     "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
     "idle_timeout" => 5, "requests_per_connection" => 100, "access_log" => true,
-    "handler_timeout" => 10, "header_timeout" => 10,
+    "handler_timeout" => 10, "header_timeout" => 10, "max_connections" => 1024,
 };
 const LONGEST_HANDLER_TIMEOUT = 100000000;   // seconds, worker_deadline()'s own ceiling: three years
 const MAX_EMPTY_LINES = 4;  // skipped before a request line, as RFC 9112 asks; more is a 400
+const MOST_CONNECTIONS = 1000000;   // max_connections' ceiling, worker_accept()'s own
 const YIELD_GRACE = 0.01;    // seconds an idle connection's client has before its worker gives way
 const TURN = 0.05;           // seconds a connection keeps its worker from a waiting client, at least
 const HOT_GAP = 0.005;       // a client that asks again within this of a response is kept on
@@ -600,10 +629,14 @@ kind Refusal extends Error {
  *   HTTP/1.0 or says Connection: close, it was refused or the handler failed (the bytes after it
  *   can't be trusted to start a request), the handler asked to close, or it was the connection's
  *   "requests_per_connection"th, the worker's last before "max_requests", one while it retires
- *   (see serve()), or one handed over to a client waiting for a worker (see Turns). Up to four
- *   empty lines before a request line are skipped. A connection that sends nothing, before its
- *   first request or between two, is closed without a word once its wait is over, or sooner when a
- *   new client is waiting for a worker (see another_request()).
+ *   (see serve()), or, in a single process, one handed over to a client waiting (see Turns). Up
+ *   to four empty lines before a request line are skipped. A connection that sends nothing, before
+ *   its first request or between two, is closed without a word once its wait is over (in a single
+ *   process sooner, when a new client is waiting: see another_request()).
+ * - With workers() first, the master reads each request's line and headers, for every connection
+ *   at once, and hands a worker the connection only once they are in, and a kept-open connection
+ *   goes back to it between requests (see workers() and worker_accept()): a client sending its
+ *   headers slowly, or keeping a connection open with nothing to say, holds no worker.
  * - Options: "timeout", seconds each read and write may wait, and a connection's first request
  *   (10); "request_timeout", seconds a whole request may take to arrive (30), after which it is
  *   answered 408, so a client trickling a byte at a time can't hold a worker; "header_timeout",
@@ -612,7 +645,10 @@ kind Refusal extends Error {
  *   "request_timeout"; both start when a connection is taken for its first request, and when a
  *   later request's first byte comes; "max_body", in bytes
  *   (1MB); "idle_timeout", seconds to wait for a connection's next request (5);
- *   "requests_per_connection" (100; 1 never keeps one open); "max_requests" (see serve());
+ *   "requests_per_connection" (100; 1 never keeps one open); "max_connections", how many may be
+ *   open at once under workers(), waiting in the master or being answered (1024, at most 1000000,
+ *   lowered with a line on standard error if the open file limit leaves less room; past it new
+ *   ones wait in the system's queue); "max_requests" (see serve());
  *   "access_log", true for a line on standard error for each request answered (see
  *   access_line()), false for none; and "handler_timeout", seconds the handler may take (10, at most
  *   100000000, null for no limit), after which the client is answered 503 and the worker ends, for
@@ -622,45 +658,158 @@ kind Refusal extends Error {
  * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
  *   is answered.
  * - In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy): a
- *   worker answers one connection at a time, so without one, each client sending slowly holds a
- *   worker for up to "header_timeout", or "request_timeout" with a body. TLS is the proxy's job too.
+ *   worker reads a request's body itself, so without one, each client sending a body slowly holds
+ *   a worker for up to "request_timeout", and in a single process one slow client holds the
+ *   server. TLS is the proxy's job too.
  * - ponytail: writing the response has only the per-write timeout.
  */
 pub fn serve($listener, $handler, $options = {}) {
     $options = server_options($options);
-    // PHP-FPM's pm.max_requests: retiring a worker after N requests throws away whatever state it
-    // built up over its life, belt and suspenders next to the process boundary between workers
-    $max_requests = $options["max_requests"];
-    /*
-     * Requests answered, not connections accepted: a connection may carry more than one request
-     * once it is kept open, and a limit on requests is what retiring a worker is about. A
-     * connection that closes before asking anything counts for nothing.
-     */
-    $served = 0;
-    /*
-     * Once it has answered that many, a worker retires by handing over (worker_retire()): it serves
-     * on, a request to a connection so it can leave at any moment, until its replacement is ready
-     * and it is asked to stop, and then recycles. Outside workers() there is no one to hand over
-     * to, and it recycles at once.
-     */
-    $retiring = false;
+    $lifetime = Lifetime($options["max_requests"]);
+    $rule = master_rule($options);
+    // Under workers() the master reads each request's head, and hands this worker a whole one
+    $taken = worker_accept($listener, $rule);
+    if ($taken == false) {
+        serve_alone($listener, $handler, $options, $lifetime);
+        return;
+    }
+    // Null once the worker is asked to stop: the request in hand has been answered
+    while ($taken != null) {
+        $lifetime.answered(handed_request($taken, $handler, $options, $lifetime.left()));
+        $taken = worker_accept($listener, $rule);
+    }
+    $lifetime.end();
+}
+
+/*
+ * What the master waits for before it hands a worker a connection (see worker_accept()): the end
+ * of a request's head, after up to MAX_EMPTY_LINES empty lines, within MAX_HEAD bytes and the
+ * head's time. These are read_request()'s own rules, so the master hands over exactly the heads it
+ * reads without waiting, and those it refuses.
+ */
+fn master_rule($options) {
+    return {
+        "ready" => "\r\n\r\n",
+        "skip" => "\r\n",
+        "skip_most" => MAX_EMPTY_LINES,
+        "most" => MAX_HEAD,
+        "within" => $options["header_timeout"] ?? $options["request_timeout"],
+        "idle" => $options["idle_timeout"],
+        "max_connections" => $options["max_connections"],
+        "timeout" => $options["timeout"],
+    };
+}
+
+/*
+ * A server in one process (no workers(), or gaz -S): it accepts its own connections and reads its
+ * own requests, sharing itself between a kept-open connection and the clients waiting on its
+ * listener (see Turns)
+ */
+fn serve_alone($listener, $handler, $options, $lifetime) {
     $turns = Turns($listener);
-    // Null once a worker is asked to stop: the request in hand has been answered
     while (($socket = socket_accept($listener, $options["timeout"])) != null) {
-        $left = $max_requests == null ? null : $max_requests - $served;
-        if ($retiring) {
-            $left = 1;
+        $lifetime.answered(connection($socket, $turns, $handler, $options, $lifetime.left()));
+    }
+    $lifetime.end();
+}
+
+/*
+ * How many requests a worker may still answer ("max_requests", PHP-FPM's pm.max_requests):
+ * retiring a worker after N requests throws away whatever state it built up over its life, belt
+ * and suspenders next to the process boundary between workers. Requests answered, not connections
+ * accepted: a connection may carry more than one request once it is kept open, and a limit on
+ * requests is what retiring a worker is about; a connection that closes before asking anything
+ * counts for nothing.
+ *
+ * Once it has answered that many, a worker retires by handing over (worker_retire()): it serves on,
+ * a request to a connection so it can leave at any moment, until its replacement is ready and it
+ * is asked to stop, and then recycles. Outside workers() there is no one to hand over to, and it
+ * recycles at once.
+ */
+kind Lifetime {
+    #served = 0;
+    #retiring = false;
+
+    fn _(#max_requests) {
+    }
+
+    // How many more requests it may answer, or null for no limit
+    pub fn left() {
+        if (#retiring) {
+            return 1;
         }
-        $served += connection($socket, $turns, $handler, $options, $left);
-        if (!$retiring && $max_requests != null && $served >= $max_requests) {
-            $retiring = true;
-            if (!worker_retire()) {
-                worker_recycle();
-            }
+        return #max_requests == null ? null : #max_requests - #served;
+    }
+
+    pub fn answered($count) {
+        #served += $count;
+        if (#retiring || #max_requests == null || #served < #max_requests) {
+            return;
+        }
+        #retiring = true;
+        if (!worker_retire()) {
+            worker_recycle();
         }
     }
-    if ($retiring) {
-        worker_recycle();
+
+    // Asked to stop: a worker that was retiring recycles now
+    pub fn end() {
+        if (#retiring) {
+            worker_recycle();
+        }
+    }
+}
+
+/*
+ * A connection the master handed this worker (worker_accept()'s [$socket, $bytes, $state, $served,
+ * $first_byte_at]): its request read, from the bytes the master read on, and answered, and so is
+ * every request after it already whole in what has been read (pipelined), so their responses come
+ * from one worker in order; then the connection is given back to the master to wait for its next
+ * request, with what was read past them, or closed. Gives how many requests were answered.
+ *
+ * $state says why the master handed it over: "complete", a whole head; "too_large" and "closed",
+ * which the reader refuses from the bytes and the socket's end as it would anyway; and
+ * "timed_out", the head's time having run out in the master. $served is how many requests the
+ * connection has had answered before, for "requests_per_connection", and $left how many more this
+ * worker may answer.
+ */
+fn handed_request($taken, $handler, $options, $left) {
+    [$socket, $bytes, $state, $served, $first_byte_at] = $taken;
+    // Given back with the connection; null closes it
+    $unread = null;
+    $answered = 0;
+    try {
+        $reader = Reader($socket, $bytes);
+        $address = remote_address($socket);
+        $deadline = $first_byte_at + $options["request_timeout"];
+        // A head whose time ran out reads past a deadline already gone, which is a 408
+        $reader.start($state == "timed_out" ? 0 : $deadline, $deadline, $first_byte_at);
+        while (true) {
+            $line = RequestLine();
+            // The connection's last by its count, or this worker's last before it retires
+            $connection_ends = $served + $answered + 1 >= $options["requests_per_connection"];
+            $last = $connection_ends || $left != null && $answered + 1 >= $left;
+            $answer = answer($reader, $socket, $handler, $address, $options, $last, $line);
+            if ($answer == null) {
+                return $answered;
+            }
+            [$response, $keep] = $answer;
+            $answered++;
+            $sent = send_quietly($socket, $response);
+            log_answer($options, $line, $address, $response, $reader);
+            if (!$sent || !$keep) {
+                return $answered;
+            }
+            // The empty line some clients send after a body is not a request coming
+            $reader.drop_empty_lines(MAX_EMPTY_LINES);
+            if (!$reader.holds_head(MAX_EMPTY_LINES, MAX_HEAD)) {
+                $unread = $reader.unread();
+                return $answered;
+            }
+            start_reading($reader, $options);
+        }
+    } finally {
+        worker_release($socket, $unread, $served + $answered);
     }
 }
 
@@ -693,6 +842,7 @@ fn connection($socket, $turns, $handler, $options, $left) {
             }
             $last = $answered + 1 == $most || $turns.hands_over($accepted);
             $line = RequestLine();
+            start_reading($reader, $options);
             $answer = answer($reader, $socket, $handler, $address, $options, $last, $line);
             if ($answer == null) {
                 break;
@@ -700,12 +850,7 @@ fn connection($socket, $turns, $handler, $options, $left) {
             [$bytes, $keep] = $answer;
             $answered++;
             $sent = send_quietly($socket, $bytes);
-            if ($options["access_log"]) {
-                // From the request's first byte, so a wait before it counts for no request
-                $seconds = monotonic_time() - $reader.first_byte_at();
-                // One print_error(), which is one write, so lines from several workers never mix
-                print_error(access_line($line, $address, $bytes, $seconds, LogClock::now()) .. "\n");
-            }
+            log_answer($options, $line, $address, $bytes, $reader);
             if (!$sent) {
                 break;
             }
@@ -716,9 +861,20 @@ fn connection($socket, $turns, $handler, $options, $left) {
     return $answered;
 }
 
+// The access log's line for a request answered, if the log is on
+fn log_answer($options, $line, $address, $bytes, $reader) {
+    if (!$options["access_log"]) {
+        return;
+    }
+    // From the request's first byte, so a wait before it counts for no request
+    $seconds = monotonic_time() - $reader.first_byte_at();
+    // One print_error(), which is one write, so lines from several workers never mix
+    print_error(access_line($line, $address, $bytes, $seconds, LogClock::now()) .. "\n");
+}
+
 /*
- * Whether a kept-open connection has another request coming: one already read in part (pipelined)
- * is answered at once, and otherwise the wait is "idle_timeout", or less if the worker is asked to
+ * Whether a kept-open connection has another request coming, in a single process (under workers()
+ * the master waits for it): one already read in part (pipelined) is answered at once, and otherwise the wait is "idle_timeout", or less if the worker is asked to
  * stop, which socket_wait() notices within a second.
  *
  * An idle connection would hold a whole worker, so the worker watches its listener too, and gives
@@ -786,8 +942,9 @@ fn another_request($reader, $socket, $turns, $options) {
 }
 
 /*
- * How a worker shares itself between the connection it keeps open and the clients waiting on its
- * listener for a worker (none for handle(), which has no listener). A worker answers one connection
+ * How a single process (serve_alone(); under workers() the master holds idle connections) shares
+ * itself between the connection it keeps open and the clients waiting on its listener (none for
+ * handle(), which has no listener). A worker answers one connection
  * at a time, so a kept-open connection keeps every waiting client out until it closes, and the
  * only moment to close it that races with nothing is a response, which can say Connection: close.
  * So that is where it is given up (hands_over()) when a client is waiting and it has had a TURN,
@@ -841,11 +998,10 @@ kind Turns {
 /*
  * The next request on a connection read and answered: [the response's bytes, whether to keep
  * the connection open for another], or null if it closed, or went quiet, before asking anything.
- * $last says the connection closes after this one whatever the request says, and $line is given
+ * The reader's deadlines are set already (start_reading(), or handed_request()). $last says the connection closes after this one whatever the request says, and $line is given
  * the request's method and target for the access log once they are read.
  */
 fn answer($reader, $socket, $handler, $address, $options, $last, $line = RequestLine()) {
-    start_reading($reader, $options);
     try {
         $read = read_request($reader, $socket, $address, $options["max_body"], $line);
     } catch (Error $e) {
@@ -882,10 +1038,11 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
 }
 
 /*
- * The request's deadlines, from now: when answer() starts, which is when the connection is taken
- * for its first request and when the next one's first byte is seen (or the response before it is
- * written, if it was already read) for the rest, since the wait between requests is idle_timeout's.
- * The head has "header_timeout", the whole request "request_timeout".
+ * The request's deadlines, from now, for a connection this process accepted: when the connection
+ * is taken for its first request, and when the next one's first byte is seen (or the response
+ * before it is written, if it was already read) for the rest, since the wait between requests is
+ * idle_timeout's. The head has "header_timeout", the whole request "request_timeout". Under
+ * workers() the master keeps the head's and the idle times, and handed_request() sets the rest.
  */
 fn start_reading($reader, $options) {
     $now = monotonic_time();
@@ -970,6 +1127,10 @@ fn server_options($given) {
     $most = $options["requests_per_connection"];
     if (type_of($most) != "int" || $most < 1) {
         throw "http::serve() expects a requests_per_connection of 1 or more, got " .. quote($most);
+    }
+    $connections = $options["max_connections"];
+    if (type_of($connections) != "int" || $connections < 1 || $connections > MOST_CONNECTIONS) {
+        throw "http::serve() expects a max_connections from 1 to " .. MOST_CONNECTIONS .. ", got " .. quote($connections);
     }
     if (type_of($options["access_log"]) != "bool") {
         throw "http::serve() expects an access_log of true or false, got " .. quote($options["access_log"]);
@@ -3025,7 +3186,9 @@ pub kind TestClient {
     // The response's bytes, as http::serve() writes them for this request's bytes
     fn exchange(string $text): string {
         $address = #options["remote_address"];
-        $answer = answer(Reader(null, $text), null, #handler, $address, #server_options, false);
+        $reader = Reader(null, $text);
+        start_reading($reader, #server_options);
+        $answer = answer($reader, null, #handler, $address, #server_options, false);
 
         return $answer[0];
     }

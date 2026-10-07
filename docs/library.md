@@ -98,8 +98,16 @@ own](http.md).
   spelling differs between systems; checked against Python's `ipaddress` on 295 addresses
   (`tests/IpTextTest.php`, on its own so no network is needed) and by
   `tests/gaz/sockets/peer_test.gaz`. `workers($n)` is `workers.c` (see [HTTP](http.md#serving-prefork-workers)); the fuzzer
-  skips it with the socket builtins, and `worker_recycle()`, `worker_retire()` and
-  `worker_deadline()` too. `worker_deadline()` is the handler's deadline's (see [HTTP](http.md#the-handlers-deadline)):
+  skips it with the socket builtins, and `worker_recycle()`, `worker_retire()`,
+  `worker_deadline()`, `worker_accept()` and `worker_release()` too. `worker_accept()` and
+  `worker_release()` are the worker's side of the master reading request heads (see
+  [HTTP](http.md#the-master-reads-request-heads)): builtins, not a library over sockets, since the
+  master is C that no GazLang runs in, and a connection reaches a worker as a descriptor passed over
+  its channel, which `net_adopt()` in `net.c` makes a socket as `socket_accept()` would. Both give
+  `false` outside a worker, as `worker_retire()` does, so `http::serve()` branches once, and both
+  check their arguments there too (the rule's every key, a listener, a connection of this
+  process's), tested by `tests/gaz/lib/http_master_test.gaz`; inside one by
+  `tests/gaz/workers/handed_test.gaz`. `worker_deadline()` is the handler's deadline's (see [HTTP](http.md#the-handlers-deadline)):
   a SIGALRM timer whose handler writes what it was given and ends the worker, a no-op giving `false`
   outside a worker, since a single process has nobody to start another; it still checks its socket
   (open, a connection, plain TCP, this process's) and seconds there. `HttpTest` trusts `tests/fixtures/tls/` through

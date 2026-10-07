@@ -1,0 +1,11 @@
+ok a whole head
+ok its end split across reads, before the last byte
+ok and with it
+ok four empty lines skipped, then a head
+ok a fifth is left for the reader to refuse, and settles it
+ok an empty line split across reads
+ok past the cap without an end, which the reader refuses
+ok at the cap without an end
+ok just short of it
+ok an end past the cap is past the cap
+ok nothing

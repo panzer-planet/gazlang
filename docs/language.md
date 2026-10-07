@@ -1513,6 +1513,8 @@ or the other.
 | `worker_recycle()` | Ends this worker on purpose; the master replaces it, keeping the pool `$count` wide |
 | `worker_retire()` | Asks for this worker's replacement now, and serves on until it is ready; `true`, or `false` outside a worker |
 | `worker_deadline($socket, $seconds, $answer = "", $line = "")` | Ends this worker in `$seconds` unless asked again first, writing `$answer` to `$socket` and `$line` to standard error; 0 or `null` seconds clears it; `true`, or `false` outside a worker |
+| `worker_accept($listener, $rule)` | The next connection the master hands this worker once its request's head is in, as `[$socket, $bytes, $state, $served, $first_byte_at]`; `null` once asked to stop, `false` outside a worker |
+| `worker_release($socket, $bytes, $served = 0)` | Gives a connection `worker_accept()` gave back to the master, with `$bytes` read past its requests and how many it has had answered, or closes it with `null`; `true`, or `false` outside a worker |
 
 `workers($count)` turns the program into `$count` processes from that point on, each
 carrying on with a copy of everything, for a server that answers more than one request at a time
@@ -1521,7 +1523,7 @@ process that called it never returns from it, but waits, starts a worker again w
 error or a signal, and ends once every worker has ended with code 0. A worker that fails within a
 second of starting, before it has accepted a connection, is a program that can't start: the rest are
 stopped and the program exits with its code. SIGTERM or SIGHUP stops them gracefully: each worker's
-`socket_accept()` gives `null`, so `http::serve()` returns once the request in hand is answered and
+`socket_accept()` or `worker_accept()` gives `null`, so `http::serve()` returns once the request in hand is answered and
 the program ends, and a worker still running after 10 seconds is killed. Ctrl-C reaches the workers
 too and ends them at once. A signal the program was started ignoring stays ignored (`nohup` ignores
 SIGHUP). Workers share nothing after the call, a
@@ -1555,8 +1557,8 @@ deliberate, not a startup bug.
 `worker_retire()` retires a worker without leaving a gap, which is how `http::serve()`'s
 `max_requests` does it: the master starts the replacement at once, under the same number, while the
 retiring worker carries on serving, and once the replacement waits for connections the retiring
-one is asked to stop as a stop asks every worker, so its `socket_accept()` gives `null` after the
-request in hand; then it calls `worker_recycle()`, or ends however it likes, and isn't replaced
+one is asked to stop as a stop asks every worker, so its `socket_accept()` or `worker_accept()`
+gives `null` after the request in hand; then it calls `worker_recycle()`, or ends however it likes, and isn't replaced
 again (one still running 10 seconds after it was asked is killed, as on a stop). A worker that left first would leave the pool short for as long as the program takes to
 start after `workers()` (connecting to a database, building an app), and empty when every worker
 retires at once, which an evenly spread load makes them do. For that moment two processes have one
@@ -1572,6 +1574,31 @@ finished, and what it printed and hadn't flushed is lost. Outside a worker it do
 `false`, as it does with a `null` socket: in a single process nobody would start another, so the
 deadline needs `workers()`. The socket must be an open, plain connection of this process's (not a
 listener, not TLS), checked in a single process too.
+
+`worker_accept($listener, $rule)` and `worker_release($socket, $bytes, $served)` are how `http::serve()`
+keeps slow clients off its workers: the master accepts every connection on the listener itself,
+reads each one's request head in one process for all of them, and hands a worker the connection,
+with every byte it read, only once the head is whole, so a client sending slowly or a kept-open
+connection with nothing to say holds no worker. The master knows no HTTP: `$rule` tells it what a
+head is, `{"ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536,
+"within" => 10, "idle" => 5, "max_connections" => 1024, "timeout" => 10}`: a head ends with
+`ready`, after up to `skip_most` (at most 1000) of `skip` (each text 1 to 16 bytes), within `most`
+bytes (at most 65536, so what passes between the processes fits their buffers) and `within`
+seconds (from the connection's accept, or from its first byte after an idle wait); a connection
+given back may wait `idle` seconds for its next request; at most `max_connections` are open at
+once (fewer if the open file limit leaves less room); and `timeout` bounds each read and write on
+a connection. The first call gives the master the rule and the listener, every call waits for a
+connection, and every key is required. `$state` says why it was handed over: `"complete"`, a whole
+head; `"too_large"`, `most` bytes with no end; `"timed_out"`, `within` passed after something came;
+`"closed"`, the client closed in the middle of one. A connection that sent nothing is closed by the
+master and never handed over. `$served` is how many requests the connection has had answered,
+which comes back as `worker_release()`'s `$served`, for counting `requests_per_connection`.
+`$first_byte_at` is when the head's first byte came, a `monotonic_time()`. `worker_release()`
+takes only the connection `worker_accept()` last gave, `$bytes` holding no whole head and at most
+the rule's cap (a longer one is the reader's to refuse); it closes this worker's copy either way,
+and asks the master for the next connection, as the `worker_accept()` that should follow it would.
+Once the worker is asked to stop it closes the connection rather than give it back. Outside a
+worker both give `false`, after checking their arguments.
 
 ```gaz
 $listener = socket_listen("0.0.0.0", 8080);
@@ -2111,22 +2138,31 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   `"Connection" => "close"`, in any case, which asks for the connection to close after this
   response); no `Content-Type` unless given. A HEAD request gets the headers without the body; a 204
   or 304 can't have one.
-- A connection stays open for the client's next request, and a worker answers them in turn, in
-  order when several come at once. It closes after a response that says `Connection: close`, which
-  is one to an HTTP/1.0 request or to one that says `Connection: close`, one the server refused or
-  a handler failed (the bytes after it can't be trusted to start a request), one whose handler
-  asked, the connection's `requests_per_connection`th, the worker's last before `max_requests`, any
-  while it retires, and one handed over to a client waiting for a worker (below).
-  It also closes, without a word, when the client sends nothing for `idle_timeout` seconds, or
-  `timeout` before its first request, or the worker is asked to stop. Up to four empty lines before
-  a request line are skipped.
-- Open connections never keep a small pool of workers from serving. When a new client is waiting
-  for a worker, a connection that has had its worker for 50 milliseconds closes after its next
-  response, and an idle one is closed, without a word, once no other worker has taken the new
-  client within 10 to 20 milliseconds (50 if its client had been asking again at once). Closing an
-  idle connection can meet a request its client sends at that very moment, which then gets no
-  response (a browser sends it again; a benchmark counts an error), while a response that says
-  `Connection: close` meets nothing; so for 5 seconds after a worker has had to close an idle
+- A connection stays open for the client's next request, and its requests are answered in turn,
+  in order when several come at once. It closes after a response that says `Connection: close`,
+  which is one to an HTTP/1.0 request or to one that says `Connection: close`, one the server
+  refused or a handler failed (the bytes after it can't be trusted to start a request), one whose
+  handler asked, the connection's `requests_per_connection`th, the worker's last before
+  `max_requests`, and any while it retires (and, in a single process, one handed over to a client
+  waiting, below). It also closes, without a word, when the client sends nothing for
+  `idle_timeout` seconds, or before its first request for `header_timeout`, or the server is asked
+  to stop. Up to four empty lines before a request line are skipped.
+- Under `workers()`, slow and idle clients hold no worker: the process that called `workers()`
+  accepts every connection and reads each request's line and headers itself, for all of them at
+  once, and hands a worker the connection only when they are all in (`worker_accept()`); after the
+  response a kept-open connection goes back to it to wait for the next request. So a client
+  trickling its headers, or a browser keeping six connections open, costs the server nothing but
+  an open connection, and other clients are answered meanwhile. A body is the worker's to read, so
+  a client sending its body slowly still holds a worker, for up to `request_timeout`. At most
+  `max_connections` connections are open at once; past that, new ones wait in the system's queue
+  until one closes.
+- In a single process (`gaz -S`, or no `workers()`), open connections never keep the server from a
+  new client. When one is waiting, a connection that has had its turn for 50 milliseconds closes
+  after its next response, and an idle one is closed, without a word, once nothing else has taken
+  the new client within 10 to 20 milliseconds (50 if its client had been asking again at once).
+  Closing an idle connection can meet a request its client sends at that very moment, which then
+  gets no response (a browser sends it again; a benchmark counts an error), while a response that
+  says `Connection: close` meets nothing; so for 5 seconds after it has had to close an idle
   connection, it closes each connection after its response instead, unless the client asked again
   at once.
 - A request that isn't well formed never reaches the handler: 400 (a bad request line or header
@@ -2169,6 +2205,9 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   `"max_body"` in bytes (1048576);
   `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
   `"requests_per_connection"` (100; 1 closes every connection after its first request);
+  `"max_connections"` (1024, at most 1000000), connections open at once under `workers()`, waiting
+  for a request or being answered (fewer if the open file limit leaves less room, which the server
+  raises as far as it can, saying so on standard error);
   `"access_log"` (true; false writes no access log, the errors still); `"handler_timeout"`,
   seconds the handler may take (10; at most 100000000; `null` for no limit), after which the client is answered `503
   Service Unavailable`, the access log has its line with the deadline as its time, and the worker
@@ -2183,10 +2222,10 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   until its replacement is ready, so a retiring worker never leaves clients waiting for one; then
   `worker_recycle()`. Without `workers()` it calls `worker_recycle()` at once.
 - It returns when its worker is asked to stop, after answering the request in hand.
-- In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy). A
-  worker answers one connection at a time, so without one, each client that sends slowly holds a
-  worker for up to `header_timeout` (or `request_timeout`, once its headers are in), and as many
-  such clients as there are workers hold them all that long.
+- In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy): under
+  `workers()` a client sending its headers slowly holds no worker, but one sending its body slowly
+  holds one for up to `request_timeout`, and as many such clients as there are workers hold them
+  all that long; in a single process one slow client holds the server. TLS is the proxy's job too.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 
 **Dates and times**, with `std/date.gaz`:

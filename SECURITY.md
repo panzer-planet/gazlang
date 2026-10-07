@@ -24,14 +24,15 @@ a fix goes into the next one rather than back into an older one.
 
 These are open already, so they don't need a new report:
 
-- [#65](https://github.com/panzer-planet/gazlang/issues/65): a request handler has no time limit,
-  so even a small regex over a large body can hold a worker for seconds.
 - [#67](https://github.com/panzer-planet/gazlang/issues/67): `web::html` takes the `content` of
   `<meta http-equiv="refresh">` as plain attribute text, not a URL.
-- [#68](https://github.com/panzer-planet/gazlang/issues/68): slow clients can stall a small worker
-  pool. Each holds a worker for at most `header_timeout` (10 seconds) while its request line and
-  headers come, or `request_timeout` (30) with its body. Then a client that sent part of a request
-  is answered 408 (or 400 sooner, if it went quiet for longer than the per-read `timeout`), and one
-  that sent nothing is closed without a word. So as many slow clients as there are workers can
-  hold them all that long. In production, run behind a reverse
-  proxy that buffers whole requests (nginx, Caddy), which keeps slow clients off the workers.
+- [#68](https://github.com/panzer-planet/gazlang/issues/68): a client sending its body slowly
+  holds a worker. Under `workers()` the master reads every request's line and headers itself and
+  hands a worker only a connection whose headers are all in, so slow headers and idle kept-open
+  connections hold no worker (each costs an open connection, at most `max_connections` of them,
+  and slow headers are answered 408 at `header_timeout`). A body is the worker's to read, so a
+  client trickling one holds a worker for up to `request_timeout` (30 seconds), and as many such
+  clients as there are workers can hold them all that long. A single process (`gaz -S`, or no
+  `workers()`) reads its own requests, so there one slow client holds the server. In production,
+  run behind a reverse proxy that buffers whole requests (nginx, Caddy), which keeps slow bodies
+  off the workers.

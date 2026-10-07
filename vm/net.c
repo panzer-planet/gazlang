@@ -272,6 +272,20 @@ bool net_accept(Socket *listener, double timeout, Value *out) {
     return true;
 }
 
+/* A connection accepted for another process (workers.c's master), as socket_accept() would make
+   it: close-on-exec here, and $timeout bounding each read and write, which are the socket's own
+   options and so go with it to the process it is given to */
+void net_prepare(int fd, double timeout) {
+    fcntl(fd, F_SETFD, FD_CLOEXEC);
+    connection_options(fd, to_ms(timeout));
+}
+
+/* A connection this process was given rather than accepted (workers.c's worker_accept()), already
+   net_prepare()d with the same timeout, so no system call is needed */
+Value net_adopt(int fd, double timeout) {
+    return v_socket(socket_new(fd, false, to_ms(timeout)));
+}
+
 /* Seconds on a clock that never goes back, for a deadline */
 static double monotonic_seconds(void) {
     struct timespec t;

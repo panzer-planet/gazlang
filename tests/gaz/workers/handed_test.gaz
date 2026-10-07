@@ -1,0 +1,56 @@
+import "std/test.gaz" use expect;
+
+/*
+ * A worker's side of the master reading heads, without http::serve(): worker_accept() gives the
+ * master the rule and gets a connection with a whole head, worker_release() gives it back to wait
+ * for the next and then closes it. The client is the worker itself, so the order is fixed. A
+ * program of its own, run with run(), since the master never returns from workers().
+ */
+$program = '
+    const RULE = {
+        "ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536, "within" => 10,
+        "idle" => 5, "max_connections" => 8, "timeout" => 5,
+    };
+    $listener = socket_listen("127.0.0.1", 0);
+    $port = socket_port($listener);
+    workers(1);
+    $client = socket_open("127.0.0.1", $port);
+    // A head and the start of the next, all of which the master hands over
+    socket_write($client, "GET /first HTTP/1.1\r\nHost: x\r\n\r\nGET /sec");
+    [$socket, $bytes, $state, $served, $first_byte_at] = worker_accept($listener, RULE);
+    echo [$bytes, $state, $served, type_of($first_byte_at) == "float" && $first_byte_at <= monotonic_time()];
+    try {
+        worker_accept(socket_listen("127.0.0.1", 0), RULE);
+    } catch (Error $e) {
+        echo $e.message;
+    }
+    try {
+        worker_release($client, "");
+    } catch (Error $e) {
+        echo $e.message;
+    }
+    // Back to the master with what was read past the first request, which it waits to see finished,
+    // and the count of requests served on it, which comes back with it
+    echo worker_release($socket, "GET /sec", 1);
+    socket_write($client, "ond HTTP/1.1\r\nHost: x\r\n\r\n");
+    [$socket, $bytes, $state, $served, $first_byte_at] = worker_accept($listener, RULE);
+    echo [$bytes, $state, $served];
+    // Closed: the client sees the end, as nothing else holds the connection
+    echo worker_release($socket, null);
+    echo socket_read($client);
+';
+$result = run([program_path(), "-e", $program]);
+$lines = [
+    "[\"GET /first HTTP/1.1\\r\\nHost: x\\r\\n\\r\\nGET /sec\", \"complete\", 0, true]",
+    "worker_accept() on a second listener: the master reads one listener's connections",
+    "worker_release() takes the connection worker_accept() gave, not another",
+    "true",
+    "[\"GET /second HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n\", \"complete\", 1]",
+    "true",
+    "",
+    "",
+];
+expect("a worker is handed whole heads and gives the connection back between them", $result["stdout"], join($lines, "\n"));
+// Without the leak check's lines, which the harness asks for (GAZVM_STATS) and run() passes on
+$errors = filter(split($result["stderr"], "\n"), $line -> $line != "" && !starts_with($line, "gazvm: "));
+expect("and the master ended cleanly", [$errors, $result["status"]], [[], 0]);

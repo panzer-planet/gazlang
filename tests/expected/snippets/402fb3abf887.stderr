@@ -1,0 +1,4 @@
+Error: http::serve() expects a max_connections from 1 to 1000000, got 0
+  http::server_options at <std>/http.gaz:1133
+  http::serve at <std>/http.gaz:667
+  top level on line 1

@@ -64,7 +64,7 @@ class HttpServerTest extends GazLangTestCase
     }
 
     /**
-     * Start a server of a few lines run with -e, with some workers, http::serve() options, a
+     * Start a server of a few lines run with -e, with some workers (0 for none), http::serve() options, a
      * handler written as GazLang (answering "ok" to everything unless given) and what each worker
      * does before it serves, and give it and its port
      *
@@ -72,8 +72,10 @@ class HttpServerTest extends GazLangTestCase
      */
     private static function startSmallServer(int $workers, string $options, string $handler = '$r -> ({"body" => "ok"})', string $startup = '', string $log = '/dev/null'): array
     {
+        // No workers() for 0: one process, which reads its own requests
+        $pool = $workers === 0 ? 'flush_output();' : "workers({$workers});";
         $code = 'import "std/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
-            ."workers({$workers}); {$startup} http::serve(\$l, {$handler}, {$options});";
+            ."{$pool} {$startup} http::serve(\$l, {$handler}, {$options});";
         $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', $log, 'w']], $pipes, self::ROOT);
         if ($server === false) {
             throw new \RuntimeException('Cannot start a server');
@@ -952,21 +954,17 @@ class HttpServerTest extends GazLangTestCase
 
     public function test_stopping_lets_the_request_in_hand_finish()
     {
-        [$server, $port] = self::startServer(2, '/dev/null');
+        [$server, $port] = self::startSmallServer(2, '{}', self::SLEEPY);
         try {
-            $socket = stream_socket_client("tcp://127.0.0.1:{$port}");
-            $this->assertNotFalse($socket);
-            stream_set_timeout($socket, 5);
-            fwrite($socket, "GET / HTTP/1.1\r\n");
+            $socket = self::connect($port);
+            fwrite($socket, "GET /0.6 HTTP/1.1\r\nHost: x\r\n\r\n");
             usleep(200000);
             proc_terminate($server);
-            usleep(300000);
-            // The busy worker waits for the rest of its request, and answers it
-            fwrite($socket, "Host: x\r\n\r\n");
+            // The busy worker answers its request
             [$seconds, $rest] = self::untilClosed($socket);
             $response = self::response($rest);
             fclose($socket);
-            $this->assertSame(200, $response['status']);
+            $this->assertSame([200, 'ok'], [$response['status'], $response['body']]);
             /*
              * Then the connection closes, though the client didn't ask, without waiting for the
              * idle timeout; the response can't say Connection: close, since nothing tells a worker
@@ -975,11 +973,42 @@ class HttpServerTest extends GazLangTestCase
             $this->assertLessThan(2, $seconds);
             $this->assertArrayNotHasKey('connection', $response['headers']);
 
-            for ($wait = 0; ($status = proc_get_status($server))['running'] && $wait < 100; $wait++) {
-                usleep(50000);
-            }
+            $status = self::ended($server);
             $this->assertSame([false, true, SIGTERM], [$status['running'], $status['signaled'], $status['termsig']]);
             $this->assertFalse(self::listens($port), 'a worker still listens');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_stop_closes_the_connections_the_master_holds_and_refuses_new_ones()
+    {
+        // A slow request keeps the worker, and so the pool, through what is checked here
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}', self::SLEEPY);
+        try {
+            $idle = self::keptOpen($port);
+            $coming = self::connect($port);
+            fwrite($coming, "GET / HTTP/1.1\r\n");
+            $busy = self::connect($port);
+            fwrite($busy, "GET /1.5 HTTP/1.1\r\nHost: x\r\n\r\n");
+            usleep(200000);
+            proc_terminate($server);
+            // A kept-open connection and a head still coming see the end at once, without a word
+            [$seconds, $rest] = self::untilClosed($idle);
+            $this->assertSame('', $rest);
+            $this->assertLessThan(1, $seconds);
+            $this->assertSame('', (string) stream_get_contents($coming));
+            // A new connection is refused rather than queued for a pool that is going away, once
+            // the worker has had a moment to take in that it is to stop
+            usleep(100000);
+            $this->assertFalse(self::listens($port), 'a new connection was taken during the stop');
+            // And the request in hand is answered
+            $this->assertSame(200, self::response(self::readResponse($busy))['status']);
+            foreach ([$idle, $coming, $busy] as $socket) {
+                fclose($socket);
+            }
+            $this->assertFalse(self::ended($server)['running']);
         } finally {
             proc_terminate($server);
             proc_close($server);
@@ -1051,52 +1080,280 @@ class HttpServerTest extends GazLangTestCase
         return $socket;
     }
 
-    public function test_an_idle_connection_gives_its_worker_up_to_a_client_that_would_wait()
+    public function test_kept_open_connections_waiting_for_their_next_request_hold_no_worker()
     {
         // One worker, and an idle timeout far longer than anyone waits here
         [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}');
         try {
-            $idle = self::keptOpen($port);
-            usleep(100000);
-
+            $idle = [];
+            for ($i = 0; $i < 5; $i++) {
+                $idle[] = self::keptOpen($port);
+            }
             $start = microtime(true);
-            $response = self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port));
-            $this->assertSame(200, $response['status']);
+            $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
             $this->assertLessThan(0.5, microtime(true) - $start);
 
-            // The idle connection was closed for it, without a word
-            [$seconds, $rest] = self::untilClosed($idle);
-            fclose($idle);
-            $this->assertSame('', $rest);
+            // Every one of them is still open, and carries its next request
+            foreach ($idle as $socket) {
+                fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($socket));
+                $this->assertSame(200, $response['status']);
+                $this->assertArrayNotHasKey('connection', $response['headers']);
+                fclose($socket);
+            }
         } finally {
             proc_terminate($server);
             proc_close($server);
         }
     }
 
-    public function test_an_idle_connection_stays_open_when_a_free_worker_takes_the_new_client()
+    public function test_the_master_counts_a_connections_requests_whichever_worker_answers()
     {
-        [$server, $port] = self::startSmallServer(2, '{"idle_timeout" => 30}');
+        [$server, $port] = self::startSmallServer(2, '{"requests_per_connection" => 3}');
         try {
-            /*
-             * The free worker has YIELD_GRACE (10ms) to accept the new client before the idle one
-             * gives way: a busy machine can miss that now and then, which is harmless in a server
-             * but not in a test, so one success in three tries is what is asked
-             */
-            $kept = false;
-            for ($try = 0; $try < 3 && ! $kept; $try++) {
-                $idle = self::keptOpen($port);
-                usleep(100000);
-                $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
-                usleep(100000);
-                fwrite($idle, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
-                $kept = str_starts_with((string) stream_get_contents($idle), 'HTTP/1.1 200 OK');
-                fclose($idle);
+            $socket = self::connect($port);
+            $connections = [];
+            for ($i = 0; $i < 3; $i++) {
+                fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($socket));
+                $this->assertSame(200, $response['status']);
+                $connections[] = $response['headers']['connection'] ?? null;
             }
-            $this->assertTrue($kept, 'the idle connection gave way though a free worker took the new client');
+            $this->assertSame([null, null, 'close'], $connections);
+            $this->assertSame('', (string) stream_get_contents($socket));
+            fclose($socket);
         } finally {
             proc_terminate($server);
             proc_close($server);
+        }
+    }
+
+    public function test_pipelined_requests_are_answered_in_order_whole_or_split()
+    {
+        [$server, $port] = self::startSmallServer(2, '{}', '$r -> ({"body" => $r["path"]})');
+        try {
+            $socket = self::connect($port);
+            // Two whole requests and the start of a third, whose head the master waits for
+            fwrite($socket, "GET /a HTTP/1.1\r\nHost: x\r\n\r\nGET /b HTTP/1.1\r\nHost: x\r\n\r\nGET /c HTTP/1.1\r\nHo");
+            $bodies = [self::response(self::readResponse($socket))['body'], self::response(self::readResponse($socket))['body']];
+            usleep(100000);
+            fwrite($socket, "st: x\r\n\r\n");
+            $bodies[] = self::response(self::readResponse($socket))['body'];
+            fclose($socket);
+            $this->assertSame(['/a', '/b', '/c'], $bodies);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_head_whose_end_comes_in_two_pieces_is_handed_over_as_soon_as_it_is_whole()
+    {
+        [$server, $port] = self::startSmallServer(1, '{"header_timeout" => 3}');
+        try {
+            // The end of the head split across two reads, and the empty lines skipped before one
+            $pieces = [
+                ["GET / HTTP/1.1\r\nHost: x\r\n\r", "\n"],
+                ["\r\n\r", "\nGET / HTTP/1.1\r\nHost: x\r\n\r\n"],
+            ];
+            foreach ($pieces as [$first, $rest]) {
+                $socket = self::connect($port);
+                fwrite($socket, $first);
+                usleep(300000);
+                $start = microtime(true);
+                fwrite($socket, $rest);
+                $response = self::response(self::readResponse($socket));
+                fclose($socket);
+                $this->assertSame(200, $response['status'], (string) json_encode($first));
+                $this->assertLessThan(1, microtime(true) - $start, 'answered only at header_timeout: '.json_encode($first));
+            }
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_pipelined_requests_are_answered_by_the_worker_that_has_them()
+    {
+        // The shared server's / names its worker; three requests in one write are one worker's
+        $socket = self::connect();
+        fwrite($socket, str_repeat("GET / HTTP/1.1\r\nHost: x\r\n\r\n", 3));
+        $bodies = [];
+        for ($i = 0; $i < 3; $i++) {
+            $bodies[] = self::response(self::readResponse($socket))['body'];
+        }
+        fclose($socket);
+        $this->assertCount(1, array_unique($bodies), implode('', $bodies));
+    }
+
+    public function test_heads_the_master_gives_up_on_are_refused_by_a_worker_and_logged()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startSmallServer(2, '{"header_timeout" => 0.5}', log: $log);
+        try {
+            // Past 64KB with no end to the head; just past, so all of it is read and none is left to reset the connection
+            $long = "GET / HTTP/1.1\r\nX-Long: ";
+            $this->assertSame(431, self::response(self::exchange($long.str_repeat('a', 65540 - strlen($long)), $port))['status']);
+            // More empty lines before the request line than are skipped
+            $this->assertSame(400, self::response(self::exchange(str_repeat("\r\n", 5)."GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            // Closed in the middle of the head
+            $this->assertSame(400, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n", $port))['status']);
+            // Too slow
+            [$seconds, $response] = self::sendSlowly($port, "GET / HTTP/1.1\r\n");
+            $this->assertSame(408, self::response($response)['status']);
+            $this->assertLessThan(1.2, $seconds);
+            // And one that says nothing hears nothing, and leaves no line
+            $this->assertSame('', self::exchange('', $port));
+
+            self::logOnceItHas($log, '/ 408 /');
+            usleep(300000);
+            $lines = array_values(array_filter(explode("\n", (string) file_get_contents($log))));
+            $this->assertCount(4, $lines, implode("\n", $lines));
+            foreach ([431, 400, 400, 408] as $i => $status) {
+                $this->assertMatchesRegularExpression("/^\\S+ 127\\.0\\.0\\.1 - - {$status} \\d+ \\d+\\.\\d{3}ms$/", $lines[$i]);
+            }
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
+    public function test_past_max_connections_a_new_connection_waits_in_the_backlog()
+    {
+        [$server, $port] = self::startSmallServer(1, '{"max_connections" => 2, "idle_timeout" => 30}');
+        try {
+            $first = self::keptOpen($port);
+            $second = self::keptOpen($port);
+            // The system completes the connection and holds it until the master has room
+            $third = self::connect($port);
+            fwrite($third, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+            usleep(500000);
+            stream_set_blocking($third, false);
+            $this->assertSame('', (string) fread($third, 100));
+            stream_set_blocking($third, true);
+
+            fclose($first);
+            $start = microtime(true);
+            $this->assertSame(200, self::response(self::readResponse($third))['status']);
+            $this->assertLessThan(0.5, microtime(true) - $start);
+            fclose($second);
+            fclose($third);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    /**
+     * Fifty connections each trickling a byte of a head every 0.2s, which in a pool where each
+     * worker read its own requests would hold both workers until header_timeout, and twenty
+     * ordinary requests meanwhile
+     *
+     * @return array{float, int, list<string>} the slowest ordinary request's seconds, how many were answered, and what each trickling one was answered
+     */
+    private static function slowloris(int $port, int $slow = 50): array
+    {
+        $sockets = [];
+        for ($i = 0; $i < $slow; $i++) {
+            $sockets[$i] = self::connect($port);
+            stream_set_blocking($sockets[$i], false);
+        }
+        $trickle = "GET / HTTP/1.1\r\nHost: x\r\nX-Slow: ".str_repeat('a', 100);
+        $answers = array_fill(0, $slow, '');
+        $slowest = 0.0;
+        $answered = 0;
+        $start = microtime(true);
+        for ($tick = 0; microtime(true) - $start < 2.6; $tick++) {
+            foreach ($sockets as $i => $socket) {
+                // Read first, so nothing is written to a connection the server has answered and closed
+                $answers[$i] .= (string) fread($socket, 8192);
+                if ($answers[$i] === '') {
+                    @fwrite($socket, $trickle[$tick]);
+                }
+            }
+            for ($k = 0; $k < 2 && $answered < 20; $k++) {
+                $began = microtime(true);
+                if (self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status'] === 200) {
+                    $answered++;
+                }
+                $slowest = max($slowest, microtime(true) - $began);
+            }
+            usleep(200000);
+        }
+        foreach ($sockets as $i => $socket) {
+            stream_set_blocking($socket, true);
+            $answers[$i] .= (string) stream_get_contents($socket);
+            fclose($socket);
+        }
+
+        return [$slowest, $answered, $answers];
+    }
+
+    public function test_slow_clients_hold_no_worker()
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startSmallServer(2, '{"header_timeout" => 2}', log: $log);
+        try {
+            [$slowest, $answered, $answers] = self::slowloris($port);
+            $this->assertSame(20, $answered);
+            $this->assertLessThan(0.2, $slowest, 'the slowest ordinary request, in seconds');
+            // Each trickling one gets its 408 at header_timeout, and a line in the log
+            $this->assertSame(array_fill(0, 50, 408), array_map(fn ($answer) => self::response($answer)['status'], $answers));
+            for ($wait = 0; substr_count($text = (string) file_get_contents($log), ' 408 ') < 50 && $wait < 100; $wait++) {
+                usleep(50000);
+            }
+            $this->assertSame(50, preg_match_all('/^\S+ 127\.0\.0\.1 - - 408 16 (19\d\d|2\d\d\d)\.\d{3}ms$/m', $text), $text);
+            $this->assertSame(20, preg_match_all('/^\S+ 127\.0\.0\.1 GET \/ 200 2 /m', $text));
+            // And no worker was replaced
+            $this->assertStringNotContainsString('gaz: ', $text);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
+    public function test_the_master_reads_heads_under_the_sanitizers()
+    {
+        // The master reads untrusted bytes, so it is run with AddressSanitizer and UBSan under that load
+        CVM::build();
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        $code = 'import "std/http.gaz"; $l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); '
+            .'workers(2); http::serve($l, $r -> ({"body" => "ok"}), {"header_timeout" => 2});';
+        $env = ['GAZVM_STATS' => '1'] + getenv();
+        $server = proc_open([CVM::BINARY, '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', $log, 'w']], $pipes, self::ROOT, $env);
+        $this->assertNotFalse($server);
+        try {
+            $line = trim((string) fgets($pipes[1]));
+            $this->assertSame(1, preg_match('/^listening on (\d+)$/', $line, $m), $line);
+            $port = (int) $m[1];
+            try {
+                [, $answered, $answers] = self::slowloris($port, 20);
+                $this->assertSame(20, $answered);
+                $this->assertSame(array_fill(0, 20, 408), array_map(fn ($answer) => self::response($answer)['status'], $answers));
+                // Heads that are refused, pipelined and cut short, and bytes that are no HTTP at all
+                $long = "GET / HTTP/1.1\r\nX-Long: ";
+                self::exchange($long.str_repeat('a', 65540 - strlen($long)), $port);
+                self::exchange(str_repeat("\r\n", 5)."GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port);
+                self::exchange("GET /a HTTP/1.1\r\nHost: x\r\n\r\nGET /b HTTP/1.1\r\nHost: x\r\n\r\nGET /c HT", $port);
+                self::exchange(random_bytes(3000), $port);
+                self::exchange("\r\n\r", $port);
+            } catch (\Throwable $e) {
+                // A sanitizer's report is why, more likely than not
+                $this->fail($e->getMessage()."\n".file_get_contents($log));
+            }
+            proc_terminate($server);
+            $status = self::ended($server);
+            $this->assertFalse($status['running']);
+            $text = (string) file_get_contents($log);
+            $this->assertDoesNotMatchRegularExpression('/ERROR:|runtime error|SUMMARY:/', $text);
+            // Each worker ended its program, nothing leaked
+            $this->assertSame(2, preg_match_all('/^gazvm: 0 values leaked/m', $text), $text);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
         }
     }
 
@@ -1136,9 +1393,94 @@ class HttpServerTest extends GazLangTestCase
         return $ended;
     }
 
-    public function test_once_a_worker_has_given_way_it_hands_connections_over_at_their_responses()
+    public function test_two_clients_taking_turns_on_one_worker_keep_their_connections()
     {
         [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}');
+        try {
+            /*
+             * Each asks again only once the other has its answer, so each is idle while the other
+             * waits; the master holds the idle one, so the worker never has to give it up
+             */
+            $clients = [self::connect($port), self::connect($port)];
+            for ($round = 0; $round < 20; $round++) {
+                $mine = $clients[$round % 2];
+                $this->assertFalse(self::closedWhileIdle($mine), "closed while idle, at turn {$round}");
+                fwrite($mine, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($mine));
+                $this->assertSame(200, $response['status']);
+                $this->assertArrayNotHasKey('connection', $response['headers'], "closed at turn {$round}");
+            }
+            foreach ($clients as $client) {
+                fclose($client);
+            }
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_waiting_client_is_answered_between_a_busy_connections_requests()
+    {
+        // One worker, each request taking 30ms, and a client asking again as soon as it has its answer
+        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}', '$r -> { sleep(0.03); return {"body" => "ok"}; }');
+        try {
+            $busy = self::keptOpen($port);
+            $waiting = null;
+            $asked = 0;
+            $answeredAt = null;
+            for ($round = 0; $round < 10; $round++) {
+                if ($round === 3) {
+                    $waiting = self::connect($port);
+                    fwrite($waiting, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                    stream_set_blocking($waiting, false);
+                    $asked = $round;
+                }
+                fwrite($busy, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+                $response = self::response(self::readResponse($busy));
+                $this->assertSame(200, $response['status']);
+                $this->assertArrayNotHasKey('connection', $response['headers']);
+                if ($waiting !== null && $answeredAt === null && fread($waiting, 1) === 'H') {
+                    $answeredAt = $round;
+                }
+            }
+            fclose($busy);
+            // Oldest first: at most the busy client's request that came with it went first
+            $this->assertNotNull($answeredAt, 'the waiting client was never answered');
+            $this->assertLessThanOrEqual($asked + 1, $answeredAt);
+            $this->assertNotNull($waiting);
+            fclose($waiting);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_in_one_process_an_idle_connection_gives_way_to_a_client_that_would_wait()
+    {
+        // One worker, and an idle timeout far longer than anyone waits here
+        [$server, $port] = self::startSmallServer(0, '{"idle_timeout" => 30}');
+        try {
+            $idle = self::keptOpen($port);
+            usleep(100000);
+
+            $start = microtime(true);
+            $response = self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port));
+            $this->assertSame(200, $response['status']);
+            $this->assertLessThan(0.5, microtime(true) - $start);
+
+            // The idle connection was closed for it, without a word
+            [$seconds, $rest] = self::untilClosed($idle);
+            fclose($idle);
+            $this->assertSame('', $rest);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_in_one_process_once_it_has_given_way_it_hands_connections_over_at_their_responses()
+    {
+        [$server, $port] = self::startSmallServer(0, '{"idle_timeout" => 30}');
         try {
             /*
              * Two clients take turns on one worker, each asking again only once the other has its
@@ -1173,10 +1515,10 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
-    public function test_a_busy_connection_gives_way_to_a_waiting_client_after_its_turn()
+    public function test_in_one_process_a_busy_connection_gives_way_to_a_waiting_client_after_its_turn()
     {
         // One worker, each request taking 30ms: a hundred to a connection would be three seconds
-        [$server, $port] = self::startSmallServer(1, '{"idle_timeout" => 30}', '$r -> { sleep(0.03); return {"body" => "ok"}; }');
+        [$server, $port] = self::startSmallServer(0, '{"idle_timeout" => 30}', '$r -> { sleep(0.03); return {"body" => "ok"}; }');
         try {
             $busy = self::keptOpen($port);
             $waiting = self::connect($port);
@@ -1333,6 +1675,8 @@ class HttpServerTest extends GazLangTestCase
             'a negative header timeout' => ['import "std/http.gaz"; http::serve(null, null, {"header_timeout" => -0.5});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (30), or null, got -0.5'],
             'a header timeout not a number' => ['import "std/http.gaz"; http::serve(null, null, {"header_timeout" => "10"});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (30), or null, got "10"'],
             'a header timeout past the request timeout' => ['import "std/http.gaz"; http::serve(null, null, {"request_timeout" => 5, "header_timeout" => 6});', 'http::serve() expects a header_timeout above 0 seconds and at most the request_timeout (5), or null, got 6'],
+            'no connections' => ['import "std/http.gaz"; http::serve(null, null, {"max_connections" => 0});', 'http::serve() expects a max_connections from 1 to 1000000, got 0'],
+            'connections not a count' => ['import "std/http.gaz"; http::serve(null, null, {"max_connections" => 10.5});', 'http::serve() expects a max_connections from 1 to 1000000, got 10.5'],
             'an access log not a bool' => ['import "std/http.gaz"; http::serve(null, null, {"access_log" => "off"});', 'http::serve() expects an access_log of true or false, got "off"'],
         ];
     }

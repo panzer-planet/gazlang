@@ -1,0 +1,30 @@
+/*
+ * Reader.holds_head(): whether what a worker has read settles the next head without reading more,
+ * which decides whether it answers a pipelined request itself or gives the connection back to the
+ * master. It must agree with the master's head_state() in vm/workers.c; HttpServerTest can't tell
+ * the two apart from outside, since the master hands a connection given back straight to the
+ * worker that gave it. These are the rules, at MAX_EMPTY_LINES and a cap of 16 bytes.
+ */
+namespace http;
+
+import "lib/http.gaz";
+import "std/test.gaz" use expect;
+
+const MOST = 16;
+
+fn holds($data) {
+    return Reader(null, $data).holds_head(MAX_EMPTY_LINES, MOST);
+}
+
+$head = "GET / HTTP/1.1\r\n\r\n";
+expect("a whole head", Reader(null, $head).holds_head(MAX_EMPTY_LINES, 65536), true);
+expect("its end split across reads, before the last byte", holds("GET /\r\n\r"), false);
+expect("and with it", holds("GET /\r\n\r\n"), true);
+expect("four empty lines skipped, then a head", holds(repeat("\r\n", 4) .. "GET /\r\n\r\n"), true);
+expect("a fifth is left for the reader to refuse, and settles it", holds(repeat("\r\n", 5) .. "GET /\r\n\r\n"), true);
+expect("an empty line split across reads", holds("\r\n\r"), false);
+expect("past the cap without an end, which the reader refuses", holds(repeat("a", MOST + 1)), true);
+expect("at the cap without an end", holds(repeat("a", MOST)), false);
+expect("just short of it", holds(repeat("a", MOST - 1)), false);
+expect("an end past the cap is past the cap", holds(repeat("a", MOST + 1) .. "\r\n\r\n"), true);
+expect("nothing", holds(""), false);

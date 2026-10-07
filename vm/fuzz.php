@@ -25,7 +25,7 @@ use GazLang\Tests\CVM;
 use Random\Engine\Xoshiro256StarStar;
 use Random\Randomizer;
 
-const FORBIDDEN = '/\b(run|socket_\w*|term_\w*|exit|workers|worker_recycle|worker_retire|worker_deadline|write_file|read_stdin\w*|sleep|getenv|list_dir|is_dir|make_dir|delete_file|delete_dir|rename_file|chmod|symlink|readlink|sync_dir|set_mtime|chdir|read_line|file_\w*|random_bytes|pbkdf2_sha256|scrypt|argon2id)\b/';
+const FORBIDDEN = '/\b(run|socket_\w*|term_\w*|exit|workers|worker_recycle|worker_retire|worker_deadline|worker_accept|worker_release|write_file|read_stdin\w*|sleep|getenv|list_dir|is_dir|make_dir|delete_file|delete_dir|rename_file|chmod|symlink|readlink|sync_dir|set_mtime|chdir|read_line|file_\w*|random_bytes|pbkdf2_sha256|scrypt|argon2id)\b/';
 const INTERESTING = ['0', '1', '-1', '2', '63', '64', '255', '256', '9223372036854775807', '-9223372036854775807', '4294967296', '0.0', '-0.0', '1.5', '1e308', '0.1', '10000', '""', '"a"', '[]', '{}', 'null', 'true', 'false'];
 const WORK = 'vm/build/fuzz';
 // Where the programs of this run are written: its own, since a run clears it, and two runs in

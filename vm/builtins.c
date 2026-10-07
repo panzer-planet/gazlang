@@ -72,6 +72,7 @@ const BuiltinInfo builtin_info[] = {
     {"chmod", 2, 2}, {"symlink", 2, 2}, {"readlink", 1, 1}, {"file_sync", 1, 1}, {"sync_dir", 1, 1},
     {"file_truncate", 2, 2}, {"set_mtime", 2, 2}, {"chdir", 1, 1},
     {"worker_retire", 0, 0}, {"worker_deadline", 2, 4},
+    {"worker_accept", 2, 2}, {"worker_release", 2, 3},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -103,6 +104,7 @@ enum {
     B_CHMOD, B_SYMLINK, B_READLINK, B_FILE_SYNC, B_SYNC_DIR,
     B_FILE_TRUNCATE, B_SET_MTIME, B_CHDIR,
     B_WORKER_RETIRE, B_WORKER_DEADLINE,
+    B_WORKER_ACCEPT, B_WORKER_RELEASE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -2224,6 +2226,15 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_bool(worker_deadline(s->fd, seconds, answer, line));
         return true;
     }
+    case B_WORKER_ACCEPT:
+        /* worker_accept($listener, $rule): see workers.c. Checked in a single process too, where
+           it gives false, so a mistake shows before the program meets workers() */
+        if (!want(index, a, M(T_SOCKET)) || !want(index, b, M(T_MAP))) return false;
+        return worker_accept(a.sock, b.m, out);
+    case B_WORKER_RELEASE:
+        /* worker_release($socket, $bytes, $served = 0): see workers.c */
+        if (!want(index, a, M(T_SOCKET)) || !want(index, b, STRING | M(T_NULL)) || (argc > 2 && !want(index, c, INT))) return false;
+        return worker_release(a.sock, b, argc > 2 ? c.i : 0, out);
     }
     return raisef("Unknown builtin: %d", index);
 }

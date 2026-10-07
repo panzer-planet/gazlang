@@ -16,7 +16,8 @@
  *   net.c       sockets, and TLS through OpenSSL (the one file that includes it)
  *   db.c        db_open() and friends: a driver by URL scheme; sqlite.c and pg.c are the drivers
  *   term.c      raw mode, reading keys, the terminal's size
- *   workers.c   workers(): the program as several processes, for a server
+ *   workers.c   workers(): the program as several processes, for a server, its master reading
+ *               request heads for http::serve()
  *   watch.c     gaz --watch: runs the program again whenever a file it is made of changes
  *   crypto.c    random bytes, SHA-256, HMAC and the password hashes, in our own C
  *
@@ -639,6 +640,8 @@ bool net_wait(List *sockets, double seconds, Value *out);
 bool net_read(Socket *s, double seconds, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
+void net_prepare(int fd, double timeout);  /* a connection accepted for another process: its options, as socket_accept() sets them */
+Value net_adopt(int fd, double timeout);   /* a connection given to this process, net_prepare()d, as a socket */
 
 /* ---- workers.c ------------------------------------------------------------------------- */
 
@@ -654,6 +657,10 @@ bool worker_retire(void);      /* worker_retire(): ask for a replacement and ser
 /* worker_deadline(): set (or, at 0 seconds, clear) the timer that writes `answer` to fd and `line`
    to standard error and ends this worker; false outside a worker */
 bool worker_deadline(int fd, double seconds, Str *answer, Str *line);
+/* worker_accept($listener, $rule) and worker_release($socket, $bytes, $served = 0): a worker's side of the
+   master reading request heads (see workers.c) */
+bool worker_accept(Socket *listener, Map *rule, Value *out);
+bool worker_release(Socket *s, Value bytes, int64_t served, Value *out);
 
 /* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */
 
