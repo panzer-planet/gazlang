@@ -112,6 +112,11 @@ characters" its real meaning: `len()` counts bytes, so a title of 200 emoji was 
 - **Resolved** by three builtins in C, `utf8_valid()`, `utf8_length()` and `utf8_chars()`, which
   `forms.gaz` calls; strings stay bytes. `json::encode` and `json::decode` became strict about
   UTF-8 at the same time, since the same bytes wrote invalid JSON.
+- **Then made the default** ([#66](https://github.com/panzer-planet/gazlang/issues/66)):
+  `http::query()`, `form()` and the router's params refuse a key or value that isn't UTF-8 once
+  decoded, as they refuse a bad escape (and `cookies()` leaves such a cookie out), so a handler that forgets the check can't reach
+  the database with the bytes. An `%ff` form is now refused by `http::csrf()` (403, its token
+  unreadable); `forms.gaz` keeps its checks, since its kinds are also built from plain strings.
 
 ## 5. No rate limiting, and no client address  (resolved: `http::client_address()`, a per-client limit)
 

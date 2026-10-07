@@ -527,7 +527,10 @@ kind Refusal extends Error {
  *   refused too, as the way requests are smuggled past a proxy.
  * - A handler that raises, or returns what can't be written (a header with a line break in it, a
  *   Content-Length of its own), is answered 500, and the error goes to standard error with its
- *   trace and its causes (`#cause`), as gaz shows an uncaught one.
+ *   trace and its causes (`#cause`), as gaz shows an uncaught one. The exception is what query(),
+ *   query_all(), form() and form_all() refuse, with no default given (a bad escape, text that
+ *   isn't UTF-8, a body that isn't a form): that is answered 400 with nothing logged, as the
+ *   client's mistake, whoever built the request map they were given.
  * - Content-Length and Date are written here, and so is Connection: close when the connection is
  *   about to close; a handler may ask for that with a Connection header of "close", and any other
  *   Connection header of its own is an error. No Content-Type unless given.
@@ -779,6 +782,9 @@ fn answer($reader, $socket, $handler, $address, $options, $last) {
     $head = $request["method"] == "HEAD";
     try {
         return write_response($handler($request), $head, $close);
+    } catch (Undecodable $e) {
+        // The client's own request, which a decoder refused: a 400, and nothing for the log
+        return [refusal(400, $head), false];
     } catch (Error $e) {
         print_error("http::serve: {$request["method"]} {$request["path"]}: " .. describe_error($e) .. "\n");
     } catch ($e) {
@@ -1499,9 +1505,9 @@ fn segments($path) {
     return split(slice($path, 1), "/");
 }
 
-// A request path's segments, each percent-decoded, or null when an escape is bad
+// A request path's segments, each percent-decoded, or null when an escape is bad or one isn't UTF-8
 fn decoded_segments($path) {
-    return decoded(() -> map(segments($path), percent_decode), null);
+    return decoded(() -> map(segments($path), text_decode), null);
 }
 
 fn is_param($segment) {
@@ -1567,10 +1573,18 @@ const HEX = "0123456789ABCDEF";
 /**
  * $text with its percent-escapes undone (%20 is a space), as RFC 3986 has them: a + stays a +.
  * A % that isn't followed by two hex digits is an error, unless $default is given, which is then
- * returned instead.
+ * returned instead. The bytes are given back whatever they are, UTF-8 or not, so url_decode() of
+ * a piece of `$request["query"]` or `$request["body"]` is the way to the bytes that query(),
+ * form(), cookies() and the router's params refuse. Its error is a plain one, a 500 in a handler,
+ * since the text may be the program's own.
  */
 pub fn url_decode($text, $default = NoDefault()) {
-    return decoded(() -> percent_decode($text), $default);
+    try {
+        return decoded(() -> percent_decode($text), $default);
+    } catch (Undecodable $e) {
+        // A plain error, not the request's 400: the text may be the program's own, and a bug is a 500
+        throw $e.message;
+    }
 }
 
 /**
@@ -1592,9 +1606,10 @@ pub fn url_encode($text) {
 
 /**
  * The request's query string as a map of strings, decoded: + is a space, as HTML forms send it,
- * and a key given twice keeps its last value (query_all() has them all). A bad percent-escape is
- * an error, unless $default is given, which is then returned instead: the query string is the
- * client's, so `http::query($request, {})` reads one that can't be decoded as an empty one.
+ * and a key given twice keeps its last value (query_all() has them all). A bad percent-escape, or
+ * a key or value that isn't UTF-8 once decoded, is an error, unless $default is given, which is
+ * then returned instead: the query string is the client's, so `http::query($request, {})` reads
+ * one that can't be decoded as an empty one. Uncaught in a handler, the error is a 400.
  */
 pub fn query($request, $default = NoDefault()) {
     return decoded(() -> last_values(decode_pairs($request["query"])), $default);
@@ -1602,7 +1617,8 @@ pub fn query($request, $default = NoDefault()) {
 
 /**
  * The request's query string as a map from each key to the list of every value it was given, in
- * order; a bad percent-escape is an error, unless $default is given, as query() has it
+ * order; a bad percent-escape or text that isn't UTF-8 is an error, unless $default is given, as
+ * query() has it
  */
 pub fn query_all($request, $default = NoDefault()) {
     return decoded(() -> decode_pairs($request["query"]), $default);
@@ -1610,9 +1626,10 @@ pub fn query_all($request, $default = NoDefault()) {
 
 /**
  * A form body (Content-Type application/x-www-form-urlencoded) as a map of strings, as query()
- * reads a query string. A body of another type, or a bad percent-escape, is an error, unless
- * $default is given, which is then returned instead: `http::form($request, {})` reads a request
- * that isn't a form as one with no fields.
+ * reads a query string. A body of another type, a bad percent-escape, or a key or value that isn't
+ * UTF-8 once decoded, is an error, unless $default is given, which is then returned instead:
+ * `http::form($request, {})` reads a request that isn't a form as one with no fields. Uncaught in
+ * a handler, the error is a 400.
  */
 pub fn form($request, $default = NoDefault()) {
     return decoded(() -> last_values(form_pairs($request)), $default);
@@ -1620,14 +1637,18 @@ pub fn form($request, $default = NoDefault()) {
 
 /**
  * A form body as a map from each key to the list of every value it was given, as query_all()
- * reads a query string; a body of another type, or a bad percent-escape, is an error, unless
- * $default is given, as form() has it
+ * reads a query string; a body of another type, a bad percent-escape or text that isn't UTF-8 is
+ * an error, unless $default is given, as form() has it
  */
 pub fn form_all($request, $default = NoDefault()) {
     return decoded(() -> form_pairs($request), $default);
 }
 
-// What a client sent that can't be decoded: a bad percent-escape, or a body that isn't a form
+/*
+ * What a client sent that can't be decoded: a bad percent-escape, text that isn't UTF-8, or a body
+ * that isn't a form. Uncaught in a handler it is a 400, being the client's mistake, so only the
+ * decoders that take a request let it out; url_decode() turns it into a plain error.
+ */
 kind Undecodable extends Error {
     fn _($message) {
         ##_($message);
@@ -1638,16 +1659,16 @@ kind Undecodable extends Error {
 kind NoDefault {}
 
 /*
- * What $decode returns, or $default if what it decodes is Undecodable; with no $default given that
- * is an error with its message. Only Undecodable is caught, so a program's own mistake (a request
- * that isn't a map) and running out of call depth are still errors.
+ * What $decode returns, or $default if what it decodes is Undecodable; with no $default given the
+ * Undecodable carries on, for serve() to answer 400. Only Undecodable is caught, so a program's own
+ * mistake (a request that isn't a map) and running out of call depth are still errors.
  */
 fn decoded($decode, $default) {
     try {
         return $decode();
     } catch (Undecodable $e) {
         if (is_a($default, NoDefault)) {
-            throw $e.message;
+            throw $e;
         }
 
         return $default;
@@ -1719,7 +1740,17 @@ fn key_and_value($piece) {
 
 // A form's text: + is a space, then percent-escapes
 fn form_decode($text) {
-    return percent_decode(replace($text, "+", " "));
+    return text_decode(replace($text, "+", " "));
+}
+
+// $text percent-decoded, refused unless it is UTF-8: checked after decoding, since %ff is how bad bytes get in
+fn text_decode($text) {
+    $decoded = percent_decode($text);
+    if (!utf8_valid($decoded)) {
+        throw Undecodable("text that isn't UTF-8 once decoded");
+    }
+
+    return $decoded;
 }
 
 fn last_values($all) {
@@ -1862,11 +1893,20 @@ const COOKIE_OPTIONS = {"path" => "/", "http_only" => true, "secure" => false, "
 
 /**
  * The request's Cookie header as a map from each cookie's name to its value, url_decode()d. A
- * value with a bad percent-escape is an error, unless $default is given, which is then returned
- * instead.
+ * cookie with a bad percent-escape, or a name or value that isn't UTF-8 once decoded, is left out
+ * rather than refusing the request: the header carries every cookie the browser holds for the
+ * domain, another site's among them, which the program never set and can't clear.
  */
-pub fn cookies($request, $default = NoDefault()) {
-    return decoded(() -> map(sent_cookies($request), percent_decode), $default);
+pub fn cookies($request) {
+    $cookies = {};
+    foreach (sent_cookies($request) as $name => $value) {
+        $decoded = decoded(() -> text_decode($value), null);
+        if ($decoded != null && utf8_valid($name)) {
+            $cookies[$name] = $decoded;
+        }
+    }
+
+    return $cookies;
 }
 
 // The request's Cookie header as a map from each cookie's name to its value as sent

@@ -33,3 +33,5 @@ ok with a new tag
 ok a rewritten file of another size has another tag
 ok cache_control sets Cache-Control
 ok an unknown option
+ok a name of UTF-8 is served
+ok a name that isn't UTF-8 is a 404, even for a file that is there

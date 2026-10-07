@@ -10,7 +10,8 @@
  *   /echo         the request as JSON
  *   /fail         a handler that raises (500)
  *   /bad-header   a response that can't be written (500)
- *   /decoded      the query and form body, decoded, as JSON (500 unless it is a form)
+ *   /url-decode   url_decode() of the server's own text with a bad escape (500, not a 400)
+ *   /decoded      the query and form body, decoded, as JSON (400 unless it is a form)
  *   /hello        a template's page, for the ?name given
  *   /visits       reads the session, counts a visit, writes it back: {"visits" => N}
  *   /two-cookies  two Set-Cookie headers, each its own line
@@ -43,6 +44,7 @@ http::serve($listener, $request -> match ($request["path"]) {
     "/" => {"body" => "hello from worker $worker\n", "headers" => {"Content-Type" => "text/plain"}},
     "/echo" => {"headers" => {"Content-Type" => "application/json"}, "body" => json::encode($request)},
     "/fail" => throw "the handler failed on purpose",
+    "/url-decode" => {"body" => http::url_decode("100%")},
     "/bad-header" => {"headers" => {"X-Split" => "a\r\nInjected: yes"}},
     "/hello" => {"body" => hello(http::query($request)["name"] ?? "stranger")},
     "/decoded" => {"body" => json::encode({"query" => http::query_all($request), "form" => http::form_all($request)})},

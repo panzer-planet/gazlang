@@ -172,9 +172,28 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   giving `{}`. **A `$default` (`form($request, {})`) is given back instead** for what the client
   sent that can't be decoded, as `to_int($x, $default)` does, so a handler needs no `try`, whose
   `catch (Error)` would also catch a bug and running out of call depth: only the private
-  `Undecodable` kind turns into it, and with no default its message is thrown as a string, as
-  before. Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value
-  of `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`, and end to end by `HttpServerTest`.
+  `Undecodable` kind turns into it. With no default the `Undecodable` itself carries on, and
+  `answer()` turns one the handler left uncaught into a 400 with nothing logged, since what the
+  client sent wrong is not the server's failure. It does so whoever built the request map, since
+  it can't tell; so only the request decoders let one out, and `url_decode()`, whose text may be
+  the program's own, throws its message as a plain error, a logged 500. Pieces split as the WHATWG parser splits them
+  (empty ones skipped, no `=` is a value of `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`,
+  and end to end by `HttpServerTest`.
+- **What a decoder gives a handler is UTF-8, by default**: every key and value of `query()` and
+  `form()`, and every path segment the router and `serve_static()` match, is checked with
+  `utf8_valid` after percent-decoding (`%ff` is how the bytes get in) and refused as `Undecodable`
+  otherwise, one more way input is malformed rather than a mechanism of its own, so a handler
+  can't forget it and a database never sees the bytes.
+- **`cookies()` leaves out a cookie it can't decode** (a bad escape, or a name or value that isn't
+  UTF-8) rather than refusing: the Cookie header is the browser's shared state for the domain, so
+  one cookie another app set must not refuse every request; the rest still arrive. It has no
+  `$default`, having nothing left to refuse. `session()` reads its own cookie from
+  `sent_cookies()`, never through `cookies()`. Tested by `tests/gaz/lib/http_decode_test.gaz` and,
+  for path segments, `router_test.gaz` and `http_serve_static_test.gaz`. `url_decode()` alone gives bytes
+  back as they are, since `url_decode(url_encode($bytes))` must be `$bytes`; it is the way to raw
+  bytes, on a piece of `$request["query"]` or `$request["body"]`. `ponytail:` no option on the
+  decoders themselves for raw bytes: `$default` takes the only optional slot, and a raw-bytes
+  form decoder waits for a program that needs one.
 - **Routing is `http::Router()`, in `http.gaz` itself**, not a `router.gaz` read as
   `router::Router()`, one namespace naming the other redundantly, for a program already reaching
   for `http::serve`. `$app.handler()` is an ordinary handler, so the server learns nothing. No

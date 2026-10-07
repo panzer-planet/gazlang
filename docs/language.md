@@ -977,8 +977,9 @@ echo [utf8_valid("café"), utf8_valid("caf\xe9")];
 `"\0"`. `utf8_length` and `utf8_chars` refuse text that isn't, naming the byte where the first bad
 character starts (`utf8_length() expects well formed UTF-8, but byte 3 doesn't start a well formed
 character`), since a count of something that isn't characters would be a wrong answer, not an
-answer. **Check text from outside with `utf8_valid` first**: a form field, a query string, a file
-or a socket can hold any bytes, and a database or a JSON document refuses what isn't UTF-8.
+answer. **Check text from outside with `utf8_valid` first**: a file or a socket can hold any bytes,
+and a database or a JSON document refuses what isn't UTF-8. What `http::query()`, `http::form()`,
+`http::cookies()` and the router decode from a request is checked already (see "Libraries").
 
 ### Numbers
 
@@ -2123,7 +2124,10 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
   gets nothing.
 - A handler that raises, or returns a response that can't be written (a status outside 200 to 599,
   a header value with a line break), is a 500, and the error and its trace go to standard error.
-  The worker carries on.
+  The worker carries on. What `http::query()`, `http::query_all()`, `http::form()` or
+  `http::form_all()` refuses (see below), left uncaught, is answered 400 instead, with nothing
+  logged, as the client's mistake: whenever they refuse, even on a request map the program built
+  itself, which the server can't tell apart.
 - Options: `"timeout"`, seconds each read and write may wait, and the wait for a connection's first
   request (10); `"request_timeout"`, seconds each request may take to arrive (30), after which it is
   a 408, so a client sending a byte at a time can't hold a worker; `"max_body"` in bytes (1048576);
@@ -2283,14 +2287,21 @@ Decoding what a request carries, when a handler asks:
   list for each key. `+` is a space in both, as HTML forms send it.
 - `http::form()` needs the request's Content-Type to be `application/x-www-form-urlencoded`, and
   is an error otherwise.
+- Every key and value must be well formed UTF-8 once decoded, or it is an error (`text that isn't
+  UTF-8 once decoded`), so a handler is only ever given text: `?q=%ff` is refused as a bad escape
+  is, since a database or a JSON document would refuse those bytes later. The router's params are
+  held to the same rule (a 400), and so is `http::cookies()`, which leaves such a cookie out.
 - `http::url_decode($text)` undoes percent-escapes (`%20` is a space, and `+` stays `+`), and a
-  `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`.
+  `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`, a 500 in a
+  handler like any other, since its text may be the program's own. It gives the bytes back whatever
+  they are, so a handler that wants bytes that aren't UTF-8 decodes a piece of `$request["query"]`
+  or `$request["body"]` with it.
 - Each of these takes an optional `$default` last, as `to_int($x, $default)` does, given back
-  instead of an error for what the client sent that can't be decoded (a bad percent-escape, or a
-  body that isn't a form), so a handler needs no `try`: `http::form($request, {})` reads a request
-  that isn't a form as one with no fields, and `http::query($request, {})` a query string like
-  `?show=%zz` as an empty one. A mistake of the program's (a request that isn't a map) is still an
-  error.
+  instead of an error for what the client sent that can't be decoded (a bad percent-escape, text
+  that isn't UTF-8, or a body that isn't a form), so a handler needs no `try`: `http::form($request,
+  {})` reads a request that isn't a form as one with no fields, and `http::query($request, {})` a
+  query string like `?show=%zz` as an empty one. Without one, the error left uncaught in a handler
+  is answered 400. A mistake of the program's (a request that isn't a map) is still an error.
   `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
 
 **Cookies and signed sessions**, on `crypto::sign`, `crypto::equals` and `crypto::token`:
@@ -2301,9 +2312,11 @@ $session["user_id"] = 7;
 $response = http::session_cookie({"body" => "..."}, $session, SECRET);
 ```
 
-- `http::cookies($request, $default)` is the `Cookie` header as a map, each value `url_decode`d,
-  and `$default` instead of an error if one has a bad escape. `http::session()` decodes only its
-  own cookie, so a stray `%` in another one leaves the session alone.
+- `http::cookies($request)` is the `Cookie` header as a map, each value `url_decode`d. A cookie
+  with a bad escape, or a name or value that isn't UTF-8, is left out rather than refusing the
+  request, since the header carries every cookie the browser holds for the domain, another site's
+  too, which the program can't clear. `http::session()` decodes only its own cookie, so a stray
+  `%` in another one leaves the session alone.
 - `http::set_cookie($response, $name, $value, $options = {})` adds a `Set-Cookie` header to
   (a copy of) `$response`, url-encoding `$value`. A response can carry several: `write_response()`
   writes a header whose value is a list as that many lines, not joined with a comma, since

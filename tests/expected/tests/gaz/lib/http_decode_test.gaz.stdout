@@ -17,15 +17,28 @@ ok query, a bad escape
 ok form, a bad escape
 ok form, not a form
 ok url_decode, a bad escape
-ok cookies, a bad escape
 ok a null default
 ok a good request ignores it
 ok cookies decoded
 ok query without a default
 ok query_all without a default
 ok form_all without a default
-ok cookies without a default
 ok a request that isn't a map
 ok a request with no query
 ok a session beside a bad cookie
 ok a session cookie with a bad escape
+ok query, an escaped value
+ok query, an escaped key
+ok query, a raw value
+ok query_all, an overlong slash
+ok form, an escaped value
+ok form_all, a raw key
+ok form, a surrogate after a +
+ok cookies, a bad escape left out
+ok cookies, a Latin-1 value left out
+ok cookies, a raw name left out
+ok not UTF-8, given a default
+ok well formed text in every size still passes
+ok cookies of UTF-8
+ok url_decode keeps bytes that aren't UTF-8
+ok url_decode's error is a plain one, not the request's

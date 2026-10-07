@@ -82,7 +82,7 @@ expect("a blank todo is refused", [$blank["status"], contains(text_of($blank), "
 $long = $browser.post("/todos", {"_csrf" => $token, "title" => repeat("x", 201)});
 expect("a title over 200 characters is refused", $long["status"], 422);
 expect("200 multibyte characters are fine", $browser.post("/todos", {"_csrf" => $token, "title" => repeat("\u{1f600}", 200)})["status"], 303);
-expect("invalid UTF-8 is refused, not a server error", $browser.post("/todos", {"_csrf" => $token, "title" => "\xff\xfe"})["status"], 422);
+expect("invalid UTF-8 is refused, not a server error: a form that isn't text has no token", $browser.post("/todos", {"_csrf" => $token, "title" => "\xff\xfe"})["status"], 403);
 expect("a NUL byte is refused", $browser.post("/todos", {"_csrf" => $token, "title" => "a\0b"})["status"], 422);
 $id = $db.value(db::sql"select id from todos where title like '%write the app'");
 $toggled = $browser.post("/todos/{$id}/toggle", {"_csrf" => $token});
@@ -123,7 +123,7 @@ $unknown = $caller.post("/login", {"_csrf" => $caller_token, "email" => "nobody@
 expect("a wrong password", [$wrong["status"], contains(text_of($wrong), "Wrong email or password")], [401, true]);
 expect("an unknown email says the same", [$unknown["status"], contains(text_of($unknown), "Wrong email or password")], [401, true]);
 expect("blank fields", $caller.post("/login", {"_csrf" => $caller_token, "email" => "", "password" => ""})["status"], 401);
-expect("an email with invalid UTF-8 is a login failure, not an error", $caller.post("/login", {"_csrf" => $caller_token, "email" => "\xff@x.co", "password" => "x"})["status"], 401);
+expect("an email with invalid UTF-8 is refused, not an error: a form that isn't text has no token", $caller.post("/login", {"_csrf" => $caller_token, "email" => "\xff@x.co", "password" => "x"})["status"], 403);
 expect("SQL in the email is only text", $caller.post("/login", {"_csrf" => $caller_token, "email" => "' or 1=1 --", "password" => "x"})["status"], 401);
 $before = $caller.cookie("session");
 $logged_in = $caller.post("/login", {"_csrf" => $caller_token, "email" => "ada@example.com", "password" => $password});

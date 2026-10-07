@@ -235,8 +235,15 @@ class HttpServerTest extends GazLangTestCase
             'query' => ['page' => ['2'], 'tag' => ['x y']],
             'form' => ['name' => ['Wérner'], 'likes' => ['php', 'gaz'], 'note' => ['a b+c']],
         ], json_decode($response['body'], true));
-        // A request that isn't a form is the handler's error, so a 500
-        $this->assertSame(500, self::get('/decoded')['status']);
+        // What a decoder refuses is the client's mistake, so a 400, and nothing for the log
+        $this->assertSame([400, "Bad Request\n"], [self::get('/decoded')['status'], self::get('/decoded')['body']]);
+        $this->assertSame(400, self::get('/decoded?q=%zz')['status']);
+        $this->assertSame(400, self::get('/decoded?q=%ff')['status']);
+        $this->assertSame(400, self::get('/decoded?%c3=1')['status']);
+        $this->assertSame(400, self::get('/hello?name=%C0%AF')['status']);
+        $this->assertSame(200, self::get('/hello?name=%E2%82%AC')['status']);
+        $this->assertStringNotContainsString('GET /decoded', (string) file_get_contents(self::$log));
+        $this->assertStringNotContainsString('GET /hello', (string) file_get_contents(self::$log));
     }
 
     public function test_a_template_is_served_as_html()
@@ -349,10 +356,13 @@ class HttpServerTest extends GazLangTestCase
     {
         $this->assertSame([500, "Internal Server Error\n"], [self::get('/fail')['status'], self::get('/fail')['body']]);
         $this->assertSame(500, self::get('/bad-header')['status']);
+        // url_decode() may be given the server's own text, so its failure is a bug, not a 400
+        $this->assertSame(500, self::get('/url-decode')['status']);
 
         $log = (string) file_get_contents(self::$log);
         $this->assertStringContainsString('http::serve: GET /fail: the handler failed on purpose at tests/programs/web_server.gaz:', $log);
         $this->assertStringContainsString('http::serve: GET /bad-header: HTTP error: header X-Split has a line break or NUL byte in its value', $log);
+        $this->assertStringContainsString('http::serve: GET /url-decode: bad percent-escape "%" at 3', $log);
     }
 
     /**

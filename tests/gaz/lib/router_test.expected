@@ -11,6 +11,9 @@ ok a path with other methods is a 405 naming them
 ok a path nothing has is a 404
 ok more segments than a route is a 404
 ok a bad escape is a 400
+ok a param that isn't UTF-8 is a 400
+ok a raw byte that isn't UTF-8 is a 400
+ok a param of UTF-8 is decoded
 ok a slash taken away
 ok a slash added
 ok a :name is never empty, so /users/ is /users

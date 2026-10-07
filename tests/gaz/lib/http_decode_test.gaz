@@ -74,18 +74,16 @@ expect("query, a bad escape", [http::query($bad_escape, {}), http::query_all($ba
 expect("form, a bad escape", [http::form($bad_escape, {}), http::form_all($bad_escape, {})], [{}, {}]);
 expect("form, not a form", [http::form($not_a_form, {}), http::form_all($not_a_form, {})], [{}, {}]);
 expect("url_decode, a bad escape", http::url_decode("100%", "?"), "?");
-expect("cookies, a bad escape", http::cookies({"headers" => {"cookie" => "a=1; b=50%"}}, {}), {});
 expect("a null default", [http::query($bad_escape, null), http::form($not_a_form, null), http::url_decode("%zz", null)], [null, null, null]);
 expect("a good request ignores it", [http::query($request, {}), http::form($form, {}), http::form_all($form, {})["likes"]], [
     http::query($request), {"name" => "Wérner", "likes" => "gaz"}, ["php", "gaz"],
 ]);
-expect("cookies decoded", http::cookies({"headers" => {"cookie" => "a=x%20y; b=2"}}, {}), {"a" => "x y", "b" => "2"});
+expect("cookies decoded", http::cookies({"headers" => {"cookie" => "a=x%20y; b=2"}}), {"a" => "x y", "b" => "2"});
 
 /* Without one, each says what is wrong, as before */
 throws("query without a default", () -> http::query($bad_escape), "bad percent-escape \"%zz\" at 0");
 throws("query_all without a default", () -> http::query_all($bad_escape), "bad percent-escape \"%zz\" at 0");
 throws("form_all without a default", () -> http::form_all($not_a_form), "http::form() needs a body sent as application/x-www-form-urlencoded, not \"application/json\"");
-throws("cookies without a default", () -> http::cookies({"headers" => {"cookie" => "b=50%"}}), "bad percent-escape \"%\" at 2");
 
 /* A default doesn't hide the program's own mistakes */
 throws("a request that isn't a map", () -> http::query("show=open", {}), "String positions must be int, got string");
@@ -97,3 +95,36 @@ $signed = http::session_cookie({}, {"user" => 7}, $secret)["headers"]["Set-Cooki
 $session_value = split(split($signed, ";")[0], "=", 2)[1];
 expect("a session beside a bad cookie", http::session({"headers" => {"cookie" => "other=50%; session=" .. $session_value}}, $secret), {"user" => 7});
 expect("a session cookie with a bad escape", http::session({"headers" => {"cookie" => "session=%zz"}}, $secret), {});
+
+/* What a request carries must be UTF-8 once decoded, keys as well as values, escaped or sent raw */
+fn sent($text) {
+    return {"query" => $text, "headers" => {"content-type" => "application/x-www-form-urlencoded"}, "body" => $text};
+}
+throws("query, an escaped value", () -> http::query(sent("name=%ff")), "text that isn't UTF-8 once decoded");
+throws("query, an escaped key", () -> http::query(sent("%c3=1")), "text that isn't UTF-8 once decoded");
+throws("query, a raw value", () -> http::query(sent("name=a\xffb")), "text that isn't UTF-8 once decoded");
+throws("query_all, an overlong slash", () -> http::query_all(sent("path=%c0%af")), "text that isn't UTF-8 once decoded");
+throws("form, an escaped value", () -> http::form(sent("title=%ff%fe")), "text that isn't UTF-8 once decoded");
+throws("form_all, a raw key", () -> http::form_all(sent("\xff=1")), "text that isn't UTF-8 once decoded");
+throws("form, a surrogate after a +", () -> http::form(sent("a=x+%ed%a0%80")), "text that isn't UTF-8 once decoded");
+
+/* A cookie that can't be decoded is left out, so another site's cookie can't refuse the request */
+expect("cookies, a bad escape left out", http::cookies({"headers" => {"cookie" => "a=1; b=50%; c=3"}}), {"a" => "1", "c" => "3"});
+expect("cookies, a Latin-1 value left out", http::cookies({"headers" => {"cookie" => "theirs=caf%E9; ours=2"}}), {"ours" => "2"});
+expect("cookies, a raw name left out", http::cookies({"headers" => {"cookie" => "\xff=1; ours=2"}}), {"ours" => "2"});
+
+expect("not UTF-8, given a default", [
+    http::query(sent("a=%ff"), {}),
+    http::query_all(sent("%ff=a"), {}),
+    http::form(sent("a=%ff"), {}),
+    http::form_all(sent("a=\xff"), null),
+], [{}, {}, {}, null]);
+expect("well formed text in every size still passes", http::form(sent("caf%C3%A9=%E2%82%AC5+%F0%9F%98%80&raw=\u{e9}")), {
+    "café" => "€5 😀",
+    "raw" => "é",
+});
+expect("cookies of UTF-8", http::cookies({"headers" => {"cookie" => "name=W%C3%A9rner"}}), {"name" => "Wérner"});
+
+/* url_decode() gives the bytes as they are, the way to them for a handler that wants them */
+expect("url_decode keeps bytes that aren't UTF-8", http::url_decode(split("name=%ff%fe", "=")[1]), "\xff\xfe");
+throws("url_decode's error is a plain one, not the request's", () -> http::url_decode("100%"), Error, "bad percent-escape \"%\" at 3");

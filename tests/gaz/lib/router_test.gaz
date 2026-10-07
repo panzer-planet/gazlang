@@ -38,6 +38,9 @@ expect("a path with other methods is a 405 naming them", [$wrong_method["status"
 expect("a path nothing has is a 404", $handle(request("GET", "/nope")), {"status" => 404, "headers" => {"Content-Type" => "text/plain"}, "body" => "Not Found\n"});
 expect("more segments than a route is a 404", $handle(request("GET", "/users/7/extra"))["status"], 404);
 expect("a bad escape is a 400", $handle(request("GET", "/users/%zz"))["status"], 400);
+expect("a param that isn't UTF-8 is a 400", $handle(request("GET", "/users/%ff"))["status"], 400);
+expect("a raw byte that isn't UTF-8 is a 400", $handle(request("GET", "/users/a\xffb"))["status"], 400);
+expect("a param of UTF-8 is decoded", $handle(request("GET", "/users/%C3%A9")), body("user é"));
 
 /* The other spelling of a path, with and without its trailing slash */
 expect("a slash taken away", $handle(request("GET", "/users/7/", "tab=1")), {"status" => 308, "headers" => {"Location" => "/users/7?tab=1"}, "body" => ""});

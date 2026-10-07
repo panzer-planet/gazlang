@@ -106,3 +106,20 @@ try {
 } finally {
     fs::remove_tree($dir);
 }
+
+/*
+ * A segment that isn't UTF-8 once decoded is refused as a bad escape is. Only Linux lets a file
+ * have such a name (macOS refuses to write one), so only there does the 404 mean a refusal and not
+ * a miss; CI runs both.
+ */
+$dir = fs::temp_dir("serve-static");
+write_file($dir .. "/caf\u{e9}.txt", "UTF-8");
+try {
+    write_file($dir .. "/caf\xe9.txt", "Latin-1");
+} catch (Error $e) {
+    // macOS: a name has to be UTF-8
+}
+$serve_temp = http::serve_static($dir);
+expect("a name of UTF-8 is served", $serve_temp(request("/caf%C3%A9.txt"))["body"], "UTF-8");
+expect("a name that isn't UTF-8 is a 404, even for a file that is there", $serve_temp(request("/caf%E9.txt"))["status"], 404);
+fs::remove_tree($dir);
