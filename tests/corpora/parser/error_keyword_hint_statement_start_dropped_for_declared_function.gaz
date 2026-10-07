@@ -1,0 +1,5 @@
+fn IF($x) {
+    return $x;
+}
+
+IF (1) { }

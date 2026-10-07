@@ -1,0 +1,4 @@
+// A statement in a lambda's body gives no hint once the body has closed
+$f = [() -> {
+    Match(1);
+}, ;];

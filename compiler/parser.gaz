@@ -536,19 +536,22 @@ final kind Html {
         throw ParseError($message, $file, $line);
     }
 
-    // A hint when the error is at, or just after, a keyword written in the wrong case, or in a
-    // statement that starts with PHP's elseif. A name that is already declared is left alone:
-    // naming things If and Match is the point of the rule.
+    /*
+     * A hint when the error is at, or just after, a keyword written in the wrong case, or in a
+     * statement that starts with one (IF (1) { is read as a call, which fails at the {) or with
+     * PHP's elseif. A name that is already declared is left alone: naming things If and Match is
+     * the point of the rule.
+     */
     fn keyword_hint() {
-        foreach ([#current_token, #previous_token] as $token) {
+        foreach ([#current_token, #previous_token, #statement_token] as $token) {
             if ($token != null && $token.type == "IDENTIFIER" && has_key(Lexer::KEYWORDS, lower($token.value))
-                && !#declared($token.value)) {
+                && !#declared($token.value) && !#declared(#qualify($token.value))) {
                 return " (keywords are lowercase: write '" .. lower($token.value) .. "', not '{$token.value}')";
             }
         }
         // PHP's elseif is read as a call to a function of that name, which fails at the { after it
         $token = #statement_token;
-        if ($token != null && ($token.type == "IDENTIFIER" || $token.type == "TAG") && lower($token.value) == "elseif" && !has_key(#functions, $token.value)) {
+        if ($token != null && ($token.type == "IDENTIFIER" || $token.type == "TAG") && lower($token.value) == "elseif" && !has_key(#functions, #qualify($token.value))) {
             return " (write 'else if', not '{$token.value}')";
         }
 
@@ -3915,7 +3918,16 @@ final kind Html {
     // Parse a statement (expr SEMICOLON | echo_statement | if_statement | while_statement | for_statement | foreach_statement
     //                    | loop_control | return_statement | delete_statement | match)
     fn statement() {
+        // Only the statement being read gives a hint, so one that ended can't reach a later error
+        $outer = #statement_token;
         #statement_token = #current_token;
+        $node = #statement_body();
+        #statement_token = $outer;
+
+        return $node;
+    }
+
+    fn statement_body() {
         $type = #current_token.type;
         if ($type == "ECHO") {
             return #echo_statement();

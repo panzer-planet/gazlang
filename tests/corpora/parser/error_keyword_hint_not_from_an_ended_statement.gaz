@@ -1,0 +1,4 @@
+// A statement that has ended gives no hint to an error in a declaration after it
+IF(1);
+fn f( {
+}

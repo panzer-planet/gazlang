@@ -1,0 +1,1 @@
+Error: Expected ')' but found 'as' (keywords are lowercase: write 'foreach', not 'FOREACH') at tests/corpora/parser/error_keyword_hint_statement_start_foreach.gaz:1

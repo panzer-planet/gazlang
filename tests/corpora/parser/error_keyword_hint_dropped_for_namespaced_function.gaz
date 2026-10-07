@@ -1,0 +1,7 @@
+// A function declared in the file's namespace under a keyword's name gets no hint
+namespace a;
+fn If($x) {
+    return 1;
+}
+If(1) {
+}
