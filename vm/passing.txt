@@ -1183,6 +1183,7 @@ tests/gaz/lib/http_causes_test.gaz
 tests/gaz/lib/http_client_address_test.gaz
 tests/gaz/lib/http_connection_test.gaz
 tests/gaz/lib/http_decode_test.gaz
+tests/gaz/lib/http_multipart_test.gaz
 tests/gaz/lib/http_redirect_test.gaz
 tests/gaz/lib/http_remote_address_test.gaz
 tests/gaz/lib/http_serve_static_test.gaz

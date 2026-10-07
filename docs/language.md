@@ -2304,6 +2304,44 @@ Decoding what a request carries, when a handler asks:
   is answered 400. A mistake of the program's (a request that isn't a map) is still an error.
   `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
 
+**Uploads**: a form with `enctype="multipart/form-data"` is read with `http::multipart($request)`:
+
+```gaz
+import "std/crypto.gaz";
+import "std/http.gaz";
+
+fn upload($request) {
+    $sent = http::multipart($request);
+    $photo = $sent["files"]["photo"] ?? null;   // {"filename" => ..., "content_type" => ..., "content" => ...}
+    if ($photo == null || $photo["filename"] == "") {
+        return {"status" => 422, "body" => "Choose a photo to upload"};
+    }
+    $stored = "uploads/" .. crypto::token() .. ".jpg";   // never $photo["filename"]
+    write_file($stored, $photo["content"]);
+
+    return {"body" => "Thanks for " .. ($sent["fields"]["title"] ?? "the photo")};
+}
+```
+
+- It gives `{"fields" => {...}, "files" => {...}}`: each text field a string, as `http::form()`
+  gives one, and each file a map of its `"filename"`, `"content_type"` (the part's own,
+  `application/octet-stream` without one) and `"content"`, the bytes as sent. A name given twice
+  keeps its last value; `http::multipart_all()` gives every value, a list for each name, which is
+  how the files of an `<input type="file" multiple>` arrive. A file input left empty arrives as a
+  file whose filename and content are `""`.
+- **Never use `"filename"` as a path**: it is exactly what the browser sent, and a client can send
+  `../../etc/passwd`. Name the stored file yourself. A quoted filename runs to the next `"` with
+  every byte kept, backslashes too (`filename="dir\"` is `dir\`), as browsers send a `"` as `%22`.
+- The whole body is in memory, so `http::serve()`'s `"max_body"` (1MB by default) bounds an
+  upload, and a bigger body is answered 413 before the handler runs: raise it for a server that
+  takes big files.
+- A body of another Content-Type, or one that isn't well formed (no boundary or one over 70 bytes,
+  a body cut off before its closing boundary, a part without a `name`, a header line without a
+  colon, a parameter whose name isn't a token or whose unquoted value isn't one, a nested
+  multipart body, a `filename*` parameter, more than 1000 parts), is an error, and
+  so is a name, filename or field value that isn't UTF-8; a file's content can be any bytes. It
+  takes a `$default` as `http::form()` does, and without one the error left uncaught is a 400.
+
 **Cookies and signed sessions**, on `crypto::sign`, `crypto::equals` and `crypto::token`:
 
 ```gaz

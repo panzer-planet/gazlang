@@ -194,6 +194,41 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   bytes, on a piece of `$request["query"]` or `$request["body"]`. `ponytail:` no option on the
   decoders themselves for raw bytes: `$default` takes the only optional slot, and a raw-bytes
   form decoder waits for a program that needs one.
+- **Uploads are `http::multipart()` and `http::multipart_all()`**, the `form()`/`form_all()` split
+  over `{"fields" => ..., "files" => ...}`, with the same `$default` and the same `Undecodable`,
+  so a malformed body is a 400 and a body of another type is refused rather than read as empty.
+  Fields and files are kept apart because a file is a map and a field a string, and a handler
+  should know which it holds without asking. RFC 7578 on RFC 2046's framing, and every rule loud:
+  - **Held in memory, bounded by `"max_body"`**, which an app raises for a server that takes
+    uploads: one limit that already exists, and no temporary files for a worker to leave behind.
+    `ponytail:` an upload bigger than memory wants streaming to disk, when a program needs one.
+  - **Linear in the body**: each boundary is found with `index_of()`, and a part's head is bounded
+    (`MAX_PART_HEAD`) before its parameters are read; a quoted string is found with one
+    `index_of()`. `MAX_PARTS` (1000) bounds the maps a body of tiny parts makes.
+  - **The framing is strict**: the boundary from the Content-Type's parameter, 1 to 70 bytes; CRLF
+    line ends only, since a lone CR or LF in a part's head is how one request is read two ways; the
+    close delimiter required, so a body cut off is refused rather than giving the parts before the
+    cut. A boundary line with more than padding after the boundary means the boundary was in the
+    content, which RFC 2046 forbids, so it is refused rather than guessed at.
+  - **A part is `form-data` with a `name`**; one header given twice, a header line without a colon
+    or with a space in its name (a folded line), a nested multipart body and a
+    `Content-Transfer-Encoding` other than `7bit`, `8bit` or `binary` are refused, since each would
+    otherwise give the handler something other than what was sent.
+  - **A parameter's name is a token and its value a token or a quoted string**, so a stray `=x`,
+    `name x=y`, `name=` or `name=a b` is refused rather than read some way; an empty `name` is a
+    part without one.
+  - **`filename*` is refused, and any name with a `*`** (RFC 2231's `filename*0`, `filename*1`):
+    RFC 7578 forbids them, honouring one would be a second decoding, and ignoring it would read a
+    file whose only filename is there as a text field.
+  - **A filename is given exactly as sent**, so it can be `../../etc/passwd`: the docs say never to
+    use it as a path. **A quoted string has no backslash escapes**: it runs from its quote to the
+    next, every byte kept, since browsers send `"` as `%22` and backslashes raw (WHATWG), so reading
+    escapes would change or refuse real filenames (`x\\y`, `dir\`). `filename=""`, an empty file
+    input, is a file named `""`.
+  - **Text is UTF-8, content is bytes**: a part's head (names, filenames, its Content-Type) and a
+    field's value are refused otherwise, as every decoded request text is; a file's content is never
+    checked. A file's `"content_type"` is its part's, `application/octet-stream` when it has none.
+  - Tested by `tests/gaz/lib/http_multipart_test.gaz`, end to end through `http::TestClient`.
 - **Routing is `http::Router()`, in `http.gaz` itself**, not a `router.gaz` read as
   `router::Router()`, one namespace naming the other redundantly, for a program already reaching
   for `http::serve`. `$app.handler()` is an ordinary handler, so the server learns nothing. No

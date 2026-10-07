@@ -1,0 +1,230 @@
+import "std/test.gaz" use expect, throws;
+import "std/http.gaz";
+
+/*
+ * http::multipart() and http::multipart_all(): multipart/form-data bodies, built here byte for byte,
+ * then the same through http::TestClient, the server's own reading.
+ */
+
+const BOUNDARY = "----gazBoundary7MA4YWxk";
+const CRLF = "\r\n";
+
+// One part: its header lines, an empty line, its content
+fn part(string $disposition, string $content, map $headers = {}): string {
+    $head = "Content-Disposition: $disposition" .. CRLF;
+    foreach ($headers as $name => $value) {
+        $head ..= "$name: $value" .. CRLF;
+    }
+
+    return $head .. CRLF .. $content;
+}
+
+fn field(string $name, string $value): string {
+    return part("form-data; name=\"$name\"", $value);
+}
+
+fn file(string $name, string $filename, string $type, string $content): string {
+    return part("form-data; name=\"$name\"; filename=\"$filename\"", $content, {"Content-Type" => $type});
+}
+
+// The parts between boundary lines and a closing one, as a browser sends them
+fn body(list $parts, string $boundary = BOUNDARY): string {
+    $text = "";
+    foreach ($parts as $part) {
+        $text ..= "--$boundary" .. CRLF .. $part .. CRLF;
+    }
+
+    return $text .. "--$boundary--" .. CRLF;
+}
+
+fn sent(string $body, string $type = "multipart/form-data; boundary=" .. BOUNDARY): map {
+    return {"query" => "", "headers" => {"content-type" => $type}, "body" => $body};
+}
+
+/* Fields and files together */
+$jpeg = "\xff\xd8\xff\xe0 not really a jpeg";
+$upload = sent(body([
+    field("title", "Holiday in Durbán"),
+    file("photo", "beach.jpg", "image/jpeg", $jpeg),
+    field("tag", "sea"),
+    field("tag", "sun"),
+]));
+expect("fields and a file", http::multipart($upload), {
+    "fields" => {"title" => "Holiday in Durbán", "tag" => "sun"},
+    "files" => {"photo" => {"filename" => "beach.jpg", "content_type" => "image/jpeg", "content" => $jpeg}},
+});
+expect("every value of a field", http::multipart_all($upload)["fields"]["tag"], ["sea", "sun"]);
+expect("no parts", http::multipart(sent("--" .. BOUNDARY .. "--" .. CRLF)), {"fields" => {}, "files" => {}});
+
+/* Two files under one name, as <input type="file" multiple> sends them */
+$two = sent(body([file("photos", "a.png", "image/png", "A"), file("photos", "b.png", "image/png", "B")]));
+expect("multipart_all has both files", http::multipart_all($two)["files"]["photos"], [
+    {"filename" => "a.png", "content_type" => "image/png", "content" => "A"},
+    {"filename" => "b.png", "content_type" => "image/png", "content" => "B"},
+]);
+expect("multipart keeps the last", http::multipart($two)["files"]["photos"]["filename"], "b.png");
+
+/* A file input left empty: a filename and content of "", and no Content-Type means octet-stream */
+$empty = sent(body([part("form-data; name=\"photo\"; filename=\"\"", "")]));
+expect("an empty file", http::multipart($empty)["files"], {
+    "photo" => {"filename" => "", "content_type" => "application/octet-stream", "content" => ""},
+});
+expect("an empty field", http::multipart(sent(body([field("note", "")])))["fields"], {"note" => ""});
+
+/* Content is bytes, whatever is in them, the boundary's beginning and line ends included */
+$binary = "\x00\r\n\r\n--" .. slice(BOUNDARY, 0, 10) .. "\n--" .. BOUNDARY .. "\r--" .. BOUNDARY .. "\xfe\x00\r";
+expect("binary content comes back exactly", http::multipart(sent(body([file("blob", "b.bin", "application/octet-stream", $binary)])))["files"]["blob"]["content"], $binary);
+throws("but a field's text must be UTF-8", () -> http::multipart(sent(body([field("note", "caf\xe9")]))), "text that isn't UTF-8");
+
+/* The boundary parameter, quoted or not, with the preamble and epilogue ignored */
+$quoted = sent("ignored preamble" .. CRLF .. body([field("a", "1")], "with space:") .. "ignored epilogue", "Multipart/Form-Data; charset=utf-8; Boundary=\"with space:\"");
+expect("a quoted boundary", http::multipart($quoted)["fields"], {"a" => "1"});
+expect("padding after a boundary", http::multipart(sent("--b \t" .. CRLF .. field("a", "1") .. CRLF .. "--b--", "multipart/form-data; boundary=b"))["fields"], {"a" => "1"});
+expect("the longest boundary", http::multipart(sent(body([field("a", "1")], repeat("b", 70)), "multipart/form-data; boundary=" .. repeat("b", 70)))["fields"], {"a" => "1"});
+
+/* The filename exactly as sent: a quoted string runs to the next quote, backslashes and %22 kept, as browsers send them */
+$names = sent(body([
+    part("form-data; name=\"x\"; filename=\"say %22hi%22.txt\"", "1"),
+    part("form-data; name=\"y\"; filename=\"C:\\Users\\a.txt\"", "2"),
+    part("form-data; name=\"w\"; filename=\"x\\\\y\"", "3"),
+    part("form-data; name=\"v\"; filename=\"dir\\\"", "4"),
+    part("form-data; filename=\"../../etc/passwd\"; name=z", "5"),
+    part("form-data; name=\"caf\u{e9}\"; filename=\"\u{1f600};.txt\"", "6"),
+]));
+expect("filenames", map(http::multipart($names)["files"], $f -> $f["filename"]), {
+    "x" => "say %22hi%22.txt",
+    "y" => "C:\\Users\\a.txt",
+    "w" => "x\\\\y",
+    "v" => "dir\\",
+    "z" => "../../etc/passwd",
+    "café" => "\u{1f600};.txt",
+});
+throws("a backslash escapes no quote", () -> http::multipart(sent(body([part("form-data; name=\"a\"; filename=\"say \\\"hi\\\".txt\"", "x")]))), "a header parameter without a ; before it in \"form-data; name=\\\"a\\\"; filename=\\\"say \\\\\\\"hi\\\\\\\".txt\\\"\"");
+throws("a filename that isn't UTF-8", () -> http::multipart(sent(body([file("f", "caf\xe9.txt", "text/plain", "x")]))), "text that isn't UTF-8");
+throws("a name that isn't UTF-8", () -> http::multipart(sent(body([field("\xff", "x")]))), "text that isn't UTF-8");
+
+/* Refused: the body's own Content-Type */
+throws("not multipart", () -> http::multipart(sent("a=1", "application/x-www-form-urlencoded")), "http::multipart() needs a body sent as multipart/form-data, not \"application/x-www-form-urlencoded\"");
+throws("no Content-Type", () -> http::multipart({"headers" => {}, "body" => ""}), "http::multipart() needs a body sent as multipart/form-data, not \"\"");
+throws("no boundary", () -> http::multipart(sent("", "multipart/form-data")), "a multipart boundary of 1 to 70 bytes, not \"\"");
+throws("an empty boundary", () -> http::multipart(sent("", "multipart/form-data; boundary=\"\"")), "a multipart boundary of 1 to 70 bytes, not \"\"");
+throws("a boundary too long", () -> http::multipart(sent("", "multipart/form-data; boundary=" .. repeat("b", 71))), "a multipart boundary of 1 to 70 bytes, not \"" .. repeat("b", 71) .. "\"");
+throws("a boundary given twice", () -> http::multipart(sent("", "multipart/form-data; boundary=a; boundary=b")), "a header parameter \"boundary\" given twice in \"multipart/form-data; boundary=a; boundary=b\"");
+throws("a quote that never ends", () -> http::multipart(sent("", "multipart/form-data; boundary=\"ab")), "a header parameter whose quoted string never ends in \"multipart/form-data; boundary=\\\"ab\"");
+
+/* Refused: the framing */
+$whole = body([field("a", "1")]);
+throws("no boundary in the body", () -> http::multipart(sent("a=1")), "a multipart body without its boundary");
+throws("no closing boundary", () -> http::multipart(sent(slice($whole, 0, -4))), "a multipart body that ends before its closing boundary");
+throws("cut off inside a part", () -> http::multipart(sent("--" .. BOUNDARY .. CRLF .. field("a", "1"))), "a multipart body that ends before its closing boundary");
+throws("cut off after a boundary", () -> http::multipart(sent("--" .. BOUNDARY)), "a multipart body that ends before its closing boundary");
+throws("the boundary inside content", () -> http::multipart(sent(body([field("a", "1\r\n--" .. BOUNDARY .. "X")]))), "a multipart boundary line with more after the boundary");
+throws("a bare LF after a boundary", () -> http::multipart(sent(replace($whole, BOUNDARY .. CRLF, BOUNDARY .. "\n"))), "a multipart boundary line with more after the boundary");
+$most = [];
+while (len($most) < 1000) {
+    $most[] = field("f", "x");
+}
+$fields = http::multipart_all(sent(body($most)))["fields"];
+expect("1000 parts are fine", len($fields["f"]), 1000);
+throws("more than 1000 parts", () -> http::multipart(sent(body([...$most, field("f", "x")]))), "a multipart body of more than 1000 parts");
+
+/* Refused: a part's headers */
+fn refused_part(string $part): string {
+    try {
+        http::multipart(sent(body([$part])));
+        return "accepted";
+    } catch (Error $e) {
+        return $e.message;
+    }
+}
+expect("parts refused", [
+    refused_part("Content-Type: text/plain" .. CRLF .. CRLF .. "x"),
+    refused_part(CRLF .. "no headers at all"),
+    refused_part("Content-Disposition: form-data" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; filename=\"a.txt\"" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: attachment; name=\"a\"" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"; filename*=UTF-8''a.txt" .. CRLF .. CRLF .. "x"),
+    refused_part(file("a", "a.zip", "multipart/mixed; boundary=inner", "--inner--")),
+    refused_part(part("form-data; name=\"a\"", "eA==", {"Content-Transfer-Encoding" => "base64"})),
+    refused_part("Content-Disposition: form-data; name=\"a\"" .. CRLF .. "no colon here" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"" .. CRLF .. " folded: line" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"\nX-Smuggled: 1" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"" .. CRLF .. "content-disposition: form-data; name=\"b\"" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"; name=\"b\"" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"" .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"" .. CRLF .. "X-Long: " .. repeat("x", 8192) .. CRLF .. CRLF .. "x"),
+], [
+    "a multipart part without a Content-Disposition",
+    "a multipart part without a Content-Disposition",
+    "a multipart part without a name",
+    "a multipart part without a name",
+    "a multipart part whose Content-Disposition is \"attachment\", not form-data",
+    "a multipart part with a \"filename*\" parameter, which RFC 7578 forbids",
+    "a multipart part that is itself multipart",
+    "a multipart part sent as \"base64\", not as its bytes",
+    "a multipart part's header line without a colon: \"no colon here\"",
+    "a multipart part's header line without a name: \" folded: line\"",
+    "a multipart part's header line with a lone CR or LF",
+    "a multipart part that gives \"content-disposition\" twice",
+    "a header parameter \"name\" given twice in \"form-data; name=\\\"a\\\"; name=\\\"b\\\"\"",
+    "a header parameter without a value in \"form-data; name\"",
+    "a multipart part whose headers don't end in an empty line",
+    "a multipart part with more than 8192 bytes of headers",
+]);
+
+/* A parameter's name is a token, and its value a token or a quoted string; RFC 2231's continuations are refused as filename* is */
+expect("parameters refused", [
+    refused_part("Content-Disposition: form-data; name=\"doc\"; filename*0=\"report\"; filename*1=\".txt\"" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"; =x" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"; name x=y" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"a\"; n\u{e9}=y" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=a b" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=a/b" .. CRLF .. CRLF .. "x"),
+    refused_part("Content-Disposition: form-data; name=\"\"" .. CRLF .. CRLF .. "x"),
+], [
+    "a multipart part with a \"filename*0\" parameter, which RFC 7578 forbids",
+    "a header parameter whose name isn't a token in \"form-data; name=\\\"a\\\"; =x\"",
+    "a header parameter whose name isn't a token in \"form-data; name=\\\"a\\\"; name x=y\"",
+    "a header parameter whose name isn't a token in \"form-data; name=\\\"a\\\"; n\u{e9}=y\"",
+    "a header parameter whose value isn't a token or a quoted string in \"form-data; name=\"",
+    "a header parameter whose value isn't a token or a quoted string in \"form-data; name=a b\"",
+    "a header parameter whose value isn't a token or a quoted string in \"form-data; name=a/b\"",
+    "a multipart part without a name",
+]);
+$spaced = http::multipart(sent(body([
+    part("form-data ;  name = \"q\" ; filename = f.txt", "v"),
+    part("form-data; NAME=plain-token_1", "w"),
+])));
+expect("spaces around a parameter, and token values", $spaced, {
+    "fields" => {"plain-token_1" => "w"},
+    "files" => {"q" => {"filename" => "f.txt", "content_type" => "application/octet-stream", "content" => "v"}},
+});
+expect("a part's own encoding of its bytes is fine", http::multipart(sent(body([part("form-data; name=\"a\"", "x", {"Content-Transfer-Encoding" => "8bit"})])))["fields"], {"a" => "x"});
+
+/* Given a default, a body that can't be decoded gives it instead; a program's own mistake is still an error */
+$malformed = sent(slice($whole, 0, -4));
+expect("defaults", [
+    http::multipart($malformed, {}),
+    http::multipart_all($malformed, null),
+    http::multipart(sent("a=1", "application/x-www-form-urlencoded"), {"fields" => {}, "files" => {}}),
+], [{}, null, {"fields" => {}, "files" => {}}]);
+expect("a good body ignores it", http::multipart($upload, {}), http::multipart($upload));
+throws("a request that isn't a map", () -> http::multipart("body", {}), "String positions must be int, got string");
+
+/* Through the server's own reading: an upload reaches the handler, a malformed one is a 400, too big a 413 */
+fn upload_handler($request) {
+    $sent = http::multipart($request);
+    $photo = $sent["files"]["photo"];
+
+    return {"body" => $sent["fields"]["title"] .. ": " .. $photo["filename"] .. ", " .. len($photo["content"]) .. " bytes"};
+}
+$client = http::TestClient(upload_handler, {"max_body" => 4096});
+$headers = {"Content-Type" => "multipart/form-data; boundary=" .. BOUNDARY};
+$photo = repeat("\x00\r\n", 100);
+$answered = $client.request("POST", "/upload", $headers, body([field("title", "Beach"), file("photo", "beach.jpg", "image/jpeg", $photo)]));
+expect("an upload reaches the handler", [$answered["status"], $answered["body"]], [200, "Beach: beach.jpg, 300 bytes"]);
+expect("a malformed upload is a 400", $client.request("POST", "/upload", $headers, slice(body([field("title", "x")]), 0, -4))["status"], 400);
+$big = body([field("title", "Big"), file("photo", "big.jpg", "image/jpeg", repeat("x", 4096))]);
+expect("an upload over max_body is a 413", $client.request("POST", "/upload", $headers, $big)["status"], 413);

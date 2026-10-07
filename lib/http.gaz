@@ -471,14 +471,22 @@ fn all_digits($text) {
 
 // A method or header name must be an HTTP token, which keeps it from ending a line
 fn check_token($what, $name) {
-    if (type_of($name) != "string" || $name == "") {
+    if (type_of($name) != "string" || !is_token($name)) {
         throw "HTTP error: bad $what: " .. quote($name);
     }
-    foreach (split($name, "") as $c) {
+}
+
+// Whether $text is an RFC 9110 token: one or more letters, digits and !#$%&'*+-.^_`|~
+fn is_token($text) {
+    if ($text == "") {
+        return false;
+    }
+    foreach (split($text, "") as $c) {
         if (!is_alnum($c) && !contains('!#$%&\'*+-.^_`|~', $c)) {
-            throw "HTTP error: bad $what: " .. quote($name);
+            return false;
         }
     }
+    return true;
 }
 
 const REASONS = {
@@ -1779,6 +1787,341 @@ fn media_type($request) {
     $type = $request["headers"]["content-type"] ?? "";
 
     return lower(trim(split($type, ";")[0]));
+}
+
+// multipart/form-data, the body of a form that uploads files (RFC 7578, framed as RFC 2046 has it)
+
+const MULTIPART_TYPE = "multipart/form-data";
+const MAX_BOUNDARY = 70;      // RFC 2046's longest
+const MAX_PARTS = 1000;       // in one body, so a body of tiny parts can't have a handler build maps without end
+const MAX_PART_HEAD = 8192;   // a part's header lines, in bytes, as MAX_HEAD bounds a request's
+const TRANSFER_ENCODINGS = ["7bit", "8bit", "binary"];   // a part's bytes as they are, the only ones RFC 7578 allows
+const FILE_TYPE = "application/octet-stream";             // a file's Content-Type when its part gives none
+
+/**
+ * A multipart/form-data body, what a form with `enctype="multipart/form-data"` sends, as
+ * `{"fields" => {...}, "files" => {...}}`. Each text field is a string, as form() gives one, and
+ * each file a map:
+ *
+ *     {"filename" => "beach.jpg", "content_type" => "image/jpeg", "content" => "..."}
+ *
+ * A name given twice keeps its last value (multipart_all() has them all). "content" is the bytes
+ * as the client sent them; "content_type" is the part's own Content-Type, application/octet-stream
+ * when it gives none; a file input left empty arrives as a file whose filename and content are "".
+ * **Never use "filename" as a path**: it is exactly what the client sent, which can be
+ * "../../etc/passwd" or anything else; name the stored file yourself. A quoted filename runs to
+ * the next quote with every byte kept, backslashes too, as browsers send them (a quote comes as
+ * %22, which stays %22).
+ *
+ * The whole body is in memory, so "max_body" (http::serve()'s option, 1MB by default) bounds an
+ * upload: raise it for a server that takes big files. A body of another type, a malformed one, more
+ * than 1000 parts, a field name, filename or text value that isn't UTF-8, a nested multipart body
+ * or a filename* parameter (or any parameter with a * in its name) is an error, unless $default is given, which is then returned instead.
+ * Uncaught in a handler, the error is a 400.
+ */
+pub fn multipart($request, $default = NoDefault()) {
+    return decoded(() -> map(grouped_parts(multipart_parts($request)), $named -> last_values($named)), $default);
+}
+
+/**
+ * A multipart/form-data body as multipart() reads it, but with each name's every value, in order:
+ * `{"fields" => {"tag" => ["a", "b"]}, "files" => {"photos" => [{...}, {...}]}}`, so the files of
+ * an `<input type="file" multiple>` are all there. Errors and $default as multipart() has them.
+ */
+pub fn multipart_all($request, $default = NoDefault()) {
+    return decoded(() -> grouped_parts(multipart_parts($request)), $default);
+}
+
+fn grouped_parts($parts) {
+    $grouped = {"fields" => {}, "files" => {}};
+    foreach ($parts as $part) {
+        $group = $part.filename == null ? "fields" : "files";
+        $grouped[$group][$part.name] ??= [];
+        $grouped[$group][$part.name][] = $part.value();
+    }
+
+    return $grouped;
+}
+
+fn multipart_parts($request) {
+    if (media_type($request) != MULTIPART_TYPE) {
+        $type = $request["headers"]["content-type"] ?? "";
+        throw Undecodable("http::multipart() needs a body sent as " .. MULTIPART_TYPE .. ", not " .. quote($type));
+    }
+    [, $parameters] = header_parameters($request["headers"]["content-type"]);
+    $boundary = $parameters["boundary"] ?? "";
+    if ($boundary == "" || len($boundary) > MAX_BOUNDARY) {
+        throw Undecodable("a multipart boundary of 1 to " .. MAX_BOUNDARY .. " bytes, not " .. quote($boundary));
+    }
+
+    return MultipartReader($request["body"], $boundary).parts();
+}
+
+/*
+ * A multipart body read part by part, each boundary found with index_of(), so the time is linear in
+ * the body. The preamble before the first boundary and the epilogue after the last are ignored.
+ */
+kind MultipartReader {
+    #body;
+    #dash;        // "--boundary", which starts every boundary line
+    #at = 0;      // just after the boundary line last read
+
+    fn _($body, $boundary) {
+        #body = $body;
+        #dash = "--" .. $boundary;
+    }
+
+    pub fn parts() {
+        #at = #first_boundary();
+        $parts = [];
+        while (!starts_with(#body, "--", #at)) {
+            #end_boundary_line();
+            if (len($parts) == MAX_PARTS) {
+                throw Undecodable("a multipart body of more than " .. MAX_PARTS .. " parts");
+            }
+            $end = index_of(#body, "\r\n" .. #dash, #at);
+            if ($end == null) {
+                throw Undecodable("a multipart body that ends before its closing boundary");
+            }
+            $parts[] = multipart_part(slice(#body, #at, $end - #at));
+            #at = $end + 2 + len(#dash);
+        }
+
+        return $parts;
+    }
+
+    // Where the first boundary line's boundary ends: at the very start, or after a preamble and CRLF
+    fn first_boundary() {
+        if (starts_with(#body, #dash)) {
+            return len(#dash);
+        }
+        $start = index_of(#body, "\r\n" .. #dash);
+        if ($start == null) {
+            throw Undecodable("a multipart body without its boundary");
+        }
+
+        return $start + 2 + len(#dash);
+    }
+
+    // A boundary line ends in CRLF after optional spaces and tabs; anything else means the boundary was in the content
+    fn end_boundary_line() {
+        while (#at < len(#body) && contains(" \t", #body[#at])) {
+            #at++;
+        }
+        if (#at == len(#body)) {
+            throw Undecodable("a multipart body that ends before its closing boundary");
+        }
+        if (!starts_with(#body, "\r\n", #at)) {
+            throw Undecodable("a multipart boundary line with more after the boundary");
+        }
+        #at += 2;
+    }
+}
+
+// One part of a multipart/form-data body: a text field when it has no filename, a file when it has one
+kind MultipartPart {
+    fn _(pub #name, pub #filename, #content_type, #content);
+
+    // What a handler is given: a field's text, or a file's map
+    pub fn value() {
+        if (#filename == null) {
+            return #content;
+        }
+
+        return {"filename" => #filename, "content_type" => #content_type, "content" => #content};
+    }
+}
+
+// The part whose text, between two boundary lines, is $text: its header lines, an empty line, its content
+fn multipart_part($text) {
+    [$head, $content] = part_head_and_content($text);
+    $headers = part_headers($head);
+    $disposition = $headers["content-disposition"] ?? null;
+    if ($disposition == null) {
+        throw Undecodable("a multipart part without a Content-Disposition");
+    }
+    [$type, $parameters] = header_parameters($disposition);
+    if ($type != "form-data") {
+        throw Undecodable("a multipart part whose Content-Disposition is " .. quote($type) .. ", not form-data");
+    }
+    refuse_extended_parameters($parameters);
+    $name = $parameters["name"] ?? "";
+    if ($name == "") {
+        throw Undecodable("a multipart part without a name");
+    }
+    $content_type = trim($headers["content-type"] ?? "");
+    if (starts_with(lower($content_type), "multipart/")) {
+        throw Undecodable("a multipart part that is itself multipart");
+    }
+    $encoding = lower(trim($headers["content-transfer-encoding"] ?? "binary"));
+    if (!in_array($encoding, TRANSFER_ENCODINGS)) {
+        throw Undecodable("a multipart part sent as " .. quote($encoding) .. ", not as its bytes");
+    }
+    $filename = $parameters["filename"] ?? null;
+    if ($filename == null && !utf8_valid($content)) {
+        throw Undecodable("text that isn't UTF-8");
+    }
+    if ($content_type == "") {
+        $content_type = FILE_TYPE;
+    }
+
+    return MultipartPart($name, $filename, $content_type, $content);
+}
+
+/*
+ * RFC 7578 forbids RFC 5987's filename* and RFC 2231's continuations (filename*0, filename*1, ...),
+ * so any name with a * in it: honouring one would be a second decoding to get right, and ignoring
+ * it would read a file whose only filename is there as a text field
+ */
+fn refuse_extended_parameters($parameters) {
+    foreach (keys($parameters) as $key) {
+        if (contains($key, "*")) {
+            throw Undecodable("a multipart part with a " .. quote($key) .. " parameter, which RFC 7578 forbids");
+        }
+    }
+}
+
+fn part_head_and_content($text) {
+    if (starts_with($text, "\r\n")) {
+        return ["", slice($text, 2)];
+    }
+    $blank = index_of($text, "\r\n\r\n");
+    if ($blank == null) {
+        throw Undecodable("a multipart part whose headers don't end in an empty line");
+    }
+    if ($blank > MAX_PART_HEAD) {
+        throw Undecodable("a multipart part with more than " .. MAX_PART_HEAD .. " bytes of headers");
+    }
+
+    return [slice($text, 0, $blank), slice($text, $blank + 4)];
+}
+
+// A part's header lines as a map from each lowercased name to its trimmed value
+fn part_headers($head) {
+    $headers = {};
+    if ($head == "") {
+        return $headers;
+    }
+    if (!utf8_valid($head)) {
+        throw Undecodable("text that isn't UTF-8");
+    }
+    foreach (split($head, "\r\n") as $line) {
+        [$name, $value] = part_header($line);
+        if (has_key($headers, $name)) {
+            throw Undecodable("a multipart part that gives " .. quote($name) .. " twice");
+        }
+        $headers[$name] = $value;
+    }
+
+    return $headers;
+}
+
+fn part_header($line) {
+    if (contains($line, "\r") || contains($line, "\n")) {
+        throw Undecodable("a multipart part's header line with a lone CR or LF");
+    }
+    $colon = index_of($line, ":");
+    if ($colon == null) {
+        throw Undecodable("a multipart part's header line without a colon: " .. quote($line));
+    }
+    $name = lower(slice($line, 0, $colon));
+    if ($name == "" || contains($name, " ") || contains($name, "\t")) {
+        throw Undecodable("a multipart part's header line without a name: " .. quote($line));
+    }
+
+    return [$name, trim(slice($line, $colon + 1))];
+}
+
+/*
+ * A header's value read as a lowercased first word and its parameters ("form-data; name=\"a\""
+ * is ["form-data", {"name" => "a"}]), each name lowercased, each value a token or a quoted string.
+ * A quoted string runs to the next quote with every byte kept, a backslash too: browsers send a
+ * quote as %22 and a backslash as it is, so reading backslash escapes would change or refuse real
+ * filenames.
+ */
+fn header_parameters($value) {
+    $semicolon = index_of($value, ";") ?? len($value);
+    $first = lower(trim(slice($value, 0, $semicolon)));
+    $reader = ParameterReader($value, $semicolon);
+
+    return [$first, $reader.parameters()];
+}
+
+kind ParameterReader {
+    #text;
+    #at;
+
+    fn _($text, $at) {
+        #text = $text;
+        #at = $at;
+    }
+
+    // From just after the first word: each "; name=value", as a map
+    pub fn parameters() {
+        $parameters = {};
+        while (true) {
+            #skip_space();
+            if (#at == len(#text)) {
+                return $parameters;
+            }
+            if (#text[#at] != ";") {
+                throw Undecodable("a header parameter without a ; before it in " .. quote(#text));
+            }
+            #at++;
+            #skip_space();
+            if (#at == len(#text) || #text[#at] == ";") {
+                continue;
+            }
+            [$name, $value] = #parameter();
+            if (has_key($parameters, $name)) {
+                throw Undecodable("a header parameter " .. quote($name) .. " given twice in " .. quote(#text));
+            }
+            $parameters[$name] = $value;
+        }
+    }
+
+    fn parameter() {
+        $equals = index_of(#text, "=", #at);
+        $semicolon = index_of(#text, ";", #at) ?? len(#text);
+        if ($equals == null || $equals > $semicolon) {
+            throw Undecodable("a header parameter without a value in " .. quote(#text));
+        }
+        $name = lower(trim(slice(#text, #at, $equals - #at)));
+        if (!is_token($name)) {
+            throw Undecodable("a header parameter whose name isn't a token in " .. quote(#text));
+        }
+        #at = $equals + 1;
+        #skip_space();
+        if (#at < len(#text) && #text[#at] == "\"") {
+            return [$name, #quoted()];
+        }
+        $end = index_of(#text, ";", #at) ?? len(#text);
+        $token = trim(slice(#text, #at, $end - #at));
+        if (!is_token($token)) {
+            throw Undecodable("a header parameter whose value isn't a token or a quoted string in " .. quote(#text));
+        }
+        #at = $end;
+
+        return [$name, $token];
+    }
+
+    // A quoted string from its opening quote through the next one, the bytes between as they are
+    fn quoted() {
+        $close = index_of(#text, "\"", #at + 1);
+        if ($close == null) {
+            throw Undecodable("a header parameter whose quoted string never ends in " .. quote(#text));
+        }
+        $text = slice(#text, #at + 1, $close - #at - 1);
+        #at = $close + 1;
+
+        return $text;
+    }
+
+    fn skip_space() {
+        while (#at < len(#text) && contains(" \t", #text[#at])) {
+            #at++;
+        }
+    }
 }
 
 // Who the client is, behind proxies the program trusts

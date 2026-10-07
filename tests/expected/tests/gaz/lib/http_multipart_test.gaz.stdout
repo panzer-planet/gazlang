@@ -1,0 +1,41 @@
+ok fields and a file
+ok every value of a field
+ok no parts
+ok multipart_all has both files
+ok multipart keeps the last
+ok an empty file
+ok an empty field
+ok binary content comes back exactly
+ok but a field's text must be UTF-8
+ok a quoted boundary
+ok padding after a boundary
+ok the longest boundary
+ok filenames
+ok a backslash escapes no quote
+ok a filename that isn't UTF-8
+ok a name that isn't UTF-8
+ok not multipart
+ok no Content-Type
+ok no boundary
+ok an empty boundary
+ok a boundary too long
+ok a boundary given twice
+ok a quote that never ends
+ok no boundary in the body
+ok no closing boundary
+ok cut off inside a part
+ok cut off after a boundary
+ok the boundary inside content
+ok a bare LF after a boundary
+ok 1000 parts are fine
+ok more than 1000 parts
+ok parts refused
+ok parameters refused
+ok spaces around a parameter, and token values
+ok a part's own encoding of its bytes is fine
+ok defaults
+ok a good body ignores it
+ok a request that isn't a map
+ok an upload reaches the handler
+ok a malformed upload is a 400
+ok an upload over max_body is a 413
