@@ -132,7 +132,8 @@ or dim is listed under it. [The keys and clock are written out here](docs/langua
   PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
   ([numbers below](#how-fast-is-it)).
 - **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
-  preforking web server, SQLite and PostgreSQL, dates, a terminal UI toolkit, regular
+  preforking web server with uploads and a test client for handlers, SQLite and PostgreSQL with
+  errors you can catch by kind, dates, a terminal UI toolkit, regular
   expressions with no ReDoS, and password hashing (Argon2id, scrypt, PBKDF2) — most of it
   written in GazLang itself ([the list](#what-comes-with-it)).
 - **It is checked to the byte.** What every test program prints, error messages included, is
@@ -242,6 +243,10 @@ answering one request at a time.
   another, so the pool stays four wide. On SIGTERM it stops them all
   gracefully: each finishes the request it's in, and one still running after 10 seconds is
   killed. Ctrl-C ends them at once.
+- **A handler can't run forever.** One still going after 10 seconds (`"handler_timeout"`) gets the
+  client a 503, its worker ends, and the master starts a fresh one and says why, so a slow query or
+  a stuck loop costs one request, not a worker for good. Every request answered, refusals
+  included, gets a line in the access log on standard error.
 - **Workers share nothing.** Each has its own memory and, since lists and maps are values, there
   is nothing to lock and no data race to have. State that must outlive a request belongs in a
   database or a cookie, as it does behind FPM.
@@ -274,7 +279,9 @@ echo json::encode({"ok" => true});
 ```
 
 JSON and CSV, HTML templates that escape by default, command line parsing with `--help` written
-for you, an HTTP/1.1 client and a preforking server, a router, SQLite and PostgreSQL, regular
+for you, an HTTP/1.1 client and a preforking server, a router, file uploads, a test client
+that calls your handlers as a browser would, SQLite and PostgreSQL with errors you can tell apart
+(a unique violation from a lost connection), regular
 expressions, dates, number and string formatting, sorting and list helpers, cryptographically
 sound randomness, password hashing and HMACs, and a terminal UI toolkit with boxes, tables,
 menus and a screen that redraws only what changed. Sockets and worker processes, the database
