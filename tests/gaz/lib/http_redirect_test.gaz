@@ -11,4 +11,5 @@ throws("a line break would split the response", () -> http::redirect("/x\r\nSet-
 throws("a bare line feed too", () -> http::redirect("/x\nHeader: y"), "http::redirect() can't send a location with a line break or NUL byte in it");
 throws("a NUL byte", () -> http::redirect("/x\0y"), "http::redirect() can't send a location with a line break or NUL byte in it");
 throws("a status that isn't a redirect", () -> http::redirect("/x", 200), "http::redirect() expects a status of 301, 302, 303, 307, 308, got 200");
-throws("a location that isn't a string", () -> http::redirect(5), "http::redirect() expects \$to to be string, got int");
+$to = 5;
+throws("a location that isn't a string", () -> http::redirect($to), "http::redirect() expects \$to to be string, got int");

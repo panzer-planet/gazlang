@@ -1,0 +1,5 @@
+kind S {
+    static float #n = 1;
+    static string #label =
+        [1];
+}

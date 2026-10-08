@@ -1,0 +1,4 @@
+fn d(int $n =
+    "x") {
+    return $n;
+}

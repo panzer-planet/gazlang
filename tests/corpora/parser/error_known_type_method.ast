@@ -1,0 +1,1 @@
+Error: A.m() expects $n to be int, got float at tests/corpora/parser/error_known_type_method.gaz:7

@@ -17,7 +17,8 @@ expect("a template in the namespace is called by its bare name", card($lamp, "on
     "<div class=\"card\">\n<b>lamp</b> on sale\n<em>premium</em>\n</div>\n");
 expect("and by its qualified one", shop::card($pen).text, "<div class=\"card\">\n<b>pen</b> \n</div>\n");
 expect("a type in its parameters is the namespace's kind", type_of($lamp), "object");
-throws("a parameter typed with it is checked", () -> card("not a product"), "shop::card() expects \$product to be shop::Product|null, got string");
+$product = "not a product";
+throws("a parameter typed with it is checked", () -> card($product), "shop::card() expects \$product to be shop::Product|null, got string");
 expect("the pub one", badge("new").text, "<span>new</span>\n");
 expect("text in it is escaped as in any template", badge("<b>&").text, "<span>&lt;b&gt;&amp;</span>\n");
 expect("the template is a function of the namespace", [type_of(card), type_of(shop::badge)], ["function", "function"]);

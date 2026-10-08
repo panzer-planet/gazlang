@@ -1,0 +1,1 @@
+Error: P #label must be string|null, got bool at tests/corpora/parser/error_known_type_field_default.gaz:4

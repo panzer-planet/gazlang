@@ -706,8 +706,9 @@ Direction::North
 
 ## Types
 
-Types are optional, and checked when the program runs. Leaving one out means anything; writing
-one means the value is checked, strictly, where it arrives.
+Types are optional, and checked when the program runs, or when it is read if a value's type is
+plain from the source. Leaving one out means anything; writing one means the value is checked,
+strictly, where it arrives.
 
 ```gaz
 kind Account {
@@ -780,6 +781,16 @@ echo Account::made;
   to be int, got string` (a lambda as traces name one), `total() should return int, got
   string`, `Account #balance must be float, got string`, `Account::made must be int, got
   string`. What it got is named as `type_of()` would, an object by its kind.
+- **A value whose type is plain from the source is checked when the program is read**, with the
+  same sentence, so a mistake in code that hasn't run yet still stops the program before it
+  starts: `fn g() { return total("x"); }` is refused even if `g()` is never called. That is a
+  literal (a string, interpolated or not, a number, `-1`, a bool, `null`, a list or map literal, a
+  lambda), anything joined with `..`, a constant, a case of an enum and a kind being constructed
+  (`Square()`), wherever it meets a type: an argument of a call by name, a `#method()`, a
+  `##method()` or a constructor, a `return`, and the default of a parameter, a field or a static
+  field. A variable, a call's result and `$obj.method()` are checked when the program runs.
+  A `#method()` is named by the version the kind it is written in sees, and an interface's or
+  abstract method's default is held to its type too, though it never runs.
 - **An override keeps the parent's types** where the parent declares them: the same type on
   each such parameter and on the return. Where the parent says nothing, the child may say what
   it likes. Constructors are each kind's own, as with argument counts.

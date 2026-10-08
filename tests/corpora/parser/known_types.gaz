@@ -1,0 +1,49 @@
+// Each value meets a type that takes it, so nothing here is refused
+interface Shape {
+    fn area(): float;
+}
+
+kind Base {}
+
+kind Square extends Base implements Shape {
+    pub fn area(): float {
+        return 1;
+    }
+}
+
+enum Filter {
+    Open;
+
+    // An enum's own helpers have no declaration, so they are left to the VM
+    pub fn all() {
+        return #cases();
+    }
+}
+
+enum Level: int {
+    Low = 1;
+
+    pub fn parsed() {
+        return #from(1);
+    }
+}
+
+const LIMIT = 10;
+
+fn takes_float(float $f = 1): float {
+    return 2;
+}
+
+fn takes(?string $s, int|string $u, object $o, Base $b, Shape $shape, Filter $c, function $fn, list $l, map $m) {}
+
+fn wrong_only_at_run_time(int $n) {}
+
+takes_float(LIMIT);
+takes_float(-3);
+takes(null, "u", Square(), Square(), Square(), Filter::Open, $x -> $x, [1], {});
+takes("s", 1, Filter::Open, Square(), Square(), Filter::Open, $x -> $x, [], {"a" => 1});
+// Only a value whose type is certain is checked: a variable, a call and a ternary are left to the VM
+$s = "x";
+wrong_only_at_run_time($s);
+wrong_only_at_run_time(lower("X"));
+wrong_only_at_run_time(true ? "a" : "b");

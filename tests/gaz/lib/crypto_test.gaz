@@ -328,11 +328,13 @@ expect("other algorithms' limits stay", crypto::verify_password("pw", $argon2, {
 throws("limits for an unknown algorithm", () -> crypto::verify_password("pw", $pbkdf2, {"md5" => {}}), "crypto: unknown algorithm \"md5\" in the limits, expected argon2id, scrypt or pbkdf2-sha256");
 throws("limits for an unknown parameter", () -> crypto::verify_password("pw", $pbkdf2, {"scrypt" => {"n" => 5}}), "crypto: scrypt's limits are ints for ln, r, p, got \"n\" => 5");
 throws("a limit that isn't an int", () -> crypto::verify_password("pw", $pbkdf2, {"scrypt" => {"ln" => 5.0}}), "crypto: scrypt's limits are ints for ln, r, p, got \"ln\" => 5.0");
-throws("verify_password still wants strings", () -> crypto::verify_password("pw", null), "crypto::verify_password() expects \$stored to be string, got null");
+$no_stored = null;
+throws("verify_password still wants strings", () -> crypto::verify_password("pw", $no_stored), "crypto::verify_password() expects \$stored to be string, got null");
 expect("needs_rehash ignores the limits", crypto::needs_rehash(with_part($pbkdf2, 2, "i=2400001"), {"algorithm" => "pbkdf2-sha256", "i" => 2400001}), false);
 
 throws("an unknown algorithm", () -> crypto::hash_password("pw", {"algorithm" => "md5"}), "crypto: unknown algorithm \"md5\", expected argon2id, scrypt or pbkdf2-sha256");
 throws("a parameter the algorithm doesn't have", () -> crypto::hash_password("pw", {"i" => 5}), "crypto: argon2id has no parameter \"i\", expected m, t, p");
 throws("a parameter that isn't an int", () -> crypto::hash_password("pw", {"t" => "3"}), "crypto: argon2id's t must be an int, got string");
 throws("scrypt's ln out of range", () -> crypto::hash_password("pw", {"algorithm" => "scrypt", "ln" => 63}), "crypto: scrypt's ln must be from 1 to 62, got 63");
-throws("a password that isn't a string", () -> crypto::hash_password(5), "crypto::hash_password() expects \$password to be string, got int");
+$text_five = 5;
+throws("a password that isn't a string", () -> crypto::hash_password($text_five), "crypto::hash_password() expects \$password to be string, got int");

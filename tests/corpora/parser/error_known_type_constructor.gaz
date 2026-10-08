@@ -1,0 +1,9 @@
+// An inherited constructor is named by the kind that declares it, as the VM names it
+kind A {
+    fn _(pub int #n) {}
+}
+
+kind B extends A {}
+
+B(
+    {"n" => 1});

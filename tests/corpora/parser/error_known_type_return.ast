@@ -1,0 +1,1 @@
+Error: h() should return int, got string at tests/corpora/parser/error_known_type_return.gaz:7

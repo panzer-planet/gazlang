@@ -95,7 +95,8 @@ expect("a name prints quoted", to_string(db::ident("Name")), "\"Name\"");
 expect("a dot is part of the name", to_string(db::ident("s.t")), "\"s.t\"");
 throws("an empty name", () -> db::ident(""), "db::ident() can't take an empty name");
 throws("a NUL in a name", () -> db::ident("a\0b"), "db::ident() can't take a name holding a NUL byte");
-throws("a name is a string", () -> db::ident(1), "db::ident() expects \$name to be string, got int");
+$int_name = 1;
+throws("a name is a string", () -> db::ident($int_name), "db::ident() expects \$name to be string, got int");
 $names = [$column];
 throws("a name in a list", () -> db::sql"{$names}", "db::sql can't put a db::Ident in a list: an in (...) list holds ints, floats, strings, bools and nulls");
 
@@ -108,7 +109,8 @@ $function = sqlite;
 throws("a function is refused", () -> db::sql"{$function}", "db::sql can't send a function: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
 $object = db::open("sqlite::memory:");
 throws("an object is refused by its kind", () -> db::sql"{$object}", "db::sql can't send a db::Db: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
-throws("a tag is called with lists", () -> db::sql("select 1", []), "db::sql() expects \$strings to be list, got string");
+$plain_text = "select 1";
+throws("a tag is called with lists", () -> db::sql($plain_text, []), "db::sql() expects \$strings to be list, got string");
 
 /*
  * Sql isn't pub, so a program can't build one from a string by accident. A constructor is always
@@ -145,4 +147,5 @@ expect("raw is used as it is", postgres($raw), ['select $1 from t where a = ?', 
  * value to it, since raw text is used as it is.
  */
 expect("raw is a fragment, so it can be spliced in", postgres(db::sql"{$raw} and b = {$id}"), ['select $1 from t where a = ? and b = $1', [7]]);
-throws("raw takes a string", () -> db::raw(["select 1"]), "db::raw() expects \$text to be string, got list");
+$text_list = ["select 1"];
+throws("raw takes a string", () -> db::raw($text_list), "db::raw() expects \$text to be string, got list");

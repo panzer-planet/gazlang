@@ -11,31 +11,31 @@ circle
 ntu ["t", "u"]
 2.5
 2 2
-area() expects $r to be float, got string | area at tests/corpora/vm/types.gaz:55, -> at tests/corpora/vm/types.gaz:123, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:123
-total() expects $n to be int, got float | total at tests/corpora/vm/types.gaz:59, -> at tests/corpora/vm/types.gaz:124, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:124
-total() expects $label to be string|null, got int | total at tests/corpora/vm/types.gaz:59, -> at tests/corpora/vm/types.gaz:125, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:125
-wrong() should return int, got string | wrong at tests/corpora/vm/types.gaz:67, -> at tests/corpora/vm/types.gaz:126, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:126
-falls_off() should return int, got null | falls_off at tests/corpora/vm/types.gaz:70, -> at tests/corpora/vm/types.gaz:127, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:127
-bad_default() expects $n to be int, got string | bad_default at tests/corpora/vm/types.gaz:73, -> at tests/corpora/vm/types.gaz:128, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:128
-takes_shape() expects $s to be Shape, got int | takes_shape at tests/corpora/vm/types.gaz:77, -> at tests/corpora/vm/types.gaz:129, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:129
-takes_shape() expects $s to be Shape, got kind | takes_shape at tests/corpora/vm/types.gaz:77, -> at tests/corpora/vm/types.gaz:130, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:130
-Circle() expects $radius to be float, got string | Circle._ at tests/corpora/vm/types.gaz:45, new Circle at tests/corpora/vm/types.gaz:44, -> at tests/corpora/vm/types.gaz:131, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:131
-Shape() expects $label to be string, got int | Shape._ at tests/corpora/vm/types.gaz:12, new Shape at tests/corpora/vm/types.gaz:3, -> at tests/corpora/vm/types.gaz:132, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:132
-Circle.grow() expects $by to be int|float, got null | Circle.grow at tests/corpora/vm/types.gaz:50, -> at tests/corpora/vm/types.gaz:133, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:133
-Shape.rename() expects $name to be string, got int | Shape.rename at tests/corpora/vm/types.gaz:24, -> at tests/corpora/vm/types.gaz:134, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:134
-Shape #name must be string, got int | -> at tests/corpora/vm/types.gaz:135, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:135
-Shape #area must be float, got string | -> at tests/corpora/vm/types.gaz:136, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:136
-Shape #scale must be int|float, got string | -> at tests/corpora/vm/types.gaz:137, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:137
+area() expects $r to be float, got string | area at tests/corpora/vm/types.gaz:55, -> at tests/corpora/vm/types.gaz:131, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:131
+total() expects $n to be int, got float | total at tests/corpora/vm/types.gaz:59, -> at tests/corpora/vm/types.gaz:132, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:132
+total() expects $label to be string|null, got int | total at tests/corpora/vm/types.gaz:59, -> at tests/corpora/vm/types.gaz:133, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:133
+wrong() should return int, got string | wrong at tests/corpora/vm/types.gaz:67, -> at tests/corpora/vm/types.gaz:134, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:134
+falls_off() should return int, got null | falls_off at tests/corpora/vm/types.gaz:70, -> at tests/corpora/vm/types.gaz:135, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:135
+bad_default() expects $n to be int, got string | bad_default at tests/corpora/vm/types.gaz:73, -> at tests/corpora/vm/types.gaz:136, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:136
+takes_shape() expects $s to be Shape, got int | takes_shape at tests/corpora/vm/types.gaz:85, -> at tests/corpora/vm/types.gaz:137, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:137
+takes_shape() expects $s to be Shape, got kind | takes_shape at tests/corpora/vm/types.gaz:85, -> at tests/corpora/vm/types.gaz:138, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:138
+Circle() expects $radius to be float, got string | Circle._ at tests/corpora/vm/types.gaz:45, new Circle at tests/corpora/vm/types.gaz:44, -> at tests/corpora/vm/types.gaz:139, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:139
+Shape() expects $label to be string, got int | Shape._ at tests/corpora/vm/types.gaz:12, new Shape at tests/corpora/vm/types.gaz:3, -> at tests/corpora/vm/types.gaz:140, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:140
+Circle.grow() expects $by to be int|float, got null | Circle.grow at tests/corpora/vm/types.gaz:50, -> at tests/corpora/vm/types.gaz:141, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:141
+Shape.rename() expects $name to be string, got int | Shape.rename at tests/corpora/vm/types.gaz:24, -> at tests/corpora/vm/types.gaz:142, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:142
+Shape #name must be string, got int | -> at tests/corpora/vm/types.gaz:143, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:143
+Shape #area must be float, got string | -> at tests/corpora/vm/types.gaz:144, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:144
+Shape #scale must be int|float, got string | -> at tests/corpora/vm/types.gaz:145, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:145
 no error: null
-Shape #area must be float, got string | -> at tests/corpora/vm/types.gaz:139, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:139
+Shape #area must be float, got string | -> at tests/corpora/vm/types.gaz:147, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:147
 no error: 4.0
-Shape #tags must be list, got string | -> at tests/corpora/vm/types.gaz:141, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:141
-Shape::made must be int, got string | -> at tests/corpora/vm/types.gaz:142, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:142
-Shape::made must be int, got string | -> at tests/corpora/vm/types.gaz:143, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:143
-Shape::made must be int, got float | -> at tests/corpora/vm/types.gaz:144, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:144
+Shape #tags must be list, got string | -> at tests/corpora/vm/types.gaz:149, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:149
+Shape::made must be int, got string | -> at tests/corpora/vm/types.gaz:150, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:150
+Shape::made must be int, got string | -> at tests/corpora/vm/types.gaz:151, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:151
+Shape::made must be int, got float | -> at tests/corpora/vm/types.gaz:152, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:152
 no error: 2.0
 [1, null]
--> at tests/corpora/vm/types.gaz:146 expects $x to be int, got string | -> at tests/corpora/vm/types.gaz:146, -> at tests/corpora/vm/types.gaz:148, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:148
--> at tests/corpora/vm/types.gaz:146 expects $s to be string|null, got int | -> at tests/corpora/vm/types.gaz:146, -> at tests/corpora/vm/types.gaz:149, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:149
-Broken #count must be int, got string | new Broken at tests/corpora/vm/types.gaz:152, -> at tests/corpora/vm/types.gaz:155, fails at tests/corpora/vm/types.gaz:87, top level at tests/corpora/vm/types.gaz:155
+-> at tests/corpora/vm/types.gaz:154 expects $x to be int, got string | -> at tests/corpora/vm/types.gaz:154, -> at tests/corpora/vm/types.gaz:156, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:156
+-> at tests/corpora/vm/types.gaz:154 expects $s to be string|null, got int | -> at tests/corpora/vm/types.gaz:154, -> at tests/corpora/vm/types.gaz:157, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:157
+Broken #count must be int, got string | new Broken at tests/corpora/vm/types.gaz:160, -> at tests/corpora/vm/types.gaz:163, fails at tests/corpora/vm/types.gaz:95, top level at tests/corpora/vm/types.gaz:163
 ["t", "u", 1]

@@ -1,0 +1,10 @@
+kind K {
+    const N = 1;
+
+    fn f(string $s) {}
+
+    fn go() {
+        #f(
+            #N);
+    }
+}

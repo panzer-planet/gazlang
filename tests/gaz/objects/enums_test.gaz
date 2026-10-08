@@ -106,8 +106,10 @@ expect("a typed parameter takes a case", filtered(Filter::Done), "showing done")
 expect("?Filter takes null", maybe(null), "nothing");
 expect("?Filter takes a case", maybe(Filter::All), "All");
 expect("a typed return", turned(Direction::South), Direction::North);
-throws("a parameter refuses a case of another enum", () -> filtered(Direction::North), "filtered() expects \$filter to be Filter, got Direction");
-throws("and a value of its type", () -> filtered("open"), "filtered() expects \$filter to be Filter, got string");
+$north = Direction::North;
+throws("a parameter refuses a case of another enum", () -> filtered($north), "filtered() expects \$filter to be Filter, got Direction");
+$open_text = "open";
+throws("and a value of its type", () -> filtered($open_text), "filtered() expects \$filter to be Filter, got string");
 expect("is_a takes the enum", is_a(Filter::Open, Filter), true);
 expect("and is false for another", is_a(Filter::Open, Direction), false);
 expect("type_of says object", type_of(Filter::Open), "object");

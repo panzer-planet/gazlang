@@ -1,0 +1,5 @@
+kind P {
+    pub int #n = 1;
+    pub ?string #label =
+        false;
+}

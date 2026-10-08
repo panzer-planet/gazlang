@@ -1,0 +1,1 @@
+Error: tag() expects $strings to be string, got list at tests/corpora/parser/error_known_type_tagged.gaz:4

@@ -95,7 +95,8 @@ throws("a map in a list", () -> web::html"{$map_in_list}", "web::html can't put 
 throws("a text part that isn't a string", () -> web::html([Html("<b>")], []),
     "web::html takes a tagged string's text parts, which are strings, got object");
 throws("too few text parts", () -> web::html(["a"], [1]), "web::html takes one more text part than values, got 1 and 1");
-throws("parts must be a list", () -> web::html("a", []), "web::html() expects \$strings to be list, got string");
+$parts = "a";
+throws("parts must be a list", () -> web::html($parts, []), "web::html() expects \$strings to be list, got string");
 
 /* The result can't be concatenated, and .text is its markup */
 $fragment = web::html"<i>{$name}</i>";

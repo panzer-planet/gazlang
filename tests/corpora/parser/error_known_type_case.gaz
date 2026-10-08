@@ -1,0 +1,9 @@
+enum Filter {
+    Open;
+    Done;
+}
+
+fn f(string $s) {}
+
+f(
+    Filter::Open);

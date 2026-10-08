@@ -1,0 +1,6 @@
+const LIMIT = "ten";
+
+fn f(int $n) {}
+
+f(
+    LIMIT);

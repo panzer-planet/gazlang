@@ -1,0 +1,1 @@
+Error: K::s() expects $m to be map, got list at tests/corpora/parser/error_known_type_static_method.gaz:7

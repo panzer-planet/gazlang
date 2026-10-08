@@ -213,7 +213,8 @@ foreach ($wrong as $text => $reason) {
     throws("refused: " .. quote($text), () -> date::parse($text), "Can't read " .. quote($text) .. " as a date and time: " .. $reason);
 }
 expect("with a default, bad text gives it", [date::parse("2026-02-30T00:00:00Z", null), date::parse("soon", "never"), date::parse("2026-08-08T12:02:09Z", null).time], [null, "never", 1786190529]);
-throws("text that isn't a string is a mistake, not bad text", () -> date::parse(5, null), "date::parse() expects \$text to be string, got int");
+$int_text = 5;
+throws("text that isn't a string is a mistake, not bad text", () -> date::parse($int_text, null), "date::parse() expects \$text to be string, got int");
 
 /* Reading a date */
 expect("a date as a form sends it", [date::parse_date("2026-08-08"), date::parse_date("1969-12-31"), date::parse_date("2024-02-29")], [20673, -1, 19782]);

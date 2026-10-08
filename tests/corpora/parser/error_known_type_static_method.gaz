@@ -1,0 +1,7 @@
+kind K {
+    pub static fn s(map $m) {}
+}
+
+K::s({});
+K::s(
+    []);

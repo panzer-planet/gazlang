@@ -359,6 +359,16 @@ kind Parser {
     #type_uses = [];
     // The type the function being parsed returns, or null: what a bare return is checked against
     #return_type = null;
+    // What a type error names the function being parsed as, as the VM names it: f(), Kind.m()
+    #return_label = null;
+    // Every value a typed function returns, as [expression, TypeAST, the function as #return_label names it]
+    #typed_returns = [];
+    // Each function and static method's declaration by name, for the types its calls are checked against
+    #signatures = {};
+    // Every lambda with a typed parameter, whose defaults are checked against their types
+    #typed_lambdas = [];
+    // Every #name(...) call, whose arguments are checked once the member it calls is known
+    #member_calls = [];
 
     // The type_of() names, which a type is made of besides kinds; no kind can be called one
     const TYPE_NAMES = ["int", "float", "string", "bool", "null", "list", "map", "function", "kind", "object", "socket", "db", "file"];
@@ -1206,8 +1216,12 @@ final kind Html {
 
         $lambda = #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
         $lambda.owner = #kind?.name;
+        #with_types($lambda, $types, null);
+        if (($lambda.param_types ?? null) != null) {
+            #typed_lambdas[] = $lambda;
+        }
 
-        return #with_types($lambda, $types, null);
+        return $lambda;
     }
 
     // Check a lambda's parameter list, with the same rules as a function's, and work out its arity
@@ -1486,6 +1500,7 @@ final kind Html {
                     [$call.line, $call.file] = [$node.line, $node.file];
                     if ($node.use != null) {
                         #member_uses[$node.use][2] = len($call.args);
+                        #member_calls[] = $call;
                     }
                     $node = $call;
 
@@ -2131,6 +2146,9 @@ final kind Html {
         }
         $expr = #current_token.type == "SEMICOLON" ? null : #expr();
         #eat("SEMICOLON");
+        if ($expr != null && #return_type != null) {
+            #typed_returns[] = [$expr, #return_type, #return_label];
+        }
 
         return #at(ReturnStatementAST($expr), $start);
     }
@@ -2181,14 +2199,15 @@ final kind Html {
         #functions[$name] = $arity;
         #declare($name, $pub);
 
-        [#in_function, #return_type] = [true, $returns];
+        [#in_function, #return_type, #return_label] = [true, $returns, "{$name}()"];
         $scope = #enter_scope($params, false);
         $body = #block();
         #leave_scope($scope);
         [#in_function, #return_type] = [false, null];
         $body.statements = [...$patterns, ...$body.statements];
+        #signatures[$name] = #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start), $types, $returns);
 
-        return #with_types(#at(FunctionDeclarationAST($name, $params, $defaults, $body, $arity), $start), $types, $returns);
+        return #signatures[$name];
     }
 
     // Check the name being declared isn't taken: functions, kinds, interfaces, constants and
@@ -3764,7 +3783,7 @@ final kind Html {
         #functions[$full] = $arity;
         #declare($full, has_key(#public, $kind.name) || #declared_in[$kind.name] == "");
         [$in_function, $in_static] = [#in_function, #in_static];
-        [#in_function, #in_static, #return_type] = [true, $kind, $returns];
+        [#in_function, #in_static, #return_type, #return_label] = [true, $kind, $returns, "{$full}()"];
         $scope = #enter_scope($params, false);
         $body = #block();
         #leave_scope($scope);
@@ -3773,6 +3792,7 @@ final kind Html {
 
         $node = #with_types(#at(FunctionDeclarationAST($full, $params, $defaults, $body, $arity), $start), $types, $returns);
         $node.kind = $kind.name;
+        #signatures[$full] = $node;
         $kind.static_methods[$name] = $node;
         $kind.vis[$name] = $vis;
         #static_functions[] = $node;
@@ -3838,7 +3858,7 @@ final kind Html {
             #eat("SEMICOLON");
             $body = CompoundAST();
         } else {
-            [#in_function, #in_constructor, #return_type] = [true, $name == "_", $returns];
+            [#in_function, #in_constructor, #return_type, #return_label] = [true, $name == "_", $returns, "{$kind.name}.{$name}()"];
             $scope = #enter_scope($params, false);
             $body = #block();
             #leave_scope($scope);
@@ -4108,6 +4128,10 @@ final kind Html {
                 #check_constant_expression($expr, $kind);
                 #statics["{$kind.name}::{$name}"] = len(#static_defaults);
                 #static_defaults[] = #fold($expr, $kind);
+                $type = ($kind.static_types ?? {})[$name] ?? null;
+                if ($type != null && !#type_takes($type, type_of(last(#static_defaults)))) {
+                    #fail_at("{$kind.name}::{$name} must be {$type.text()}, got " .. type_of(last(#static_defaults)), $expr.file, $expr.line);
+                }
                 $init = StaticInitAST("{$kind.name}::{$name}", last(#static_defaults));
                 // At the default's own file and line: #at() would take the file being read now
                 $init.line = $expr.line;
@@ -4224,8 +4248,187 @@ final kind Html {
                     : "Can only use {$operator.value} on a variable, or an element or field of one", $node.file, $node.line);
             }
         }
+        #check_known_types();
 
         return $root;
+    }
+
+    /*
+     * Values whose type is certain when the program is read, held to the types they meet as
+     * the VM would hold them, so a mistake in code that hasn't run yet is still found: the
+     * arguments of a call by name, of a #method() and of a ##method(), what a typed function
+     * returns, and parameter and field defaults. Only a value known_type() can name is checked;
+     * anything else is left to the VM. Each error is the one the VM would give.
+     */
+    fn check_known_types() {
+        foreach (#signatures as $name => $function) {
+            #check_defaults($function, "{$name}()");
+        }
+        foreach (#kinds as $kind) {
+            foreach ($kind.methods as $name => $method) {
+                #check_defaults($method, #method_label($kind.name, $name));
+            }
+            foreach ($kind.field_types ?? {} as $name => $type) {
+                $default = $kind.fields[$name];
+                if ($default != null) {
+                    #check_known($default, $type, "{$kind.name} #{$name} must be");
+                }
+            }
+        }
+        foreach (#interfaces as $interface) {
+            foreach ($interface.methods as $name => $method) {
+                #check_defaults($method, "{$interface.name}.{$name}()");
+            }
+        }
+        foreach (#typed_lambdas as $lambda) {
+            $where = $lambda.file == null ? "on line {$lambda.line}" : "at {$lambda.file}:{$lambda.line}";
+            #check_defaults($lambda, "-> {$where}");
+        }
+        foreach (#uses as [$use, $scope, $_]) {
+            if (is_a($use, FunctionCallAST)) {
+                #check_call($use);
+            }
+        }
+        foreach (#member_calls as $call) {
+            #check_member_call($call);
+        }
+        foreach (#parent_uses as [$node, $kind]) {
+            if ($node.args != null) {
+                #check_arguments($node.args, #kinds[$node.definer].methods[$node.name], #method_label($node.definer, $node.name));
+            }
+        }
+        foreach (#typed_returns as [$expr, $type, $label]) {
+            #check_known($expr, $type, "{$label} should return");
+        }
+    }
+
+    // A method as the VM names it in an error: Kind.name(), and a constructor Kind()
+    fn method_label($kind, $name) {
+        return $name == "_" ? "{$kind}()" : "{$kind}.{$name}()";
+    }
+
+    // A call by name: to a function or static method, or constructing a kind
+    fn check_call($call) {
+        if (has_key(#signatures, $call.name)) {
+            #check_arguments($call.args, #signatures[$call.name], "{$call.name}()");
+
+            return;
+        }
+        $kind = #kinds[$call.name] ?? null;
+        if ($kind != null && has_key($kind.members, "_")) {
+            $definer = $kind.members["_"];
+            #check_arguments($call.args, #kinds[$definer].methods["_"], #method_label($definer, "_"));
+        }
+    }
+
+    /*
+     * A #name(...) call, against the version the kind it is written in names: a child's
+     * override keeps its types, so what this one refuses, every one refuses
+     */
+    fn check_member_call($call) {
+        $property = $call.property;
+        if ($property.static_name != null) {
+            // An enum's cases() and from() are the code generator's, with no declaration to check against
+            if (has_key(#signatures, $property.static_name)) {
+                #check_arguments($call.args, #signatures[$property.static_name], "{$property.static_name}()");
+            }
+
+            return;
+        }
+        if ($property.field || $property.constant) {
+            return;
+        }
+        $kind = #member_uses[$property.use][1];
+        $definer = $kind.members[$property.name] ?? $kind.abstract_methods[$property.name];
+        #check_arguments($call.args, #kinds[$definer].methods[$property.name], #method_label($definer, $property.name));
+    }
+
+    // A call's arguments, each held to its parameter's type, the call named as $label
+    fn check_arguments($args, $function, $label) {
+        $types = $function.param_types ?? [];
+        foreach ($args as $i => $arg) {
+            if ($i < len($types) && $types[$i] != null) {
+                #check_known($arg, $types[$i], "{$label} expects {$function.params[$i]} to be");
+            }
+        }
+    }
+
+    // A function's or lambda's defaults, each held to its parameter's type as an argument is
+    fn check_defaults($function, $label) {
+        foreach ($function.param_types ?? [] as $i => $type) {
+            $default = $function.defaults[$i];
+            if ($type != null && $default != null) {
+                #check_known($default, $type, "{$label} expects {$function.params[$i]} to be");
+            }
+        }
+    }
+
+    // Fail when $expr's type is known and $type refuses it, the message starting with $saying
+    fn check_known($expr, $type, $saying) {
+        $known = #known_type($expr);
+        if ($known != null && !#type_takes($type, $known)) {
+            #fail_at("{$saying} {$type.text()}, got {$known}", $expr.file, $expr.line);
+        }
+    }
+
+    /*
+     * The type an expression's value is certain to have, named as a type error names it, or
+     * null when only running it would tell: a literal, a constant, a case of an enum, or a kind
+     * being constructed. A .. always gives a string, which is what makes an interpolated one.
+     */
+    fn known_type($expr) {
+        $nameable = is_a($expr, FunctionRefAST) || is_a($expr, PropertyAST);
+
+        return match {
+            is_a($expr, NumAST) => type_of($expr.value),
+            is_a($expr, StringAST) => "string",
+            is_a($expr, BooleanAST) => "bool",
+            is_a($expr, NullAST) => "null",
+            is_a($expr, ArrayLiteralAST) => $expr.map ? "map" : "list",
+            is_a($expr, LambdaAST) => "function",
+            is_a($expr, BinOpAST) => $expr.op.type == "CONCAT" ? "string" : null,
+            is_a($expr, UnaryOpAST) => $expr.op.type == "MINUS" && is_a($expr.expr, NumAST) ? type_of($expr.expr.value) : null,
+            $nameable && $expr.constant => type_of($expr.value),
+            $nameable && $expr.static_name != null && #is_case($expr.static_name) => #split_name($expr.static_name)[0],
+            is_a($expr, FunctionCallAST) && has_key(#kinds, $expr.name) => $expr.name,
+            default => null,
+        };
+    }
+
+    /*
+     * Whether a declared type takes a value of a known type, as the VM's type_admits() does:
+     * an int where a float goes, a kind's object where the kind, a parent or an interface goes
+     */
+    fn type_takes($type, $known) {
+        if (in_array($known, $type.names) || $known == "int" && in_array("float", $type.names)) {
+            return true;
+        }
+        if (!has_key(#kinds, $known)) {
+            return false;
+        }
+        if (in_array("object", $type.names)) {
+            return true;
+        }
+        foreach ($type.names as $name) {
+            if (#kind_is_a($known, $name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Whether the kind named $name is $ancestor, extends it or implements it
+    fn kind_is_a($name, $ancestor) {
+        while ($name != null && has_key(#kinds, $name)) {
+            $kind = #kinds[$name];
+            if ($name == $ancestor || in_array($ancestor, $kind.interfaces ?? [])) {
+                return true;
+            }
+            $name = $kind.parent;
+        }
+
+        return false;
     }
 
     /*

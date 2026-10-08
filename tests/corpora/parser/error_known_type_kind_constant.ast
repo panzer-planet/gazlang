@@ -1,0 +1,1 @@
+Error: K.f() expects $s to be string, got int at tests/corpora/parser/error_known_type_kind_constant.gaz:8

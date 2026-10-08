@@ -1,0 +1,1 @@
+Error: S::label must be string, got list at tests/corpora/parser/error_known_type_static_default.gaz:4

@@ -52,7 +52,8 @@ expect("Html::escape", [Html::escape("<&>"), Html::escape(Html("<b>")), Html::es
 /* A header's parameters can be typed, and the function it becomes may say it gives Html */
 expect("a typed header", to_string(typed({"name" => "Ann"}, 2)), "<p>Ann</p>\n");
 try {
-    typed({"name" => "Ann"}, "2");
+    $times = "2";
+    typed({"name" => "Ann"}, $times);
 } catch (Error $e) {
     expect("a typed header is checked", [$e.message, ends_with($e.file, "views/typed.gazml"), $e.line], ["typed() expects \$times to be int, got string", true, 1]);
 }

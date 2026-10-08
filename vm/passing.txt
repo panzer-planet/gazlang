@@ -53,6 +53,7 @@ snippet:08620e34f04a
 snippet:08d3dadbb3cd
 snippet:08e0bd5cec81
 snippet:08e5e57badd5
+snippet:09364a0bd41f
 snippet:09d9dcc6755e
 snippet:0a4084358f7a
 snippet:0a5ba13c4651
@@ -100,7 +101,6 @@ snippet:1a63f1560024
 snippet:1a868018d9af
 snippet:1b0d65336be8
 snippet:1b1701c1e4db
-snippet:1b6612af4bc8
 snippet:1b7260e8c2f2
 snippet:1c12fe99a553
 snippet:1c3455d8873d
@@ -166,6 +166,7 @@ snippet:2e246ed26515
 snippet:2e317f86362d
 snippet:2eaccdf405ed
 snippet:2f145981c68d
+snippet:2f3d7bd6751f
 snippet:2fa76f292980
 snippet:2fd6b4fd1255
 snippet:301702b89fc5
@@ -205,7 +206,6 @@ snippet:3a2cded204e2
 snippet:3b3c105d9208
 snippet:3bb0a099d82c
 snippet:3bb696d94e76
-snippet:3bec4056d108
 snippet:3c6f5138b1fe
 snippet:3ca3dfd9b12f
 snippet:3ce6d31ee6d1
@@ -236,7 +236,6 @@ snippet:451e12b1dd16
 snippet:453cfd8bb719
 snippet:4585f45ad290
 snippet:45aa1880b3cc
-snippet:45f52646fe70
 snippet:4613a745884d
 snippet:4694e7247268
 snippet:470ecf664930
@@ -308,6 +307,7 @@ snippet:5adc9c2b1a6d
 snippet:5b0a40045ec4
 snippet:5b115925787c
 snippet:5b4c7dba5a3e
+snippet:5b757e31db69
 snippet:5b7ef1c508d4
 snippet:5bb5f68108ff
 snippet:5bf87cc58d96
@@ -321,7 +321,6 @@ snippet:5ec44b055eab
 snippet:5f1f9edb19e3
 snippet:6001d9b35359
 snippet:6036f5680433
-snippet:60fa14d1ad00
 snippet:624a22c7e3e1
 snippet:62572cbcdeb9
 snippet:62b4275389ad
@@ -335,6 +334,7 @@ snippet:6503394100a6
 snippet:65290bcc0227
 snippet:65778841f5fd
 snippet:65a3e00379a6
+snippet:65b6fa5e7657
 snippet:66065d70a243
 snippet:66634118b87a
 snippet:66a331c29016
@@ -356,12 +356,12 @@ snippet:6de097ef80f9
 snippet:6e01e4c3235b
 snippet:6edacb82b394
 snippet:6f9c7fadac2a
-snippet:6fe177047fd5
 snippet:6fed8dd34428
 snippet:703635f2744a
 snippet:7112b4104487
 snippet:713562c9df04
 snippet:71725a397fa3
+snippet:7175646f0f14
 snippet:71a32e33754e
 snippet:71c6dbbcb307
 snippet:71f9d7d01891
@@ -372,13 +372,13 @@ snippet:72d83ecb36c8
 snippet:7324b4ef0f75
 snippet:732a852bea0f
 snippet:733764de35b3
+snippet:7375f4ecba21
 snippet:738a296cbd72
 snippet:73f33e4d5c87
 snippet:73fcd9a28f1c
 snippet:74407963517f
 snippet:7523cc847c6c
 snippet:766fc69dccf8
-snippet:76831f7b79d6
 snippet:76c9e3626a92
 snippet:76d0e1ddc222
 snippet:7710ea0781fb
@@ -406,6 +406,7 @@ snippet:7f17f9cdba35
 snippet:7f2d4c318eae
 snippet:7f3b2cd656fd
 snippet:7fa25d3bc6af
+snippet:7fc1283e34ca
 snippet:7fddf26120a2
 snippet:82ab3f231f57
 snippet:82c265bb4913
@@ -497,7 +498,6 @@ snippet:a048f106b855
 snippet:a0575352f61d
 snippet:a0eb82bd2a7d
 snippet:a308b3c45791
-snippet:a36c4190df7f
 snippet:a3cb4b085e5a
 snippet:a4fa4bdde7ca
 snippet:a5173fa8e84e
@@ -530,6 +530,7 @@ snippet:b129876b97e4
 snippet:b18a69e3f4bb
 snippet:b1b465eab522
 snippet:b1bc5d2cc15d
+snippet:b22d33f54852
 snippet:b28c0eac6e2d
 snippet:b2c6266f336a
 snippet:b2c965277b7b
@@ -551,6 +552,7 @@ snippet:b7f00ad5d4f4
 snippet:b817ef8d88da
 snippet:b83b5e32abce
 snippet:b852a2de904c
+snippet:b8ad867905ca
 snippet:b8f521b29f54
 snippet:b951b636d906
 snippet:b9c1a6faaaa1
@@ -560,7 +562,6 @@ snippet:bada378c84af
 snippet:baf1196ea08e
 snippet:baf60d42e684
 snippet:bb33aad3d823
-snippet:bb3875495e32
 snippet:bb48b1d31859
 snippet:bb4f062e8bc2
 snippet:bb741aaa8e22
@@ -698,7 +699,6 @@ snippet:ee297ca02d9d
 snippet:ee2fa6995cdd
 snippet:ee7b2f431cc5
 snippet:ee97bd219eff
-snippet:eeacc7eb30b0
 snippet:efa1320065a0
 snippet:efcfd450fb56
 snippet:f2351a884924
@@ -1010,6 +1010,7 @@ tests/corpora/parser/kind_constants.gaz
 tests/corpora/parser/kind_members_by_name.gaz
 tests/corpora/parser/kind_members_through_a_child.gaz
 tests/corpora/parser/kinds.gaz
+tests/corpora/parser/known_types.gaz
 tests/corpora/parser/lambda_bare_list_pattern.gaz
 tests/corpora/parser/lambda_pattern_default_with_an_empty_slot.gaz
 tests/corpora/parser/lambdas.gaz

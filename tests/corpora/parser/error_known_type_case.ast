@@ -1,0 +1,1 @@
+Error: f() expects $s to be string, got Filter at tests/corpora/parser/error_known_type_case.gaz:9

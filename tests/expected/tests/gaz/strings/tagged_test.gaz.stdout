@@ -22,6 +22,5 @@ ok piped on
 ok qualified
 ok by use
 ok by alias
-ok a typed parameter
 ok a builtin refusing the lists
 ok a tag that throws

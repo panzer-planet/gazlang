@@ -1,0 +1,4 @@
+// A tagged string passes two lists: its text parts and its values
+fn tag(string $strings, list $values) {}
+
+$x = tag"a{1}b";

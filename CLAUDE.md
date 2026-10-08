@@ -1081,6 +1081,21 @@ and methods a table in C.
   and in `STORE_STATIC`. Records rather than instructions for fields, since a field is written by
   many instructions and from outside its kind; instructions rather than records for parameters
   and returns, since `CALL` and `RET` are the hot path and a record would put a test on every call.
+- **A value whose type is plain from the source is checked when the program is read**
+  (`check_known_types()` in `parser.gaz`, after every name is resolved): a literal, a `..`, a
+  constant, a case or a kind being constructed (`known_type()`), against the parameter types of
+  a call by name, a `#method()` (the version the kind it is written in names, since an override
+  keeps the types), a `##method()` or a constructor, a typed return, and parameter, field and
+  static defaults, with the VM's own sentence so the error reads the same whichever finds it.
+  Two places differ from what the VM could say, on purpose: a `#m()` names the version the
+  kind it is written in sees, where the VM names the override that runs (only the kind in the
+  name differs, since an override keeps the types), and an interface's or abstract method's
+  default is refused though it never runs, a default contradicting its own type being a
+  mistake wherever it is written.
+  Only certainty, no inference: a variable, a call's result and `$obj.method()` stay the VM's,
+  so nothing correct is ever refused. A test of the VM's check passes its value through a
+  variable (or `opaque()` in `tests/corpora/vm/types.gaz`); the parser corpus's
+  `error_known_type_*` are the early ones.
 - **No lambda return type** because telling a ternary's `:` after `(...)` from a return type would
   take lookahead past the type. A lambda's typed parameters are read as an expression first
   (`int|null` is two bare names and a `|`) and taken for a type when a `$parameter` follows, which

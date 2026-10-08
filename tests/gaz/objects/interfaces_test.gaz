@@ -63,7 +63,9 @@ fn largest(list $shapes): Shape {
 }
 
 fn not_a_shape(): Shape {
-    return Rock();
+    $rock = Rock();
+
+    return $rock;
 }
 
 kind Drawing {
@@ -99,9 +101,11 @@ expect("which may be null", $drawing.main, null);
 Drawing::last = $square;
 expect("a static field typed by an interface", Drawing::last.name(), "square");
 
-throws("a parameter refuses a kind that doesn't implement it", () -> total(Rock()), "total() expects \$shape to be Shape, got Rock");
-throws("and anything else", () -> total("square"), "total() expects \$shape to be Shape, got string");
-throws("a nullable one names the union", () -> described(Rock()), "described() expects \$shape to be Shape|null, got Rock");
+$rock = Rock();
+throws("a parameter refuses a kind that doesn't implement it", () -> total($rock), "total() expects \$shape to be Shape, got Rock");
+$square_text = "square";
+throws("and anything else", () -> total($square_text), "total() expects \$shape to be Shape, got string");
+throws("a nullable one names the union", () -> described($rock), "described() expects \$shape to be Shape|null, got Rock");
 throws("a return", () -> not_a_shape(), "not_a_shape() should return Shape, got Rock");
 throws("a field", () -> ($drawing.main = Rock()), "Drawing #main must be Shape|null, got Rock");
 throws("a static field", () -> (Drawing::last = 5), "Drawing::last must be Shape|null, got int");

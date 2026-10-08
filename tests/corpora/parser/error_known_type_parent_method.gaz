@@ -1,0 +1,10 @@
+kind A {
+    pub fn m(int $n) {}
+}
+
+kind B extends A {
+    pub fn m(int $n) {
+        ##m(
+            "x");
+    }
+}

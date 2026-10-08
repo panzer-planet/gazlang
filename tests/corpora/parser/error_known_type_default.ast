@@ -1,0 +1,1 @@
+Error: d() expects $n to be int, got string at tests/corpora/parser/error_known_type_default.gaz:2

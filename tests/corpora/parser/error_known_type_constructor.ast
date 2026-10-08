@@ -1,0 +1,1 @@
+Error: A() expects $n to be int, got map at tests/corpora/parser/error_known_type_constructor.gaz:9

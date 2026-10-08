@@ -1,0 +1,1 @@
+Error: f() expects $n to be int, got string at tests/corpora/parser/error_known_type_interpolated.gaz:6

@@ -64,14 +64,22 @@ fn nothing(): null {
 }
 
 fn wrong(): int {
-    return "x";
+    return opaque("x");
 }
 
 fn falls_off(): int {
 }
 
-fn bad_default(int $n = "x") {
+fn bad_default(int $n = opaque("x")) {
     return $n;
+}
+
+/*
+ * A value whose type only running the program shows: a literal of the wrong type is refused
+ * before the program runs, and these are the VM's checks
+ */
+fn opaque($value) {
+    return $value;
 }
 
 fn takes_shape(Shape $s): Shape {
@@ -120,16 +128,16 @@ echo $c.scale;
 echo Shape::count() .. " " .. Shape::made;
 
 // What fails, and where the trace puts it
-echo fails(() -> area("two"));
-echo fails(() -> total(1.5));
-echo fails(() -> total(1, 2));
+echo fails(() -> area(opaque("two")));
+echo fails(() -> total(opaque(1.5)));
+echo fails(() -> total(1, opaque(2)));
 echo fails(() -> wrong());
 echo fails(() -> falls_off());
 echo fails(() -> bad_default());
-echo fails(() -> takes_shape(1));
+echo fails(() -> takes_shape(opaque(1)));
 echo fails(() -> takes_shape(Shape));
-echo fails(() -> Circle("big"));
-echo fails(() -> Shape(1));
+echo fails(() -> Circle(opaque("big")));
+echo fails(() -> Shape(opaque(1)));
 echo fails(() -> $c.grow(null));
 echo fails(() -> $c.rename(1));
 echo fails(() -> { $c.name = 1; });
@@ -150,7 +158,7 @@ echo fails(() -> $typed_lambda(1, 2));
 
 // A field default that isn't of the field's type fails when the object is made
 kind Broken {
-    pub int #count = "none";
+    pub int #count = opaque("none");
 }
 echo fails(() -> Broken());
 
@@ -159,4 +167,4 @@ $c.tags[] = 1;
 echo $c.tags;
 
 // Uncaught, the message and the trace show the caller
-total("last");
+total(opaque("last"));

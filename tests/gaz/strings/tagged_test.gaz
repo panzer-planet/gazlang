@@ -89,10 +89,6 @@ expect("by use", bracket"{$x}", "<1>");
 expect("by alias", angles"n = {$x}!", "n = <1>!");
 
 // Errors from what a tag is: an ordinary call
-fn typed(string $strings, list $values) {
-    return $strings;
-}
-throws("a typed parameter", () -> typed"x", "typed() expects \$strings to be string, got list");
 throws("a builtin refusing the lists", () -> join"x", "join() expects string, got list");
 fn failing($strings, $values) {
     throw "no {$strings[0]}";

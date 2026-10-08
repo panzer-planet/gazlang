@@ -1,0 +1,1 @@
+Error: apply() expects $items to be list, got function at tests/corpora/parser/error_known_type_lambda_argument.gaz:4

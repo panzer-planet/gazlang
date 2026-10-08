@@ -1,0 +1,3 @@
+Error: wrong_only_at_run_time() expects $n to be int, got string at tests/corpora/parser/known_types.gaz:39
+  wrong_only_at_run_time at tests/corpora/parser/known_types.gaz:39
+  top level at tests/corpora/parser/known_types.gaz:47

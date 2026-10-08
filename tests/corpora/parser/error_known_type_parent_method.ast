@@ -1,0 +1,1 @@
+Error: A.m() expects $n to be int, got string at tests/corpora/parser/error_known_type_parent_method.gaz:8

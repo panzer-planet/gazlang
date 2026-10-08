@@ -1,0 +1,1 @@
+Error: -> at tests/corpora/parser/error_known_type_lambda_default.gaz:1 expects $s to be string, got float at tests/corpora/parser/error_known_type_lambda_default.gaz:2

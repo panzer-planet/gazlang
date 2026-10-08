@@ -4,14 +4,16 @@ namespace GazLang\Tests;
 
 /**
  * Declared types, checked when the program runs: strict, never converting, except that an int
- * is accepted where a float is asked and arrives as a float
+ * is accepted where a float is asked and arrives as a float. A value whose type is known when the
+ * program is read (a literal) is refused then instead, so these pass theirs through a variable;
+ * tests/corpora/parser/error_known_type_* are those
  */
 class TypeTest extends GazLangTestCase
 {
     public function test_a_parameter_of_the_wrong_type_is_an_error_naming_the_function()
     {
         $this->expectExceptionMessage('total() expects $n to be int, got string on line 1');
-        $this->executeCode('fn total(int $n) { return $n; } echo total("5");');
+        $this->executeCode('fn total(int $n) { return $n; } $five = "5"; echo total($five);');
     }
 
     public function test_a_method_names_its_kind_and_a_union_is_written_with_bars()
@@ -23,7 +25,7 @@ class TypeTest extends GazLangTestCase
     public function test_a_return_of_the_wrong_type_is_an_error()
     {
         $this->expectExceptionMessage('total() should return int, got string on line 1');
-        $this->executeCode('fn total(): int { return "x"; } total();');
+        $this->executeCode('fn total(): int { $x = "x"; return $x; } total();');
     }
 
     public function test_falling_off_the_end_returns_null_which_the_return_type_sees()
@@ -53,7 +55,7 @@ class TypeTest extends GazLangTestCase
     public function test_a_constructor_is_named_as_the_call_that_makes_the_object()
     {
         $this->expectExceptionMessage('Account() expects $owner to be string, got int on line 1');
-        $this->executeCode('kind Account { fn _(pub string #owner) {} } Account(1);');
+        $this->executeCode('kind Account { fn _(pub string #owner) {} } $one = 1; Account($one);');
     }
 
     public function test_a_lambda_is_named_where_it_was_made()
@@ -79,7 +81,7 @@ class TypeTest extends GazLangTestCase
     public function test_nothing_else_converts()
     {
         $this->expectExceptionMessage('whole() expects $n to be int, got float on line 1');
-        $this->executeCode('fn whole(int $n) { return $n; } whole(2.0);');
+        $this->executeCode('fn whole(int $n) { return $n; } $two = 2.0; whole($two);');
     }
 
     public function test_a_kind_admits_its_children_and_objects_are_named_by_their_kind()
@@ -90,7 +92,8 @@ class TypeTest extends GazLangTestCase
             kind Square {}
             fn f(Shape $s): Shape { return $s; }
             echo f(Circle("circle")).name;
-            try { f(Square()); } catch (Error $e) { echo $e.message; }
+            $square = Square();
+            try { f($square); } catch (Error $e) { echo $e.message; }
             CODE));
     }
 
@@ -98,14 +101,14 @@ class TypeTest extends GazLangTestCase
     {
         $this->assertSame("caught\ntotal on line 1\ntop level on line 2\n", $this->executeCode(<<<'CODE'
             fn total(int $n) { return $n; }
-            try { total("x"); } catch (Error $e) { echo "caught"; echo join($e.trace, "\n"); }
+            try { $x = "x"; total($x); } catch (Error $e) { echo "caught"; echo join($e.trace, "\n"); }
             CODE));
     }
 
     public function test_a_default_is_held_to_the_type_too()
     {
         $this->expectExceptionMessage('f() expects $label to be string|null, got int on line 1');
-        $this->executeCode('fn f(?string $label = 5) { return $label; } f();');
+        $this->executeCode('fn f(?string $label = abs(5)) { return $label; } f();');
     }
 
     public function test_the_return_type_null_is_for_a_function_that_returns_nothing()
@@ -144,7 +147,8 @@ class TypeTest extends GazLangTestCase
         $this->expectExceptionMessage('typed() expects $times to be int, got string at tests/gaz/templates/views/typed.gazml:1');
         $this->executeCode(<<<'CODE'
             import "tests/gaz/templates/views/typed.gazml";
-            echo typed({"name" => "Ann"}, "2");
+            $times = "2";
+            echo typed({"name" => "Ann"}, $times);
             CODE);
     }
 
@@ -177,7 +181,8 @@ class TypeTest extends GazLangTestCase
         $this->assertSame("finally\ncaller: f() should return int, got string\n", $this->executeCode(<<<'CODE'
             fn f(): int {
                 try {
-                    return "x";
+                    $x = "x";
+                    return $x;
                 } catch ($e) {
                     echo "f caught it";
                 } finally {

@@ -1,0 +1,9 @@
+// Refused when the program is read, though g() never runs
+fn f(int $n) {
+    return $n;
+}
+
+fn g() {
+    return f(
+        "x");
+}

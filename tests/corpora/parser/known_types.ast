@@ -1,0 +1,464 @@
+Compound
+  statements:
+@ "tests/corpora/parser/known_types.gaz"
+    0: InterfaceDeclaration 2
+      name: "Shape"
+      methods:
+        area: FunctionDeclaration 3
+          name: "area"
+          params: []
+          defaults: []
+          body: null
+          arity: 0
+          return_type: Type 3
+            names: ["float"]
+          kind: "Shape"
+          abstract: false
+    1: KindDeclaration 6
+      name: "Base"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: []
+      slots: []
+      method_table: []
+      owner_vis: []
+      declared_at: []
+      hidden: []
+      hidden_fields: []
+    2: KindDeclaration 8
+      name: "Square"
+      parent: "Base"
+      abstract: false
+      interfaces: ["Shape"]
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"area" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        area: FunctionDeclaration 9
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 10
+                expr: Num 10
+                  token: 10 INTEGER 1
+                  value: 1
+          arity: 0
+          return_type: Type 9
+            names: ["float"]
+          kind: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"area" => "Square"}
+      abstract_methods: []
+      slots: []
+      method_table: [["area", "Square", "pub", "Square"]]
+      owner_vis: {"area" => "pub"}
+      declared_at: {"area" => "Square"}
+      hidden: []
+      hidden_fields: []
+    3: KindDeclaration 14
+      name: "Filter"
+      parent: null
+      abstract: false
+      cases: {"Open" => null}
+      case_lines: {"Open" => 15}
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 14
+          name: "Filter::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Filter"
+          abstract: false
+          generated: "cases"
+      static_owners: {"Open" => "Filter", "cases" => "Filter"}
+      static_is_method: {"Open" => false, "cases" => true}
+      vis: {"cases" => "pub", "Open" => "pub", "all" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        all: FunctionDeclaration 18
+          name: "all"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 19
+                expr: MethodCall 19
+                  property: Property 19
+                    target: This 19
+                    name: "cases"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "Filter::cases"
+                  args: []
+          arity: 0
+          kind: "Filter"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"all" => "Filter"}
+      abstract_methods: []
+      slots: []
+      method_table: [["all", "Filter", "pub", "Filter"]]
+      owner_vis: {"Open" => "pub", "cases" => "pub", "all" => "pub"}
+      declared_at: {"all" => "Filter"}
+      hidden: []
+      hidden_fields: []
+    4: FunctionDeclaration 14
+      name: "Filter::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "Filter"
+      abstract: false
+      generated: "cases"
+    5: KindDeclaration 23
+      name: "Level"
+      parent: null
+      abstract: false
+      cases: {"Low" => 1}
+      case_lines: {"Low" => 24}
+      backing: "int"
+      statics: []
+      static_lines: []
+      static_methods:
+        cases: FunctionDeclaration 23
+          name: "Level::cases"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Level"
+          abstract: false
+          generated: "cases"
+        from: FunctionDeclaration 23
+          name: "Level::from"
+          params: ["\$value", "\$default"]
+          defaults: [null, null]
+          body: Compound
+            statements: []
+          arity: [1, 2]
+          kind: "Level"
+          abstract: false
+          generated: "from"
+      static_owners: {"Low" => "Level", "cases" => "Level", "from" => "Level"}
+      static_is_method: {"Low" => false, "cases" => true, "from" => true}
+      vis: {"cases" => "pub", "value" => "pub", "from" => "pub", "Low" => "pub", "parsed" => "pub", "to_json" => "pub"}
+      fields: {"value" => null}
+      field_types:
+        value: Type 23
+          names: ["int"]
+      field_lines: {"value" => 23}
+      methods:
+        parsed: FunctionDeclaration 26
+          name: "parsed"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 27
+                expr: MethodCall 27
+                  property: Property 27
+                    target: This 27
+                    name: "from"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: "Level::from"
+                  args:
+                    0: Num 27
+                      token: 27 INTEGER 1
+                      value: 1
+          arity: 0
+          kind: "Level"
+          abstract: false
+        to_json: FunctionDeclaration 23
+          name: "to_json"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Level"
+          abstract: false
+          generated: "to_json"
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"value" => "Level"}
+      members: {"parsed" => "Level", "to_json" => "Level"}
+      abstract_methods: []
+      slots: [["value", "Level", "pub"]]
+      method_table: [["parsed", "Level", "pub", "Level"], ["to_json", "Level", "pub", "Level"]]
+      owner_vis: {"Low" => "pub", "cases" => "pub", "from" => "pub", "value" => "pub", "parsed" => "pub", "to_json" => "pub"}
+      declared_at: {"parsed" => "Level", "to_json" => "Level"}
+      hidden: []
+      hidden_fields: []
+    6: FunctionDeclaration 23
+      name: "Level::cases"
+      params: []
+      defaults: []
+      body: Compound
+        statements: []
+      arity: 0
+      kind: "Level"
+      abstract: false
+      generated: "cases"
+    7: FunctionDeclaration 23
+      name: "Level::from"
+      params: ["\$value", "\$default"]
+      defaults: [null, null]
+      body: Compound
+        statements: []
+      arity: [1, 2]
+      kind: "Level"
+      abstract: false
+      generated: "from"
+    8: FunctionDeclaration 33
+      name: "takes_float"
+      params: ["\$f"]
+      defaults:
+        0: Num 33
+          token: 33 INTEGER 1
+          value: 1
+      body: Compound
+        statements:
+          0: ReturnStatement 34
+            expr: Num 34
+              token: 34 INTEGER 2
+              value: 2
+      arity: [0, 1]
+      param_types:
+        0: Type 33
+          names: ["float"]
+      return_type: Type 33
+        names: ["float"]
+      kind: null
+      abstract: false
+    9: FunctionDeclaration 37
+      name: "takes"
+      params: ["\$s", "\$u", "\$o", "\$b", "\$shape", "\$c", "\$fn", "\$l", "\$m"]
+      defaults: [null, null, null, null, null, null, null, null, null]
+      body: Compound
+        statements: []
+      arity: 9
+      param_types:
+        0: Type 37
+          names: ["string", "null"]
+        1: Type 37
+          names: ["int", "string"]
+        2: Type 37
+          names: ["object"]
+        3: Type 37
+          names: ["Base"]
+        4: Type 37
+          names: ["Shape"]
+        5: Type 37
+          names: ["Filter"]
+        6: Type 37
+          names: ["function"]
+        7: Type 37
+          names: ["list"]
+        8: Type 37
+          names: ["map"]
+      kind: null
+      abstract: false
+    10: FunctionDeclaration 39
+      name: "wrong_only_at_run_time"
+      params: ["\$n"]
+      defaults: [null]
+      body: Compound
+        statements: []
+      arity: 1
+      param_types:
+        0: Type 39
+          names: ["int"]
+      kind: null
+      abstract: false
+    11: Statement 41
+      expr: FunctionCall 41
+        name: "takes_float"
+        args:
+          0: FunctionRef 41
+            name: "LIMIT"
+            constant: true
+            value: 10
+            static_name: null
+    12: Statement 42
+      expr: FunctionCall 42
+        name: "takes_float"
+        args:
+          0: UnaryOp 42
+            op: 42 MINUS -
+            expr: Num 42
+              token: 42 INTEGER 3
+              value: 3
+    13: Statement 43
+      expr: FunctionCall 43
+        name: "takes"
+        args:
+          0: Null 43
+            token: 43 NULL null
+            value: null
+          1: String 43
+            token: 43 STRING "u"
+            value: "u"
+          2: FunctionCall 43
+            name: "Square"
+            args: []
+          3: FunctionCall 43
+            name: "Square"
+            args: []
+          4: FunctionCall 43
+            name: "Square"
+            args: []
+          5: FunctionRef 43
+            name: "Filter::Open"
+            constant: false
+            value: null
+            static_name: "Filter::Open"
+          6: Lambda 43
+            params: ["\$x"]
+            defaults: [null]
+            arity: 1
+            body: Variable 43
+              token: 43 VAR_IDENTIFIER $x
+              value: "\$x"
+            captures: []
+            self: null
+            owner: null
+          7: ArrayLiteral 43
+            entries:
+              0:
+                0: null
+                1: Num 43
+                  token: 43 INTEGER 1
+                  value: 1
+            map: false
+          8: ArrayLiteral 43
+            entries: []
+            map: true
+    14: Statement 44
+      expr: FunctionCall 44
+        name: "takes"
+        args:
+          0: String 44
+            token: 44 STRING "s"
+            value: "s"
+          1: Num 44
+            token: 44 INTEGER 1
+            value: 1
+          2: FunctionRef 44
+            name: "Filter::Open"
+            constant: false
+            value: null
+            static_name: "Filter::Open"
+          3: FunctionCall 44
+            name: "Square"
+            args: []
+          4: FunctionCall 44
+            name: "Square"
+            args: []
+          5: FunctionRef 44
+            name: "Filter::Open"
+            constant: false
+            value: null
+            static_name: "Filter::Open"
+          6: Lambda 44
+            params: ["\$x"]
+            defaults: [null]
+            arity: 1
+            body: Variable 44
+              token: 44 VAR_IDENTIFIER $x
+              value: "\$x"
+            captures: []
+            self: null
+            owner: null
+          7: ArrayLiteral 44
+            entries: []
+            map: false
+          8: ArrayLiteral 44
+            entries:
+              0:
+                0: String 44
+                  token: 44 STRING "a"
+                  value: "a"
+                1: Num 44
+                  token: 44 INTEGER 1
+                  value: 1
+            map: true
+    15: Statement 46
+      expr: Assign 46
+        left: Variable 46
+          token: 46 VAR_IDENTIFIER $s
+          value: "\$s"
+        token: 46 ASSIGN =
+        right: String 46
+          token: 46 STRING "x"
+          value: "x"
+    16: Statement 47
+      expr: FunctionCall 47
+        name: "wrong_only_at_run_time"
+        args:
+          0: Variable 47
+            token: 47 VAR_IDENTIFIER $s
+            value: "\$s"
+    17: Statement 48
+      expr: FunctionCall 48
+        name: "wrong_only_at_run_time"
+        args:
+          0: FunctionCall 48
+            name: "lower"
+            args:
+              0: String 48
+                token: 48 STRING "X"
+                value: "X"
+    18: Statement 49
+      expr: FunctionCall 49
+        name: "wrong_only_at_run_time"
+        args:
+          0: Ternary 49
+            condition: Boolean 49
+              token: 49 TRUE true
+              value: true
+            then: String 49
+              token: 49 STRING "a"
+              value: "a"
+            else: String 49
+              token: 49 STRING "b"
+              value: "b"

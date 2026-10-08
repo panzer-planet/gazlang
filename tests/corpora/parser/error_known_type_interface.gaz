@@ -1,0 +1,10 @@
+interface Shape {
+    fn area(): float;
+}
+
+kind Rock {}
+
+fn total(Shape $s) {}
+
+total(
+    Rock());
