@@ -104,7 +104,7 @@ HEADERS = gazvm.h
 # compiler is still all the bootstrap needs. An instrumented build runs the compiler compiling
 # itself, an ast of the parser and every example (failures ignored; none fetches anything
 # without arguments), and the optimised build is compiled again with what it counted. Not
-# vm/bench, so the benchmarks stay an honest test. Everything is in build/pgo. Both builds
+# tools/bench, so the benchmarks stay an honest test. Everything is in build/pgo. Both builds
 # write the same output name, since gcc names its .gcda files after it.
 PGO_DIR = build/pgo
 ifneq ($(findstring clang,$(shell $(CC) --version 2>/dev/null)),)
@@ -200,7 +200,7 @@ build/gazvm-test: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
 	@mkdir -p build
 	$(CC) $(FLAGS) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -DGC_MINIMUM=64 -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)
 
-# Collects cycles at every chance, for testing the collector (slow): GAZVM=vm/build/gazvm-stress php vm/progress.php
+# Collects cycles at every chance, for testing the collector (slow): GAZVM=vm/build/gazvm-stress php tools/progress.php
 stress: build/gazvm-stress
 
 build/gazvm-stress: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
@@ -212,7 +212,7 @@ clean:
 
 .PHONY: all compiler test stress clean
 
-# Coverage, for vm/coverage.php
+# Coverage, for tools/coverage.php
 build/gazvm-cov: $(SOURCES) $(HEADERS) $(COMPILER) $(STD) $(CONFIG)
 	@mkdir -p build
 	$(CC) $(FLAGS) -O0 -g -fprofile-instr-generate -fcoverage-mapping -o $@ $(SOURCES) $(COMPILER) $(STD) $(LIBS)

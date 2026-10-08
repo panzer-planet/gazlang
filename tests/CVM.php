@@ -10,8 +10,8 @@ namespace GazLang\Tests;
  * file under tests/corpora/bytecode, run as it is, which tests the loaders on files no compiler
  * writes (the ones named error_* must be refused). A source file runs from its source, as
  * `gaz FILE` does, compiled by the self-hosted compiler built into the VM, and a snippet
- * piped in from the project root. vm/passing.txt lists the entries, tests/expected what each
- * must print (CVMTest), and vm/progress.php finds new entries and records what they print.
+ * piped in from the project root. tests/passing.txt lists the entries, tests/expected what each
+ * must print (CVMTest), and tools/progress.php finds new entries and records what they print.
  */
 final class CVM
 {
@@ -31,7 +31,7 @@ final class CVM
     }
 
     /**
-     * How long a program may run, in seconds, when not the default below (vm/fuzz.php's are short)
+     * How long a program may run, in seconds, when not the default below (tools/fuzz.php's are short)
      */
     public static ?int $timeLimit = null;
 
@@ -136,20 +136,20 @@ final class CVM
     }
 
     /**
-     * The entries the C VM must match, from vm/passing.txt
+     * The entries the C VM must match, from tests/passing.txt
      *
      * @return list<string>
      */
     public static function passing(): array
     {
-        $lines = file(self::ROOT.'/vm/passing.txt', FILE_IGNORE_NEW_LINES) ?: [];
+        $lines = file(self::ROOT.'/tests/passing.txt', FILE_IGNORE_NEW_LINES) ?: [];
 
         return array_values(array_filter(array_map('trim', $lines), fn ($line) => $line !== '' && $line[0] !== '#'));
     }
 
     /**
-     * The entries of vm/passing.txt whose file or snippet is no more, since a test changed or
-     * went: vm/progress.php --update removes them
+     * The entries of tests/passing.txt whose file or snippet is no more, since a test changed or
+     * went: tools/progress.php --update removes them
      *
      * @return list<string>
      */
@@ -235,7 +235,7 @@ final class CVM
     public const SCRATCH = 'tests/.tmp';
 
     /**
-     * What an entry must print, as recorded in tests/expected by vm/progress.php --update, or
+     * What an entry must print, as recorded in tests/expected by tools/progress.php --update, or
      * null when nothing is recorded
      *
      * @return array{0: string, 1: string, 2: int}|null stdout, stderr and the exit code
@@ -411,7 +411,7 @@ final class CVM
 
     /**
      * The snippets the tests run through executeCode(), by id, from tests/vm_snippets.txt, one
-     * JSON string per line (vm/snippets.php collects them)
+     * JSON string per line (tools/snippets.php collects them)
      *
      * @return array<string, string>
      */

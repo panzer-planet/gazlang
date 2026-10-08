@@ -3,8 +3,8 @@ parameters:
     paths:
         - tests
         - games
-        - vm/progress.php
-        - vm/snippets.php
-        - vm/coverage.php
-        - vm/bench.php
-        - vm/fuzz.php
+        - tools/progress.php
+        - tools/snippets.php
+        - tools/coverage.php
+        - tools/bench.php
+        - tools/fuzz.php

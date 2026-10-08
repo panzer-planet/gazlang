@@ -1,8 +1,8 @@
 <?php
 
 // Times gaz against the same program written in PHP and Python:
-//   php vm/bench.php [ROUNDS = 5] [FILTER]
-// Most vm/bench/gaz/NAME.gaz have a php/NAME.php and a python/NAME.py doing the same work; the
+//   php tools/bench.php [ROUNDS = 5] [FILTER]
+// Most tools/bench/gaz/NAME.gaz have a php/NAME.php and a python/NAME.py doing the same work; the
 // real workloads (the self-hosted compiler, football.gaz) run on gaz only. Python is the
 // newest python3.11 or later on the path, or PYTHON: 3.11 made CPython much faster, so an older
 // one would flatter gaz, and without one the column is left out. Every run is a whole
@@ -38,17 +38,17 @@ foreach (['python3.13', 'python3.12', 'python3.11', 'python3'] as $candidate) {
 
 @mkdir('vm/build/bench', 0777, true);
 $cases = [];
-foreach (glob('vm/bench/gaz/*.gaz') as $file) {
+foreach (glob('tools/bench/gaz/*.gaz') as $file) {
     $name = basename($file, '.gaz');
     $gzb = "vm/build/bench/{$name}.gzb";
     $compile($file, $gzb);
     $cases[$name] = ['c' => ['bin/gaz', '-f', $gzb]];
     // The same program in PHP, for the ones that have one
-    if (is_file("vm/bench/php/{$name}.php")) {
-        $cases[$name]['php'] = [...$php, "vm/bench/php/{$name}.php"];
+    if (is_file("tools/bench/php/{$name}.php")) {
+        $cases[$name]['php'] = [...$php, "tools/bench/php/{$name}.php"];
     }
-    if ($python !== null && is_file("vm/bench/python/{$name}.py")) {
-        $cases[$name]['py'] = [$python, "vm/bench/python/{$name}.py"];
+    if ($python !== null && is_file("tools/bench/python/{$name}.py")) {
+        $cases[$name]['py'] = [$python, "tools/bench/python/{$name}.py"];
     }
 }
 foreach (['compiler/gazlang.gaz code tests/programs/football.gaz', 'compiler/gazlang.gaz ast compiler/codegen.gaz', 'compiler/gazlang.gaz tokens compiler/codegen.gaz', 'tests/programs/football.gaz'] as $workload) {

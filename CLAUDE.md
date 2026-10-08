@@ -48,17 +48,17 @@ vendor/bin/phpunit tests/SpecificTest.php
 vendor/bin/phpunit --filter=testMethodName tests/SpecificTest.php
 
 # After adding tests, collect their snippets for CVMTest
-php vm/snippets.php
+php tools/snippets.php
 
 # Fuzz the sanitized VM for a minute (--seed N to replay, --seconds S, --shrink FILE)
-php vm/fuzz.php
+php tools/fuzz.php
 
-# What differs from tests/expected; --update adds new programs to vm/passing.txt and records
+# What differs from tests/expected; --update adds new programs to tests/passing.txt and records
 # what every entry prints (review that diff)
-php vm/progress.php [FILTER] [--update]
+php tools/progress.php [FILTER] [--update]
 
 # After a change to what the front end or the command line prints: record it, review the diff.
-# Recording (this, vm/snippets.php, progress.php --update) runs one test at a time, never in parallel
+# Recording (this, tools/snippets.php, progress.php --update) runs one test at a time, never in parallel
 GAZLANG_RECORD=1 vendor/bin/phpunit --filter 'SelfHosted|CliTest'
 
 # The self-hosted front end from its source; without a file it reads piped source
@@ -67,9 +67,9 @@ bin/gaz compiler/gazlang.gaz ast < tests/programs/errors.gaz
 
 # The C VM's coverage by the harness, its speed, and a build that collects cycles at every chance
 # (over an hour: collecting is quadratic, and the entries that compile the compiler take longest)
-php vm/coverage.php [file.c]
-php vm/bench.php
-make -C vm stress && GAZVM=vm/build/gazvm-stress php vm/progress.php
+php tools/coverage.php [file.c]
+php tools/bench.php
+make -C vm stress && GAZVM=vm/build/gazvm-stress php tools/progress.php
 
 vendor/bin/phpstan analyse          # must be clean
 vendor/bin/pint                     # formatting
@@ -117,6 +117,10 @@ composer ci                         # what CI runs, cold: phpstan with no result
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
   and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()` and its master reading request heads, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes, `siphash.c` the hash behind every map.
+- `tools/`: the PHP scripts that work on the whole project rather than run as tests:
+  `progress.php` and `snippets.php` record, `fuzz.php` fuzzes, `coverage.php` measures the C VM's
+  coverage, and `bench.php` times gaz against PHP and Python on the programs in `tools/bench/`.
+  What they build or save goes in `vm/build/` (gitignored).
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.
   `games/`: programs built on the language, each with tests of its own (see "A game is neither").
@@ -157,7 +161,7 @@ nothing**: several first versions of a harness or corpus passed everything and c
 - **The tests run `bin/gaz`**: every `GazLangTestCase` helper (`executeCode()`, `parse()`,
   `lex()`, `generateCode()`, `runProgram()`, `cli()`) runs the optimised build as a process from
   the project root, a snippet piped in, and a failure is a `ProgramError` holding what it printed
-  after `Error: `. `vm/snippets.php` collects the snippets, as JSON, for `CVMTest`. Order matters
+  after `Error: `. `tools/snippets.php` collects the snippets, as JSON, for `CVMTest`. Order matters
   as much as results: `KEY_CHECK` exists so a bad key fails before later keys and the value run.
 - **The suite runs in parallel**, a whole class to a process (`pest --parallel`), so a class's
   static caches are computed once, and nothing may assume another class isn't running:
@@ -168,7 +172,7 @@ nothing**: several first versions of a harness or corpus passed everything and c
   else a test writes is its own class's, or named by its process. `CVM::$jobs` stays 24 under
   `--parallel`: fewer measured the same.
 - **Programs print what `tests/expected/` records** (`CVMTest`, `tests/CVM.php`): each entry of
-  `vm/passing.txt` (every program and corpus file, the snippets in `tests/vm_snippets.txt`, and
+  `tests/passing.txt` (every program and corpus file, the snippets in `tests/vm_snippets.txt`, and
   the hand-written broken `.gzb` files) runs on the C VM built with ASan and UBSan and must give
   the recorded stdout, stderr and exit code (`.stdout` always, `.stderr` and `.exit` when there
   is one; the checkout's path as `<root>`). A source entry runs from source, so the built-in
@@ -434,7 +438,7 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   changes with every docs edit, so `SiteTest` checks it succeeds, has every page, fails on a link
   planted in a copy of the docs (`--root`), and builds without a repository; `tests/gaz/site/`
   tests its parts.
-- **Speed** is measured by `php vm/bench.php` (CPU time, interleaved, best of several; the README's
+- **Speed** is measured by `php tools/bench.php` (CPU time, interleaved, best of several; the README's
   table is its output on the default PGO build, so a `PGO=0` build runs a little slower). gaz is
   around PHP's speed and faster than Python. The arithmetic loop is still about nine dispatches an
   iteration after fusion (a register form would need about six), which only a register bytecode
@@ -445,7 +449,7 @@ one on the roadmap goes on the Roadmap issue's checklist too.
   first.
 - **Bytecode has no compatibility promise yet**: stable so far, but free to change; a change
   old files can't load under bumps the version.
-- **The fuzzer** (`php vm/fuzz.php`, a minute; CI runs one on each push, seeded by the run's
+- **The fuzzer** (`php tools/fuzz.php`, a minute; CI runs one on each push, seeded by the run's
   id) needs no oracle: generated programs, mutated corpus programs and mutated bytecode
   run through `CVM::runC()`, and it fails on a sanitizer report, a crash, a leak, a time-out,
   an error raised inside the compiler, or bytecode the compiler wrote that the loader refuses.

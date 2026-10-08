@@ -1,13 +1,13 @@
 <?php
 
-// Runs every entry of vm/passing.txt and every candidate on the C VM (the sanitized build, or
+// Runs every entry of tests/passing.txt and every candidate on the C VM (the sanitized build, or
 // the one GAZVM names) and says which print something other than tests/expected records.
-//   php vm/progress.php            report
-//   php vm/progress.php --update   also add the new candidates to vm/passing.txt, drop the entries
+//   php tools/progress.php            report
+//   php tools/progress.php --update   also add the new candidates to tests/passing.txt, drop the entries
 //                                  whose file or snippet is gone, record what every entry prints
 //                                  in tests/expected, and remove what nothing records: review
 //                                  that diff, since it is what the VM is held to
-//   php vm/progress.php FILTER     only the entries containing FILTER, showing the differences
+//   php tools/progress.php FILTER     only the entries containing FILTER, showing the differences
 // A candidate is new when the compiler built in accepts it (a file it refuses tests the
 // compiler, whose corpora cover that) and it runs without leaking.
 
@@ -76,8 +76,8 @@ printf("%d of %d entries print what is recorded; %d new\n", count($same), count(
 if ($update) {
     $all = array_values(array_unique([...array_diff(CVM::passing(), $gone), ...array_keys($new)]));
     sort($all);
-    file_put_contents(__DIR__.'/passing.txt', implode("\n", $all)."\n");
-    printf("vm/passing.txt: %d entries\n", count($all));
+    file_put_contents(dirname(__DIR__).'/tests/passing.txt', implode("\n", $all)."\n");
+    printf("tests/passing.txt: %d entries\n", count($all));
 
     foreach ([...$same, ...$differ, ...$new] as $entry => $c) {
         if (CVM::leak($c) === null) {

@@ -1,15 +1,15 @@
 <?php
 
 // Fuzzes the C VM with no oracle: generated programs, mutated corpus programs and mutated
-// bytecode run on the sanitized build (as vm/progress.php runs entries), and a run fails on a
+// bytecode run on the sanitized build (as tools/progress.php runs entries), and a run fails on a
 // sanitizer report, a crash, a leak, a time-out, an error raised inside the compiler, or
 // bytecode the compiler wrote that the loader refuses. What they print isn't checked.
-//   php vm/fuzz.php [--seed N] [--seconds S] [--runs N] [--jobs J]
-//   php vm/fuzz.php --shrink FILE   shrink a saved failure with no time limit (in a run, a minute)
+//   php tools/fuzz.php [--seed N] [--seconds S] [--runs N] [--jobs J]
+//   php tools/fuzz.php --shrink FILE   shrink a saved failure with no time limit (in a run, a minute)
 // Everything follows from the seed (printed first) and the checkout, so `--seed N --runs M`
 // replays a run. A failing program is saved in vm/build/fuzz/, shrunk to a small one that fails
 // the same way, and printed; once fixed, add it to a corpus and record what it prints
-// (php vm/progress.php --update). Programs never open sockets, start programs or workers, exit,
+// (php tools/progress.php --update). Programs never open sockets, start programs or workers, exit,
 // sleep, read the environment, touch files or directories or read standard input, draw random
 // bytes (what it prints wouldn't follow from the seed) or hash a password (whose cost is its
 // arguments, so a slow one is what was asked for, not a bug): any whose text (or an imported

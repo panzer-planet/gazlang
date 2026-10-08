@@ -245,7 +245,7 @@ class CliTest extends GazLangTestCase
      * @return array<string, array{0: string, 1: string, 2: int}>
      */
     /**
-     * The bytecode the table's cases run, which vm/coverage.php makes too: compiled next to a
+     * The bytecode the table's cases run, which tools/coverage.php makes too: compiled next to a
      * copy of its source, so the locations in it lead to that copy
      */
     public static function fixtures(): void

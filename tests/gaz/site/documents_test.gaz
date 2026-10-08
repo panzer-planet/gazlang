@@ -28,7 +28,7 @@ throws("a bad name given is an error", () -> documents::choose_repository("not a
 // A repository's links, and none when it isn't known
 $known = documents::Repository("o/n");
 expect("a file", $known.file_url("LICENSE.md", false), "https://github.com/o/n/blob/HEAD/LICENSE.md");
-expect("a directory", $known.file_url("vm/bench", true), "https://github.com/o/n/tree/HEAD/vm/bench");
+expect("a directory", $known.file_url("tools/bench", true), "https://github.com/o/n/tree/HEAD/tools/bench");
 expect("a download", $known.download_url("v1.2.3", "x.tar.gz"), "https://github.com/o/n/releases/download/v1.2.3/x.tar.gz");
 $unknown = documents::Repository(null);
 expect("unknown", [$unknown.known(), $unknown.home(), $unknown.file_url("a", false), $unknown.releases_url()], [false, null, null, null]);

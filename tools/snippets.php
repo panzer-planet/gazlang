@@ -1,8 +1,8 @@
 <?php
 
 // Collects every snippet the PHP tests run through executeCode() into tests/vm_snippets.txt,
-// one JSON string per line, for the C VM's harness (entries "snippet:<id>" in vm/passing.txt).
-// Run it after adding tests: php vm/snippets.php
+// one JSON string per line, for the C VM's harness (entries "snippet:<id>" in tests/passing.txt).
+// Run it after adding tests: php tools/snippets.php
 
 $root = dirname(__DIR__);
 $record = tempnam(sys_get_temp_dir(), 'snippets');

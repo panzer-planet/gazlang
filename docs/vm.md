@@ -182,7 +182,7 @@ shell calls are its session and a sequence showing a bug is already a test case.
   is the dispatch loop, malloc/free and the collector.
 - **PGO is the default where the toolchain has it** (gcc, or clang with `llvm-profdata`), and
   plain `-O2` where it doesn't, so the bootstrap still needs only a C compiler: it makes every
-  benchmark faster for about 5s more per build. It trains on the compiler, `examples/` and `tests/programs/`, never `vm/bench`, so the benchmarks stay an
+  benchmark faster for about 5s more per build. It trains on the compiler, `examples/` and `tests/programs/`, never `tools/bench`, so the benchmarks stay an
   honest test; `bench.php` times whichever build `bin/gaz` is, so compare a change with
   both builds PGO (or both `PGO=0`). `-O3` was a wash and `-flto` slower.
 - `ponytail:` in the C: float printing tries up to 34 `printf`/`strtod` pairs per float.

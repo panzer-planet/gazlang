@@ -98,7 +98,7 @@ abstract class GazLangTestCase extends TestCase
      */
     protected function executeCode(string $input): string
     {
-        // vm/snippets.php collects every snippet for the C VM's harness
+        // tools/snippets.php collects every snippet for the C VM's harness
         if (($record = getenv('GAZLANG_RECORD_SNIPPETS')) !== false) {
             // with this checkout's paths relative to it, since the harness runs them from its root
             file_put_contents($record, json_encode(str_replace(dirname(__DIR__).'/', '', $input), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n", FILE_APPEND);

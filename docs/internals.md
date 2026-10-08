@@ -72,13 +72,14 @@ about it and what isn't.
 | `editors/` | TextMate grammars: `gaz/` for source, `gzb/` for bytecode and `gazml/` for templates; `EditorGrammarTest` fails when one misses a builtin, keyword, instruction or template directive |
 | `lsp/` | the language server, `bin/gaz lsp/server.gaz` |
 | `site/` | the website, a GazLang program: `bin/gaz site/build.gaz` |
-| `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; `tests/corpora/`, the corpora `lexer/`, `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/` and `csv/`; and `expected/`, what every program must print |
+| `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; `tests/corpora/`, the corpora `lexer/`, `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/` and `csv/`; `passing.txt`, the entries the C VM must pass; and `expected/`, what every program must print |
+| `tools/` | the scripts that work on the whole project (see [Commands](#commands)): recording (`progress.php`, `snippets.php`), the fuzzer, the C VM's coverage, and the benchmarks with their programs in `bench/` |
 
 ## What holds it together
 
 Everything the tests run is compared with what is recorded as its output, byte for byte:
 
-- **Programs** (`CVMTest`): each entry of `vm/passing.txt` (every program and corpus file in the
+- **Programs** (`CVMTest`): each entry of `tests/passing.txt` (every program and corpus file in the
   repository, the snippets the PHPUnit tests run, and the hand-written `.gzb` files) runs on the
   C VM built with AddressSanitizer and UndefinedBehaviorSanitizer, and must print the standard
   output, standard error and exit code recorded in `tests/expected/`. It must not leak either:
@@ -91,14 +92,14 @@ Everything the tests run is compared with what is recorded as its output, byte f
 - **The command line** (`CliTest`): a table of invocations, each its arguments, what is piped in
   and the working directory, with what each prints in `tests/corpora/cli/expected/`.
 - **The compiler compiles itself** to exactly `compiler/gazlang.gzb`.
-- **The fuzzer** (`php vm/fuzz.php`, not part of the suite; CI runs a minute of it): generated
+- **The fuzzer** (`php tools/fuzz.php`, not part of the suite; CI runs a minute of it): generated
   programs, mutated corpus programs and mutated bytecode on the sanitized build, failing on a
   sanitizer report, a crash, a leak, a time-out or an error inside the compiler. A failure is
   saved and shrunk in `vm/build/fuzz/` with the seed that replays it; once fixed, it goes into
   a corpus like any other case.
 
 When output changes on purpose, record it and review the diff, since the recordings are the
-spec: `php vm/progress.php --update` for programs (it also adds new ones to `vm/passing.txt`,
+spec: `php tools/progress.php --update` for programs (it also adds new ones to `tests/passing.txt`,
 and removes what no entry records), `GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted`
 for the front end, `GAZLANG_RECORD=1 vendor/bin/phpunit --filter CliTest` for the command line.
 Record with plain `phpunit`, one test at a time, never under `pest --parallel`.
@@ -141,10 +142,10 @@ vendor/bin/phpunit --filter=testName tests/X.php    # one test
 vendor/bin/phpstan analyse                          # must be clean
 vendor/bin/pint                                     # formatting; --test to check only
 
-php vm/snippets.php                                 # after adding tests: collect their snippets
-php vm/progress.php [FILTER] [--update]             # what differs from tests/expected; records it
-php vm/coverage.php [file.c]                        # which lines of the C VM the harness never runs
-php vm/bench.php                                    # gaz against PHP and Python
+php tools/snippets.php                                 # after adding tests: collect their snippets
+php tools/progress.php [FILTER] [--update]             # what differs from tests/expected; records it
+php tools/coverage.php [file.c]                        # which lines of the C VM the harness never runs
+php tools/bench.php                                    # gaz against PHP and Python
 ```
 
 ## Tests
@@ -193,11 +194,11 @@ php vm/bench.php                                    # gaz against PHP and Python
   leaves a VM that can compile its fix. The compiler's own source can't use a new feature until
   it has been built with it once.
 - **`tests/corpora/vm/`** are programs for the C VM that the rest of the repository doesn't
-  reach, found with `php vm/coverage.php`: running out of call depth by every kind of call,
+  reach, found with `php tools/coverage.php`: running out of call depth by every kind of call,
   traces cut short, failing `to_string()`s, floats of every shape, cycles.
   **`tests/corpora/bytecode/`** are bytecode files written by hand, one broken way per loader
   message. For the collector, `make -C vm stress` then
-  `GAZVM=vm/build/gazvm-stress php vm/progress.php` collects cycles at every chance and takes
+  `GAZVM=vm/build/gazvm-stress php tools/progress.php` collects cycles at every chance and takes
   over an hour (with `GAZVM` set, each program may run for two hours).
 - `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/corpora/json/y_*.json` and
   `n_*.json`; `lib/csv.gaz` against `fgetcsv`.

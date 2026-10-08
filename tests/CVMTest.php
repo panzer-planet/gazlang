@@ -6,10 +6,10 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The C VM, under the sanitizers, against what each entry in vm/passing.txt must print: the
+ * The C VM, under the sanitizers, against what each entry in tests/passing.txt must print: the
  * standard output, standard error and exit code recorded in tests/expected (see CVM)
  *
- * vm/progress.php finds new entries, adds them and records what they print.
+ * tools/progress.php finds new entries, adds them and records what they print.
  */
 class CVMTest extends TestCase
 {
@@ -38,7 +38,7 @@ class CVMTest extends TestCase
     public function test_the_c_vm_prints_what_is_expected(string $entry)
     {
         $expected = CVM::expected($entry);
-        $this->assertNotNull($expected, "{$entry}: nothing recorded in tests/expected; php vm/progress.php --update");
+        $this->assertNotNull($expected, "{$entry}: nothing recorded in tests/expected; php tools/progress.php --update");
         $c = self::$results[$entry] ??= CVM::runC([$entry])[$entry];
 
         $this->assertSame($expected[1], CVM::portable($c[1]), "{$entry}: standard error");
@@ -53,7 +53,7 @@ class CVMTest extends TestCase
 
     public function test_every_entry_still_has_its_file_or_snippet()
     {
-        $this->assertSame([], CVM::gone(), 'in vm/passing.txt, but gone: php vm/progress.php --update removes them');
+        $this->assertSame([], CVM::gone(), 'in tests/passing.txt, but gone: php tools/progress.php --update removes them');
     }
 
     public function test_everything_in_tests_expected_belongs_to_an_entry()
@@ -67,7 +67,7 @@ class CVMTest extends TestCase
                 $stale[] = substr((string) $path, strlen(CVM::ROOT) + 1);
             }
         }
-        $this->assertSame([], $stale, 'no entry in vm/passing.txt records these: php vm/progress.php --update removes them');
+        $this->assertSame([], $stale, 'no entry in tests/passing.txt records these: php tools/progress.php --update removes them');
     }
 
     public function test_the_self_hosted_compiler_compiles_itself_to_itself()

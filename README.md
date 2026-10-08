@@ -292,7 +292,7 @@ GazLang, reachable in [`lib/`](lib) and documented in [docs/language.md](docs/la
 ## How fast is it?
 
 Each program below does the same work in GazLang, PHP and Python (they are in
-[`vm/bench/`](vm/bench)). The time is the whole process's CPU time, best of 7 runs, interleaved,
+[`tools/bench/`](tools/bench)). The time is the whole process's CPU time, best of 7 runs, interleaved,
 on an Intel i7-8700 running macOS.
 
 | Program | GazLang | PHP 8.5 (JIT) | Python 3.13 |
@@ -305,7 +305,7 @@ on an Intel i7-8700 running macOS.
 | `maps` — counting half a million words | **0.105s** | 0.125s | 0.188s |
 | `strings` — building, splitting and joining 3MB of text | **0.105s** | 0.122s | 0.153s |
 
-Run `php vm/bench.php 7` to measure on your own machine.
+Run `php tools/bench.php 7` to measure on your own machine.
 
 ## Where to go next
 

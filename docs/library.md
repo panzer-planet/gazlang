@@ -327,7 +327,7 @@ iterations only C is fast enough.
   another: the result is a lane-parallel implementation's, and threads would only divide the wall
   time.
 - **`random_bytes` is `getentropy()`**, 256 bytes a call, as `rand_seed()` without a seed is.
-  `vm/fuzz.php` skips programs naming it (what they print wouldn't follow from the seed) and the
+  `tools/fuzz.php` skips programs naming it (what they print wouldn't follow from the seed) and the
   three password hashes (their cost is their arguments, so a slow one isn't a bug).
 - **`lib/crypto.gaz`**: the PHC format is what PHP, libsodium and libargon2 write, so Argon2id
   hashes move between them. `verify_password`'s refusals are canonical-only on purpose (each
