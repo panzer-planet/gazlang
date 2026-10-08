@@ -303,14 +303,12 @@ issue where a decided design waits to be built. `ponytail:` comments stay at the
 describe. To find it:
 
 ```bash
-gh issue view 63                   # the pinned Roadmap: a checklist in build order
-gh issue list --label roadmap
+gh issue list --label roadmap      # what is next
 gh issue list --label limitation   # the kinds: roadmap, on-demand, not-designed, limitation, friction
 gh issue list --label http         # the topics: language, library, http, vm, tooling, todo-app
 ```
 
-A new open item is filed as an issue with a topic and a kind label, never added as a list here;
-one on the roadmap goes on the Roadmap issue's checklist too.
+A new open item is filed as an issue with a topic and a kind label, never added as a list here.
 
 ## Status
 

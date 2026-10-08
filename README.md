@@ -327,7 +327,7 @@ Run `php tools/bench.php 7` to measure on your own machine.
 - **[CLAUDE.md](CLAUDE.md)** — the rules and the reasons behind each design decision. The most
   interesting file here if you like language design.
 - **[Issues](https://github.com/panzer-planet/gazlang/issues)** — what is still open, starting with
-  [the roadmap](https://github.com/panzer-planet/gazlang/issues/63).
+  [the roadmap](https://github.com/panzer-planet/gazlang/labels/roadmap).
 
 ## License
 

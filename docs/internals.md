@@ -226,8 +226,8 @@ running on a VM (`vm/`) of about 13,500 lines of plain C, and `bin/gaz` is the t
 which rebuilds its own compiler (`make -C vm compiler`). The compiler has to compile itself to
 exactly itself (see "Tests"). CI builds and tests it on Linux and macOS on every push, and the
 test suite needs PHP 8.5 or later and `composer install`; GazLang itself needs neither. What is
-open is in [the issues](https://github.com/panzer-planet/gazlang/issues), starting with the pinned
-[Roadmap](https://github.com/panzer-planet/gazlang/issues/63).
+open is in [the issues](https://github.com/panzer-planet/gazlang/issues), starting with those
+labelled [roadmap](https://github.com/panzer-planet/gazlang/labels/roadmap).
 
 ## Style
 
