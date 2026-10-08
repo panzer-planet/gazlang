@@ -31,8 +31,9 @@ jobs:
       fail-fast: false
       matrix:
         # Linux (gcc, and LeakSanitizer in the sanitized builds), and macOS on Apple silicon
-        # and on Intel (where it is developed)
-        os: [ubuntu-latest, macos-latest, macos-15-intel]
+        # and on Intel (where it is developed). macos-15, not macos-latest: setup-php can't
+        # install PHP 8.5 on the macOS 26 image macos-latest became
+        os: [ubuntu-latest, macos-15, macos-15-intel]
         # Each platform's suite in two halves, split by class timings (tests/.pest/shards.json),
         # each run a process per core; each half builds gaz for itself
         shard: [1, 2]

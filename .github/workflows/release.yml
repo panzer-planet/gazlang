@@ -30,7 +30,9 @@ jobs:
             target: linux-x86_64
           - os: macos-15-intel
             target: macos-x86_64
-          - os: macos-latest
+          # macos-15, not macos-latest (macOS 26): a binary runs on the macOS it was built on
+          # and later, and nothing sets an older deployment target
+          - os: macos-15
             target: macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
