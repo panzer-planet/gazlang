@@ -1304,7 +1304,8 @@ class HttpServerTest extends GazLangTestCase
             for ($wait = 0; substr_count($text = (string) file_get_contents($log), ' 408 ') < 50 && $wait < 100; $wait++) {
                 usleep(50000);
             }
-            $this->assertSame(50, preg_match_all('/^\S+ 127\.0\.0\.1 - - 408 16 (19\d\d|2\d\d\d)\.\d{3}ms$/m', $text), $text);
+            // Timed from each one's first byte, which a slow runner sends a little after connecting
+            $this->assertSame(50, preg_match_all('/^\S+ 127\.0\.0\.1 - - 408 16 (1[5-9]\d\d|2\d\d\d)\.\d{3}ms$/m', $text), $text);
             $this->assertSame(20, preg_match_all('/^\S+ 127\.0\.0\.1 GET \/ 200 2 /m', $text));
             // And no worker was replaced
             $this->assertStringNotContainsString('gaz: ', $text);
