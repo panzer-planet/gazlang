@@ -892,11 +892,12 @@ class HttpServerTest extends GazLangTestCase
     {
         [$server, $port] = self::startSmallServer(1, '{'.self::SLOW_READS.'}', '$r -> ({"body" => $r["body"]})');
         try {
-            // A body that comes in time though it takes longer than the head may
+            // A body that comes in time though it takes longer than the head may: about 0.75s
+            // against the head's 0.5 and the request's 1.5, leaving a slow runner's sleeps room
             $head = "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nConnection: close\r\n\r\n";
-            [$seconds, $response] = self::sendSlowly($port, $head, 'hello', 0.2);
+            [$seconds, $response] = self::sendSlowly($port, $head, 'hello', 0.15);
             $this->assertSame([200, 'hello'], [self::response($response)['status'], self::response($response)['body']]);
-            $this->assertGreaterThan(0.9, $seconds);
+            $this->assertGreaterThan(0.6, $seconds);
 
             // One that doesn't is a 408 at the request_timeout, not the head's
             $head = "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\n";
@@ -932,10 +933,11 @@ class HttpServerTest extends GazLangTestCase
             fwrite($socket, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
             $this->assertSame(200, self::response(self::readResponse($socket))['status']);
 
-            // Idle for longer than header_timeout, then a head that takes most of it
+            // Idle for longer than header_timeout, then a head that takes a while: timed from the
+            // idle wait it would already be late, so it needn't come near the 0.5s itself
             usleep(800000);
             fwrite($socket, "GET / HTTP/1.1\r\n");
-            usleep(300000);
+            usleep(150000);
             fwrite($socket, "Host: x\r\n\r\n");
             $this->assertSame(200, self::response(self::readResponse($socket))['status']);
 
