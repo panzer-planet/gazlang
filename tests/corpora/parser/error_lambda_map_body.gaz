@@ -1,0 +1,5 @@
+// A { after -> starts a block, so a map meant as the value is read as a statement
+$respond = $request -> {
+    "status" => 200,
+    "body" => $request,
+};

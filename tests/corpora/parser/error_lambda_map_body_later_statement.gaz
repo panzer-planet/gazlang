@@ -1,0 +1,5 @@
+// Only the first statement of the body reads as a map that was meant: later, => is just misplaced
+$f = $r -> {
+    $x = 1;
+    "a" => $x;
+};

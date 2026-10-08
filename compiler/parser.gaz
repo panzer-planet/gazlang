@@ -359,6 +359,9 @@ kind Parser {
     #type_uses = [];
     // The type the function being parsed returns, or null: what a bare return is checked against
     #return_type = null;
+    // Whether the statement about to be read is the first of a lambda's block body, where a
+    // map literal meant as the value would be read as statements
+    #lambda_block_start = false;
     // What a type error names the function being parsed as, as the VM names it: f(), Kind.m()
     #return_label = null;
     // Every value a typed function returns, as [expression, TypeAST, the function as #return_label names it]
@@ -1172,7 +1175,10 @@ final kind Html {
         if (#current_token.type == "LEFT_BRACE") {
             [$in_function, $loop_depth] = [#in_function, #loop_depth];
             [#in_function, #loop_depth] = [true, 0];
+            #lambda_block_start = true;
             $body = #block();
+            // An empty block read no statement to clear it
+            #lambda_block_start = false;
             [#in_function, #loop_depth] = [$in_function, $loop_depth];
         } else {
             $body = #expr();
@@ -3948,6 +3954,9 @@ final kind Html {
     }
 
     fn statement_body() {
+        // Taken before anything is read, so a lambda inside this statement starts afresh
+        $first_in_lambda = #lambda_block_start;
+        #lambda_block_start = false;
         $type = #current_token.type;
         if ($type == "ECHO") {
             return #echo_statement();
@@ -3993,6 +4002,9 @@ final kind Html {
 
         $start = #current_token;
         $expr = #expr();
+        if ($first_in_lambda && #current_token.type == "DOUBLE_ARROW") {
+            #fail("A lambda's { starts a block: to return a map, write -> (\{...})");
+        }
         #eat("SEMICOLON");
 
         return #at(StatementAST($expr), $start);

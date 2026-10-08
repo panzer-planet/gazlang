@@ -378,6 +378,7 @@ Anonymous functions are `->`:
 $double = $x -> $x * 2;
 $sum    = ($a, $b = 1) -> $a + $b;
 $noop   = () -> { return 42; };          // a block body returns only through return
+$pair   = $x -> ({"value" => $x});      // { after -> is a block, so a map is parenthesised
 ```
 
 A parameter is a copy, so writing to its elements changes nothing the caller sees. A function
