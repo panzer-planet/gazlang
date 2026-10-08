@@ -51,6 +51,11 @@ $lines = [
     "",
 ];
 expect("a worker is handed whole heads and gives the connection back between them", $result["stdout"], join($lines, "\n"));
-// Without the leak check's lines, which the harness asks for (GAZVM_STATS) and run() passes on
-$errors = filter(split($result["stderr"], "\n"), $line -> $line != "" && !starts_with($line, "gazvm: "));
+/*
+ * Without the leak check's lines, which the harness asks for (GAZVM_STATS) and run() passes on,
+ * nor LeakSanitizer's note on Linux that it couldn't stop a thread, which tests/CVM.php drops too
+ */
+$errors = filter(split($result["stderr"], "\n"), $line -> $line != ""
+    && !starts_with($line, "gazvm: ")
+    && !ends_with($line, "was not suspended. False leaks are possible."));
 expect("and the master ended cleanly", [$errors, $result["status"]], [[], 0]);

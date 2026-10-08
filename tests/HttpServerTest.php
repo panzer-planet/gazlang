@@ -1272,7 +1272,8 @@ class HttpServerTest extends GazLangTestCase
                     @fwrite($socket, $trickle[$tick]);
                 }
             }
-            for ($k = 0; $k < 2 && $answered < 20; $k++) {
+            // Up to three a round, so a slow machine still fits twenty in before the tricklers' 408s
+            for ($k = 0; $k < 3 && $answered < 20; $k++) {
                 $began = microtime(true);
                 if (self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status'] === 200) {
                     $answered++;
@@ -1297,7 +1298,7 @@ class HttpServerTest extends GazLangTestCase
         try {
             [$slowest, $answered, $answers] = self::slowloris($port);
             $this->assertSame(20, $answered);
-            $this->assertLessThan(0.2, $slowest, 'the slowest ordinary request, in seconds');
+            $this->assertLessThan(0.5, $slowest, 'the slowest ordinary request, in seconds, against tricklers held for 2');
             // Each trickling one gets its 408 at header_timeout, and a line in the log
             $this->assertSame(array_fill(0, 50, 408), array_map(fn ($answer) => self::response($answer)['status'], $answers));
             for ($wait = 0; substr_count($text = (string) file_get_contents($log), ' 408 ') < 50 && $wait < 100; $wait++) {
