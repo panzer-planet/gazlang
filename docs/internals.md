@@ -34,6 +34,30 @@ editing the C.
 The tests are PHPUnit, so running them needs PHP 8.5 or later and `composer install`; GazLang
 itself needs neither.
 
+### Trusting the seed
+
+`compiler/gazlang.gzb` is the compiler's own bytecode, checked in because a fresh clone has
+nothing else that can compile `compiler/`, and so that building needs only a C compiler. It is
+the one part of a build you can't make from source alone, so it is worth knowing what is checked
+about it and what isn't.
+
+- **It is a fixed point.** On every push, CI builds gaz, runs `make -C vm compiler` and fails if
+  the bytecode that comes out isn't byte for byte the bytecode checked in. The seed is exactly
+  what it makes of the sources: `compiler/` and the standard library files they import
+  (`std/text.gaz`, `std/chars.gaz`, `std/json.gaz`). You can check the same thing yourself:
+  run `make -C vm compiler`, and `git status` shows nothing changed.
+- **That doesn't prove it matches the sources.** A seed that put something into what it
+  compiled, and recognised its own source so as to put that in again, would pass the same check:
+  the attack Ken Thompson described in *Reflections on Trusting Trust*. Ruling that out needs a
+  second compiler that shares nothing with this one, and there is none: the first seed was made
+  in `5e293e58`, while a separate implementation in PHP was still in the repository (removed in
+  `b65300aa`), and every seed since was compiled by the one before it.
+- **It can be read.** The bytecode is text, one instruction per line (see
+  [Bytecode](bytecode.md)). `.gitattributes` marks it generated, so git shows a change to it as
+  `Binary files differ`; `git log -p --text -- compiler/gazlang.gzb` or `git show --text COMMIT`
+  shows it line by line. A change to the seed should arrive in the same commit as the change to
+  `compiler/` or to one of those library files that caused it.
+
 ## Layout
 
 | Path | What it does |
