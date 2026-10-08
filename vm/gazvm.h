@@ -655,7 +655,7 @@ extern int vm_process;   /* which process this is, for a handle's owner: 0 until
 bool refuse_inherited(const char *builtin, const char *type);   /* the error for using another process's handle */
 void abandon_fd(int fd);       /* point fd at /dev/null, so what is written to it on closing goes nowhere */
 bool start_workers(int64_t count, Value *out);
-bool workers_stopping(void);   /* a worker has been asked to stop: socket_accept() gives null */
+bool workers_stopping(void);   /* a worker has been asked to stop, or its master has gone: socket_accept() gives null */
 void worker_accepted(void);    /* a worker has taken a connection, so it did start */
 void worker_listening(void);   /* a worker waits for connections, so it can take over from one retiring */
 bool worker_retire(void);      /* worker_retire(): ask for a replacement and serve on until it is ready */

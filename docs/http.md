@@ -95,6 +95,14 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   refused, not queued in a backlog nobody will accept from and reset at the end; a kept-open
   client sees the end at once, as after an idle wait; and the request in hand is still answered,
   its connection then closed rather than given back (`worker_release()` after a stop).
+- **A worker whose master has died stops as if asked**, since a master killed with SIGKILL can't
+  ask, and orphans would hold the listener: `workers_stopping()`, asked by every wait that wakes
+  each second (`worker_accept()`, `socket_accept()`, `socket_wait()`), takes `getppid()` no longer
+  being the master's pid for a SIGTERM (`getppid()`, not Linux's `PR_SET_PDEATHSIG`, which macOS
+  hasn't got). Under `http::serve()` an idle worker sees its channel end at once; the master's
+  kept-open connections go with it; a request in hand is finished and its connection closed, as
+  after a stop, bounded by `handler_timeout` rather than `STOP_GRACE`, there being no master left to
+  kill it. Tested by the two `master_killed` tests in `HttpServerTest`.
 - **The program runs on its own thread** (see [the C VM](vm.md#how-a-program-runs)), so a fork is that thread alone, with
   no `main()` to end the process: `run()` in `vm.c` exits a worker itself. And a signal to the
   master may land on `main()`'s thread, which is why the master waits at most 50ms at a time
@@ -656,6 +664,4 @@ for the same reason.
   is fixed; a program whose workers accept their own connections (`socket_accept()` in a loop of
   its own, not `http::serve()`) still has new connections queue in the listener's backlog while
   they drain, reset when the program ends, since the master learns which socket is the listener
-  only from `worker_accept()`; a master killed with SIGKILL leaves its
-  workers running (Linux's `PR_SET_PDEATHSIG` would end them, macOS has nothing like it;
-  [#61](https://github.com/panzer-planet/gazlang/issues/61)).
+  only from `worker_accept()`.

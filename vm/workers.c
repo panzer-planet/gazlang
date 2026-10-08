@@ -41,8 +41,14 @@
  * ends; one still running after STOP_GRACE seconds is killed. Ctrl-C reaches the workers themselves too, and
  * ends them at once, which is what it is for.
  *
- * ponytail: workers whose master is killed with SIGKILL run on as orphans (Linux's
- * PR_SET_PDEATHSIG would end them; macOS has nothing like it), and the grace is fixed.
+ * A master that ends without stopping them (SIGKILL, a crash) can't ask its workers to stop, so
+ * each worker notices for itself: every wait that already wakes each second (worker_accept(),
+ * socket_accept(), socket_wait()) asks workers_stopping(), which takes a parent other than the
+ * master for a stop. Under http::serve() the master's end of the channel closing wakes an idle
+ * worker at once. getppid() rather than Linux's PR_SET_PDEATHSIG, which macOS hasn't got, so both
+ * behave alike.
+ *
+ * ponytail: the grace is fixed.
  */
 /* memmem() is declared by glibc before 2.38 only under _GNU_SOURCE (see builtins.c) */
 #define _GNU_SOURCE
@@ -143,7 +149,16 @@ static void on_worker_stop(int sig) {
     if (listener_to_drop >= 0 && null_fd >= 0) dup2(null_fd, listener_to_drop);
 }
 
-bool workers_stopping(void) { return stopping; }
+/* The master's pid, which a worker's getppid() gives for as long as the master runs: once it has
+   died the worker has been given to another parent (init, or a subreaper such as a container's) */
+static pid_t master_pid;
+
+/* Whether this worker should stop: asked to (SIGTERM), or orphaned, which it takes as being asked,
+   so the request in hand is finished and the next wait gives null, as after a graceful stop */
+bool workers_stopping(void) {
+    if (!stopping && vm_worker && getppid() != master_pid) on_worker_stop(SIGTERM);
+    return stopping;
+}
 
 void worker_accepted(void) {
     if (slot) slot->accepted = 1;
@@ -669,10 +684,11 @@ bool worker_accept(Socket *listener, Map *map, Value *out) {
     for (;;) {
         /* A second at a time, so a stop that comes just before the wait is still seen */
         struct pollfd p = {.fd = channel, .events = POLLIN};
-        int ready = poll(&p, 1, stopping ? 0 : 1000);
+        bool stop = workers_stopping();
+        int ready = poll(&p, 1, stop ? 0 : 1000);
         if (ready < 0 && errno != EINTR) return raisef("worker_accept() failed: %s", strerror(errno));
         if (ready > 0) return take_handed(out);
-        if (stopping) {
+        if (stop) {
             *out = v_null();
             return true;
         }
@@ -1414,6 +1430,7 @@ bool start_workers(int64_t count, Value *out) {
         if (saved_stop[i].sa_handler != SIG_IGN) sigaction(STOP_SIGNALS[i], &stop, NULL);
     }
 
+    master_pid = getpid();
     int n = (int)count;
     Pool pool = {.count = n, .listener = -1};
     pool.slots = mmap(NULL, (size_t)n * sizeof(Slot), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);

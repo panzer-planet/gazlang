@@ -1065,6 +1065,98 @@ class HttpServerTest extends GazLangTestCase
         }
     }
 
+    public function test_workers_end_with_a_master_killed_while_one_has_a_request_in_hand()
+    {
+        [$server, $port] = self::startSmallServer(2, '{"idle_timeout" => 30}', self::SLEEPY);
+        try {
+            $idle = self::keptOpen($port);
+            $busy = self::connect($port);
+            // Killed well inside the handler's two seconds, so the request is surely in a worker's hand
+            fwrite($busy, "GET /2 HTTP/1.1\r\nHost: x\r\n\r\n");
+            usleep(500000);
+            $workers = self::killMaster($server);
+            // The kept-open connection was the master's, and goes with it
+            $this->assertSame('', (string) stream_get_contents($idle));
+            // The request in hand is answered, as a stop answers it, and then the connection closes
+            [, $rest] = self::untilClosed($busy);
+            $this->assertSame(200, self::response($rest)['status']);
+            fclose($idle);
+            fclose($busy);
+            self::assertEndWithin($workers, 5, $port);
+        } finally {
+            proc_terminate($server, SIGKILL);
+            proc_close($server);
+        }
+    }
+
+    public function test_workers_accepting_their_own_connections_end_with_a_master_killed()
+    {
+        // One worker waits on a connection that says nothing, the other for a connection
+        $code = '$l = socket_listen("127.0.0.1", 0); echo "listening on " .. socket_port($l); workers(2); '
+            .'while (true) { $c = socket_accept($l, 5); if ($c == null) { break; } socket_wait([$c], 60); }';
+        $server = proc_open([self::binary(), '-e', $code], [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']], $pipes, self::ROOT);
+        $this->assertNotFalse($server);
+        try {
+            $this->assertSame(1, preg_match('/^listening on (\d+)$/', trim((string) fgets($pipes[1])), $m));
+            $port = (int) $m[1];
+            $silent = self::connect($port);
+            usleep(200000);
+            $workers = self::killMaster($server);
+            $this->assertSame('', (string) stream_get_contents($silent));
+            fclose($silent);
+            self::assertEndWithin($workers, 5, $port);
+        } finally {
+            proc_terminate($server, SIGKILL);
+            proc_close($server);
+        }
+    }
+
+    /**
+     * Kill a server's master with SIGKILL, so it can't stop its workers, and give the workers' pids
+     *
+     * @param  resource  $server
+     * @return list<int>
+     */
+    private static function killMaster($server): array
+    {
+        $master = proc_get_status($server)['pid'];
+        $workers = self::childPids($master);
+        if ($workers === []) {
+            throw new \RuntimeException('The server has no workers');
+        }
+        proc_terminate($server, SIGKILL);
+        self::ended($server);
+
+        return $workers;
+    }
+
+    /**
+     * That every one of some processes has ended within a number of seconds, looked at every 20ms,
+     * and that nothing holds the port any more, which can be listened on again
+     *
+     * @param  list<int>  $pids
+     */
+    private static function assertEndWithin(array $pids, float $seconds, int $port): void
+    {
+        $until = microtime(true) + $seconds;
+        do {
+            $running = [];
+            exec('ps -o pid= -p '.implode(',', $pids), $running);
+            if ($running === []) {
+                break;
+            }
+            usleep(20000);
+        } while (microtime(true) < $until);
+        if ($running !== []) {
+            // Or they would outlive the test, holding the port
+            exec('kill -9 '.implode(' ', array_map('trim', $running)));
+        }
+        self::assertSame([], $running, 'workers still running once their master was killed');
+        $listener = stream_socket_server("tcp://127.0.0.1:{$port}", $errno, $error);
+        self::assertNotFalse($listener, "the port can't be listened on again: {$error}");
+        fclose($listener);
+    }
+
     /**
      * A connection that has had its response and is kept open, on a server
      *
