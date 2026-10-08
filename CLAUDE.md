@@ -544,6 +544,9 @@ one on the roadmap goes on the Roadmap issue's checklist too.
     `#NAME[0] = 1` is.
   - A bound static (`#next` as a value) would be the same value as `Counter::next` by another
     spelling, so it waits for a program that wants it.
+  - **No late static binding**: a static method is resolved when the program is read, so one
+    a child inherits can't learn which kind it was called through. Binding late would make the
+    VM learn what a static is, which is the one thing this design keeps it from needing.
 - **Packages: git only to begin, not built** ([#32](https://github.com/panzer-planet/gazlang/issues/32)). A package is a directory of GazLang source (no C,
   so one binary and a C compiler stay the whole install; no bytecode, which has no compatibility
   promise), a git repository with version tags. A project has `gaz.json` (its name and
@@ -705,8 +708,9 @@ Names are ASCII.
   `check_lost_writes()` in `parser.gaz`, at the first such write), in functions, methods and
   lambdas. Conservative on purpose: any other use (`return $l`, a read, a reassignment) lets it
   pass, and a path with a field in it (`$bag.items[] = 1`, `$rows[0].n = 1`) is never noted,
-  since it could reach an object. `ponytail:` `$l[] = len($l);` with no other use still passes
-  ([#39](https://github.com/panzer-planet/gazlang/issues/39)). Mutable state belongs in an object,
+  since it could reach an object. `ponytail:` `$l[] = len($l);` with no other use still passes,
+  by design: a read only inside a lost write's own right side could be ignored safely, but the
+  check stays one shape a reader can predict. Mutable state belongs in an object,
   or, for closures, in a `shared` variable. Explicit by-reference parameters stay refused ("values,
   not references": a parameter would alias the caller's variable).
 - `return` outside a function is a parse error; no return gives `null`. Variables holding `null`
