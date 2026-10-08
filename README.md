@@ -128,8 +128,9 @@ or dim is listed under it. [The keys and clock are written out here](docs/langua
 - **A small set of operators that pull their weight.** `??` and `?.` for missing things, `|>`
   for pipelines, `match` with or without a subject, list patterns for unpacking, spread for
   combining lists and maps.
-- **It is quick.** It beats Python 3.13 by 1.4 to 2.9 times, and stays within about 1.5 times of
-  PHP 8.5 with its JIT, beating it on calls, closures, maps and strings
+- **It is quick.** It beats Python 3.13 by 1.5 to 2.9 times, and stays within about 1.5 times of
+  PHP 8.5 with its JIT, beating it on calls, closures, maps and strings and level on objects and
+  lists
   ([numbers below](#how-fast-is-it)).
 - **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
   preforking web server with uploads and a test client for handlers, SQLite and PostgreSQL with
@@ -296,13 +297,13 @@ on an Intel i7-8700 running macOS.
 
 | Program | GazLang | PHP 8.5 (JIT) | Python 3.13 |
 | --- | ---: | ---: | ---: |
-| `fib` — recursive calls, `fib(30)` | **0.064s** | 0.102s | 0.160s |
-| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.045s** | 0.111s | 0.086s |
-| `loop` — ten million rounds of integer arithmetic | 0.356s | **0.235s** | 1.029s |
-| `objects` — half a million small objects and method calls | 0.167s | **0.163s** | 0.343s |
-| `lists` — a million elements, built, read and written | 0.133s | **0.127s** | 0.241s |
-| `maps` — counting half a million words | **0.103s** | 0.121s | 0.187s |
-| `strings` — building, splitting and joining 3MB of text | **0.107s** | 0.120s | 0.150s |
+| `fib` — recursive calls, `fib(30)` | **0.063s** | 0.103s | 0.164s |
+| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.041s** | 0.111s | 0.087s |
+| `loop` — ten million rounds of integer arithmetic | 0.360s | **0.240s** | 1.038s |
+| `objects` — half a million small objects and method calls | **0.155s** | 0.164s | 0.348s |
+| `lists` — a million elements, built, read and written | **0.130s** | 0.131s | 0.245s |
+| `maps` — counting half a million words | **0.105s** | 0.125s | 0.188s |
+| `strings` — building, splitting and joining 3MB of text | **0.105s** | 0.122s | 0.153s |
 
 Run `php vm/bench.php 7` to measure on your own machine.
 
