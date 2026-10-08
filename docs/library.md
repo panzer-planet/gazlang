@@ -231,8 +231,8 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   open), since linked it cost every start of gaz about 7ms (it brings OpenSSL 3 and Kerberos) for
   programs that never open a database. Building needs only `libpq-fe.h`, so "built in" means
   compiled against the header; the directory make found the library in is built in and tried
-  first, then the system's own search (`libpq.so.5`, `libpq.5.dylib`), then Homebrew's two prefixes
-  on macOS. Missing, `db_open` raises a catchable error naming every file tried and how to install
+  first, then on Linux the system's own search (`libpq.so.5`), and on macOS Homebrew's two prefixes
+  and `/usr/local/lib`, by whole paths only. Missing, `db_open` raises a catchable error naming every file tried and how to install
   it. **`workers()` loads it before it forks** (`pg_load_before_fork()`), when the program names
   `db_open` (`Program.opens_databases`, set by the loader from `CALL_BUILTIN` and `PUSH_FN`, the
   only ways a builtin is reached, so a server without a database never loads it): on macOS

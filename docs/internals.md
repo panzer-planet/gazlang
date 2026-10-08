@@ -49,9 +49,10 @@ about it and what isn't.
 - **That doesn't prove it matches the sources.** A seed that put something into what it
   compiled, and recognised its own source so as to put that in again, would pass the same check:
   the attack Ken Thompson described in *Reflections on Trusting Trust*. Ruling that out needs a
-  second compiler that shares nothing with this one, and there is none: the first seed was made
-  in `5e293e58`, while a separate implementation in PHP was still in the repository (removed in
-  `b65300aa`), and every seed since was compiled by the one before it.
+  second compiler that shares nothing with this one, and there is none now. The first seeds
+  (`5e293e58`, `a0f3c13d`) were written by a separate implementation of the language in PHP, with
+  `php bin/gazlang -c`; `make -C vm compiler` arrived in `674392aa`, and since the PHP
+  implementation was removed in `b65300aa`, every seed has been compiled by the one before it.
 - **It can be read.** The bytecode is text, one instruction per line (see
   [Bytecode](bytecode.md)). `.gitattributes` marks it generated, so git shows a change to it as
   `Binary files differ`; `git log -p --text -- compiler/gazlang.gzb` or `git show --text COMMIT`
@@ -219,8 +220,8 @@ from the walk to size its frames.
 
 ## Where things stand
 
-GazLang is its own implementation: the front end (`compiler/`) is about 6,800 lines of GazLang,
-running on a VM (`vm/`) of about 10,100 lines of plain C, and `bin/gaz` is the two together,
+GazLang is its own implementation: the front end (`compiler/`) is about 9,100 lines of GazLang,
+running on a VM (`vm/`) of about 13,500 lines of plain C, and `bin/gaz` is the two together,
 which rebuilds its own compiler (`make -C vm compiler`). The compiler has to compile itself to
 exactly itself (see "Tests"). CI builds and tests it on Linux and macOS on every push, and the
 test suite needs PHP 8.5 or later and `composer install`; GazLang itself needs neither. What is

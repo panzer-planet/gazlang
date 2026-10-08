@@ -43,6 +43,24 @@ class ReadmeTest extends GazLangTestCase
     }
 
     /**
+     * A `gaz --tty` shell block followed by an output block prints exactly that: the README's
+     * --tty example once showed the screen its snap printed and left out the one printed when
+     * the keys ran out, and no test read shell blocks
+     */
+    public function test_a_readme_tty_block_prints_what_it_says()
+    {
+        $readme = file_get_contents(self::ROOT.'/README.md');
+        preg_match_all("/```bash\ngaz (--tty\S*) (\S+) <<< '([^']*)'\n```\n\n```\n(.*?)```/s", $readme, $matches, PREG_SET_ORDER);
+        $this->assertNotEmpty($matches, 'The README has a gaz --tty example');
+
+        foreach ($matches as [, $option, $file, $keys, $expected]) {
+            // <<< gives the keys with a newline after them
+            [$lines] = self::cli([$option, $file], $keys."\n");
+            $this->assertSame(rtrim($expected, "\n"), implode("\n", $lines), "README: gaz {$option} {$file} <<< '{$keys}'");
+        }
+    }
+
+    /**
      * Each gaz block that is followed by an output block, as [name, code, expected output, args]
      */
     public static function blocks(): array

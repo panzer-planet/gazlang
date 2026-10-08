@@ -12,7 +12,8 @@ load under gets a new version. The same source always gives byte-identical bytec
 
 ## The file
 
-Text, one instruction per line, with no comments. Blank lines are ignored, as is
+Text, one instruction per line, with no comment lines (a `PUSH` literal may hold a comment,
+as one in source may). Blank lines are ignored, as is
 leading and trailing whitespace on a line; a line's parts are separated by whitespace.
 
 ```gzb

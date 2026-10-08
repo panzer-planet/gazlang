@@ -930,7 +930,7 @@ languages' words (`function`, `class`, `public`, `private`, `protected`) are ord
 
 Keywords are lowercase and matched exactly, so `kind If`, `fn Return()` and `$while` are all
 ordinary names. Writing a keyword in the wrong case says so. Sigils and member names have their
-own namespaces, so `$default`, `@match` and `fn match()` were always fine.
+own namespaces, so `$default`, `@match` and a method named `match` were always fine.
 
 Functions, kinds, interfaces, enums, builtins and top level constants share one namespace, and so do
 all of a kind's fields, methods and constants across its hierarchy, and an enum's cases with its members.
@@ -2083,6 +2083,8 @@ Where a value lands decides what is done with it:
   byte by byte, so a value is one piece of a path or a query and can't end it.
 
 ```gaz
+import "std/web.gaz";
+
 $url = "javascript:alert(1)";
 $tab = "a b&c";
 echo web::html"<a href=\"{$url}\">profile</a> <a href=\"/search?q={$tab}\">search</a>";

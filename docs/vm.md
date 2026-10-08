@@ -158,7 +158,8 @@ shell calls are its session and a sequence showing a bug is already a test case.
 - **The cycle collector** (`gc.c`) is CPython's trial deletion over every list, map, object and
   function, needing no roots, run at a backward jump or call once as many containers have been
   made as were alive after the last collection. There are no destructors, so freeing runs no
-  program code. The tested build collects every 64 new containers so the harness exercises it.
+  program code. The tested build lowers the threshold's floor to 64 containers (`GC_MINIMUM`,
+  10000 otherwise) so the harness exercises it.
 - **Superinstructions** (`fuse()` in `load.c`): the loader puts one in place of the first
   instruction of a common sequence (`LOAD; PUSH; LT; JZ`, `LOAD x; INC; STORE x`, eight in all,
   after `OP_COUNT` so no file can name one) and leaves the sequence where it was, so a jump into

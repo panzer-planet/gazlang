@@ -84,16 +84,16 @@ first alternative that matches wins.
 ### A terminal program you can run without a terminal
 
 `gaz --tty app.gaz` runs a full-screen program on a pretend terminal: standard input is its keys,
-and it prints the screen wherever the keys say `snap`. The same keys always print the same screens
+and it prints the screen wherever the keys say `snap`, and once more when they run out. The same keys always print the same screens
 (the clock is pretend too, and moves only on `wait`), so a script, a test or an AI agent can build
 and check a terminal UI from plain shell calls:
 
 ```bash
-gaz --tty=60x11 examples/dashboard.gaz <<< 'down + + snap'
+gaz --tty=60x11 examples/dashboard.gaz <<< 'down + +'
 ```
 
 ```
-=== after: down + + ===
+=== after: down + + (the keys ran out) ===
            10        20        30        40        50        60
  1 ┌─ Tasks ──────────────────────────────────────────────────┐
  2 │                                                          │
@@ -120,9 +120,9 @@ or dim is listed under it. [The keys and clock are written out here](docs/langua
   error unless you ask for a default with `??`. A runtime error names its file and line, with a
   stack trace.
 - **Types when you want them.** Write `fn total(int $n): float` or `pub string #owner` and the
-  types are checked as the program runs, with errors that name the parameter:
-  `total() expects $n to be int, got string`. Leave them out and nothing changes, and nothing
-  is ever converted to fit.
+  types are checked as the program runs, or as soon as it is read when a value's type is plain
+  from the source, with errors that name the parameter: `total() expects $n to be int, got
+  string`. Leave them out and nothing changes, and nothing is ever converted to fit.
 - **Values that behave like values.** Lists and maps are copied when you assign them, like
   numbers are, so nothing changes behind your back. Objects are handles, shared on purpose.
 - **A small set of operators that pull their weight.** `??` and `?.` for missing things, `|>`
@@ -217,7 +217,7 @@ http::serve($listener, $app.handler());
 ```
 
 ```bash
-bin/gaz server.gaz &
+gaz server.gaz &
 curl http://localhost:8080/books/1
 curl http://localhost:8080/books/9
 ```
