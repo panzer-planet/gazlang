@@ -93,7 +93,42 @@ own](http.md).
   reading, which Linux can't turn off per pipe), or `/dev/null` when empty, so a piped program's
   own input stays its own. Both outputs are read together with `poll()` so neither pipe fills and
   blocks the child. A signal's status is negative (Python's rule), where a shell's 128 + N is
-  ambiguous.
+  ambiguous. Its options are checked as the library's option maps are (`run() has no option "x":
+  only output, timeout`), and tested by `tests/gaz/processes/run_options_test.gaz`.
+  - **`"output" => "inherit"` is one setting for all three streams**, not one per stream: what
+    asks for it (a build's progress, an editor) wants all of them, and a separate `"stdout"` or
+    `"stderr"` key can come later without changing what this one means. Standard input is
+    inherited too, since an editor needs the terminal; `$input` with it is an error, as giving the
+    program a file there would make `"inherit"` mean two things. The VM's own output is flushed
+    before the program starts, so what it prints comes after what was printed before. A GazLang
+    program in raw mode lends the child the terminal as it was before (`term_lend()` in `term.c`)
+    and takes raw mode back after (`term_take_back()`), since inheriting is where a child meets
+    the terminal: a line-reading child would otherwise get no echo and no Ctrl-C. Raw mode stays
+    on as far as the program knows, so the mode it saved is never read again: what it puts back on
+    the way out is the mode it found, not one the child left (an editor killed at its limit, an
+    `stty -echo`).
+  - **`"timeout"`**: the deadline is on the monotonic clock (`monotonic_seconds()`, net.c's). Past
+    it, SIGTERM, then SIGKILL after `RUN_GRACE_SECONDS` (2), and the program is always reaped, so
+    no zombie is left; signalling before reaping is safe, since an ended child keeps its pid until
+    it is waited for. Collected output is read by `poll()` with what is left of the deadline (in
+    pieces, since `poll()` takes an int of ms); once it passes the pipes are closed rather than
+    drained. An inheriting program is waited for by `waitpid(WNOHANG)` every `RUN_TICK_SECONDS`
+    (10ms), since `waitpid()` can't wait with a limit: a SIGCHLD handler would be the whole
+    process's, taking the signal from `workers.c`, and pidfds and kqueue are each one system's.
+    Without a timeout it is a plain `waitpid()`. The error, not a status, so a stopped program
+    can't pass for one that failed by itself. **The limit is the program's, not its output's**:
+    with a timeout, a program that has ended by the deadline (looked at once with `WNOHANG` there,
+    before any signal) gives its status and what was read by then, even if a child of its own
+    still holds its output, and what that child writes later isn't collected; one that closed its
+    outputs and runs on is stopped. Without a timeout `run()` waits for the outputs to close, as
+    it always has.
+  - **The program stays in this program's process group**, so Ctrl-C reaches both, as in a shell
+    script, and an inheriting program can read the terminal (a background group reading it gets
+    SIGTTIN). The price: a timeout signals the program alone, so a child it started (`sh -c "sleep
+    100; ..."`) runs on, though closing the pipes means `run()` doesn't wait for it, and its next
+    write to them ends it with SIGPIPE. A group of its own would end them all but leave the whole
+    tree running when this program is interrupted. `ponytail:` an option to signal the group when a
+    program needs it.
 - Sockets (`net.c`): **the address text is `ipaddr.c`'s, not `inet_ntop()`'s**, whose IPv6
   spelling differs between systems; checked against Python's `ipaddress` on 295 addresses
   (`tests/IpTextTest.php`, on its own so no network is needed) and by
@@ -250,7 +285,9 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   Its two limits (`PTY_START`, to enter raw mode, 60s; `PTY_DEADLINE`, to end, 30s) only guard
   against a hang and end with the program, so a loaded machine can't trip them; a test of a program
   meant to hang gives a short deadline.
-  `ponytail:` `run()` hands a child the terminal as raw mode left it.
+  `ponytail:` `run()` hands a child whose output it collects the terminal as raw mode left it,
+  which only a child opening `/dev/tty` meets; an inheriting one gets it as it was before (see
+  [Processes and sockets](#processes-and-sockets)).
 - Random numbers: `xoshiro256**` through SplitMix64, as PHP's `Xoshiro256StarStar` does; the range
   mapping is `random_between()`, pinned for several seeds by `StdlibTest` against an independent
   port. The state is per program, reseeded by `run_program()`, since the compiler runs first.

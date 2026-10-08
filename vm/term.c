@@ -52,6 +52,17 @@ static void restore_and_die(int sig) {
     raise(sig);
 }
 
+/* Raw mode, made from the mode the terminal was in before it */
+static struct termios raw_mode(void) {
+    struct termios raw = saved_mode;
+    raw.c_iflag &= ~(tcflag_t)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    raw.c_cflag |= CS8;
+    raw.c_lflag &= ~(tcflag_t)(ECHO | ICANON | IEXTEN | ISIG);
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+    return raw;
+}
+
 /* term_raw($on): no echo, no line buffering, every key arrives as it is typed. Output processing
    stays on, so "\n" still starts a new line. Ctrl-C and Ctrl-Z arrive as the bytes 3 and 26 for
    the program to decide about, not as signals. */
@@ -69,12 +80,7 @@ bool term_raw(bool on) {
                       "gaz --tty FILE (gaz --help says how)");
     }
     if (tcgetattr(STDIN_FILENO, &saved_mode) != 0) return raisef("term_raw() failed: %s", strerror(errno));
-    struct termios raw = saved_mode;
-    raw.c_iflag &= ~(tcflag_t)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    raw.c_cflag |= CS8;
-    raw.c_lflag &= ~(tcflag_t)(ECHO | ICANON | IEXTEN | ISIG);
-    raw.c_cc[VMIN] = 1;
-    raw.c_cc[VTIME] = 0;
+    struct termios raw = raw_mode();
     if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) return raisef("term_raw() failed: %s", strerror(errno));
     raw_on = true;
     if (!exit_handler_set) {
@@ -84,6 +90,24 @@ bool term_raw(bool on) {
     struct sigaction handler = {.sa_handler = restore_and_die};
     sigemptyset(&handler.sa_mask);
     for (int i = 0; i < NSIGNALS; i++) sigaction(ending_signals[i], &handler, &saved_signals[i]);
+    return true;
+}
+
+/* Whether raw mode is on, so run() can give a program the terminal as it was before */
+bool term_is_raw(void) { return raw_on; }
+
+/* For a program run() starts with the terminal: the mode it was in before raw mode, for the
+   program's run, and raw mode again after. Raw mode stays on as far as this program knows, so
+   saved_mode is never read again: what it puts back on the way out (term_raw(false), exit, a
+   signal) is the mode it found, not one a program left behind (an editor killed at its time
+   limit, an `stty -echo`). */
+void term_lend(void) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved_mode);
+}
+
+bool term_take_back(void) {
+    struct termios raw = raw_mode();
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) return raisef("term_raw() failed: %s", strerror(errno));
     return true;
 }
 

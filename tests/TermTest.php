@@ -77,6 +77,35 @@ class TermTest extends GazLangTestCase
         }
     }
 
+    /**
+     * A program run() starts with "output" => "inherit" has the terminal as it was before raw
+     * mode, which is put back for this one after: the key typed then arrives at once, without an
+     * Enter, and isn't echoed
+     */
+    public function test_run_lends_an_inheriting_program_the_terminal_out_of_raw_mode()
+    {
+        $ran = $this->onTerminal('term_raw(true);'
+            .' run(["sh", "-c", "stty -a | grep -o -- \"-*icanon\" | head -n 1"], "", {"output" => "inherit"});'
+            .' echo to_string([term_read()]); term_raw(false);', '71');
+
+        $this->assertSame("icanon\r\n[\"q\"]\r\n", $ran['out']);
+        $this->assertSame(0, $ran['code']);
+    }
+
+    /**
+     * What raw mode puts back is the mode it found, not one a lent program left behind
+     */
+    public function test_a_program_that_changes_the_lent_terminal_doesnt_change_what_raw_mode_puts_back()
+    {
+        $lend = 'term_raw(true); run(["stty", "-echo"], "", {"output" => "inherit"}); term_read();';
+        foreach (['term_raw(false)' => $lend.' term_raw(false);', 'the end' => $lend] as $name => $source) {
+            $ran = $this->onTerminal($source, '71');
+
+            $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after'], $name);
+            $this->assertSame(0, $ran['code'], $name);
+        }
+    }
+
     public function test_a_program_that_never_asks_leaves_the_terminal_as_it_was()
     {
         $ran = $this->onTerminal('echo 1;');

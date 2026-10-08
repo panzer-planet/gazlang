@@ -50,7 +50,7 @@ const BuiltinInfo builtin_info[] = {
     {"cwd", 0, 0}, {"print", 1, 1}, {"print_error", 1, 1}, {"read_stdin", 0, 0}, {"args", 0, 0},
     {"program_path", 0, 0},
     {"builtins", 0, 0}, {"rand_int", 2, 2}, {"rand_float", 0, 0}, {"rand_seed", 0, 1},
-    {"run", 1, 2}, {"socket_open", 2, 4}, {"socket_read", 1, 2}, {"socket_write", 2, 2},
+    {"run", 1, 3}, {"socket_open", 2, 4}, {"socket_read", 1, 2}, {"socket_write", 2, 2},
     {"socket_close", 1, 1}, {"term_raw", 1, 1}, {"term_read", 0, 1}, {"term_size", 0, 0},
     {"term_is_tty", 1, 1}, {"monotonic_time", 0, 0}, {"std_source", 1, 1},
     {"db_open", 1, 1}, {"db_run", 2, 3}, {"db_close", 1, 1},
@@ -675,83 +675,114 @@ static int input_file(Str *input) {
     return fd;
 }
 
+/* How long a program run() stops at its time limit has after SIGTERM to end before SIGKILL */
+#define RUN_GRACE_SECONDS 2.0
+/* How often run() looks whether a program has ended while a time limit runs and nothing else can
+   wake it: waitpid() can't wait with a limit */
+#define RUN_TICK_SECONDS 0.01
+/* poll() takes its limit as milliseconds in an int, so a longer wait is taken in pieces this long */
+#define LONGEST_POLL_MS 2000000000
+
+/* run()'s third argument: whether the outputs are collected or go straight to the program's own,
+   and the time limit in seconds (INFINITY for none) as a number and as it was given, for its error */
+typedef struct {
+    bool inherit;
+    double timeout;
+    Value limit;
+} RunOptions;
+
+static bool is_word(Value v, const char *word) {
+    return v.type == T_STRING && v.s->len == strlen(word) && memcmp(v.s->data, word, v.s->len) == 0;
+}
+
+/* run()'s option map, every key checked, as the library checks its option maps */
+static bool run_options(Map *map, RunOptions *options) {
+    *options = (RunOptions){.inherit = false, .timeout = INFINITY, .limit = v_null()};
+    for (size_t i = 0; map_next(map, &i); i++) {
+        Value key = map->entries[i].key, value = map->entries[i].value;
+        if (is_word(key, "output")) {
+            if (!is_word(value, "collect") && !is_word(value, "inherit")) {
+                return raisef("run() expects \"output\" to be \"collect\" or \"inherit\"");
+            }
+            options->inherit = is_word(value, "inherit");
+        } else if (is_word(key, "timeout")) {
+            double seconds = value.type == T_INT ? (double)value.i : value.type == T_FLOAT ? value.f : 0;
+            /* !(x > 0) is also true of NaN */
+            if (!(seconds > 0)) return raisef("run() expects \"timeout\" to be seconds above 0");
+            options->timeout = seconds;
+            options->limit = value;
+        } else {
+            Buf name = {0};
+            if (key.type == T_STRING) quote(key.s, &name);
+            else append_string(key, &name);
+            raisef("run() has no option %s: only output, timeout", name.data);
+            free(name.data);
+            return false;
+        }
+    }
+    return true;
+}
+
 /*
- * run($argv, $input = ""): start argv[0], found on PATH, with the rest as its arguments and no
- * shell between, so nothing in them is ever interpreted. It inherits the environment and working
- * directory and reads $input (/dev/null when there is none). Both outputs are read as they come
- * (poll), since a program that fills one pipe while we wait on the other would never finish.
+ * Wait for the program until the deadline (monotonic_seconds(); INFINITY waits as long as it
+ * takes): 1 with *status once it has ended, 0 if the time ran out first, -1 with errno if waiting
+ * failed. A limited wait looks every RUN_TICK_SECONDS rather than waiting on SIGCHLD, whose handler
+ * would be the whole process's and would take the signal from workers.c and anything else that
+ * waits for a child of its own.
  */
-static bool run_process(List *args, Str *input, Value *out) {
-    if (args->len == 0) return raisef("run() expects a program to run, got an empty list");
-    for (size_t i = 0; i < args->len; i++) {
-        Value v = args->items[i];
-        if (v.type != T_STRING) return raisef("run() expects a list of strings, got %s", type_name(v));
-        if (memchr(v.s->data, '\0', v.s->len)) return raisef("run() arguments can't contain a NUL byte");
+static int wait_until(pid_t pid, int *status, double deadline) {
+    int flags = isinf(deadline) ? 0 : WNOHANG;
+    for (;;) {
+        pid_t done = waitpid(pid, status, flags);
+        if (done == pid) return 1;
+        if (done < 0 && errno != EINTR) return -1;
+        if (flags == 0) continue;
+        double left = deadline - monotonic_seconds();
+        if (left <= 0) return 0;
+        double nap = left < RUN_TICK_SECONDS ? left : RUN_TICK_SECONDS;
+        /* An interrupted sleep is just a shorter tick */
+        nanosleep(&(struct timespec){.tv_sec = 0, .tv_nsec = (long)(nap * 1e9)}, NULL);
     }
-    int in = -1;
-    if (input && input->len > 0 && (in = input_file(input)) < 0) {
-        return raisef("Cannot run a program: no file for its input: %s", strerror(errno));
-    }
-    /* stdout's and stderr's pipes, each [read end, write end] */
-    int pipes[2][2];
-    if (pipe(pipes[0]) != 0) {
-        int err = errno;
-        if (in >= 0) close(in);
-        return raisef("Cannot run a program: %s", strerror(err));
-    }
-    if (pipe(pipes[1]) != 0) {
-        int err = errno;
-        close(pipes[0][0]);
-        close(pipes[0][1]);
-        if (in >= 0) close(in);
-        return raisef("Cannot run a program: %s", strerror(err));
-    }
-    /* Closed in the child when it starts, so it keeps only the copies made below as 1 and 2 */
-    for (int i = 0; i < 4; i++) fcntl(pipes[i / 2][i % 2], F_SETFD, FD_CLOEXEC);
-    posix_spawn_file_actions_t actions;
-    posix_spawn_file_actions_init(&actions);
-    if (in >= 0) posix_spawn_file_actions_adddup2(&actions, in, 0);
-    else posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
-    posix_spawn_file_actions_adddup2(&actions, pipes[0][1], 1);
-    posix_spawn_file_actions_adddup2(&actions, pipes[1][1], 2);
-    char **argv = xmalloc((args->len + 1) * sizeof *argv);
-    for (size_t i = 0; i < args->len; i++) argv[i] = args->items[i].s->data;
-    argv[args->len] = NULL;
-    /* SIGPIPE at its default in the program, whatever gaz does with it (a worker ignores it, and an
-       ignored signal stays ignored through exec), so `yes | head` in it ends as anywhere else */
-    posix_spawnattr_t attr;
-    posix_spawnattr_init(&attr);
-    sigset_t pipe_default;
-    sigemptyset(&pipe_default);
-    sigaddset(&pipe_default, SIGPIPE);
-    posix_spawnattr_setsigdefault(&attr, &pipe_default);
-    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
-    pid_t pid;
-    int err = posix_spawnp(&pid, argv[0], &actions, &attr, argv, environ);
-    posix_spawnattr_destroy(&attr);
-    posix_spawn_file_actions_destroy(&actions);
-    free(argv);
-    close(pipes[0][1]);
-    close(pipes[1][1]);
-    if (in >= 0) close(in);
-    if (err != 0) {
-        close(pipes[0][0]);
-        close(pipes[1][0]);
-        Buf m = {0};
-        buf_adds(&m, "Cannot run ");
-        quote(args->items[0].s, &m);
-        buf_adds(&m, ": ");
-        buf_adds(&m, strerror(err));
-        return raise_str(buf_to_str(&m));
-    }
-    Buf text[2] = {{0}, {0}};
+}
+
+/* A program past its time limit: SIGTERM, then SIGKILL if it hasn't ended RUN_GRACE_SECONDS later,
+   and reaped either way, so no zombie is left. Its pid can't have gone to another process before
+   this, since a child that has ended keeps its pid until it is waited for. */
+static int stop_program(pid_t pid, int *status) {
+    kill(pid, SIGTERM);
+    int ended = wait_until(pid, status, monotonic_seconds() + RUN_GRACE_SECONDS);
+    if (ended != 0) return ended;
+    kill(pid, SIGKILL);
+    return wait_until(pid, status, INFINITY);
+}
+
+/* Milliseconds for poll() until the deadline, rounded up, at most LONGEST_POLL_MS */
+static int poll_ms(double deadline) {
+    double left = ceil((deadline - monotonic_seconds()) * 1000);
+    return left <= 0 ? 0 : left > LONGEST_POLL_MS ? LONGEST_POLL_MS : (int)left;
+}
+
+/*
+ * Read both outputs as they come (poll), since a program that fills one pipe while we wait on the
+ * other would never finish, until both have ended or the deadline passes; false if it passed. The
+ * read ends are closed either way: past the deadline what is left is never read, which also means
+ * a program the deadline stops can't hang this by leaving a child of its own holding the pipes.
+ * noinline, so its buffer stays out of call_builtin()'s frame.
+ */
+__attribute__((noinline)) static bool collect_output(int pipes[2][2], Buf text[2], double deadline) {
     struct pollfd fds[2] = {{.fd = pipes[0][0], .events = POLLIN}, {.fd = pipes[1][0], .events = POLLIN}};
     char chunk[65536];
+    bool in_time = true;
     /* poll() skips a negative fd, which is how a stream that has ended drops out */
     while (fds[0].fd >= 0 || fds[1].fd >= 0) {
+        int ready = poll(fds, 2, isinf(deadline) ? -1 : poll_ms(deadline));
         /* After EINTR the revents are stale, and a read on one could block: poll again */
-        if (poll(fds, 2, -1) < 0) {
-            if (errno == EINTR) continue;
+        if (ready < 0 && errno == EINTR) continue;
+        if (ready < 0) break;
+        if (ready == 0) {
+            /* Only the deadline's last piece (poll_ms() 0) is the end; an earlier one is a piece */
+            if (poll_ms(deadline) > 0) continue;
+            in_time = false;
             break;
         }
         for (int i = 0; i < 2; i++) {
@@ -765,14 +796,142 @@ static bool run_process(List *args, Str *input, Value *out) {
             }
         }
     }
-    /* Only if poll() failed; the program then gets SIGPIPE rather than blocking on a full pipe */
+    /* Only if poll() failed or time ran out; the program then gets SIGPIPE rather than blocking on
+       a full pipe */
     for (int i = 0; i < 2; i++) if (fds[i].fd >= 0) close(fds[i].fd);
-    int status, waited;
-    while ((waited = waitpid(pid, &status, 0)) < 0 && errno == EINTR) {}
-    if (waited < 0) {
+    return in_time;
+}
+
+/* 'run() stopped "sleep" after 2 seconds': the program quoted, and the limit as GazLang prints it */
+static bool raise_stopped(Str *program, Value limit) {
+    Buf m = {0};
+    buf_adds(&m, "run() stopped ");
+    quote(program, &m);
+    buf_adds(&m, " after ");
+    append_string(limit, &m);
+    buf_adds(&m, limit.type == T_INT && limit.i == 1 ? " second" : " seconds");
+    return raise_str(buf_to_str(&m));
+}
+
+/*
+ * run($argv, $input = "", $options = {}): start argv[0], found on PATH, with the rest as its
+ * arguments and no shell between, so nothing in them is ever interpreted. It inherits the
+ * environment and working directory and reads $input (/dev/null when there is none). Its outputs
+ * are collected, or with "output" => "inherit" go straight to this program's own, its standard
+ * input being this program's too, so an editor it starts has the terminal. With "timeout" it is
+ * stopped once that many seconds have passed, and run() raises an error rather than giving a
+ * status that could be mistaken for the program's own.
+ *
+ * The program stays in this program's process group, so Ctrl-C reaches both, as in a shell
+ * script, and an inheriting program can read the terminal. ponytail: a program stopped at its
+ * limit is signalled alone, so a child it started (sh -c "sleep 100; ...") runs on, unless writing
+ * to the closed pipes ends it; a group of its own would end them all, but would also put it out of
+ * Ctrl-C's reach and stop it when it reads the terminal (SIGTTIN). An option for it when a program
+ * needs it.
+ */
+static bool run_process(List *args, Str *input, Map *option_map, Value *out) {
+    if (args->len == 0) return raisef("run() expects a program to run, got an empty list");
+    for (size_t i = 0; i < args->len; i++) {
+        Value v = args->items[i];
+        if (v.type != T_STRING) return raisef("run() expects a list of strings, got %s", type_name(v));
+        if (memchr(v.s->data, '\0', v.s->len)) return raisef("run() arguments can't contain a NUL byte");
+    }
+    RunOptions options = {.inherit = false, .timeout = INFINITY, .limit = v_null()};
+    if (option_map && !run_options(option_map, &options)) return false;
+    if (options.inherit && input && input->len > 0) {
+        return raisef("run() can't give $input to a program that inherits the output: its standard input is this program's own");
+    }
+    int in = -1;
+    if (input && input->len > 0 && (in = input_file(input)) < 0) {
+        return raisef("Cannot run a program: no file for its input: %s", strerror(errno));
+    }
+    /* stdout's and stderr's pipes, each [read end, write end], when they are collected */
+    int pipes[2][2] = {{-1, -1}, {-1, -1}};
+    for (int i = 0; i < 2 && !options.inherit; i++) {
+        if (pipe(pipes[i]) != 0) {
+            int err = errno;
+            if (i == 1) {
+                close(pipes[0][0]);
+                close(pipes[0][1]);
+            }
+            if (in >= 0) close(in);
+            return raisef("Cannot run a program: %s", strerror(err));
+        }
+        /* Closed in the child when it starts, so it keeps only the copies made below as 1 and 2 */
+        fcntl(pipes[i][0], F_SETFD, FD_CLOEXEC);
+        fcntl(pipes[i][1], F_SETFD, FD_CLOEXEC);
+    }
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    if (!options.inherit) {
+        if (in >= 0) posix_spawn_file_actions_adddup2(&actions, in, 0);
+        else posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
+        posix_spawn_file_actions_adddup2(&actions, pipes[0][1], 1);
+        posix_spawn_file_actions_adddup2(&actions, pipes[1][1], 2);
+    }
+    char **argv = xmalloc((args->len + 1) * sizeof *argv);
+    for (size_t i = 0; i < args->len; i++) argv[i] = args->items[i].s->data;
+    argv[args->len] = NULL;
+    /* SIGPIPE at its default in the program, whatever gaz does with it (a worker ignores it, and an
+       ignored signal stays ignored through exec), so `yes | head` in it ends as anywhere else */
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    sigset_t pipe_default;
+    sigemptyset(&pipe_default);
+    sigaddset(&pipe_default, SIGPIPE);
+    posix_spawnattr_setsigdefault(&attr, &pipe_default);
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
+    /* An inheriting program writes after what this one has printed so far, and gets the terminal
+       as it was before term_raw(), which it is given back after */
+    bool lent_terminal = options.inherit && term_is_raw();
+    if (options.inherit) flush_output();
+    if (lent_terminal) term_lend();
+    pid_t pid;
+    int err = posix_spawnp(&pid, argv[0], &actions, &attr, argv, environ);
+    posix_spawnattr_destroy(&attr);
+    posix_spawn_file_actions_destroy(&actions);
+    free(argv);
+    if (!options.inherit) {
+        close(pipes[0][1]);
+        close(pipes[1][1]);
+    }
+    if (in >= 0) close(in);
+    if (err != 0) {
+        if (!options.inherit) {
+            close(pipes[0][0]);
+            close(pipes[1][0]);
+        }
+        if (lent_terminal && !term_take_back()) return false;
+        Buf m = {0};
+        buf_adds(&m, "Cannot run ");
+        quote(args->items[0].s, &m);
+        buf_adds(&m, ": ");
+        buf_adds(&m, strerror(err));
+        return raise_str(buf_to_str(&m));
+    }
+    double deadline = isinf(options.timeout) ? INFINITY : monotonic_seconds() + options.timeout;
+    Buf text[2] = {{0}, {0}};
+    int status;
+    bool in_time = options.inherit || collect_output(pipes, text, deadline);
+    /* Collected outputs have ended by now unless time ran out, and the program with them, nearly
+       always; it is waited for within what is left of the time all the same. The limit is the
+       program's: one that has ended has ended in time, even if a child of its own still holds its
+       outputs (what that child writes after the deadline isn't collected), so past the deadline a
+       deadline of 0 looks once whether it has before stopping it. */
+    int ended = wait_until(pid, &status, in_time ? deadline : 0);
+    in_time = ended != 0;
+    if (ended == 0) ended = stop_program(pid, &status);
+    int wait_error = errno;
+    if (lent_terminal && !term_take_back()) {
         free(text[0].data);
         free(text[1].data);
-        return raisef("Cannot wait for a program: %s", strerror(errno));
+        return false;
+    }
+    if (ended < 0 || !in_time) {
+        free(text[0].data);
+        free(text[1].data);
+        if (ended < 0) return raisef("Cannot wait for a program: %s", strerror(wait_error));
+        return raise_stopped(args->items[0].s, options.limit);
     }
     /* Killed by a signal: minus its number, which no exit code can be */
     int64_t code = WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? -WTERMSIG(status) : -1;
@@ -1866,8 +2025,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         *out = v_null();
         return true;
     case B_RUN:
-        if (!want(index, a, M(T_LIST)) || (argc > 1 && !want(index, b, STRING))) return false;
-        return run_process(a.l, argc > 1 ? b.s : NULL, out);
+        if (!want(index, a, M(T_LIST)) || (argc > 1 && !want(index, b, STRING))
+            || (argc > 2 && !want(index, c, M(T_MAP)))) return false;
+        return run_process(a.l, argc > 1 ? b.s : NULL, argc > 2 ? c.m : NULL, out);
     case B_SOCKET_OPEN: {
         /* socket_open($host, $port, $tls = false, $timeout = 30) */
         Value tls = argc > 2 ? c : v_bool(false), timeout = argc > 3 ? args[3] : v_int(30);

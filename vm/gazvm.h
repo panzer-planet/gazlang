@@ -646,6 +646,7 @@ bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
 void net_prepare(int fd, double timeout);  /* a connection accepted for another process: its options, as socket_accept() sets them */
 Value net_adopt(int fd, double timeout);   /* a connection given to this process, net_prepare()d, as a socket */
+double monotonic_seconds(void);            /* seconds on a clock that never goes back, for a deadline */
 
 /* ---- workers.c ------------------------------------------------------------------------- */
 
@@ -691,6 +692,9 @@ bool crypto_argon2id(Str *password, Str *salt, int64_t passes, int64_t memory, i
 
 /* term.c */
 bool term_raw(bool on);
+bool term_is_raw(void);
+void term_lend(void);
+bool term_take_back(void);
 bool term_read(double timeout, Value *out);
 bool term_size(Value *out);
 bool term_is_tty(int64_t stream, Value *out);

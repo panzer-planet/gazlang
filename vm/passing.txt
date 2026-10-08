@@ -1241,6 +1241,7 @@ tests/gaz/objects/promoted_fields_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
 tests/gaz/operators/coalesce_test.gaz
+tests/gaz/processes/run_options_test.gaz
 tests/gaz/site/documents_test.gaz
 tests/gaz/site/highlight_test.gaz
 tests/gaz/site/library_test.gaz

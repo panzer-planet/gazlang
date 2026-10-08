@@ -1,0 +1,26 @@
+ok a program past its limit
+ok it is stopped well before it would have ended
+ok the limit as it was given, in whole seconds
+ok a program that ignores SIGTERM
+ok it is given the grace
+ok and then killed
+ok a program whose child holds its output
+ok run() doesn't wait for the child
+ok a program that ended, leaving a child holding its output
+ok run() gives it at the deadline, not when the child ends
+ok a program that closed its outputs
+ok a program that ends in time gives what it would have
+ok its input too
+ok collected output can be said outright
+ok an inheriting program writes to this one's output, in order
+ok and to its error
+ok its input is this program's own
+ok an inheriting program is stopped at its limit too
+ok an option it doesn't have
+ok a key that isn't a string
+ok an output it doesn't know
+ok no time at all
+ok a negative limit
+ok a limit that isn't a number
+ok options that aren't a map
+ok input for a program that reads this one's

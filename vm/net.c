@@ -287,7 +287,7 @@ Value net_adopt(int fd, double timeout) {
 }
 
 /* Seconds on a clock that never goes back, for a deadline */
-static double monotonic_seconds(void) {
+double monotonic_seconds(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return (double)t.tv_sec + (double)t.tv_nsec / 1e9;

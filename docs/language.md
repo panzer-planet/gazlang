@@ -1294,9 +1294,9 @@ when it isn't set. A name with a NUL byte in it is an error.
 
 | Builtin | What it does |
 | --- | --- |
-| `run($argv, $input = "")` | Runs a program, with no shell, and gives its status and both of its outputs |
+| `run($argv, $input = "", $options = {})` | Runs a program, with no shell, and gives its status and both of its outputs |
 
-`run($argv, $input = "")` starts a program and waits for it: `$argv` is a list
+`run($argv, $input = "", $options = {})` starts a program and waits for it: `$argv` is a list
 of strings, the program (found on `PATH` unless it has a `/`) and then its arguments, passed as
 they are, with no shell to read `;`, `$` or `*` in them. It inherits the environment and the
 working directory, reads `$input` as its standard input (any bytes, any size), and gives
@@ -1308,6 +1308,26 @@ an argument that isn't a string or holds a NUL byte.
 ```gaz
 $r = run(["git", "log", "-1", "--format=%s"]);
 if ($r["status"] != 0) { throw $r["stderr"]; }
+```
+
+`$options` is a map, and a key it doesn't know is an error:
+
+- `"output" => "inherit"` lets the program write straight to this program's own standard output
+  and error as it runs, and read its standard input, so a build's progress shows as it happens and
+  an editor (`git commit`) has the terminal. Nothing is collected: `"stdout"` and `"stderr"` are
+  `""`. What this program printed before comes first, and `$input` must be `""`. If this program
+  is in [raw mode](#the-terminal), the terminal goes back to how it was for the program's run, and
+  into raw mode again after. `"output" => "collect"`, collecting both, is what happens without it.
+- `"timeout" => seconds` (an int or a float, above 0) is how long the program may take. Past it,
+  the program is sent SIGTERM, and SIGKILL two seconds later if it is still running, and `run()`
+  raises an error (`run() stopped "sleep" after 2 seconds`) rather than giving a status the
+  program could have given itself. A program the program started itself isn't stopped with it,
+  and the limit is the program's alone: one that ends in time gives its status and the output read
+  by the deadline, even if a program it started still holds its output, whose later writes aren't
+  collected. (Without a timeout, `run()` waits until its outputs close.)
+
+```gaz
+run(["npm", "install"], "", {"output" => "inherit", "timeout" => 600});
 ```
 
 ### Databases

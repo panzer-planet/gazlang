@@ -1,0 +1,69 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * run()'s options: "output" => "inherit", which gives the program this one's own standard input,
+ * output and error, and "timeout", which stops a program that runs too long and raises an error.
+ * The limits are short and the margins wide, since a busy machine oversleeps: each check of time
+ * asks only that run() ended well before the program would have, or not before the grace it gives.
+ */
+
+/* What a program run by the gaz running this printed, and its status, from GazLang source */
+fn gaz(string $source) {
+    return run([program_path(), "-e", $source]);
+}
+
+/* How many seconds $call took */
+fn seconds($call) {
+    $start = monotonic_time();
+    $call();
+
+    return monotonic_time() - $start;
+}
+
+/* A program that won't end by itself is stopped at the limit, and run() raises rather than
+   giving a status the program could have given itself */
+$took = seconds(() -> throws("a program past its limit", () -> run(["sleep", "30"], "", {"timeout" => 0.5}), 'run() stopped "sleep" after 0.5 seconds'));
+expect("it is stopped well before it would have ended", $took < 15, true);
+throws("the limit as it was given, in whole seconds", () -> run(["sleep", "30"], "", {"timeout" => 1}), 'run() stopped "sleep" after 1 second');
+
+/* One that ignores SIGTERM is sent SIGKILL after the grace (two seconds) */
+$took = seconds(() -> throws("a program that ignores SIGTERM", () -> run(["sh", "-c", "trap '' TERM; sleep 30"], "", {"timeout" => 0.5}), 'run() stopped "sh" after 0.5 seconds'));
+expect("it is given the grace", $took >= 2, true);
+expect("and then killed", $took < 20, true);
+
+/* A child the program started keeps the pipes open after the program is stopped; run() stops
+   reading them rather than waiting for it */
+$took = seconds(() -> throws("a program whose child holds its output", () -> run(["sh", "-c", "sleep 30; echo late"], "", {"timeout" => 0.5}), 'run() stopped "sh" after 0.5 seconds'));
+expect("run() doesn't wait for the child", $took < 15, true);
+
+/* The limit is the program's: one that ended in time gives its status and what was read by the
+   deadline, though a child of its own still holds its output */
+$took = seconds(() -> expect("a program that ended, leaving a child holding its output", run(["sh", "-c", "sleep 20 & echo hi; exit 7"], "", {"timeout" => 0.5}), {"status" => 7, "stdout" => "hi\n", "stderr" => ""}));
+expect("run() gives it at the deadline, not when the child ends", $took < 10, true);
+
+/* The limit covers the program, not only its output: one that closes its outputs and runs on */
+throws("a program that closed its outputs", () -> run(["sh", "-c", "exec >&- 2>&-; sleep 30"], "", {"timeout" => 0.5}), 'run() stopped "sh" after 0.5 seconds');
+
+expect("a program that ends in time gives what it would have", run(["sh", "-c", "printf out; printf err >&2; exit 3"], "", {"timeout" => 30}), {"status" => 3, "stdout" => "out", "stderr" => "err"});
+expect("its input too", run(["cat"], "fed", {"timeout" => 30.5})["stdout"], "fed");
+expect("collected output can be said outright", run(["echo", "hi"], "", {"output" => "collect"})["stdout"], "hi\n");
+
+/* Inherited output goes where this program's own does, after what it printed before (which is
+   flushed first) and before what it prints after; nothing is collected */
+$inner = gaz('echo "one"; echo run(["sh", "-c", "echo two; echo oops >&2; exit 4"], "", {"output" => "inherit"}); echo "three";');
+expect("an inheriting program writes to this one's output, in order", $inner["stdout"], "one\ntwo\n{\"status\" => 4, \"stdout\" => \"\", \"stderr\" => \"\"}\nthree\n");
+// starts_with: under the leak check, the inner gaz adds its own line after
+expect("and to its error", starts_with($inner["stderr"], "oops\n"), true);
+expect("its input is this program's own", run([program_path(), "-e", 'echo run(["cat"], "", {"output" => "inherit"})["status"];'], "typed\n")["stdout"], "typed\n0\n");
+$inner = gaz('try { run(["sleep", "30"], "", {"output" => "inherit", "timeout" => 0.5}); } catch ($e) { echo $e; }');
+expect("an inheriting program is stopped at its limit too", $inner["stdout"], "run() stopped \"sleep\" after 0.5 seconds\n");
+
+/* The options, checked */
+throws("an option it doesn't have", () -> run(["true"], "", {"stdout" => "inherit"}), 'run() has no option "stdout": only output, timeout');
+throws("a key that isn't a string", () -> run(["true"], "", {1 => 2}), "run() has no option 1: only output, timeout");
+throws("an output it doesn't know", () -> run(["true"], "", {"output" => "tee"}), 'run() expects "output" to be "collect" or "inherit"');
+throws("no time at all", () -> run(["true"], "", {"timeout" => 0}), 'run() expects "timeout" to be seconds above 0');
+throws("a negative limit", () -> run(["true"], "", {"timeout" => -1.5}), 'run() expects "timeout" to be seconds above 0');
+throws("a limit that isn't a number", () -> run(["true"], "", {"timeout" => "5"}), 'run() expects "timeout" to be seconds above 0');
+throws("options that aren't a map", () -> run(["true"], "", []), "run() expects map, got list");
+throws("input for a program that reads this one's", () -> run(["cat"], "x", {"output" => "inherit"}), 'run() can\'t give $input to a program that inherits the output: its standard input is this program\'s own');
