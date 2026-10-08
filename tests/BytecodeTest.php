@@ -235,6 +235,36 @@ class BytecodeTest extends GazLangTestCase
     }
 
     /**
+     * A program compiled through a symlinked directory names its import from the same directory
+     * as its main file, which keeps the spelling it was given while the import is its real path,
+     * so the bytecode reads back through either spelling of the directory
+     */
+    public function test_paths_written_through_a_symlinked_directory_are_relative_to_the_real_one()
+    {
+        $real = realpath(sys_get_temp_dir()).'/gazlang_linked_'.getmypid();
+        $link = "{$real}_link";
+        mkdir($real);
+        symlink($real, $link);
+        file_put_contents("{$real}/main.gaz", "import \"./b.gaz\";\necho b::f();\n");
+        file_put_contents("{$real}/b.gaz", "namespace b;\npub fn f() { return 1 + \"x\"; }\n");
+
+        try {
+            $bytecode = self::succeed(['-c', '-f', "{$link}/main.gaz"]);
+            preg_match_all('/^@ .*$/m', $bytecode, $locations);
+            $this->assertSame(['@ "main.gaz" 2', '@ "b.gaz" 2'], array_values(array_unique($locations[0])));
+
+            file_put_contents("{$real}/main.gzb", $bytecode);
+            foreach ([$real, $link] as $directory) {
+                [, $err] = self::gazlang(['-f', "{$directory}/main.gzb"]);
+                $this->assertStringStartsWith("Error: Cannot use + on string at {$directory}/b.gaz:2\n", $err);
+            }
+        } finally {
+            array_map('unlink', ["{$real}/main.gaz", "{$real}/b.gaz", "{$real}/main.gzb", $link]);
+            rmdir($real);
+        }
+    }
+
+    /**
      * The instruction table, INFO in vm/load.c: each instruction's name and, where it is a
      * number, its stack effect as [pops, pushes]
      *

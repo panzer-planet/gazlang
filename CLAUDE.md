@@ -1255,8 +1255,9 @@ and methods a table in C.
   prefix of an operator is an operator too (except `..`'s; a lone `.` isn't one): a new operator
   that breaks that needs handling. The code generator dispatches with one `match
   (kind_of($node))`, since GazLang can't build a method name, and copies a rebuilt node's
-  location by hand (easy to forget; the corpus checks it). The writer's paths stay textual, since
-  a path written into bytecode needn't exist.
+  location by hand (easy to forget; the corpus checks it). The writer compares directories as real
+  paths where they exist, since an import is its real path and the main file keeps the spelling
+  it was given, and textually where they don't, since a path written into bytecode needn't exist.
 - **The tree dump** (`--ast`) prints each node's fields as `fields()` gives them, skipping those
   that are derived or the code generator's (the driver's `SKIPPED`). On an error there is no
   partial tree, since the whole-program checks write into nodes parsed long before; nothing

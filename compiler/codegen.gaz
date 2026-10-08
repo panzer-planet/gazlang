@@ -1472,15 +1472,26 @@ kind Program {
         return $lines;
     }
 
-    // A path as it is written in a bytecode file: relative to the main source file's directory,
-    // which is absolute and normalised. A name in angle brackets, like <builtin>, is not a path.
+    /*
+     * A path as it is written in a bytecode file: relative to the main source file's directory,
+     * which is absolute and normalised. A name in angle brackets, like <builtin>, is not a path.
+     * When both directories exist they are compared as real paths: the main file keeps the
+     * spelling it was given and an import is its real path, so through a symlinked directory the
+     * two would climb out of the link and back in. Otherwise textually, since neither need exist.
+     * The file's own name is kept, so a main file that is itself a link stays as it was named.
+     */
     fn relative($file, $base) {
         if (starts_with($file, "<")) {
             return $file;
         }
 
-        $from = #segments($base);
         $to = #segments(#absolute($file));
+        $directory = #absolute($file .. "/..");
+        if (file_exists($directory) && file_exists($base)) {
+            $to = [...#segments(real_path($directory)), $to[len($to) - 1]];
+            $base = real_path($base);
+        }
+        $from = #segments($base);
         $same = 0;
         while ($same < len($from) && $same < len($to) && $from[$same] == $to[$same]) {
             $same++;

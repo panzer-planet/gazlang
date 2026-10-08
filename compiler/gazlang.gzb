@@ -49810,28 +49810,20 @@ PUSH null
 RET
 
 fn gazlang::Program.relative 2 2
-locals $file $base $from $to $same $steps $i
-@ "codegen.gaz" 1478
+locals $file $base $to $directory $from $same $steps $i
+@ "codegen.gaz" 1484
 LOAD 0
 PUSH "<"
 CALL_BUILTIN starts_with 2
 JZ ELSE_0
-@ "codegen.gaz" 1479
+@ "codegen.gaz" 1485
 LOAD 0
 RET
-@ "codegen.gaz" 1478
+@ "codegen.gaz" 1484
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "codegen.gaz" 1482
-LOAD_THIS
-GET_METHOD segments
-LOAD 1
-CALL_METHOD 1 segments
-STORE 2
-LOAD 2
-POP
-@ "codegen.gaz" 1483
+@ "codegen.gaz" 1488
 LOAD_THIS
 GET_METHOD segments
 LOAD_THIS
@@ -49839,127 +49831,186 @@ GET_METHOD absolute
 LOAD 0
 CALL_METHOD 1 absolute
 CALL_METHOD 1 segments
+STORE 2
+LOAD 2
+POP
+@ "codegen.gaz" 1489
+LOAD_THIS
+GET_METHOD absolute
+LOAD 0
+PUSH "/.."
+CONCAT
+CALL_METHOD 1 absolute
 STORE 3
 LOAD 3
 POP
-@ "codegen.gaz" 1484
-PUSH 0
-STORE 4
-LOAD 4
-POP
-LABEL WHILE_1
-@ "codegen.gaz" 1485
-LOAD 4
-LOAD 2
-CALL_BUILTIN len 1
-LT
-JZ AND_FALSE_3
-LOAD 4
+@ "codegen.gaz" 1490
 LOAD 3
-CALL_BUILTIN len 1
-LT
-JZ AND_FALSE_3
-PUSH true
-JMP AND_END_3
-LABEL AND_FALSE_3
-PUSH false
-LABEL AND_END_3
+CALL_BUILTIN file_exists 1
 JZ AND_FALSE_2
-LOAD 2
-LOAD 4
-INDEX_GET
-LOAD 3
-LOAD 4
-INDEX_GET
-EQUALS
+LOAD 1
+CALL_BUILTIN file_exists 1
 JZ AND_FALSE_2
 PUSH true
 JMP AND_END_2
 LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
-JZ ENDWHILE_1
-@ "codegen.gaz" 1486
-LOAD 4
-INC
+JZ ELSE_1
+@ "codegen.gaz" 1491
+NEW_ARRAY
+LOAD_THIS
+GET_METHOD segments
+LOAD 3
+CALL_BUILTIN real_path 1
+CALL_METHOD 1 segments
+ARRAY_EXTEND
+LOAD 2
+LOAD 2
+CALL_BUILTIN len 1
+PUSH 1
+SUB
+INDEX_GET
+ARRAY_PUSH
+STORE 2
+LOAD 2
+POP
+@ "codegen.gaz" 1492
+LOAD 1
+CALL_BUILTIN real_path 1
+STORE 1
+LOAD 1
+POP
+@ "codegen.gaz" 1490
+JMP ENDIF_1
+LABEL ELSE_1
+LABEL ENDIF_1
+@ "codegen.gaz" 1494
+LOAD_THIS
+GET_METHOD segments
+LOAD 1
+CALL_METHOD 1 segments
 STORE 4
 LOAD 4
 POP
-@ "codegen.gaz" 1485
-JMP WHILE_1
-LABEL ENDWHILE_1
-@ "codegen.gaz" 1488
-NEW_ARRAY
+@ "codegen.gaz" 1495
+PUSH 0
 STORE 5
 LOAD 5
 POP
-@ "codegen.gaz" 1489
+LABEL WHILE_3
+@ "codegen.gaz" 1496
+LOAD 5
 LOAD 4
-STORE 6
-LOAD 6
-POP
-LABEL WHILE_4
-LOAD 6
+CALL_BUILTIN len 1
+LT
+JZ AND_FALSE_5
+LOAD 5
 LOAD 2
 CALL_BUILTIN len 1
 LT
-JZ ENDWHILE_4
-@ "codegen.gaz" 1490
-PUSH ".."
-SET_PATH [] 5
-POP
-LABEL CONTINUE_4
-@ "codegen.gaz" 1489
-LOAD 6
-INC
-STORE 6
-LOAD 6
-POP
-JMP WHILE_4
-LABEL ENDWHILE_4
-@ "codegen.gaz" 1492
+JZ AND_FALSE_5
+PUSH true
+JMP AND_END_5
+LABEL AND_FALSE_5
+PUSH false
+LABEL AND_END_5
+JZ AND_FALSE_4
 LOAD 4
+LOAD 5
+INDEX_GET
+LOAD 2
+LOAD 5
+INDEX_GET
+EQUALS
+JZ AND_FALSE_4
+PUSH true
+JMP AND_END_4
+LABEL AND_FALSE_4
+PUSH false
+LABEL AND_END_4
+JZ ENDWHILE_3
+@ "codegen.gaz" 1497
+LOAD 5
+INC
+STORE 5
+LOAD 5
+POP
+@ "codegen.gaz" 1496
+JMP WHILE_3
+LABEL ENDWHILE_3
+@ "codegen.gaz" 1499
+NEW_ARRAY
 STORE 6
 LOAD 6
 POP
-LABEL WHILE_5
-LOAD 6
-LOAD 3
+@ "codegen.gaz" 1500
+LOAD 5
+STORE 7
+LOAD 7
+POP
+LABEL WHILE_6
+LOAD 7
+LOAD 4
 CALL_BUILTIN len 1
 LT
-JZ ENDWHILE_5
-@ "codegen.gaz" 1493
-LOAD 3
-LOAD 6
-INDEX_GET
-SET_PATH [] 5
+JZ ENDWHILE_6
+@ "codegen.gaz" 1501
+PUSH ".."
+SET_PATH [] 6
 POP
-LABEL CONTINUE_5
-@ "codegen.gaz" 1492
-LOAD 6
+LABEL CONTINUE_6
+@ "codegen.gaz" 1500
+LOAD 7
 INC
-STORE 6
-LOAD 6
+STORE 7
+LOAD 7
 POP
-JMP WHILE_5
-LABEL ENDWHILE_5
-@ "codegen.gaz" 1496
+JMP WHILE_6
+LABEL ENDWHILE_6
+@ "codegen.gaz" 1503
 LOAD 5
+STORE 7
+LOAD 7
+POP
+LABEL WHILE_7
+LOAD 7
+LOAD 2
+CALL_BUILTIN len 1
+LT
+JZ ENDWHILE_7
+@ "codegen.gaz" 1504
+LOAD 2
+LOAD 7
+INDEX_GET
+SET_PATH [] 6
+POP
+LABEL CONTINUE_7
+@ "codegen.gaz" 1503
+LOAD 7
+INC
+STORE 7
+LOAD 7
+POP
+JMP WHILE_7
+LABEL ENDWHILE_7
+@ "codegen.gaz" 1507
+LOAD 6
 PUSH "/"
 CALL_BUILTIN join 2
 RET
-@ "codegen.gaz" 1477
+@ "codegen.gaz" 1483
 PUSH null
 RET
 
 fn gazlang::Program.absolute 1 1
 locals $path $parts $#foreach_array_0 $#foreach_position_0 $part
-@ "codegen.gaz" 1502
+@ "codegen.gaz" 1513
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1503
+@ "codegen.gaz" 1514
 LOAD_THIS
 GET_METHOD segments
 LOAD 0
@@ -49983,67 +50034,67 @@ STORE 3
 LABEL FOREACH_0
 FOREACH_NEXT 2 3 ENDFOREACH_0
 STORE 4
-@ "codegen.gaz" 1505
+@ "codegen.gaz" 1516
 LOAD 4
 PUSH ".."
 EQUALS
 JZ ELSE_2
-@ "codegen.gaz" 1506
+@ "codegen.gaz" 1517
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_3
-@ "codegen.gaz" 1507
+@ "codegen.gaz" 1518
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 1
 SUB
 KEY_CHECK
 DELETE_PATH [k] 1
-@ "codegen.gaz" 1506
+@ "codegen.gaz" 1517
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "codegen.gaz" 1505
+@ "codegen.gaz" 1516
 JMP ENDIF_2
 LABEL ELSE_2
-@ "codegen.gaz" 1509
+@ "codegen.gaz" 1520
 LOAD 4
 PUSH "."
 NOT_EQUALS
 JZ ELSE_4
-@ "codegen.gaz" 1510
+@ "codegen.gaz" 1521
 LOAD 4
 SET_PATH [] 1
 POP
-@ "codegen.gaz" 1509
+@ "codegen.gaz" 1520
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL ENDIF_2
-@ "codegen.gaz" 1503
+@ "codegen.gaz" 1514
 JMP FOREACH_0
 LABEL ENDFOREACH_0
-@ "codegen.gaz" 1514
+@ "codegen.gaz" 1525
 PUSH "/"
 LOAD 1
 PUSH "/"
 CALL_BUILTIN join 2
 CONCAT
 RET
-@ "codegen.gaz" 1501
+@ "codegen.gaz" 1512
 PUSH null
 RET
 
 fn gazlang::Program.segments 1 1
 locals $path $parts $#foreach_array_0 $#foreach_position_0 $part
-@ "codegen.gaz" 1519
+@ "codegen.gaz" 1530
 NEW_ARRAY
 STORE 1
 LOAD 1
 POP
-@ "codegen.gaz" 1520
+@ "codegen.gaz" 1531
 LOAD 0
 PUSH "/"
 CALL_BUILTIN split 2
@@ -50054,26 +50105,26 @@ STORE 3
 LABEL FOREACH_0
 FOREACH_NEXT 2 3 ENDFOREACH_0
 STORE 4
-@ "codegen.gaz" 1521
+@ "codegen.gaz" 1532
 LOAD 4
 PUSH ""
 NOT_EQUALS
 JZ ELSE_1
-@ "codegen.gaz" 1522
+@ "codegen.gaz" 1533
 LOAD 4
 SET_PATH [] 1
 POP
-@ "codegen.gaz" 1521
+@ "codegen.gaz" 1532
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "codegen.gaz" 1520
+@ "codegen.gaz" 1531
 JMP FOREACH_0
 LABEL ENDFOREACH_0
-@ "codegen.gaz" 1526
+@ "codegen.gaz" 1537
 LOAD 1
 RET
-@ "codegen.gaz" 1518
+@ "codegen.gaz" 1529
 PUSH null
 RET
 
