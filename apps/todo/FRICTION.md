@@ -231,9 +231,14 @@ have caught running out of call depth.
   the template with a fixed time, and through the router only with due dates far in the past or the
   future. A clock in `Config` (a function, `time` by default) would let the router tests fix it too
   ([#55](https://github.com/panzer-planet/gazlang/issues/55)).
-- **Database errors are strings**, so tests assert on their words
+- **Database errors were strings** (resolved: `db::Failure`), so tests asserted on their words
   (`postgres: duplicate key value violates unique constraint "users_email_key"`), which is fragile
-  across PostgreSQL versions and has no SQLSTATE to match on ([#56](https://github.com/panzer-planet/gazlang/issues/56)).
+  across PostgreSQL versions and had no SQLSTATE to match on ([#56](https://github.com/panzer-planet/gazlang/issues/56)).
+  What the database refuses is now a `db::Failure` carrying the SQLSTATE (`code`), the constraint,
+  table and column, and a `db::Problem` that reads the same on SQLite, so `tests/database_test.gaz`
+  checks `[db::Problem::Unique, "users_email_key"]`. The app itself never matched on words:
+  `Users.create()` asks `on conflict (email) do nothing`, which stays the better way where SQL can
+  say it, since it leaves a transaction usable.
 - **`@csrf`-shaped repetition in templates** (resolved: `web::csrf_field($csrf)`):
   `<input type="hidden" name="_csrf" value="{{ $csrf }}">` was written by hand in 7 places, two of
   them inside the todo list. Each form now writes `{{ web::csrf_field($csrf) }}`, so the field's name

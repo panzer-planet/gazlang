@@ -1,5 +1,6 @@
 import "std/test.gaz" use expect, throws;
 import "std/db.gaz";
+import "std/fs.gaz";
 
 // What a failing call raises, or null
 fn failure($f) {
@@ -122,3 +123,141 @@ throws("no path", () -> db::open("sqlite:"), "sqlite: no path: write sqlite:FILE
 throws("an unopenable path", () -> db::open("sqlite:/nonexistent/dir/x.db"), "sqlite: cannot open /nonexistent/dir/x.db: unable to open database file");
 throws("a bad type", () -> db_run(1, "select 1"), "db_run() expects db, got int");
 throws("a bad postgres URL", () -> db::open("postgres://localhost:1/x?connect_timeout=1"), Error);
+
+/*
+ * What the database itself refuses is a db::Failure: the message as it always was, SQLite's
+ * extended result code and its name, and a db::Problem that is the same for PostgreSQL.
+ */
+fn refusal($f) {
+    try {
+        $f();
+    } catch (db::Failure $e) {
+        return [$e.driver, $e.code, $e.name, $e.problem];
+    }
+    return null;
+}
+
+$db = db::open("sqlite::memory:");
+$db.run(db::sql"pragma foreign_keys = on; create table parents (id integer primary key); create table kids (id integer primary key, email text unique, parent int references parents (id), name text not null default 'x', age int check (age >= 0))");
+$db.run(db::sql"insert into parents (id) values (1); insert into kids (id, email, parent) values (1, 'a@b.co', 1)");
+expect("a unique column", refusal(() -> $db.exec(db::sql"insert into kids (email) values ('a@b.co')")), ["sqlite", 2067, "SQLITE_CONSTRAINT_UNIQUE", db::Problem::Unique]);
+expect("a primary key is unique too", refusal(() -> $db.exec(db::sql"insert into kids (id) values (1)")), ["sqlite", 1555, "SQLITE_CONSTRAINT_PRIMARYKEY", db::Problem::Unique]);
+expect("a foreign key", refusal(() -> $db.exec(db::sql"insert into kids (parent) values (5)")), ["sqlite", 787, "SQLITE_CONSTRAINT_FOREIGNKEY", db::Problem::ForeignKey]);
+expect("a row others point at", refusal(() -> $db.exec(db::sql"delete from parents")), ["sqlite", 787, "SQLITE_CONSTRAINT_FOREIGNKEY", db::Problem::ForeignKey]);
+expect("not null", refusal(() -> $db.exec(db::sql"insert into kids (name) values (null)")), ["sqlite", 1299, "SQLITE_CONSTRAINT_NOTNULL", db::Problem::NotNull]);
+expect("a check", refusal(() -> $db.exec(db::sql"insert into kids (age) values (-1)")), ["sqlite", 275, "SQLITE_CONSTRAINT_CHECK", db::Problem::Check]);
+expect("anything else", refusal(() -> $db.query(db::sql"select nope")), ["sqlite", 1, "SQLITE_ERROR", db::Problem::Other]);
+expect("inside a transaction, which is rolled back", [refusal(() -> $db.transaction($d -> $d.exec(db::sql"insert into kids (email) values ('a@b.co')"))), $db.value(db::sql"select count(*) from kids")],
+    [["sqlite", 2067, "SQLITE_CONSTRAINT_UNIQUE", db::Problem::Unique], 1]);
+throws("its message is the database's, as it was", () -> $db.exec(db::sql"insert into kids (id) values (1)"), db::Failure, "sqlite: UNIQUE constraint failed: kids.id");
+$e = null;
+try {
+    $db.exec(db::sql"insert into kids (id) values (1)");
+} catch (db::Failure $caught) {
+    $e = $caught;
+}
+expect("it is an Error, with no constraint, table or column from SQLite", [is_a($e, Error), $e.constraint, $e.table, $e.column, $e.cause], [true, null, null, null, null]);
+$wrapped = Error("could not save the kid", $e);
+expect("and can be a cause", $wrapped.cause.problem, db::Problem::Unique);
+throws("a mistake gaz finds before the database is a plain Error", () -> $db.query(db::sql"select ?"), Error, "sqlite: the SQL takes 1 parameter, got 0");
+$values = [[1]];
+throws("and so is a value no database can store", () -> db_run(db_open("sqlite::memory:"), "select ?", $values), Error, "sqlite: parameter 1 is a list, which cannot be stored");
+$handle = db_open("sqlite::memory:");
+expect("db_error() of a new handle", db_error($handle), null);
+failure(() -> db_run($handle, "selec"));
+expect("db_error() of a handle whose last run the database refused", db_error($handle), {"code" => 1});
+db_run($handle, "select 1");
+expect("and null once one succeeds", db_error($handle), null);
+failure(() -> db_run($handle, "select ?"));
+expect("or fails before reaching the database", db_error($handle), null);
+failure(() -> db_run($handle, "selec"));
+failure(() -> db_run($handle, "select ?", "not a list"));
+expect("or has an argument refused before the database is asked", db_error($handle), null);
+$db.close();
+
+/*
+ * Two connections to one file: one holding the write lock makes the other's write Busy (with no
+ * busy timeout, so it doesn't wait), and in WAL mode a reader whose snapshot another write has
+ * passed must start its transaction again, which is Retry.
+ */
+$dir = fs::temp_dir("db-test");
+$url = "sqlite:" .. $dir .. "/busy.db";
+$writer = db::open($url);
+$reader = db::open($url);
+$writer.run(db::sql"pragma journal_mode = wal; create table t (n int)");
+$reader.query(db::sql"pragma busy_timeout = 0");
+$writer.exec(db::sql"begin immediate");
+expect("a lock another connection holds", refusal(() -> $reader.exec(db::sql"insert into t values (1)")), ["sqlite", 5, "SQLITE_BUSY", db::Problem::Busy]);
+$writer.exec(db::sql"commit");
+$reader.exec(db::sql"begin");
+$reader.query(db::sql"select * from t");
+$writer.exec(db::sql"insert into t values (2)");
+expect("a snapshot another write has passed", refusal(() -> $reader.exec(db::sql"insert into t values (3)")), ["sqlite", 517, "SQLITE_BUSY_SNAPSHOT", db::Problem::Retry]);
+$reader.exec(db::sql"rollback");
+$writer.close();
+$reader.close();
+fs::remove_tree($dir);
+
+/*
+ * Each database's codes and the Problem each is, as docs/library.md lists them, through a Failure
+ * made as the library makes one from what db_error() gives
+ */
+fn sqlite_problem($code) {
+    return db::Failure("m", "sqlite", {"code" => $code}).problem;
+}
+
+fn postgres_problem($sqlstate) {
+    return db::Failure("m", "postgres", {"code" => $sqlstate}).problem;
+}
+
+$sqlite_codes = {
+    2067 => db::Problem::Unique,        // SQLITE_CONSTRAINT_UNIQUE
+    1555 => db::Problem::Unique,        // SQLITE_CONSTRAINT_PRIMARYKEY
+    2579 => db::Problem::Unique,        // SQLITE_CONSTRAINT_ROWID
+    787 => db::Problem::ForeignKey,     // SQLITE_CONSTRAINT_FOREIGNKEY
+    1299 => db::Problem::NotNull,       // SQLITE_CONSTRAINT_NOTNULL
+    275 => db::Problem::Check,          // SQLITE_CONSTRAINT_CHECK
+    517 => db::Problem::Retry,          // SQLITE_BUSY_SNAPSHOT
+    5 => db::Problem::Busy,             // SQLITE_BUSY
+    261 => db::Problem::Busy,           // SQLITE_BUSY_RECOVERY
+    773 => db::Problem::Busy,           // SQLITE_BUSY_TIMEOUT
+    6 => db::Problem::Busy,             // SQLITE_LOCKED
+    262 => db::Problem::Busy,           // SQLITE_LOCKED_SHAREDCACHE
+    19 => db::Problem::Other,           // SQLITE_CONSTRAINT
+    1811 => db::Problem::Other,         // SQLITE_CONSTRAINT_TRIGGER
+    1 => db::Problem::Other,            // SQLITE_ERROR
+    8 => db::Problem::Other,            // SQLITE_READONLY
+    99999 => db::Problem::Other,        // none yet
+};
+foreach ($sqlite_codes as $code => $problem) {
+    expect("SQLite's {$code}", sqlite_problem($code), $problem);
+}
+$sqlstates = {
+    "23505" => db::Problem::Unique,
+    "23503" => db::Problem::ForeignKey,
+    "23502" => db::Problem::NotNull,
+    "23514" => db::Problem::Check,
+    "40001" => db::Problem::Retry,
+    "40P01" => db::Problem::Retry,
+    "55P03" => db::Problem::Busy,
+    "08000" => db::Problem::Disconnected,
+    "08006" => db::Problem::Disconnected,
+    "08P01" => db::Problem::Disconnected,
+    "57P01" => db::Problem::Disconnected,
+    "57P02" => db::Problem::Disconnected,
+    "57P03" => db::Problem::Disconnected,
+    "23000" => db::Problem::Other,
+    "23P01" => db::Problem::Other,
+    "40000" => db::Problem::Other,
+    "57014" => db::Problem::Other,
+    "42601" => db::Problem::Other,
+};
+foreach ($sqlstates as $sqlstate => $problem) {
+    expect("SQLSTATE {$sqlstate}", postgres_problem($sqlstate), $problem);
+}
+expect("an error libpq made itself has no SQLSTATE", postgres_problem(null), db::Problem::Other);
+$fields = {"code" => "23505", "constraint" => "users_email_key", "table" => "users", "column" => null};
+$made = db::Failure("postgres: duplicate key", "postgres", $fields);
+expect("PostgreSQL's fields", [$made.message, $made.driver, $made.code, $made.name, $made.constraint, $made.table, $made.column],
+    ["postgres: duplicate key", "postgres", "23505", null, "users_email_key", "users", null]);
+expect("a code SQLite may add later has no name", db::Failure("m", "sqlite", {"code" => 99999}).name, null);

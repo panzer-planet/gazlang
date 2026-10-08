@@ -1316,10 +1316,11 @@ if ($r["status"] != 0) { throw $r["stderr"]; }
 | --- | --- |
 | `db_open($url)` | Opens a SQLite or PostgreSQL database, as a `db` |
 | `db_run($db, $sql, $params = [])` | Runs SQL and gives the rows and how many rows it changed |
+| `db_error($db)` | What the last `db_run()` on it failed with, as the database said it, or `null` |
 | `db_close($db)` | Closes the database |
 
 SQLite and PostgreSQL work through one interface, in `lib/db.gaz` (`import "std/db.gaz";`)
-on three builtins, so a driver adds no names to a program:
+on four builtins, so a driver adds no names to a program:
 
 - `db_open($url)` — `sqlite:FILE` (made if missing), `sqlite::memory:`, or a `postgres://` URL, which
   libpq reads whole (`postgres://user:password@host:5432/name?sslmode=require`). Gives a `db`.
@@ -1338,12 +1339,51 @@ on three builtins, so a driver adds no names to a program:
   Postgres prints. Both give `null` for NULL. Going in, `null`, ints, floats and strings are sent as
   they are and a bool as 0 or 1 (SQLite) or `t` or `f`; lists, maps and objects are errors, and so is an
   infinite float coming back, since floats here are always finite.
-- Errors are catchable and start `sqlite:` or `postgres:`.
+- Errors are catchable and start `sqlite:` or `postgres:`. After one the database itself gave,
+  `db_error($db)` is `{"code" => ...}`: SQLite's extended result code (an int), or PostgreSQL's
+  SQLSTATE with `"constraint"`, `"table"` and `"column"` (each `null` when the server names none).
+  It is `null` after a run that succeeded, or that failed before reaching the database (a closed
+  `db`, a parameter no database can store).
 
 `db::open($url)` gives a `Db`, which has `run($sql)`, `query` (the rows), `row` (the first or null),
 `value` (its first column), `exec` (the changes), `transaction($work)` and `close()`.
 `transaction` runs `$work($db)` between begin and commit, rolls back and raises again if it raises, and
 is a savepoint inside another one.
+
+What the database refuses is raised as a **`db::Failure`**, an `Error` whose message is the one the
+database gave, so a program tells one failure from another without reading words:
+
+```gaz
+import "std/db.gaz";
+
+$db = db::open("sqlite::memory:");
+$db.exec(db::sql"create table users (email text unique)");
+$db.exec(db::sql"insert into users values ('ada@example.com')");
+try {
+    $db.exec(db::sql"insert into users values ('ada@example.com')");
+} catch (db::Failure $e) {
+    echo $e.problem;
+    echo $e.code;
+    echo $e.message;
+}
+```
+
+```
+db::Problem::Unique
+2067
+sqlite: UNIQUE constraint failed: users.email
+```
+
+- **`problem`** is a `db::Problem`, the same whichever database said it: `Unique`, `ForeignKey`,
+  `NotNull`, `Check`, `Retry` (the transaction lost a serialization race or a deadlock: roll it
+  back, as `transaction()` does, and run it again), `Busy` (a lock wasn't had in time), `Disconnected` (the connection is
+  gone or the server is shutting down) and `Other`.
+- **`code`** is the database's own: SQLite's extended result code, an int, with its name in
+  `name` (`"SQLITE_CONSTRAINT_UNIQUE"`), or PostgreSQL's SQLSTATE, five characters (`"23505"`).
+- **`constraint`**, **`table`** and **`column`** are what PostgreSQL names (`"users_email_key"`), and
+  `null` with SQLite, which names them only in its message. `driver` is `"sqlite"` or `"postgres"`.
+- A mistake gaz finds before the SQL reaches the database (a wrong count of parameters for SQLite,
+  a list as a parameter, a closed `db`) stays a plain `Error`.
 
 SQL is a tagged string, `db::sql"..."`, whose values are sent apart from the text, so nothing a value
 holds is ever read as SQL:
@@ -2060,7 +2100,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `text.gaz` | `text::quote($value)`: a value as the literal that reads back as it, for a message (a string quoted, so a space or a NUL byte shows); `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input; `text::indentation($line)`: how many spaces and tabs a line starts with, and `text::unindented($line)` the line without them; `text::trim_start($s, $chars)` and `text::trim_end($s, $chars)`, `trim()`'s two halves (whitespace unless `$chars` names the bytes) |
 | `json.gaz` | `json::decode`, `json::encode`; JSON is UTF-8, so decoding refuses a document that isn't well formed UTF-8 or that escapes half a surrogate pair, and encoding refuses a string or key that isn't well formed UTF-8; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error; a case of an enum with values is its value (see "Enums"), and one without values is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
 | `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
-| `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)` and `db::ident($name)`; see "Databases" under Builtins |
+| `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)`, `db::ident($name)`, and `db::Failure` with its `db::Problem` for what the database refuses; see "Databases" under Builtins |
 | `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see [the notes on cryptography](library.md#cryptography) |
 | `chars.gaz` | `chars::char_at`, `chars::is_char` (a one-character string), `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
 | `fs.gaz` | Files and directories for command line tools: `fs::copy($from, $to, $keep_time = false)` (the mode kept, and the modification time with `true`), `fs::copy_tree($from, $to)` (files, directories and their modes, and links as links; gives the paths of what is none of those, a pipe or a socket), `fs::walk($dir)` (every path below, links listed and never followed), `fs::glob($pattern)` (`*`, `?`, `[a-z]`, `**`), `fs::write_atomic($path, $data)` (synced, renamed into place and the directory synced, so it is the old file or the new one even after a power cut), `fs::remove_tree($path)`, `fs::touch($path)`, `fs::temp_dir($prefix)` (its owner's alone) and `fs::parent($path)` |

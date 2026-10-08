@@ -198,7 +198,10 @@ struct Socket {
 typedef struct DbDriver {
     const char *name;
     bool (*open)(Str *url, void **conn);
-    bool (*run)(void *conn, Str *sql, List *params, Value *out);
+    /* On failure, *error is set to the database's own account of it when the database refused the
+       SQL (a map of its code and fields, see db_error()), and left NULL for a mistake gaz caught
+       before sending it */
+    bool (*run)(void *conn, Str *sql, List *params, Value *out, Map **error);
     void (*close)(void *conn);
     void (*abandon)(void *conn);   /* let go of a connection another process made, leaving it working there */
 } DbDriver;
@@ -209,6 +212,7 @@ struct Db {
     const DbDriver *driver;
     void *conn;         /* the driver's own, NULL once closed */
     int owner;          /* the vm_process that opened it (see workers.c) */
+    Map *error;         /* the last db_run()'s failure as the database gave it, or NULL (db_error()) */
 };
 
 /* What a file's stdio stream did last: C wants a flush or a seek between a write and a read */
@@ -665,8 +669,10 @@ bool worker_release(Socket *s, Value bytes, int64_t served, Value *out);
 /* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */
 
 bool db_open(Str *url, Value *out);
+void db_forget_error(Db *d);
 bool db_run(Db *d, Str *sql, List *params, Value *out);
 void db_close(Db *d);
+Value db_error(Db *d);
 void file_close(File *f);
 void db_put(Map *m, const char *key, size_t len, Value v);   /* m[key] = v, taking v's reference */
 Value db_result(List *rows, int64_t changes);   /* the {"rows", "changes"} map a driver's run() gives */

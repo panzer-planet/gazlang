@@ -133,10 +133,51 @@ own](http.md).
 
 ## Databases
 
-Databases (`db.c`, drivers `sqlite.c` and `pg.c`): **three builtins whatever the drivers**, since
+Databases (`db.c`, drivers `sqlite.c` and `pg.c`): **four builtins whatever the drivers**, since
 a builtin takes its name from every program: the URL's scheme picks a `DbDriver` (open, run, close)
 in C, so a new database is a file and a table entry. **The builtin takes the database's own
 placeholders**, not rewritten: rewriting means reading string literals in C.
+
+- **What the database refuses is a `db::Failure`, built in GazLang from what C hands over.** A
+  driver's `run()` keeps the database's own account on the handle (`Db.error`, a map: SQLite's
+  `sqlite3_extended_errcode()`; PostgreSQL's `PG_DIAG_SQLSTATE`, `PG_DIAG_CONSTRAINT_NAME`,
+  `PG_DIAG_TABLE_NAME` and `PG_DIAG_COLUMN_NAME`), cleared by the next `db_run()`, and raises the
+  message as it always did; `db_error($db)` reads it, and `Db.execute()` in `lib/db.gaz` catches the
+  error, asks `db_error()` and throws a `Failure` when there is something, or the error unchanged
+  when there isn't (a closed handle, a parameter no database can store: gaz's to find, not the
+  database's). **Not raised from C as an object**: C raises messages, and making a library's kind
+  in `caught()` would tie the VM to a name in `lib/` and put the classification in C; **not a
+  second return from `db_run()`**, which would change what every caller of it gets. The cost is
+  that an uncaught one prints as a thrown `Error` does, its trace from `Db.execute()`, without the
+  `at <std>/db.gaz:N` a runtime error's first line had; the message is the same.
+- **The classification is the library's, written out** (`sqlite_problem()` and `postgres_problem()`),
+  so it is the same on every platform and a test can read it; C only names fields. **An enum**,
+  since a problem is one of a closed set compared by identity, and a misspelt
+  `db::Problem::Uniqe` is an error when the program is read, where a string would quietly never
+  match. The table:
+
+  | `db::Problem` | SQLite (extended code, or primary) | PostgreSQL (SQLSTATE) |
+  | --- | --- | --- |
+  | `Unique` | 2067 `SQLITE_CONSTRAINT_UNIQUE`, 1555 `_PRIMARYKEY`, 2579 `_ROWID` | 23505 `unique_violation` |
+  | `ForeignKey` | 787 `SQLITE_CONSTRAINT_FOREIGNKEY` | 23503 `foreign_key_violation` |
+  | `NotNull` | 1299 `SQLITE_CONSTRAINT_NOTNULL` | 23502 `not_null_violation` |
+  | `Check` | 275 `SQLITE_CONSTRAINT_CHECK` | 23514 `check_violation` |
+  | `Retry` | 517 `SQLITE_BUSY_SNAPSHOT` | 40001 `serialization_failure`, 40P01 `deadlock_detected` |
+  | `Busy` | any other `SQLITE_BUSY` (5) or `SQLITE_LOCKED` (6) | 55P03 `lock_not_available` |
+  | `Disconnected` | none | class 08, 57P01 `admin_shutdown`, 57P02 `crash_shutdown`, 57P03 `cannot_connect_now` |
+  | `Other` | everything else | everything else, and no SQLSTATE |
+
+  `Retry` is apart from `Busy` because what to run again differs: after `Retry` the transaction
+  can't go on and must be rolled back (as `Db.transaction()` does) and run again from the start,
+  while a `Busy` statement can simply be tried again. An exclusion
+  constraint (23P01) is `Other`, not `Unique`, since no SQLite code matches it.
+- **An error libpq makes itself has no SQLSTATE**; when the connection is gone `pg.c` gives it
+  08006 (`connection_failure`), PostgreSQL's own code for that, so the library needs no second
+  signal. `SQLITE_NAMES` is every result code `sqlite3.h` defines, by number, since SQLite has no
+  call that names one; a code a newer SQLite adds has no name (null) and is classified by its
+  primary code. `ponytail:` SQLite gives no constraint, table or column outside its message, and a
+  failed `db::open()` is a plain `Error` (no handle to ask, and libpq gives no SQLSTATE for a
+  connection refused).
 
 - **`Sql` isn't `pub`**, so `sql()`, `raw()` and `Db` (one namespace) are what make and take one; a
   pub function may still declare `: Sql`, and `kind_of($fragment)([...], [])` stays as deliberate as
@@ -179,7 +220,11 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
 - `make SQLITE=1`/`PG=1` make a missing library (libpq's header) an error, which CI asks for. SQLite is tested by
   `tests/gaz/lib/db_test.gaz` on `:memory:` (recorded, sanitized, leak-checked); PostgreSQL by
   `DbPgTest` running `tests/db/pg_check.gaz` against the server `GAZLANG_TEST_PG` names (skipped
-  without), on temporary tables. `ponytail:` a bool parameter is 0/1 in SQLite, no blobs going in,
+  without), on temporary tables. `db_test.gaz` makes each `db::Problem` but `Disconnected` happen in
+  SQLite (two connections to a temporary file for `Busy` and `Retry`) and checks the whole table
+  through `db::Failure`'s constructor; `pg_check.gaz` has the server raise every SQLSTATE the table
+  names (`raise exception ... using errcode`), and a real lock timeout and a connection it ends.
+  `ponytail:` a bool parameter is 0/1 in SQLite, no blobs going in,
   and PostgreSQL's numeric, timestamps and json come back as text.
 
 ## Time, the terminal and random numbers

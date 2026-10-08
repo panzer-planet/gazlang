@@ -57,3 +57,61 @@ ok no path
 ok an unopenable path
 ok a bad type
 ok a bad postgres URL
+ok a unique column
+ok a primary key is unique too
+ok a foreign key
+ok a row others point at
+ok not null
+ok a check
+ok anything else
+ok inside a transaction, which is rolled back
+ok its message is the database's, as it was
+ok it is an Error, with no constraint, table or column from SQLite
+ok and can be a cause
+ok a mistake gaz finds before the database is a plain Error
+ok and so is a value no database can store
+ok db_error() of a new handle
+ok db_error() of a handle whose last run the database refused
+ok and null once one succeeds
+ok or fails before reaching the database
+ok or has an argument refused before the database is asked
+ok a lock another connection holds
+ok a snapshot another write has passed
+ok SQLite's 2067
+ok SQLite's 1555
+ok SQLite's 2579
+ok SQLite's 787
+ok SQLite's 1299
+ok SQLite's 275
+ok SQLite's 517
+ok SQLite's 5
+ok SQLite's 261
+ok SQLite's 773
+ok SQLite's 6
+ok SQLite's 262
+ok SQLite's 19
+ok SQLite's 1811
+ok SQLite's 1
+ok SQLite's 8
+ok SQLite's 99999
+ok SQLSTATE 23505
+ok SQLSTATE 23503
+ok SQLSTATE 23502
+ok SQLSTATE 23514
+ok SQLSTATE 40001
+ok SQLSTATE 40P01
+ok SQLSTATE 55P03
+ok SQLSTATE 08000
+ok SQLSTATE 08006
+ok SQLSTATE 08P01
+ok SQLSTATE 57P01
+ok SQLSTATE 57P02
+ok SQLSTATE 57P03
+ok SQLSTATE 23000
+ok SQLSTATE 23P01
+ok SQLSTATE 40000
+ok SQLSTATE 57014
+ok SQLSTATE 42601
+ok an error libpq made itself has no SQLSTATE
+ok PostgreSQL's fields
+ok a code SQLite may add later has no name

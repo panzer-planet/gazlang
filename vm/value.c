@@ -87,6 +87,7 @@ void value_free(Value v) {
         break;
     case T_DB:
         db_close(v.db);
+        if (v.db->error) decref(v_map(v.db->error));
         free(v.db);
         break;
     case T_FILE:

@@ -6,6 +6,16 @@ import "std/db.gaz";
 import "./support.gaz";
 import "database.gaz";
 
+// What the database refused, and which of its constraints said so, or null when it didn't
+fn refusal($f) {
+    try {
+        $f();
+    } catch (db::Failure $e) {
+        return [$e.problem, $e.constraint];
+    }
+    return null;
+}
+
 $db = connect(getenv("TODO_TEST_DATABASE_URL") ?? TEST_DATABASE);
 $db.exec(db::raw("drop table if exists users, todos, login_failures, schema_migrations cascade"));
 
@@ -20,9 +30,9 @@ expect("each is recorded", $db.value(db::sql"select count(*) from schema_migrati
 
 /* The schema's own rules, which the app leans on */
 $db.exec(db::sql"insert into users (email, password_hash) values ('a@b.co', 'x')");
-throws("an email is unique", () -> $db.exec(db::sql"insert into users (email, password_hash) values ('a@b.co', 'y')"), "postgres: duplicate key value violates unique constraint \"users_email_key\"");
-throws("a title can't be empty", () -> $db.exec(db::sql"insert into todos (user_id, title) values (1, '')"), "postgres: new row for relation \"todos\" violates check constraint \"todos_title_check\"");
-throws("a todo needs its user", () -> $db.exec(db::sql"insert into todos (user_id, title) values (999, 'x')"), "postgres: insert or update on table \"todos\" violates foreign key constraint \"todos_user_id_fkey\"");
+expect("an email is unique", refusal(() -> $db.exec(db::sql"insert into users (email, password_hash) values ('a@b.co', 'y')")), [db::Problem::Unique, "users_email_key"]);
+expect("a title can't be empty", refusal(() -> $db.exec(db::sql"insert into todos (user_id, title) values (1, '')")), [db::Problem::Check, "todos_title_check"]);
+expect("a todo needs its user", refusal(() -> $db.exec(db::sql"insert into todos (user_id, title) values (999, 'x')")), [db::Problem::ForeignKey, "todos_user_id_fkey"]);
 $db.exec(db::sql"insert into todos (user_id, title) values (1, 'x')");
 $db.exec(db::sql"delete from users");
 expect("a user's todos go with them", $db.value(db::sql"select count(*) from todos"), 0);

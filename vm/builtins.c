@@ -73,6 +73,7 @@ const BuiltinInfo builtin_info[] = {
     {"file_truncate", 2, 2}, {"set_mtime", 2, 2}, {"chdir", 1, 1},
     {"worker_retire", 0, 0}, {"worker_deadline", 2, 4},
     {"worker_accept", 2, 2}, {"worker_release", 2, 3},
+    {"db_error", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -105,6 +106,7 @@ enum {
     B_FILE_TRUNCATE, B_SET_MTIME, B_CHDIR,
     B_WORKER_RETIRE, B_WORKER_DEADLINE,
     B_WORKER_ACCEPT, B_WORKER_RELEASE,
+    B_DB_ERROR,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -1971,9 +1973,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return db_open(a.s, out);
     case B_DB_RUN: {
         /* db_run($db, $sql, $params = []) */
+        if (!want(index, a, M(T_DB))) return false;
+        db_forget_error(a.db);  // before the other checks, so a refused argument leaves no old failure
         Value params = argc > 2 ? c : v_list(list_new(0));
-        bool ok = want(index, a, M(T_DB)) && want(index, b, STRING) && want(index, params, M(T_LIST))
-            && db_run(a.db, b.s, params.l, out);
+        bool ok = want(index, b, STRING) && want(index, params, M(T_LIST)) && db_run(a.db, b.s, params.l, out);
         if (argc < 3) decref(params);
         return ok;
     }
@@ -1981,6 +1984,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, M(T_DB))) return false;
         db_close(a.db);
         *out = v_null();
+        return true;
+    case B_DB_ERROR:
+        if (!want(index, a, M(T_DB))) return false;
+        *out = db_error(a.db);
         return true;
     case B_FILE_OPEN: {
         Value mode = argc > 1 ? b : v_null();

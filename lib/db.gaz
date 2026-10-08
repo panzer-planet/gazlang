@@ -1,6 +1,6 @@
 /**
- * Databases: SQLite and PostgreSQL behind one interface, on the db_open(), db_run() and db_close()
- * builtins, which a driver's library (libsqlite3, libpq) is built into the VM for, if it was found.
+ * Databases: SQLite and PostgreSQL behind one interface, on the db_open(), db_run(), db_error() and
+ * db_close() builtins, which a driver's library (libsqlite3, libpq) is built into the VM for, if it was found.
  *
  *   $db = db::open("sqlite:app.db");          // or "sqlite::memory:", or "postgres://user@host/name"
  *   $db.exec(db::sql"create table users (id integer primary key, name text)");
@@ -21,9 +21,20 @@
  * value like a variable's, bound as a parameter.
  *
  * A row is a map from column name to value (a repeated name keeps the last); int, float, bool
- * (PostgreSQL only) and null come back as themselves and everything else as a string. Errors are
- * catchable, and say which database gave them. With values the SQL is one statement; without, it
- * may be a script, and the last statement's result is the one given.
+ * (PostgreSQL only) and null come back as themselves and everything else as a string. With values
+ * the SQL is one statement; without, it may be a script, and the last statement's result is the one
+ * given.
+ *
+ * Errors are catchable, and say which database gave them. One the database itself gave is a
+ * `db::Failure`, which carries the database's own code and a `db::Problem` that is the same for
+ * both databases, so a program tells a taken email from anything else without reading the message:
+ *
+ *   try {
+ *       $db.exec(db::sql"insert into users (email) values ({$email})");
+ *   } catch (db::Failure $e) {
+ *       if ($e.problem != db::Problem::Unique) { throw $e; }
+ *       // the email is taken
+ *   }
  */
 namespace db;
 
@@ -35,6 +46,7 @@ import "std/chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
  */
 pub kind Db {
     #handle;
+    #driver;
     #placeholder;
     #depth = 0;
 
@@ -43,7 +55,8 @@ pub kind Db {
      */
     fn _($url) {
         #handle = db_open($url);
-        #placeholder = placeholder_for($url);
+        #driver = driver_for($url);
+        #placeholder = #driver == SQLITE ? question_mark : numbered;
     }
 
     /**
@@ -88,15 +101,15 @@ pub kind Db {
      */
     pub fn transaction($work) {
         $savepoint = "gaz_savepoint_" .. #depth;
-        db_run(#handle, #depth == 0 ? "begin" : "savepoint " .. $savepoint);
+        #execute(#depth == 0 ? "begin" : "savepoint " .. $savepoint);
         #depth++;
         try {
             $result = $work(#);
             /* Inside the try, so a commit the database refuses is rolled back like a failure of the work */
-            db_run(#handle, #depth == 1 ? "commit" : "release " .. $savepoint);
+            #execute(#depth == 1 ? "commit" : "release " .. $savepoint);
         } catch ($e) {
             #depth--;
-            db_run(#handle, #depth == 0 ? "rollback" : "rollback to " .. $savepoint);
+            #execute(#depth == 0 ? "rollback" : "rollback to " .. $savepoint);
             throw $e;
         }
         #depth--;
@@ -117,16 +130,36 @@ pub kind Db {
             throw "Db.{$method}() takes db::sql\"...\", not " .. described($sql) .. ': write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way';
         }
         [$text, $params] = $sql.render(#placeholder);
-        return db_run(#handle, $text, $params);
+        return #execute($text, $params);
+    }
+
+    /*
+     * db_run(), with what the database refused raised as a Failure. An error db_error() has nothing
+     * for (a closed handle, a parameter no database could store) was gaz's to find, and goes on as
+     * it is.
+     */
+    fn execute($text, $params = []) {
+        try {
+            return db_run(#handle, $text, $params);
+        } catch (Error $e) {
+            $fields = db_error(#handle);
+            if ($fields == null) {
+                throw $e;
+            }
+            throw Failure($e.message, #driver, $fields);
+        }
     }
 }
 
-// Each database's placeholders, by the URL's scheme, as db_open() reads it
-fn placeholder_for($url) {
+const SQLITE = "sqlite";
+const POSTGRES = "postgres";
+
+// Which database the URL is, by its scheme, as db_open() reads it
+fn driver_for($url) {
     if (starts_with($url, "sqlite:")) {
-        return question_mark;
+        return SQLITE;
     }
-    return numbered;
+    return POSTGRES;
 }
 
 fn question_mark($n) {
@@ -135,6 +168,253 @@ fn question_mark($n) {
 
 fn numbered($n) {
     return '$' .. $n;
+}
+
+/**
+ * What went wrong, the same whichever database said so (see Failure). Each database's codes map to
+ * one of these as `docs/library.md` lists them; everything else is Other.
+ */
+pub enum Problem {
+    /**
+     * A row would repeat a value a unique index or primary key allows once: an email already taken
+     */
+    Unique;
+    /**
+     * A row would point at one that isn't there, or a row others point at would go
+     */
+    ForeignKey;
+    /**
+     * A column that can't be null would be
+     */
+    NotNull;
+    /**
+     * A row fails a check constraint
+     */
+    Check;
+    /**
+     * The transaction lost to another (a serialization failure or a deadlock) and can't go on: rolled
+     * back, as Db.transaction() does, and run again from the start, it can succeed
+     */
+    Retry;
+    /**
+     * A lock another connection holds wasn't let go of in time: the statement can be tried again
+     */
+    Busy;
+    /**
+     * The connection to the server is gone, or the server is shutting down
+     */
+    Disconnected;
+    /**
+     * Anything else: a syntax error, a missing table, a value of the wrong type...
+     */
+    Other;
+}
+
+/**
+ * An error the database itself gave, not gaz: its message is the database's own words after
+ * `sqlite:` or `postgres:`, as an Error's always was, and the rest is what the database said about
+ * it, for a program to act on.
+ */
+pub kind Failure extends Error {
+    /**
+     * "sqlite" or "postgres"
+     */
+    pub #driver;
+    /**
+     * The database's own code: SQLite's extended result code, an int (2067 for a unique
+     * constraint), or PostgreSQL's SQLSTATE, five characters ("23505"). PostgreSQL gives null for
+     * an error libpq made itself, but 08006 when the connection is gone.
+     */
+    pub #code;
+    /**
+     * SQLite's name for its code ("SQLITE_CONSTRAINT_UNIQUE"), or null for PostgreSQL, whose code
+     * is its own name, or a code this gaz doesn't know
+     */
+    pub #name;
+    /**
+     * The constraint that failed ("users_email_key") as PostgreSQL gives it; null when it doesn't,
+     * and always with SQLite, which only names it in its message
+     */
+    pub #constraint;
+    /**
+     * The table the error is about, or null (see constraint)
+     */
+    pub #table;
+    /**
+     * The column the error is about, or null (see constraint)
+     */
+    pub #column;
+    /**
+     * What went wrong, the same for both databases
+     */
+    pub Problem #problem;
+
+    /**
+     * A failure with $message, from the $driver database ("sqlite" or "postgres"), and $fields as
+     * db_error() gives them: `{"code" => ...}`, and with PostgreSQL "constraint", "table" and
+     * "column"
+     */
+    fn _(string $message, string $driver, map $fields) {
+        ##_($message);
+        #driver = $driver;
+        #code = $fields["code"] ?? null;
+        #constraint = $fields["constraint"] ?? null;
+        #table = $fields["table"] ?? null;
+        #column = $fields["column"] ?? null;
+        if ($driver == SQLITE) {
+            #name = SQLITE_NAMES[#code] ?? null;
+            #problem = sqlite_problem(#code);
+        } else {
+            #name = null;
+            #problem = postgres_problem(#code);
+        }
+    }
+}
+
+// SQLite's result codes, primary and extended, by number, from sqlite3.h
+const SQLITE_NAMES = {
+    1 => "SQLITE_ERROR",
+    2 => "SQLITE_INTERNAL",
+    3 => "SQLITE_PERM",
+    4 => "SQLITE_ABORT",
+    5 => "SQLITE_BUSY",
+    6 => "SQLITE_LOCKED",
+    7 => "SQLITE_NOMEM",
+    8 => "SQLITE_READONLY",
+    9 => "SQLITE_INTERRUPT",
+    10 => "SQLITE_IOERR",
+    11 => "SQLITE_CORRUPT",
+    12 => "SQLITE_NOTFOUND",
+    13 => "SQLITE_FULL",
+    14 => "SQLITE_CANTOPEN",
+    15 => "SQLITE_PROTOCOL",
+    16 => "SQLITE_EMPTY",
+    17 => "SQLITE_SCHEMA",
+    18 => "SQLITE_TOOBIG",
+    19 => "SQLITE_CONSTRAINT",
+    20 => "SQLITE_MISMATCH",
+    21 => "SQLITE_MISUSE",
+    22 => "SQLITE_NOLFS",
+    23 => "SQLITE_AUTH",
+    24 => "SQLITE_FORMAT",
+    25 => "SQLITE_RANGE",
+    26 => "SQLITE_NOTADB",
+    257 => "SQLITE_ERROR_MISSING_COLLSEQ",
+    261 => "SQLITE_BUSY_RECOVERY",
+    262 => "SQLITE_LOCKED_SHAREDCACHE",
+    264 => "SQLITE_READONLY_RECOVERY",
+    266 => "SQLITE_IOERR_READ",
+    267 => "SQLITE_CORRUPT_VTAB",
+    270 => "SQLITE_CANTOPEN_NOTEMPDIR",
+    275 => "SQLITE_CONSTRAINT_CHECK",
+    279 => "SQLITE_AUTH_USER",
+    513 => "SQLITE_ERROR_RETRY",
+    516 => "SQLITE_ABORT_ROLLBACK",
+    517 => "SQLITE_BUSY_SNAPSHOT",
+    518 => "SQLITE_LOCKED_VTAB",
+    520 => "SQLITE_READONLY_CANTLOCK",
+    522 => "SQLITE_IOERR_SHORT_READ",
+    523 => "SQLITE_CORRUPT_SEQUENCE",
+    526 => "SQLITE_CANTOPEN_ISDIR",
+    531 => "SQLITE_CONSTRAINT_COMMITHOOK",
+    769 => "SQLITE_ERROR_SNAPSHOT",
+    773 => "SQLITE_BUSY_TIMEOUT",
+    776 => "SQLITE_READONLY_ROLLBACK",
+    778 => "SQLITE_IOERR_WRITE",
+    779 => "SQLITE_CORRUPT_INDEX",
+    782 => "SQLITE_CANTOPEN_FULLPATH",
+    787 => "SQLITE_CONSTRAINT_FOREIGNKEY",
+    1032 => "SQLITE_READONLY_DBMOVED",
+    1034 => "SQLITE_IOERR_FSYNC",
+    1038 => "SQLITE_CANTOPEN_CONVPATH",
+    1043 => "SQLITE_CONSTRAINT_FUNCTION",
+    1288 => "SQLITE_READONLY_CANTINIT",
+    1290 => "SQLITE_IOERR_DIR_FSYNC",
+    1294 => "SQLITE_CANTOPEN_DIRTYWAL",
+    1299 => "SQLITE_CONSTRAINT_NOTNULL",
+    1544 => "SQLITE_READONLY_DIRECTORY",
+    1546 => "SQLITE_IOERR_TRUNCATE",
+    1550 => "SQLITE_CANTOPEN_SYMLINK",
+    1555 => "SQLITE_CONSTRAINT_PRIMARYKEY",
+    1802 => "SQLITE_IOERR_FSTAT",
+    1811 => "SQLITE_CONSTRAINT_TRIGGER",
+    2058 => "SQLITE_IOERR_UNLOCK",
+    2067 => "SQLITE_CONSTRAINT_UNIQUE",
+    2314 => "SQLITE_IOERR_RDLOCK",
+    2323 => "SQLITE_CONSTRAINT_VTAB",
+    2570 => "SQLITE_IOERR_DELETE",
+    2579 => "SQLITE_CONSTRAINT_ROWID",
+    2826 => "SQLITE_IOERR_BLOCKED",
+    2835 => "SQLITE_CONSTRAINT_PINNED",
+    3082 => "SQLITE_IOERR_NOMEM",
+    3091 => "SQLITE_CONSTRAINT_DATATYPE",
+    3338 => "SQLITE_IOERR_ACCESS",
+    3594 => "SQLITE_IOERR_CHECKRESERVEDLOCK",
+    3850 => "SQLITE_IOERR_LOCK",
+    4106 => "SQLITE_IOERR_CLOSE",
+    4362 => "SQLITE_IOERR_DIR_CLOSE",
+    4618 => "SQLITE_IOERR_SHMOPEN",
+    4874 => "SQLITE_IOERR_SHMSIZE",
+    5130 => "SQLITE_IOERR_SHMLOCK",
+    5386 => "SQLITE_IOERR_SHMMAP",
+    5642 => "SQLITE_IOERR_SEEK",
+    5898 => "SQLITE_IOERR_DELETE_NOENT",
+    6154 => "SQLITE_IOERR_MMAP",
+    6410 => "SQLITE_IOERR_GETTEMPPATH",
+    6666 => "SQLITE_IOERR_CONVPATH",
+    6922 => "SQLITE_IOERR_VNODE",
+    7178 => "SQLITE_IOERR_AUTH",
+    7434 => "SQLITE_IOERR_BEGIN_ATOMIC",
+    7690 => "SQLITE_IOERR_COMMIT_ATOMIC",
+    7946 => "SQLITE_IOERR_ROLLBACK_ATOMIC",
+    8202 => "SQLITE_IOERR_DATA",
+    8458 => "SQLITE_IOERR_CORRUPTFS",
+    8714 => "SQLITE_IOERR_IN_PAGE",
+};
+
+// The low byte of an extended SQLite code is its primary one: SQLITE_BUSY_SNAPSHOT's is SQLITE_BUSY
+const SQLITE_PRIMARY_MASK = 255;
+
+// What an SQLite code is, by its extended name first and then its primary one
+fn sqlite_problem(int $code): Problem {
+    $problem = match (SQLITE_NAMES[$code] ?? null) {
+        "SQLITE_CONSTRAINT_UNIQUE", "SQLITE_CONSTRAINT_PRIMARYKEY", "SQLITE_CONSTRAINT_ROWID" => Problem::Unique,
+        "SQLITE_CONSTRAINT_FOREIGNKEY" => Problem::ForeignKey,
+        "SQLITE_CONSTRAINT_NOTNULL" => Problem::NotNull,
+        "SQLITE_CONSTRAINT_CHECK" => Problem::Check,
+        "SQLITE_BUSY_SNAPSHOT" => Problem::Retry,
+        default => null,
+    };
+    if ($problem != null) {
+        return $problem;
+    }
+    return match (SQLITE_NAMES[$code & SQLITE_PRIMARY_MASK] ?? null) {
+        "SQLITE_BUSY", "SQLITE_LOCKED" => Problem::Busy,
+        default => Problem::Other,
+    };
+}
+
+// SQLSTATE's class 08, connection exception
+const CONNECTION_CLASS = "08";
+
+// What a SQLSTATE is, by PostgreSQL's appendix of error codes
+fn postgres_problem($sqlstate): Problem {
+    if ($sqlstate == null) {
+        return Problem::Other;
+    }
+    if (starts_with($sqlstate, CONNECTION_CLASS)) {
+        return Problem::Disconnected;
+    }
+    return match ($sqlstate) {
+        "23505" => Problem::Unique,                             // unique_violation
+        "23503" => Problem::ForeignKey,                         // foreign_key_violation
+        "23502" => Problem::NotNull,                            // not_null_violation
+        "23514" => Problem::Check,                              // check_violation
+        "40001", "40P01" => Problem::Retry,                     // serialization_failure, deadlock_detected
+        "55P03" => Problem::Busy,                               // lock_not_available
+        "57P01", "57P02", "57P03" => Problem::Disconnected,     // admin_shutdown, crash_shutdown, cannot_connect_now
+        default => Problem::Other,
+    };
 }
 
 /**

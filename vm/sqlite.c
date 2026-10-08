@@ -56,7 +56,16 @@ static void abandon_sqlite(void *conn) {
     abandoned[nabandoned++] = conn;
 }
 
-static bool bind_params(sqlite3 *db, sqlite3_stmt *st, List *params) {
+/* The database refused what it was given: raise its message, and keep its extended result code
+   (SQLITE_CONSTRAINT_UNIQUE is 2067) for db_error(), which lib/db.gaz names and classifies */
+static bool refused(sqlite3 *db, Map **error) {
+    Map *m = map_new();
+    db_put(m, "code", 4, v_int(sqlite3_extended_errcode(db)));
+    *error = m;
+    return raisef("sqlite: %s", sqlite3_errmsg(db));
+}
+
+static bool bind_params(sqlite3 *db, sqlite3_stmt *st, List *params, Map **error) {
     int wanted = sqlite3_bind_parameter_count(st);
     if ((size_t)wanted != params->len) {
         return raisef("sqlite: the SQL takes %d parameter%s, got %zu", wanted, wanted == 1 ? "" : "s", params->len);
@@ -72,7 +81,7 @@ static bool bind_params(sqlite3 *db, sqlite3_stmt *st, List *params) {
         case T_STRING: rc = sqlite3_bind_text64(st, (int)i + 1, v.s->data, v.s->len, SQLITE_STATIC, SQLITE_UTF8); break;
         default: return raisef("sqlite: parameter %zu is a %s, which cannot be stored", i + 1, type_name(v));
         }
-        if (rc != SQLITE_OK) return raisef("sqlite: %s", sqlite3_errmsg(db));
+        if (rc != SQLITE_OK) return refused(db, error);
     }
     return true;
 }
@@ -118,7 +127,7 @@ static bool has_more(sqlite3 *db, const char *at, const char *end) {
     return st != NULL;
 }
 
-static bool run_sqlite(void *conn, Str *sql, List *params, Value *out) {
+static bool run_sqlite(void *conn, Str *sql, List *params, Value *out, Map **error) {
     sqlite3 *db = conn;
     const char *at = sql->data, *end = sql->data + sql->len;
     int before = sqlite3_total_changes(db);
@@ -129,7 +138,7 @@ static bool run_sqlite(void *conn, Str *sql, List *params, Value *out) {
         sqlite3_stmt *st;
         const char *tail;
         if (sqlite3_prepare_v2(db, at, (int)(end - at), &st, &tail) != SQLITE_OK) {
-            bool r = raisef("sqlite: %s", sqlite3_errmsg(db));
+            bool r = refused(db, error);
             decref(v_list(rows));
             return r;
         }
@@ -150,14 +159,14 @@ static bool run_sqlite(void *conn, Str *sql, List *params, Value *out) {
         /* A script's last statement is the result, so what an earlier one selected is dropped */
         decref(v_list(rows));
         rows = list_new(0);
-        bool ok = bind_params(db, st, params);
+        bool ok = bind_params(db, st, params, error);
         int rc = SQLITE_ROW;
         while (ok && (rc = sqlite3_step(st)) == SQLITE_ROW) {
             Value row;
             if (!(ok = read_row(st, &row))) break;
             list_push(rows, row);
         }
-        if (ok && rc != SQLITE_DONE) ok = raisef("sqlite: %s", sqlite3_errmsg(db));
+        if (ok && rc != SQLITE_DONE) ok = refused(db, error);
         /* changes() is the last insert, update or delete, so it counts only if one ran here */
         changes = ok && sqlite3_total_changes(db) != before ? sqlite3_changes(db) : 0;
         sqlite3_finalize(st);

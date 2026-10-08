@@ -1,8 +1,8 @@
 /*
- * Databases: db_open(), db_run() and db_close(), whatever the database. The URL's scheme picks a
- * driver (sqlite.c, pg.c), each built in only if its library was found (make SQLITE=0 or PG=0
- * leaves one out), so a program's global names are these three however many drivers there are.
- * lib/db.gaz is what programs are meant to use.
+ * Databases: db_open(), db_run(), db_error() and db_close(), whatever the database. The URL's
+ * scheme picks a driver (sqlite.c, pg.c), each built in only if its library was found (make
+ * SQLITE=0 or PG=0 leaves one out), so a program's global names are these four however many
+ * drivers there are. lib/db.gaz is what programs are meant to use.
  */
 #include "gazvm.h"
 
@@ -50,10 +50,28 @@ bool db_open(Str *url, Value *out) {
     return true;
 }
 
+/* Forget the last run's failure: a new run, even one refused before it reaches the database, has
+   nothing of the old one's to report */
+void db_forget_error(Db *d) {
+    if (d->error) decref(v_map(d->error));
+    d->error = NULL;
+}
+
 bool db_run(Db *d, Str *sql, List *params, Value *out) {
+    db_forget_error(d);
     if (!d->conn) return raisef("db_run() on a closed database");
     if (d->owner != vm_process) return refuse_inherited("db_run", "db");
-    return d->driver->run(d->conn, sql, params, out);
+    return d->driver->run(d->conn, sql, params, out, &d->error);
+}
+
+/* db_error($db): what the last db_run() on it failed with, as the database said it ({"code" => ...}
+   and the driver's other fields), or null when it succeeded or failed before reaching the
+   database. The raised error keeps only the message; lib/db.gaz reads this to make a db::Failure. */
+Value db_error(Db *d) {
+    if (!d->error) return v_null();
+    Value v = v_map(d->error);
+    incref(v);
+    return v;
 }
 
 /* Also what freeing the last reference does, so closing twice is fine. A worker lets go of a

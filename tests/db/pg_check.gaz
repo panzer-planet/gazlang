@@ -89,6 +89,59 @@ expect("quotes and SQL in values are data", $db.query(db::sql"select {$column} a
 expect("an array literal's braces are text", $db.value(db::sql"select ('{1,2}'::int[])[2] + {$one}"), 3);
 expect("and so are JSON's", $db.value(db::sql"select '{\"k\": 1}'::json ->> 'k'"), "1");
 
+/*
+ * What the server refuses is a db::Failure, with its SQLSTATE, the constraint, table and column it
+ * names, and the db::Problem it is
+ */
+fn refusal($f) {
+    try {
+        $f();
+    } catch (db::Failure $e) {
+        return [$e.code, $e.problem, $e.constraint, $e.table, $e.column];
+    }
+    return null;
+}
+
+$db.exec(db::raw("create temp table parents (id int primary key); create temp table kids (id int primary key, parent int references parents (id), name text not null default 'x', age int check (age >= 0))"));
+$db.exec(db::sql"insert into parents values (1)");
+$db.exec(db::sql"insert into kids (id, parent) values (1, 1)");
+expect("a unique violation", refusal(() -> $db.exec(db::sql"insert into kids (id) values (1)")), ["23505", db::Problem::Unique, "kids_pkey", "kids", null]);
+expect("a foreign key", refusal(() -> $db.exec(db::sql"insert into kids (id, parent) values (2, 5)")), ["23503", db::Problem::ForeignKey, "kids_parent_fkey", "kids", null]);
+expect("a row others point at", refusal(() -> $db.exec(db::sql"delete from parents")), ["23503", db::Problem::ForeignKey, "kids_parent_fkey", "kids", null]);
+expect("not null", refusal(() -> $db.exec(db::sql"insert into kids (id, name) values (2, null)")), ["23502", db::Problem::NotNull, null, "kids", "name"]);
+expect("a check", refusal(() -> $db.exec(db::sql"insert into kids (id, age) values (2, -1)")), ["23514", db::Problem::Check, "kids_age_check", "kids", null]);
+expect("anything else", refusal(() -> $db.query(db::sql"select nope")), ["42703", db::Problem::Other, null, null, null]);
+throws("the message is the server's, as it was", () -> $db.exec(db::sql"insert into kids (id) values (1)"), db::Failure, "postgres: duplicate key value violates unique constraint \"kids_pkey\"");
+expect("a commit the server refuses is a Failure too", refusal(() -> $db.transaction($d -> {
+    $d.exec(db::raw("create temp table late (id int unique deferrable initially deferred)"));
+    $d.exec(db::sql"insert into late values (1), (1)");
+})), ["23505", db::Problem::Unique, "late_id_key", "late", null]);
+
+/* Every SQLSTATE the library names, raised by the server itself */
+$sqlstates = {
+    "23505" => db::Problem::Unique, "23503" => db::Problem::ForeignKey, "23502" => db::Problem::NotNull,
+    "23514" => db::Problem::Check, "40001" => db::Problem::Retry, "40P01" => db::Problem::Retry,
+    "55P03" => db::Problem::Busy, "08006" => db::Problem::Disconnected, "57P01" => db::Problem::Disconnected,
+    "57P03" => db::Problem::Disconnected, "22012" => db::Problem::Other,
+};
+foreach ($sqlstates as $sqlstate => $problem) {
+    $raise = db::raw("do $$ begin raise exception 'raised' using errcode = '{$sqlstate}'; end $$");
+    expect("SQLSTATE {$sqlstate} from the server", slice(refusal(() -> $db.exec($raise)), 0, 2), [$sqlstate, $problem]);
+}
+
+/* A lock another session holds, past its lock_timeout, and a connection the server ended */
+$other = db::open(args()[0]);
+$lock = 4242;
+$db.value(db::sql"select pg_advisory_lock({$lock})");
+$other.exec(db::sql"set lock_timeout = '50ms'");
+expect("a lock not had in time", refusal(() -> $other.value(db::sql"select pg_advisory_lock({$lock})")), ["55P03", db::Problem::Busy, null, null, null]);
+$db.value(db::sql"select pg_advisory_unlock({$lock})");
+expect("a connection the server ended", refusal(() -> $other.value(db::sql"select pg_terminate_backend(pg_backend_pid())"))[1], db::Problem::Disconnected);
+expect("and one already gone is 08006", refusal(() -> $other.value(db::sql"select 1")), ["08006", db::Problem::Disconnected, null, null, null]);
+
+/* Last, since it leaves the connection in COPY mode: not the server's refusal, so not a Failure */
+throws("COPY from the client is gaz's own error", () -> $db.exec(db::raw("copy kids from stdin")), Error,
+    "postgres: COPY to or from the client isn't supported; COPY to or from a file the server reads is");
 $db.close();
 throws("closed", () -> $db.query(db::sql"select 1"), "db_run() on a closed database");
 expect("a refused connection", starts_with(failure(() -> db::open("postgres://127.0.0.1:1/x?connect_timeout=2")) ?? "", "postgres: cannot connect: "), true);

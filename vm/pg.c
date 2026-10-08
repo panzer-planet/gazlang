@@ -280,7 +280,34 @@ static bool cell(PGresult *res, int row, int col, Value *out) {
     }
 }
 
-static bool run_pg(void *conn, Str *sql, List *params, Value *out) {
+/* A diagnostic field of res as a string, or null when the server sent none */
+static Value diagnostic(PGresult *res, int field) {
+    const char *text = res ? pq.PQresultErrorField(res, field) : NULL;
+    return text ? v_str(str_new(text, strlen(text))) : v_null();
+}
+
+/*
+ * The database refused the SQL, or the connection went: raise the server's own words (not libpq's
+ * "ERROR:  " and query excerpt around them), and keep for db_error() its SQLSTATE and the fields a
+ * program acts on: which constraint, table and column. An error libpq made itself has no SQLSTATE;
+ * when the connection is gone it is given 08006 (connection_failure), PostgreSQL's own code for
+ * that, so lib/db.gaz needs no second way to say it.
+ */
+static bool refused(PGconn *c, PGresult *res, Map **error) {
+    const char *primary = res ? pq.PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY) : NULL;
+    const char *msg = primary ? primary : res ? pq.PQresultErrorMessage(res) : pq.PQerrorMessage(c);
+    Value code = diagnostic(res, PG_DIAG_SQLSTATE);
+    if (code.type == T_NULL && pq.PQstatus(c) == CONNECTION_BAD) code = v_str(str_new("08006", 5));
+    Map *m = map_new();
+    db_put(m, "code", 4, code);
+    db_put(m, "constraint", 10, diagnostic(res, PG_DIAG_CONSTRAINT_NAME));
+    db_put(m, "table", 5, diagnostic(res, PG_DIAG_TABLE_NAME));
+    db_put(m, "column", 6, diagnostic(res, PG_DIAG_COLUMN_NAME));
+    *error = m;
+    return raisef("postgres: %s", msg);
+}
+
+static bool run_pg(void *conn, Str *sql, List *params, Value *out, Map **error) {
     PGconn *c = conn;
     if (memchr(sql->data, '\0', sql->len)) return raisef("postgres: the SQL holds a NUL byte");
     PGresult *res;
@@ -297,12 +324,16 @@ static bool run_pg(void *conn, Str *sql, List *params, Value *out) {
         free(owned);
         if (!ok) return false;
     }
-    if (!res) return raisef("postgres: %s", pq.PQerrorMessage(c));
+    if (!res) return refused(c, NULL, error);
     ExecStatusType status = pq.PQresultStatus(res);
+    /* COPY to or from the client isn't refused by the server, so it is no db::Failure: gaz's own
+       error. ponytail: the connection is left in COPY mode; ending it needs PQputCopyEnd() */
+    if (status == PGRES_COPY_IN || status == PGRES_COPY_OUT || status == PGRES_COPY_BOTH) {
+        pq.PQclear(res);
+        return raisef("postgres: COPY to or from the client isn't supported; COPY to or from a file the server reads is");
+    }
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK && status != PGRES_EMPTY_QUERY) {
-        /* The server's own words, not libpq's "ERROR:  " and query excerpt around them */
-        const char *msg = pq.PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY);
-        bool r = raisef("postgres: %s", msg ? msg : pq.PQresultErrorMessage(res));
+        bool r = refused(c, res, error);
         pq.PQclear(res);
         return r;
     }
