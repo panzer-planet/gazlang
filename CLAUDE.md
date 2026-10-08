@@ -738,7 +738,8 @@ anything that prints random values calling `rand_seed()` first.
   ternary's level; `break`/`continue` can't leave a block body. A lambda returning a map writes
   `$x -> ({"v" => $x})`, since `{` after `->` is a block; a `=>` where the `;` of a block body's
   first statement goes says so (`#lambda_block_start`), since that shape is only ever a map
-  meant as the value. The parser needs no lookahead:
+  meant as the value. An empty block body (`-> {}`) is an error rather than a quiet `null`,
+  for the same reason: `-> null` says it. The parser needs no lookahead:
   `ternary()` marks a `(` as a possible head and checks the elements only if `->` follows.
 - **Captures**: a `$` variable the body uses that isn't a parameter and that no plain `=`,
   `foreach` or `catch` in it assigns is copied in (if it exists) and shared by recursive calls,

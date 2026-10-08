@@ -20,7 +20,7 @@ $make = $x -> $y -> $x + $y;
 $outer = 1;
 $deep = () -> () -> $outer;
 $block = ($a, $b = 1) -> { $t = $a + $b; return $t; };
-$empty = () -> {};
+$empty = () -> { return; };
 $uses_global = () -> @g;
 $memo = $k -> $cache[$k] ??= $k * 2;
 echo [$counter(), $fib(10), $make(1)(2), $deep()(), $block(1), $empty(), $memo(2)];

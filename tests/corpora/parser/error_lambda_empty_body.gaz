@@ -1,0 +1,4 @@
+// An empty block body gives null, which -> null says; {} after -> is never a map
+$f = $r -> $r;
+$g = $r ->
+    {};

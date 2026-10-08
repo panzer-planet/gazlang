@@ -1,7 +1,0 @@
-// An empty body reads no statement, and what follows it is not a lambda's
-$f = $r -> {};
-$g = $r -> $r;
-
-fn h() {
-    "a" => 1;
-}

@@ -330,7 +330,9 @@ Compound
           defaults: []
           arity: 0
           body: Compound
-            statements: []
+            statements:
+              0: ReturnStatement 15
+                expr: null
           captures: []
           self: null
           owner: null

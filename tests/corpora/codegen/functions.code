@@ -413,6 +413,8 @@ locals
 @ "functions.gaz" 23
 PUSH null
 RET
+PUSH null
+RET
 
 lambda 6 0 0
 locals

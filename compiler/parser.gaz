@@ -1175,10 +1175,13 @@ final kind Html {
         if (#current_token.type == "LEFT_BRACE") {
             [$in_function, $loop_depth] = [#in_function, #loop_depth];
             [#in_function, #loop_depth] = [true, 0];
+            $brace = #current_token;
             #lambda_block_start = true;
             $body = #block();
-            // An empty block read no statement to clear it
-            #lambda_block_start = false;
+            // Nothing in it gives null, which -> null says plainly; a map was likely meant
+            if ($body.statements == []) {
+                #fail_at("A lambda's {} is an empty block, not a map: write -> null for a lambda that gives nothing, or -> (\{}) for an empty map", #file, $brace.line);
+            }
             [#in_function, #loop_depth] = [$in_function, $loop_depth];
         } else {
             $body = #expr();

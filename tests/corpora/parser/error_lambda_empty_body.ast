@@ -1,0 +1,1 @@
+Error: A lambda's {} is an empty block, not a map: write -> null for a lambda that gives nothing, or -> ({}) for an empty map at tests/corpora/parser/error_lambda_empty_body.gaz:4

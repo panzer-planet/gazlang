@@ -12,7 +12,7 @@ $f = $g ?? ($x -> $x);
 $f = $x -> ({"v" => $x});
 $f = $x -> [$x];
 $f = ($x) -> { echo $x; };
-$f = () -> {};
+$f = () -> { return; };
 echo (($a) -> $a)(1);
 echo join([1], $x -> $x + 1);
 echo slice(($a, $b) -> $a, 1);
