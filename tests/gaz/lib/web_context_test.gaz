@@ -78,6 +78,40 @@ expect("an svg's title is an ordinary element, so a tag after it is read", text(
     "<svg><title><a href=\"about:invalid#blocked\">x</a></title></svg>");
 expect("an end tag in any case closes a textarea", text(web::html"<textarea>x</TEXTAREA ><p>{$name}</p>"), "<textarea>x</TEXTAREA ><p>&lt;Ann &amp; &#39;Bo&#39;&gt;</p>");
 
+/*
+ * A refresh's content is a delay and a URL: a value is the delay, alone at the start and an int,
+ * or in the URL after a url= the text writes, as in href, wherever http-equiv is in the tag
+ */
+$seconds = 5;
+$word = "x";
+expect("a refresh's delay", text(web::html"<meta http-equiv=\"refresh\" content=\"{$seconds}\">"), "<meta http-equiv=\"refresh\" content=\"5\">");
+expect("a refresh's URL", text(web::html"<meta http-equiv=\"refresh\" content=\"0;url={$base}\">"), "<meta http-equiv=\"refresh\" content=\"0;url=https://example.com\">");
+expect("a refresh's script URL is blocked", text(web::html"<meta http-equiv=\"refresh\" content=\"0;url={$js}\">"),
+    "<meta http-equiv=\"refresh\" content=\"0;url=about:invalid#blocked\">");
+expect("with http-equiv after content, in any case", text(web::html"<META CONTENT=\"0;url={$js}\" HTTP-EQUIV=\"Refresh\">"),
+    "<META CONTENT=\"0;url=about:invalid#blocked\" HTTP-EQUIV=\"Refresh\">");
+expect("a delay, then url= with spaces, a quote and any case", text(web::html"<meta http-equiv=refresh content=\"{$seconds} , URL = '{$js}'\">"),
+    "<meta http-equiv=refresh content=\"5 , URL = 'about:invalid#blocked'\">");
+$quoted = "'javascript:alert(1)'";
+expect("a URL that starts with a quote, which a browser skips", text(web::html"<meta http-equiv=\"refresh\" content=\"0;url={$quoted}\">"),
+    "<meta http-equiv=\"refresh\" content=\"0;url=about:invalid#blocked\">");
+expect("later in a refresh's URL", text(web::html"<meta http-equiv=\"refresh\" content=\"0;url=/s?q={$piece}\">"),
+    "<meta http-equiv=\"refresh\" content=\"0;url=/s?q=a%20b%26c%3Dd%2Fe%3Ff%23g%C3%A9~-._\">");
+$redirect = "0;url=https://example.com";
+expect("a meta without http-equiv takes text", text(web::html"<meta content=\"{$redirect}: {$name}\" name=\"description\">"),
+    "<meta content=\"0;url=https://example.com: &lt;Ann &amp; &#39;Bo&#39;&gt;\" name=\"description\">");
+throws("a refresh's whole content", () -> web::html"<meta http-equiv=\"refresh\" content=\"{$redirect}\">", "web::html can't put a string as the delay of a refresh: only an int, since other text could make a URL");
+throws("a refresh's whole content, http-equiv after it", () -> web::html"<meta content=\"{$redirect}\" http-equiv=\"refresh\">", "web::html can't put a string as the delay of a refresh: only an int, since other text could make a URL");
+throws("a refresh's URL without url=", () -> web::html"<meta http-equiv=\"refresh\" content=\"0; {$word}\">", "web::html can't put a value in the content attribute of <meta http-equiv=\"refresh\">: a value is the delay, alone at the start, or in the URL after a url= written in the text; anywhere else it could make the URL");
+throws("a value after a refresh's delay", () -> web::html"<meta http-equiv=\"refresh\" content=\"1{$seconds}\">", "web::html can't put a value in the content attribute of <meta http-equiv=\"refresh\">: a value is the delay, alone at the start, or in the URL after a url= written in the text; anywhere else it could make the URL");
+throws("a value in a refresh's url=", () -> web::html"<meta http-equiv=\"refresh\" content=\"0;url{$word}\">", "web::html can't put a value in the content attribute of <meta http-equiv=\"refresh\">: a value is the delay, alone at the start, or in the URL after a url= written in the text; anywhere else it could make the URL");
+throws("a refresh's URL a value could finish", () -> web::html"<meta http-equiv=\"refresh\" content=\"0;url=java{$word}\">", "web::html can't put a value in the content attribute of <meta http-equiv=\"refresh\">: with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
+throws("a refresh's URL that would make the scheme", () -> web::html"<meta http-equiv=\"refresh\" content=\"0;url={$word}:x\">", "web::html can't put a value in the content attribute of <meta http-equiv=\"refresh\">: the value and the text after it would make the scheme; put the whole URL in the value");
+throws("a refresh's URL with a script scheme in the text", () -> web::html"<meta http-equiv=\"refresh\" content=\"0;url=javascript:{$word}\">", "web::html can't put a value in the content attribute of <meta http-equiv=\"refresh\">: the URL starts javascript:");
+throws("a meta's http-equiv", () -> web::html"<meta http-equiv=\"{$word}\" content=\"0;url=/\">", "web::html can't put a value in the http-equiv attribute of <meta>: it decides what the content attribute means");
+throws("another http-equiv's content", () -> web::html"<meta http-equiv=\"content-type\" content=\"text/html; charset={$word}\">", "web::html can't put a value in the content attribute of a <meta> with an http-equiv: only a refresh's content takes a value; write the others in the text");
+throws("an http-equiv without a value", () -> web::html"<meta content=\"{$word}\" http-equiv>", "web::html can't put a value in the content attribute of a <meta> with an http-equiv: only a refresh's content takes a value; write the others in the text");
+
 /* What is refused, and why */
 $unsafe = "x";
 throws("a script", () -> web::html"<script>var x = {$unsafe};</script>", "web::html can't put a value inside <script>: HTML escaping doesn't make a value safe in script; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html");

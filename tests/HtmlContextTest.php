@@ -50,6 +50,7 @@ class HtmlContextTest extends GazLangTestCase
         "java\r\nscript:alert(1)",
         'javascript&colon;alert(1)',
         'javascript%3Aalert(1)',
+        "'javascript:alert(1)'",
         'vbscript:msgbox(1)',
         'data:text/html,<script>alert(1)</script>',
         'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
@@ -111,6 +112,11 @@ class HtmlContextTest extends GazLangTestCase
         'text after an svg' => ['<svg><circle/></svg><p>{$v}</p>', 'text'],
         'text after a doctype' => ['<!DOCTYPE html><p>{$v}</p>', 'text'],
         'text with a < in it' => ['<p>1 < 2 and {$v}</p>', null],
+        'a refresh URL' => ['<meta http-equiv="refresh" content="0;url={$v}">', null],
+        'a quoted refresh URL before http-equiv' => ["<meta content=\"0; URL='{\$v}'\" http-equiv=\"Refresh\">", null],
+        'later in a refresh URL' => ['<meta http-equiv="refresh" content="5;url=/next?q={$v}">', null],
+        'a description' => ['<meta name="description" content="{$v}">', 'content'],
+        'a description before its name' => ['<meta content="{$v}" name="description">', 'content'],
     ];
 
     /**
@@ -153,6 +159,12 @@ class HtmlContextTest extends GazLangTestCase
         'the end tag of a textarea' => '<textarea></text{$v}>',
         'a script among other markup' => '<p>a</p><script>{$v}</script>',
         'a style after an svg' => '<svg><circle/></svg><style>{$v}</style>',
+        'a whole refresh' => '<meta http-equiv="refresh" content="{$v}">',
+        'a whole refresh before its http-equiv' => '<meta content="{$v}" http-equiv="refresh">',
+        'a refresh URL without url=' => '<meta http-equiv="refresh" content="0; {$v}">',
+        'a refresh URL a value could finish' => '<meta http-equiv="refresh" content="0;url=java{$v}">',
+        'an http-equiv' => '<meta http-equiv="{$v}" content="0;url=/">',
+        'another http-equiv' => '<meta http-equiv="content-type" content="text/html; charset={$v}">',
     ];
 
     /**
@@ -242,9 +254,62 @@ class HtmlContextTest extends GazLangTestCase
                     $urls[] = $attribute->value;
                 }
             }
+            if ($element->localName === 'meta' && strcasecmp($element->getAttribute('http-equiv') ?? '', 'refresh') === 0) {
+                $url = self::refresh_url($element->getAttribute('content') ?? '');
+                if ($url !== null) {
+                    $urls[] = $url;
+                }
+            }
         }
 
         return $urls;
+    }
+
+    /**
+     * The URL a refresh's content sends the browser to, or null for none, by the HTML standard's
+     * shared declarative refresh steps: spaces, a delay, a ; or , among spaces, then "url =" and a
+     * quote, each optional, and the rest, up to the quote, is the URL
+     */
+    private static function refresh_url(string $content): ?string
+    {
+        $space = " \t\n\f\r";
+        $at = strspn($content, $space);
+        $digits = strspn($content, '0123456789', $at);
+        if ($digits === 0 && ($content[$at] ?? '') !== '.') {
+            return null;
+        }
+        $at += $digits;
+        $at += strspn($content, '0123456789.', $at);
+        if ($at < strlen($content)) {
+            if (! str_contains(";,{$space}", $content[$at])) {
+                return null;
+            }
+            $at += strspn($content, $space, $at);
+            if (in_array($content[$at] ?? '', [';', ','], true)) {
+                $at++;
+            }
+            $at += strspn($content, $space, $at);
+        }
+        if ($at >= strlen($content)) {
+            return null;
+        }
+        $rest = substr($content, $at);
+        if (preg_match('/^url[ \t\n\f\r]*=[ \t\n\f\r]*/i', $rest, $label) === 1) {
+            $rest = substr($rest, strlen($label[0]));
+        } elseif (preg_match('/^u/i', $rest) === 1) {
+            // A u that doesn't start url= is the URL's own, with no quote skipped
+            return $rest;
+        }
+        $quote = $rest[0] ?? '';
+        if ($quote === '"' || $quote === "'") {
+            $rest = substr($rest, 1);
+            $end = strpos($rest, $quote);
+            if ($end !== false) {
+                $rest = substr($rest, 0, $end);
+            }
+        }
+
+        return $rest;
     }
 
     /**
@@ -354,6 +419,7 @@ class HtmlContextTest extends GazLangTestCase
         '<tr>', '<td>', '</td>', '<form action="', '<input value="', '<p title=', 'javascript:', '/path?q=', '#',
         ' onclick="', ' style="', '<script src="', '<img src="', '<a href="javascript:', '<p srcdoc="', '<!-- ', ' -->', '<a href="/p/',
         '&amp;', '&lt;', "\n", "\t", '<![CDATA[', ']]>', '--!>', '<svg><script href="', '<use href="', ':', '&colon;', '&#58;', '="', ' =', '<?', '</p >', '</SCRIPT >', '</TeXtArEa',
+        '<meta http-equiv="refresh" content="', '<meta content="', ' http-equiv=refresh>', '0;url=', "; URL='",
     ];
 
     /**
@@ -449,6 +515,10 @@ class HtmlContextTest extends GazLangTestCase
         '<img src="{$v}:{$w}">',
         '<a href=\'{$v}:{$w}\'>x</a>',
         '<a title="{$v}" href="{$w}:{$v}">x</a>',
+        '<meta http-equiv="refresh" content="0;url={$v}:{$w}">',
+        '<meta http-equiv="refresh" content="0;url={$v}{$w}">',
+        '<meta content="0;url={$v}/{$w}" http-equiv="refresh">',
+        "<meta http-equiv=\"refresh\" content=\"0;url='{\$v}{\$w}'\">",
     ];
 
     public function test_two_values_cannot_make_a_script_url_between_them()
@@ -486,6 +556,13 @@ class HtmlContextTest extends GazLangTestCase
     {
         $page = $this->pages()['a link'][array_search('javascript:alert(1)', self::HOSTILE, true)];
         $this->assertSame('<a href="about:invalid#blocked">x</a>', $page);
+    }
+
+    public function test_a_refresh_to_a_script_url_is_blocked_not_written()
+    {
+        $page = $this->pages()['a refresh URL'][array_search('javascript:alert(1)', self::HOSTILE, true)];
+        $this->assertSame('<meta http-equiv="refresh" content="0;url=about:invalid#blocked">', $page);
+        $this->assertSame(['javascript:alert(1)'], self::urls('<meta http-equiv="Refresh" content=" 1.5 , URL = \'javascript:alert(1)\'x">'));
     }
 
     public function test_a_value_in_a_path_is_percent_encoded()

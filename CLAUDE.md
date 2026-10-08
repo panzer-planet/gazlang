@@ -987,6 +987,14 @@ and methods a table in C.
     tag search here would. A comment ends at `--!>` as well as `-->`, and an `=` where an
     attribute name should start is part of the name, as the tokenizer reads them. Errors are the
     call's, at run time, as `db::sql`'s checks are.
+  - **A refresh's content is a URL sink** (`Refresh` in `web.gaz`, read as the standard's shared
+    declarative refresh steps read it): a value is the delay, alone at the start and an int, or in
+    the URL after a `url=` the text writes, placed as in `href` (and blocked if it starts with a
+    quote, which a browser skips there); anywhere else it is refused, since without `url=` a
+    browser takes whatever follows the delay as the URL. `http-equiv` may come after `content`, so
+    a `<meta>`'s content values are placed as text and placed again at the tag's `>`
+    (`settle_meta()`). A value in `http-equiv`, or in the content of any other `http-equiv`
+    (`content-type`'s charset), is refused: the restrictive choice, loosening it breaks nothing.
   - **Scanned once for each tagged string** (`Scans::of`, a static map keyed by the parts as a
     literal, which tells `["a\0b", "c"]` from `["a", "b\0c"]`, emptied at 2000), since the parts are
     literals in the source: a tag site costs one scan, and a call about a microsecond more than
@@ -1005,7 +1013,7 @@ and methods a table in C.
     `tests/gaz/lib/web_context_test.gaz` has the rules and every message written out, and
     `tests/gaz/lib/web_test.gaz` and `tests/gaz/templates/web_html_test.gaz` the rest.
   - `ponytail:` no `<script>` or `<style>` data (a `web::json` helper is the way, when a program
-    needs one); a `<meta http-equiv="refresh" content="0;url={$u}">` isn't read as a URL; text
+    needs one); text
     split across a value (`</scr{$x}ipt>` in a part that a browser would read as one tag) is
     only refused where a value could finish it; `<noscript>` is read as markup.
 - **`Html` is a builtin kind in `BUILTIN_SOURCE`**, like `Error` and `Shared`, compiled into a

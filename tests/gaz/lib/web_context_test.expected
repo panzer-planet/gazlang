@@ -47,6 +47,25 @@ ok after a < that is only text
 ok in <textarea> and <title>, text
 ok an svg's title is an ordinary element, so a tag after it is read
 ok an end tag in any case closes a textarea
+ok a refresh's delay
+ok a refresh's URL
+ok a refresh's script URL is blocked
+ok with http-equiv after content, in any case
+ok a delay, then url= with spaces, a quote and any case
+ok a URL that starts with a quote, which a browser skips
+ok later in a refresh's URL
+ok a meta without http-equiv takes text
+ok a refresh's whole content
+ok a refresh's whole content, http-equiv after it
+ok a refresh's URL without url=
+ok a value after a refresh's delay
+ok a value in a refresh's url=
+ok a refresh's URL a value could finish
+ok a refresh's URL that would make the scheme
+ok a refresh's URL with a script scheme in the text
+ok a meta's http-equiv
+ok another http-equiv's content
+ok an http-equiv without a value
 ok a script
 ok a style
 ok an unquoted attribute

@@ -2081,6 +2081,10 @@ Where a value lands decides what is done with it:
   is blocked.
 - **Later in a URL** (`href="/users/{$id}?tab={$tab}"`, after a `/`, `?`, `#` or `:`): percent-encoded,
   byte by byte, so a value is one piece of a path or a query and can't end it.
+- **In a refresh** (`<meta http-equiv="refresh" content="...">`, in either order): a value is the
+  delay, alone at the start, and must be an int (`content="{$seconds}"`); or it is in the URL after
+  a `url=` the text writes (`content="0;url={$url}"`), at its start or later as above. A URL value
+  that starts with a quote is blocked too, since a browser skips the quote there.
 
 ```gaz
 import "std/web.gaz";
@@ -2101,7 +2105,9 @@ in an end tag or a declaration, right after a `<`, `</`, `<!` or `<!-`, inside t
 `<textarea>` or `<title>`, in a URL whose text already starts with another scheme
 (`href="javascript:{$x}"`), or in a URL that loads code or a document (`<script src>`, an svg
 `<script href>`, `<iframe src>`, `<frame src>`, `<embed src>`, `<object data>`, `<link href>`,
-`<base href>`) is an error that says why, since
+`<base href>`), anywhere else in a refresh's content (`content="0; {$url}"`, which a browser
+reads as a URL without the `url=`), in a `<meta>`'s `http-equiv`, or in the content of a `<meta>`
+with any other `http-equiv`, is an error that says why, since
 HTML escaping doesn't make a value safe there. So is a value that could be part of a URL's scheme:
 text before it with no `/`, `?`, `#` or `:` between (`href="java{$x}"`), two values side by side at
 the start, or text right after a first value that begins with a `:` or an `&` (`href="{$scheme}:{$rest}"`,

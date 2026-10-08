@@ -16,6 +16,9 @@
  * - at the start of a URL (`href="{$url}"`), escaped, and blocked unless it is relative or
  *   starts http:, https:, mailto: or tel: (a `javascript:` URL becomes about:invalid#blocked);
  * - later in a URL (`href="/users/{$id}?tab={$tab}"`), percent-encoded;
+ * - in the content of `<meta http-equiv="refresh">`, either the delay, alone at the start and an
+ *   int (`content="{$seconds}"`), or in the URL after a `url=` the text writes, as in `href`
+ *   (`content="0;url={$url}"`); a `<meta>` with any other http-equiv takes no value in content;
  * - nowhere else: a value in an unquoted attribute, `<script>`, `<style>`, an event handler
  *   (`onclick`) or `style` attribute, a tag or attribute name, or a URL that loads code or a
  *   document (`<script src>`, `<iframe src>`) is an error that says why, since HTML escaping
@@ -38,6 +41,8 @@ enum Placement {
     Plain;
     UrlStart;
     UrlPart;
+    RefreshDelay;
+    RefreshUrlStart;
 }
 
 // What the scanner is in the middle of reading, as the HTML tokenizer is
@@ -76,6 +81,12 @@ const RESOURCE_URLS = [["script", "src"], ["script", "href"], ["script", "xlink:
 const ALLOWED_SCHEMES = ["http", "https", "mailto", "tel"];
 const URL_DELIMITERS = ["/", "?", "#", ":"];
 const BLOCKED_URL = "about:invalid#blocked";
+// What a refresh's delay is read as, and what may follow it
+const DELAY_CHARACTERS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."];
+const SEPARATORS = [";", ","];
+const QUOTES = ["'", "\""];
+const REFRESH_CONTENT = "in the content attribute of <meta http-equiv=\"refresh\">";
+const MAKES_SCHEME = "the value and the text after it would make the scheme; put the whole URL in the value";
 // What a URL may hold anywhere without being percent-encoded: letters, digits and - . _ ~
 const UNRESERVED = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
 const HEX = "0123456789ABCDEF";
@@ -124,6 +135,8 @@ fn written($value, $placement) {
         Placement::Plain => plain($value),
         Placement::UrlStart => url_start($value),
         Placement::UrlPart => url_part($value),
+        Placement::RefreshDelay => refresh_delay($value),
+        Placement::RefreshUrlStart => refresh_url_start($value),
     };
 }
 
@@ -208,6 +221,29 @@ fn url_part($value) {
     return $encoded;
 }
 
+/*
+ * A value at the start of a refresh's URL: as at the start of any URL, except that a browser skips
+ * a quote that leads a refresh's URL before it reads the scheme, so one that starts with a quote
+ * is blocked rather than read past.
+ */
+fn refresh_url_start($value) {
+    $start = url_start_text(text_of($value, "a URL"));
+    if (in_array(char_at($start, 0), QUOTES)) {
+        return BLOCKED_URL;
+    }
+
+    return url_start($value);
+}
+
+// A value that is a refresh's delay: an int, since any other text could go on into a URL
+fn refresh_delay($value) {
+    if (type_of($value) != "int") {
+        throw "web::html can't put a " .. type_of($value) .. " as the delay of a refresh: only an int, since other text could make a URL";
+    }
+
+    return to_string($value);
+}
+
 fn percent($byte) {
     $code = ord($byte);
 
@@ -247,6 +283,63 @@ fn url_start_text($url) {
     }
 
     return slice($clean, $start);
+}
+
+fn refuse($where, $why) {
+    throw "web::html can't put a value " .. $where .. ": " .. $why;
+}
+
+/*
+ * A value in a URL is at its start, where the scheme is, or after it. Whether it is at the
+ * start is read from the program's text of the URL before it, since the values before it are
+ * not known when the text is read: with none in the way ($first), an empty text is the start; a
+ * /, ?, # or : in the text puts the value after it. What is left, text with no such mark, could
+ * be finished into a scheme by the value ("java" and "script:alert(1)"), so it is refused.
+ */
+fn placement_in_url($text, $first, $where) {
+    if ($first) {
+        if (url_start_text($text) == "") {
+            return Placement::UrlStart;
+        }
+        $scheme = url_scheme($text);
+        if ($scheme != null && !in_array($scheme, ALLOWED_SCHEMES)) {
+            refuse($where, "the URL starts " .. $scheme .. ":");
+        }
+    }
+    if (!has_delimiter($text)) {
+        refuse($where, "with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
+    }
+
+    return Placement::UrlPart;
+}
+
+/*
+ * The text right after a value at the start of a URL decides what the value is: "javascript"
+ * is harmless until a ":" follows it. So if the first thing after the value that ends a scheme
+ * is a ":", or a character reference that could be one (&colon;, &#58;), the value would be
+ * the scheme, and it can't be checked.
+ */
+fn makes_scheme($segment) {
+    foreach (split($segment, "") as $c) {
+        if ($c == "&" || $c == ":") {
+            return true;
+        }
+        if (in_array($c, URL_DELIMITERS)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+fn has_delimiter($text) {
+    foreach (URL_DELIMITERS as $delimiter) {
+        if (contains($text, $delimiter)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // A letter, then letters, digits, + - and .
@@ -311,21 +404,28 @@ kind Scanner {
     #foreign = 0;
     // The last of the text read, for a value that follows the start of a tag
     #recent = "";
+    // Where each value goes, in order
+    #found = [];
+    // A <meta>'s http-equiv values and its content attributes with values in them, and of the
+    // content attribute being read, its text before each value and where that value's placement is
+    #equivs = [];
+    #contents = [];
+    #content_befores = [];
+    #content_indexes = [];
 
     // Where each value of these text parts goes, in order
     pub static fn placements($strings): list {
         $scanner = Scanner();
-        $placements = [];
         $last = len($strings) - 1;
         foreach ($strings as $i => $part) {
             $scanner.feed($part);
             if ($i < $last) {
-                $placements[] = $scanner.place();
+                $scanner.place();
             }
         }
         $scanner.finish();
 
-        return $placements;
+        return $scanner.found;
     }
 
     // Read the next part of the text
@@ -345,8 +445,12 @@ kind Scanner {
         }
     }
 
-    // Where a value goes now, or an error saying why it can't
+    // Note where a value goes now, or say why it can't go there
     pub fn place() {
+        #found[] = #placement();
+    }
+
+    fn placement() {
         match (#state) {
             State::Data => { return #markup_placement(); }
             State::RcData => { return #text_element_placement(); }
@@ -364,7 +468,7 @@ kind Scanner {
     // --- Where a value goes ---
 
     fn refuse($where, $why) {
-        throw "web::html can't put a value " .. $where .. ": " .. $why;
+        refuse($where, $why);
     }
 
     // In text a value is markup or text, but not straight after a < that it could finish into a tag
@@ -406,65 +510,80 @@ kind Scanner {
         if (in_array([#tag, $name], RESOURCE_URLS)) {
             #refuse($where, "it loads code or a document into the page, so a URL isn't enough to trust");
         }
+        if ([#tag, $name] == ["meta", "http-equiv"]) {
+            #refuse($where, "it decides what the content attribute means");
+        }
+        if ([#tag, $name] == ["meta", "content"]) {
+            #note_meta_content();
+        }
         $placement = in_array($name, URL_ATTRIBUTES) ? #url_placement($where) : Placement::Plain;
         #attribute_values++;
 
         return $placement;
     }
 
-    /*
-     * A value in a URL is at its start, where the scheme is, or after it. Whether it is at the
-     * start is read from the program's text before it, since the values before it are not
-     * known when the text is read: with none in the way, an empty text is the start; a /, ?, #
-     * or : in the text puts the value after it. What is left, text with no such mark, could be
-     * finished into a scheme by the value ("java" and "script:alert(1)"), so it is refused.
-     */
+    // A value in a URL (see placement_in_url()), and whether the text after it must be checked
     fn url_placement($where) {
-        $text = #attribute_text;
-        if (#attribute_values == 0) {
-            if (url_start_text($text) == "") {
-                #after_start = true;
+        $placement = placement_in_url(#attribute_text, #attribute_values == 0, $where);
+        #after_start = $placement == Placement::UrlStart;
 
-                return Placement::UrlStart;
-            }
-            $scheme = url_scheme($text);
-            if ($scheme != null && !in_array($scheme, ALLOWED_SCHEMES)) {
-                #refuse($where, "the URL starts " .. $scheme .. ":");
-            }
-        }
-        if (!#has_delimiter($text)) {
-            #refuse($where, "with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
-        }
-
-        return Placement::UrlPart;
+        return $placement;
     }
 
-    /*
-     * The text right after a value at the start of a URL decides what the value is: "javascript"
-     * is harmless until a ":" follows it. So if the first thing after the value that ends a scheme
-     * is a ":", or a character reference that could be one (&colon;, &#58;), the value would be
-     * the scheme, and it can't be checked: put the whole URL in the value.
-     */
+    // The text right after a value at the start of a URL, which mustn't make the value a scheme
     fn check_after_start($segment) {
         #after_start = false;
-        foreach (split($segment, "") as $c) {
-            if ($c == "&" || $c == ":") {
-                #refuse("in the {#attribute} attribute of <" .. #tag .. ">", "the value and the text after it would make the scheme; put the whole URL in the value");
+        if (makes_scheme($segment)) {
+            #refuse("in the {#attribute} attribute of <" .. #tag .. ">", MAKES_SCHEME);
+        }
+    }
+
+    /*
+     * A <meta>'s content is a refresh's, holding a URL, when the tag's http-equiv is refresh,
+     * which may come after it. So a value in content is placed as text until the tag's >, and
+     * then again (Refresh) if it is a refresh's. Another http-equiv's content takes no value, and
+     * neither does http-equiv itself, which decides what content means.
+     */
+    fn settle_meta() {
+        if (#tag != "meta" || #contents == [] || #equivs == []) {
+            return;
+        }
+        foreach (#equivs as $equiv) {
+            if (lower($equiv) != "refresh") {
+                #refuse("in the content attribute of a <meta> with an http-equiv", "only a refresh's content takes a value; write the others in the text");
             }
-            if (in_array($c, URL_DELIMITERS)) {
-                return;
+        }
+        foreach (#contents as $content) {
+            $found = Refresh::placements($content.pieces);
+            foreach ($content.indexes as $k => $index) {
+                #found[$index] = $found[$k];
             }
         }
     }
 
-    fn has_delimiter($text) {
-        foreach (URL_DELIMITERS as $delimiter) {
-            if (contains($text, $delimiter)) {
-                return true;
-            }
-        }
+    // A value in a <meta>'s content attribute, kept to be placed again at the tag's end
+    fn note_meta_content() {
+        #content_befores[] = #attribute_text;
+        #content_indexes[] = len(#found);
+    }
 
-        return false;
+    // An attribute's name has been read: a <meta>'s http-equiv is kept, empty until a value is read
+    fn attribute_named() {
+        if (#tag == "meta" && #attribute == "http-equiv") {
+            #equivs[] = "";
+        }
+    }
+
+    // An attribute's value has been read: a <meta>'s http-equiv, or its content with values in it, is kept
+    fn end_value() {
+        if (#tag != "meta") {
+            return;
+        }
+        if (#attribute == "http-equiv") {
+            #equivs[len(#equivs) - 1] = #attribute_text;
+        } else if (#attribute == "content" && #content_indexes != []) {
+            #contents[] = MetaContent(#content_indexes, pieces_between(#content_befores, #attribute_text));
+        }
     }
 
     // What the scanner is in, for an error
@@ -527,6 +646,8 @@ kind Scanner {
         #tag = "";
         #closing = $closing;
         #self_closing = false;
+        #equivs = [];
+        #contents = [];
         #state = State::TagName;
     }
 
@@ -629,6 +750,7 @@ kind Scanner {
         if (#at == len(#text)) {
             return;
         }
+        #attribute_named();
         if (#text[#at] == "=") {
             #at++;
             #state = State::BeforeValue;
@@ -669,7 +791,7 @@ kind Scanner {
         } else if ($c == ">") {
             #state = State::BeforeAttribute;
         } else {
-            #state = State::Unquoted;
+            #begin_value(State::Unquoted);
         }
     }
 
@@ -677,6 +799,8 @@ kind Scanner {
         #state = $state;
         #attribute_text = "";
         #attribute_values = 0;
+        #content_befores = [];
+        #content_indexes = [];
     }
 
     fn read_quoted($quote) {
@@ -693,20 +817,25 @@ kind Scanner {
             return;
         }
         #at = $end + 1;
+        #end_value();
         #state = State::BeforeAttribute;
     }
 
     fn read_unquoted() {
+        $start = #at;
         while (#at < len(#text) && !in_array(#text[#at], SPACE) && #text[#at] != ">") {
             #at++;
         }
+        #attribute_text ..= slice(#text, $start, #at - $start);
         if (#at < len(#text)) {
+            #end_value();
             #state = State::BeforeAttribute;
         }
     }
 
     // The > of a start tag: what its content is, if it is one that has its own rules
     fn finish_start_tag() {
+        #settle_meta();
         if (in_array(#tag, FOREIGN_TAGS) && !#self_closing) {
             #foreign++;
         }
@@ -768,5 +897,175 @@ kind Scanner {
             }
             $from = $found + 1;
         }
+    }
+}
+
+// The values in one content attribute of a <meta>: where their placements are, and the program's
+// text around them, one more piece than values
+kind MetaContent {
+    fn _(pub #indexes, pub #pieces) {}
+}
+
+// An attribute's text cut where its values were, from its text before each value and the whole
+fn pieces_between($befores, $whole) {
+    $pieces = [];
+    $from = 0;
+    foreach ($befores as $before) {
+        $pieces[] = slice($before, $from);
+        $from = len($before);
+    }
+    $pieces[] = slice($whole, $from);
+
+    return $pieces;
+}
+
+/*
+ * The content of a <meta http-equiv="refresh">, read as a browser reads it (the HTML standard's
+ * shared declarative refresh steps): spaces, a delay of digits and dots, then spaces with a ; or ,
+ * among them, then "url", spaces, "=", spaces and a quote, each optional, and the rest is the
+ * URL. Without "url=" the rest is a URL all the same, so a value after the delay could make one
+ * wherever it lands. A value goes in two places only: alone at the start, as the delay, which
+ * must be an int; and after a url= written in the text, where it is in a URL as in href. Anywhere
+ * else it is refused. The values are holes in the text: reading reaches one at the end of any
+ * piece but the last.
+ */
+kind Refresh {
+    #piece = 0;
+    #at = 0;
+    #found = [];
+
+    fn _(#pieces) {}
+
+    // Where each value between the content's pieces goes, in order
+    pub static fn placements(list $pieces): list {
+        $refresh = Refresh($pieces);
+        $refresh.read();
+
+        return $refresh.found;
+    }
+
+    fn read() {
+        #read_delay();
+        if (#read_separator() && #read_url_label()) {
+            #read_url();
+
+            return;
+        }
+        #refuse_values_left();
+    }
+
+    // Spaces, then the delay: a value alone, or digits and dots in the text, and no value after it
+    fn read_delay() {
+        #skip(SPACE);
+        if (#at_value()) {
+            #found[] = Placement::RefreshDelay;
+            #next_piece();
+        }
+        #skip(DELAY_CHARACTERS);
+        if (#at_value()) {
+            #refuse_values_left();
+        }
+    }
+
+    // The ; or , after the delay, among spaces; false if something else follows it, where a
+    // browser stops reading
+    fn read_separator() {
+        if (#at_end()) {
+            return true;
+        }
+        $c = #char();
+        if (!in_array($c, SEPARATORS) && !in_array($c, SPACE)) {
+            return false;
+        }
+        #skip(SPACE);
+        if (in_array(#char(), SEPARATORS)) {
+            #at++;
+        }
+        #skip(SPACE);
+
+        return true;
+    }
+
+    // url= in any case, with spaces around the = and a quote after it, as a browser allows
+    fn read_url_label() {
+        foreach (["u", "r", "l"] as $letter) {
+            if (lower(#char()) != $letter) {
+                return false;
+            }
+            #at++;
+        }
+        #skip(SPACE);
+        if (#char() != "=") {
+            return false;
+        }
+        #at++;
+        #skip(SPACE);
+        if (in_array(#char(), QUOTES)) {
+            #at++;
+        }
+
+        return true;
+    }
+
+    // The rest is the URL, and each value in it is placed as in href
+    fn read_url() {
+        $url = "";
+        $first = true;
+        while (!#on_last_piece()) {
+            $url ..= #rest_of_piece();
+            $placement = placement_in_url($url, $first, REFRESH_CONTENT);
+            $first = false;
+            #next_piece();
+            if ($placement == Placement::UrlStart) {
+                $placement = Placement::RefreshUrlStart;
+                if (makes_scheme(#pieces[#piece])) {
+                    refuse(REFRESH_CONTENT, MAKES_SCHEME);
+                }
+            }
+            #found[] = $placement;
+        }
+    }
+
+    fn refuse_values_left() {
+        if (!#on_last_piece()) {
+            refuse(REFRESH_CONTENT, "a value is the delay, alone at the start, or in the URL after a url= written in the text; anywhere else it could make the URL");
+        }
+    }
+
+    // --- Reading the pieces ---
+
+    fn skip($characters) {
+        while (#char() != "" && in_array(#char(), $characters)) {
+            #at++;
+        }
+    }
+
+    // The character being read, or "" at a value or the end
+    fn char() {
+        return char_at(#pieces[#piece], #at);
+    }
+
+    fn on_last_piece() {
+        return #piece == len(#pieces) - 1;
+    }
+
+    fn at_value() {
+        return #at == len(#pieces[#piece]) && !#on_last_piece();
+    }
+
+    fn at_end() {
+        return #at == len(#pieces[#piece]) && #on_last_piece();
+    }
+
+    fn next_piece() {
+        #piece++;
+        #at = 0;
+    }
+
+    fn rest_of_piece() {
+        $rest = slice(#pieces[#piece], #at);
+        #at = len(#pieces[#piece]);
+
+        return $rest;
     }
 }
