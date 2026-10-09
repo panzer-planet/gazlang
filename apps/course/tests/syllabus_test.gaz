@@ -1,0 +1,56 @@
+/*
+ * The course as written: every lesson reads, and every example in it is GazLang the real gaz
+ * accepts. A `gaz` block must compile, and one followed by an `output` block (past any `bash`
+ * ones) must print exactly that, so a lesson can't teach what the language doesn't do. Run from
+ * the app's directory: `../../bin/gaz test tests`.
+ */
+import "std/lists.gaz";
+import "std/test.gaz" use expect;
+import "markup.gaz";
+import "syllabus.gaz";
+
+const LESSONS = "lessons";
+
+/*
+ * The output block an example's text promises, or null: the next block, past any shell
+ * commands.
+ */
+fn promised_output(list $blocks, int $index): ?string {
+    foreach (slice($blocks, $index + 1) as $block) {
+        if ($block.language() == "output") {
+            return $block.code;
+        }
+        if ($block.language() != "bash") {
+            return null;
+        }
+    }
+
+    return null;
+}
+
+fn check_example(string $label, list $blocks, int $index): null {
+    $example = $blocks[$index];
+    $compiled = run([program_path(), "-c", "-e", $example.code]);
+    expect("{$label} compiles", $compiled["stderr"], "");
+    $output = promised_output($blocks, $index);
+    if ($output == null || !$example.runs()) {
+        return;
+    }
+    $ran = run([program_path(), "-e", $example.code]);
+    expect("{$label} prints what the lesson says", trim($ran["stdout"] .. $ran["stderr"]), trim($output));
+}
+
+$lessons = syllabus::read(LESSONS);
+$slugs = map($lessons, $lesson -> $lesson.slug);
+expect("every lesson has a slug of its own", len(lists::unique($slugs)), len($slugs));
+
+foreach ($lessons as $lesson) {
+    $blocks = course::code_blocks($lesson.body);
+    foreach ($blocks as $index => $block) {
+        if ($block.checked()) {
+            check_example("{$lesson.slug}, example " .. ($index + 1), $blocks, $index);
+        }
+    }
+}
+
+test::done();

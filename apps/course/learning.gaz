@@ -23,7 +23,21 @@ final kind Progress {
     }
 
     pub fn passed_count(): int {
-        return len(filter(#lessons, $lesson -> #has_passed($lesson)));
+        return #passed_of(#lessons);
+    }
+
+    /**
+     * The lessons by unit, in course order: `{unit => [lessons]}`.
+     */
+    pub fn units(): map {
+        return by_unit(#lessons);
+    }
+
+    /**
+     * How many of `$lessons` the student has passed.
+     */
+    pub fn passed_of(list $lessons): int {
+        return len(filter($lessons, $lesson -> #has_passed($lesson)));
     }
 
     pub fn has_passed(Lesson $lesson): bool {
@@ -85,7 +99,7 @@ final kind Learning {
             return http::redirect("/course");
         }
 
-        return page($request, "Learn GazLang", home_page(#store.lessons()));
+        return page($request, "Learn GazLang", home_page(by_unit(#store.lessons())));
     }
 
     pub fn overview(map $request): map {
@@ -168,4 +182,11 @@ final kind Learning {
 
         return with_message($request, $request["session"], "/lessons/" .. $next.slug, "Correct! On to the next one.");
     }
+}
+
+/*
+ * Lessons by their unit, the units in the order their first lessons come.
+ */
+fn by_unit(list $lessons): map {
+    return lists::group_by($lessons, $lesson -> $lesson.unit);
 }

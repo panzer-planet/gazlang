@@ -24,13 +24,22 @@ final kind Lesson {
         pub int #id,
         pub int #position,
         pub string #slug,
+        pub string #unit,
         pub string #title,
         pub string #body,
         pub string #question
     ) {}
 
     pub static fn from_row(map $row): Lesson {
-        return Lesson($row["id"], $row["position"], $row["slug"], $row["title"], $row["body"], $row["question"]);
+        return Lesson(
+            $row["id"],
+            $row["position"],
+            $row["slug"],
+            $row["unit"],
+            $row["title"],
+            $row["body"],
+            $row["question"]
+        );
     }
 
     /**
@@ -104,7 +113,7 @@ final kind Store {
      * Every lesson, in course order.
      */
     pub fn lessons(): list {
-        $rows = #db.query(db::sql"select id, position, slug, title, body, question from lessons order by position");
+        $rows = #db.query(db::sql"select id, position, slug, unit, title, body, question from lessons order by position");
 
         return map($rows, Lesson::from_row);
     }

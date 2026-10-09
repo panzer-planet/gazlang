@@ -1,42 +1,53 @@
 /**
- * The course itself: its lessons, in order, each with one question.
+ * The course as written: one Markdown file per lesson in `lessons/`, read in the order of their
+ * names, which the database is filled from when the app starts (`course::seed()` in
+ * `schema.gaz`).
  *
- * This is the source the database is filled from when the app starts (`course::seed()` in
- * `schema.gaz`), so changing a lesson here and restarting changes it for everyone. A
- * lesson's `slug` is its identity: rename one and its students' progress on it is gone.
+ * A lesson's file is named for its place and its slug, `03-first-program.md`, and looks like
+ * this:
  *
- * A body is paragraphs separated by blank lines; a block fenced by ``` lines is code, and text in
- * single backticks is inline code (see `markup.gaz`).
+ *     ---
+ *     unit: Getting started
+ *     title: Your first program
+ *     ---
+ *     The lesson, in the Markdown `markup.gaz` reads.
+ *
+ *     ## Question
+ *     Which command runs hello.gaz?
+ *
+ *     - [ ] php hello.gaz
+ *     - [x] gaz hello.gaz
+ *
+ * The slug is the lesson's identity: rename one and its students' progress on it is gone.
  */
 namespace syllabus;
+
+import "std/regex.gaz";
+import "std/text.gaz";
+
+const FILE_NAME = '\d\d-[a-z0-9-]+\.md';
+const PREFIX_LENGTH = 3;            // "03-"
+const EXTENSION = ".md";
+const FRONT_MATTER = "---";
+const QUESTION_HEADING = "## Question";
+const RIGHT = "- [x] ";
+const WRONG = "- [ ] ";
+const LEAST_CHOICES = 2;
 
 /**
  * One answer to a lesson's question.
  */
 pub final kind Choice {
     fn _(pub string #text, pub bool #correct) {}
-
-    /**
-     * The answer that passes the lesson.
-     */
-    pub static fn right(string $text): Choice {
-        return Choice($text, true);
-    }
-
-    /**
-     * An answer that doesn't.
-     */
-    pub static fn wrong(string $text): Choice {
-        return Choice($text, false);
-    }
 }
 
 /**
- * A lesson as written: what it teaches, and the question that checks it.
+ * A lesson as written: where it sits, what it teaches, and the question that checks it.
  */
 pub final kind Lesson {
     fn _(
         pub string #slug,
+        pub string #unit,
         pub string #title,
         pub string #body,
         pub string #question,
@@ -45,111 +56,118 @@ pub final kind Lesson {
 }
 
 /**
- * Every lesson, in the order they are taken.
+ * Every lesson in `$directory`, in the order of their file names. Anything wrong with a file
+ * is an error naming it, so a broken lesson stops the app before it serves one.
  */
-pub fn lessons(): list {
-    return [hello(), strictness(), values(), functions()];
+pub fn read(string $directory): list {
+    $names = filter(list_dir($directory), $name -> regex::matches($name, FILE_NAME));
+    if (len($names) == 0) {
+        throw "No lessons in {$directory}: each is a file named like 01-welcome.md";
+    }
+
+    return map($names, $name -> parse(slug_of($name), read_file("{$directory}/{$name}"), $name));
 }
 
-fn hello(): Lesson {
-    return Lesson(
-        "hello",
-        "Hello, gaz",
-        'GazLang is a small, strict scripting language for web servers and command line tools. A program is a file of statements, each ending in `;`.
+/**
+ * The lesson that `$text`, a lesson file's contents, writes. `$source` names it in errors.
+ */
+pub fn parse(string $slug, string $text, string $source): Lesson {
+    $lines = text::lines($text);
+    $end = front_matter_end($lines, $source);
+    $fields = front_matter(slice($lines, 1, $end - 1), $source);
+    $rest = slice($lines, $end + 1);
+    $question_at = index_of_line($rest, QUESTION_HEADING);
+    if ($question_at == null) {
+        throw "{$source} has no \"{QUESTION_HEADING}\" section";
+    }
+    $body = join(slice($rest, 0, $question_at), "\n") |> trim;
+    [$question, $choices] = question_and_choices(slice($rest, $question_at + 1), $source);
+    $unit = required($fields, "unit", $source);
+    $title = required($fields, "title", $source);
 
-```
-echo "Hello, world!";
-```
-
-Save that as `hello.gaz` and run it with `gaz hello.gaz`. `echo` prints a value and a newline.
-
-Variables start with `$` and need no declaration: `$name = "Ada";`. Inside double quotes a variable is interpolated, so `echo "Hi $name";` prints `Hi Ada`. Single quotes are raw text.',
-        "Which command runs the file hello.gaz?",
-        [
-            Choice::wrong("php hello.gaz"),
-            Choice::right("gaz hello.gaz"),
-            Choice::wrong("gaz --compile hello.gaz"),
-        ]
-    );
+    return Lesson($slug, $unit, $title, $body, $question, $choices);
 }
 
-fn strictness(): Lesson {
-    return Lesson(
-        "strictness",
-        "Stop, don't guess",
-        'GazLang would rather stop than guess. Adding a string to a number is an error, not a quiet conversion:
-
-```
-echo "5" + 5;     // Error: Cannot use + on string
-echo 5 + 5;       // 10
-echo "5" .. 5;    // 55: .. joins text
-```
-
-A missing map key is an error too. When missing is a normal outcome, say so with `??`, which gives the right side instead:
-
-```
-$user = {"name" => "Ada"};
-echo $user["email"] ?? "no email";
-```
-
-Every error names its file and line, so a mistake is found where it was made.',
-        "What happens when a program runs echo \"5\" + 5; ?",
-        [
-            Choice::wrong("It prints 10"),
-            Choice::wrong("It prints 55"),
-            Choice::right("It stops with an error"),
-        ]
-    );
+fn slug_of(string $name): string {
+    return slice($name, PREFIX_LENGTH, len($name) - PREFIX_LENGTH - len(EXTENSION));
 }
 
-fn values(): Lesson {
-    return Lesson(
-        "values",
-        "Lists and maps are values",
-        'A list is written `[1, 2, 3]` and a map `{"key" => "value"}`. Both are values, like numbers: assigning one copies it, so nothing changes behind your back.
+fn front_matter_end(list $lines, string $source): int {
+    if (len($lines) == 0 || $lines[0] != FRONT_MATTER) {
+        throw "{$source} must start with a {FRONT_MATTER} line, then its unit and title";
+    }
+    $end = index_of_line(slice($lines, 1), FRONT_MATTER);
+    if ($end == null) {
+        throw "{$source}'s front matter never ends: close it with a {FRONT_MATTER} line";
+    }
 
-```
-$a = [1, 2];
-$b = $a;
-$b[] = 3;         // appends to $b only
-echo $a;          // [1, 2]
-echo $b;          // [1, 2, 3]
-```
-
-Passing a list to a function copies it too, so a function hands back a new list rather than changing yours. Objects are the exception: they are handles, shared on purpose.',
-        'After $a = [1]; $b = $a; $b[] = 2; what is len($a)?',
-        [
-            Choice::right("1"),
-            Choice::wrong("2"),
-            Choice::wrong("It is an error"),
-        ]
-    );
+    return $end + 1;
 }
 
-fn functions(): Lesson {
-    return Lesson(
-        "functions",
-        "Functions and pipelines",
-        'Functions are declared with `fn`, and may say the types they take and give:
+fn front_matter(list $lines, string $source): map {
+    $fields = {};
+    foreach ($lines as $line) {
+        $parts = split($line, ":", 2);
+        if (len($parts) != 2) {
+            throw "{$source}: a front matter line is \"name: value\", not \"{$line}\"";
+        }
+        $fields[trim($parts[0])] = trim($parts[1]);
+    }
 
-```
-fn greet(string $name): string {
-    return "Hello, {$name}!";
+    return $fields;
 }
-```
 
-An anonymous function is written with `->`: `$double = $x -> $x * 2;`. A function is a value, so it can be passed to `map`, `filter` and `sort`.
+fn required(map $fields, string $name, string $source): string {
+    $value = $fields[$name] ?? "";
+    if ($value == "") {
+        throw "{$source} needs a {$name} in its front matter";
+    }
 
-`|>` passes the value on its left as the first argument of the call on its right, so a chain reads in the order it runs:
+    return $value;
+}
 
-```
-echo "  Hello World  " |> trim |> lower;   // hello world
-```',
-        "What does \"  Hi \" |> trim |> upper give?",
-        [
-            Choice::wrong("\"  HI \""),
-            Choice::right("\"HI\""),
-            Choice::wrong("\"hi\""),
-        ]
-    );
+/*
+ * The question is the text before the choices; each choice is a "- [x] " (the right one) or a
+ * "- [ ] " line.
+ */
+fn question_and_choices(list $lines, string $source): list {
+    $question = [];
+    $choices = [];
+    foreach ($lines as $line) {
+        if (starts_with($line, RIGHT)) {
+            $choices[] = Choice(slice($line, len(RIGHT)), true);
+        } else if (starts_with($line, WRONG)) {
+            $choices[] = Choice(slice($line, len(WRONG)), false);
+        } else if (len($choices) > 0 && trim($line) != "") {
+            throw "{$source}: nothing but choices may follow the first choice, not \"{$line}\"";
+        } else if (trim($line) != "") {
+            $question[] = trim($line);
+        }
+    }
+    check_choices($choices, $source);
+    if (len($question) == 0) {
+        throw "{$source} asks no question";
+    }
+
+    return [join($question, " "), $choices];
+}
+
+fn check_choices(list $choices, string $source): null {
+    $right = filter($choices, $choice -> $choice.correct);
+    if (len($choices) < LEAST_CHOICES) {
+        throw "{$source} needs at least {LEAST_CHOICES} choices";
+    }
+    if (len($right) != 1) {
+        throw "{$source} must mark exactly one choice right with \"{RIGHT}\", not " .. len($right);
+    }
+}
+
+fn index_of_line(list $lines, string $wanted): ?int {
+    foreach ($lines as $index => $line) {
+        if (trim($line) == $wanted) {
+            return $index;
+        }
+    }
+
+    return null;
 }

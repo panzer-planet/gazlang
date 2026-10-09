@@ -1,8 +1,9 @@
 namespace course;
 import "std/web.gaz";
 import "learning.gaz";
+import "markup.gaz";
 @template lesson_page(LessonView $view)
-<p class="crumbs"><a href="/course">Your course</a> · Lesson {{ $view.lesson.number() }} of {{ $view.total }}</p>
+<p class="crumbs"><a href="/course">Your course</a> · {{ $view.lesson.unit }} · Lesson {{ $view.lesson.number() }} of {{ $view.total }}</p>
 <article class="lesson">
 <h1>{{ $view.lesson.title }}</h1>
 {{ $view.body }}
@@ -10,9 +11,9 @@ import "learning.gaz";
 <form method="post" action="/lessons/{{ $view.lesson.slug }}" class="card quiz">
   {{ web::csrf_field($view.csrf) }}
   <fieldset>
-    <legend>{{ $view.lesson.question }}</legend>
+    <legend>{{ render_inline($view.lesson.question) }}</legend>
 @foreach ($view.choices as $choice)
-    <label class="choice"><input type="radio" name="choice" value="{{ $choice.position }}"{{ $view.chose($choice) ? " checked" : "" }} required> {{ $choice.text }}</label>
+    <label class="choice"><input type="radio" name="choice" value="{{ $choice.position }}"{{ $view.chose($choice) ? " checked" : "" }} required> <span>{{ render_inline($choice.text) }}</span></label>
 @endforeach
   </fieldset>
 @if ($view.verdict != null)

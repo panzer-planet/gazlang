@@ -1,9 +1,14 @@
 /**
- * A lesson's body as HTML: paragraphs, fenced code blocks (GazLang, highlighted) and inline
- * code, and nothing more.
+ * A lesson's body as HTML, from the small Markdown the lessons are written in: paragraphs,
+ * `## ` headings, `- ` lists, fenced code blocks and, inside text, `` `code` `` and
+ * `[links](https://...)`.
  *
- * The text is the course's own, but it is still escaped as any value is (`web::html`), so a `<`
- * in an example shows as a `<`.
+ * A fence names its language: `gaz` (highlighted, and checked by the tests: it must compile, and
+ * the first `output` block after it, past any `bash` ones, is what it must print), `gaz norun`
+ * (compiled but not run, for a program that needs arguments, input or a network), `gaz nocheck`
+ * (not checked at all: a piece of a bigger program), `bash`, `gazml`, and `output` or `text`,
+ * shown as they are. The text is the course's own, but every piece of it is still escaped (`web::html`), so a
+ * `<` in an example shows as a `<`.
  */
 namespace course;
 
@@ -12,7 +17,16 @@ import "std/text.gaz";
 import "std/web.gaz";
 
 const FENCE = "```";
+const HEADING = "## ";
+const ITEM = "- ";
+const CONTINUATION = "  ";
 const TICK = "`";
+const LINK_OPEN = "[";
+const LINK_MIDDLE = "](";
+const LINK_CLOSE = ")";
+
+// The language a fence names, as std/highlight.gaz names it; any other shows plain
+const HIGHLIGHTED = {"gaz" => "gaz", "bash" => "bash", "gazml" => "gazml"};
 
 /**
  * A piece of a body that knows how to show itself.
@@ -25,20 +39,73 @@ final kind Paragraph implements Block {
     fn _(string #text) {}
 
     pub fn html(): Html {
-        $pieces = inline_code(#text);
+        $text = render_inline(#text);
 
-        return web::html"<p>{$pieces}</p>";
+        return web::html"<p>{$text}</p>";
     }
 }
 
-final kind CodeBlock implements Block {
-    fn _(string #code) {}
+final kind Heading implements Block {
+    fn _(string #text) {}
 
-    // Highlighted as the GazLang website shows code: the pieces as spans, every one escaped
     pub fn html(): Html {
-        $code = highlight::to_html("gaz", #code);
+        $text = render_inline(#text);
 
-        return web::html"<pre><code>{$code}</code></pre>";
+        return web::html"<h2>{$text}</h2>";
+    }
+}
+
+final kind Bullets implements Block {
+    fn _(list #items) {}
+
+    pub fn html(): Html {
+        $items = map(#items, $item -> #item($item));
+
+        return web::html"<ul>{$items}</ul>";
+    }
+
+    fn item(string $text): Html {
+        $text = render_inline($text);
+
+        return web::html"<li>{$text}</li>";
+    }
+}
+
+/**
+ * A fenced block: its language is the first word after the fence, and the words after it are
+ * notes for the tests (`nocheck`).
+ */
+final kind CodeBlock implements Block {
+    fn _(pub string #info, pub string #code) {}
+
+    pub fn language(): string {
+        return split(#info, " ")[0];
+    }
+
+    /**
+     * Whether the tests compile it.
+     */
+    pub fn checked(): bool {
+        return #language() == "gaz" && !#says("nocheck");
+    }
+
+    /**
+     * Whether the tests run it too, when an `output` block follows.
+     */
+    pub fn runs(): bool {
+        return #checked() && !#says("norun");
+    }
+
+    fn says(string $note): bool {
+        return in_array($note, slice(split(#info, " "), 1));
+    }
+
+    pub fn html(): Html {
+        $language = #language();
+        $code = highlight::to_html(HIGHLIGHTED[$language] ?? "text", #code);
+        $class = $language == "" ? "text" : $language;
+
+        return web::html"<pre class=\"{$class}\"><code>{$code}</code></pre>";
     }
 }
 
@@ -53,48 +120,165 @@ pub fn render_body(string $body): Html {
     return web::html"{$shown}";
 }
 
+/**
+ * A line of text with its inline code and links, for a question or an answer as well as a
+ * paragraph.
+ */
+pub fn render_inline(string $text): Html {
+    $pieces = inline($text);
+
+    return web::html"{$pieces}";
+}
+
+/**
+ * The body's fenced blocks, in order, with what came between them left out: what the tests
+ * check.
+ */
+pub fn code_blocks(string $body): list {
+    return filter(blocks($body), $block -> is_a($block, CodeBlock));
+}
+
 /*
- * Blank lines end a paragraph and a fence line starts or ends a code block, inside which blank
- * lines are kept.
+ * A blank line ends a paragraph or a list; a heading or a fence ends whatever came before.
+ * Inside a fence every line is kept as it is.
  */
 fn blocks(string $body): list {
-    $found = [];
-    $lines = [];
-    $in_code = false;
+    $reader = BodyReader();
     foreach (text::lines($body) as $line) {
-        $is_fence = trim($line) == FENCE;
-        $ends_paragraph = !$in_code && trim($line) == "";
-        if ($is_fence || $ends_paragraph) {
-            $found = [...$found, ...block_of($lines, $in_code)];
-            $lines = [];
-        }
-        if ($is_fence) {
-            $in_code = !$in_code;
-        } else if (!$ends_paragraph) {
-            $lines[] = $line;
-        }
-    }
-    if ($in_code) {
-        throw "A code block in a lesson is never closed: end it with a line of " .. FENCE;
+        $reader.read($line);
     }
 
-    return [...$found, ...block_of($lines, false)];
-}
-
-fn block_of(list $lines, bool $code): list {
-    if (len($lines) == 0) {
-        return [];
-    }
-    if ($code) {
-        return [CodeBlock(join($lines, "\n"))];
-    }
-
-    return [Paragraph(join($lines, " "))];
+    return $reader.finish();
 }
 
 /*
- * Text between backticks is code: splitting on them leaves the code at the odd places.
+ * Reads a body a line at a time, keeping the block it is in the middle of.
  */
-fn inline_code(string $text): list {
-    return map(split($text, TICK), ($piece, $i) -> $i % 2 == 1 ? web::html"<code>{$piece}</code>" : $piece);
+final kind BodyReader {
+    #found = [];
+    #paragraph = [];
+    #items = [];
+    ?string #fence = null;
+    #code = [];
+
+    pub fn read(string $line): null {
+        if (#fence != null) {
+            #read_code($line);
+        } else if (starts_with($line, FENCE)) {
+            #end_text();
+            #fence = trim(slice($line, len(FENCE)));
+        } else if (trim($line) == "") {
+            #end_text();
+        } else if (starts_with($line, HEADING)) {
+            #end_text();
+            #found[] = Heading(slice($line, len(HEADING)));
+        } else if (starts_with($line, ITEM)) {
+            #end_paragraph();
+            #items[] = slice($line, len(ITEM));
+        } else if (len(#items) > 0 && starts_with($line, CONTINUATION)) {
+            #items[len(#items) - 1] ..= " " .. trim($line);
+        } else {
+            #end_list();
+            #paragraph[] = trim($line);
+        }
+    }
+
+    pub fn finish(): list {
+        if (#fence != null) {
+            throw "A code block in a lesson is never closed: end it with a line of " .. FENCE;
+        }
+        #end_text();
+
+        return #found;
+    }
+
+    fn read_code(string $line): null {
+        if (trim($line) != FENCE) {
+            #code[] = $line;
+
+            return;
+        }
+        #found[] = CodeBlock(#fence, join(#code, "\n"));
+        #fence = null;
+        #code = [];
+    }
+
+    fn end_text(): null {
+        #end_paragraph();
+        #end_list();
+    }
+
+    fn end_paragraph(): null {
+        if (len(#paragraph) > 0) {
+            #found[] = Paragraph(join(#paragraph, " "));
+            #paragraph = [];
+        }
+    }
+
+    fn end_list(): null {
+        if (len(#items) > 0) {
+            #found[] = Bullets(#items);
+            #items = [];
+        }
+    }
+}
+
+/*
+ * Text with `code` and [label](url) in it, as a list of plain strings and Html for web::html to
+ * join. Whichever starts first is taken; a backtick or bracket that starts nothing is text.
+ */
+fn inline(string $text): list {
+    $pieces = [];
+    $at = 0;
+    while ($at < len($text)) {
+        $tick = index_of($text, TICK, $at);
+        $end = $tick == null ? null : index_of($text, TICK, $tick + 1);
+        $link = link_at($text, $at);
+        if ($end != null && ($link == null || $tick < $link.start)) {
+            $pieces[] = slice($text, $at, $tick - $at);
+            $code = slice($text, $tick + 1, $end - $tick - 1);
+            $pieces[] = web::html"<code>{$code}</code>";
+            $at = $end + 1;
+        } else if ($link != null) {
+            $pieces[] = slice($text, $at, $link.start - $at);
+            $pieces[] = $link.html();
+            $at = $link.end;
+        } else {
+            break;
+        }
+    }
+    $pieces[] = slice($text, $at);
+
+    return $pieces;
+}
+
+final kind Link {
+    fn _(pub int #start, pub int #end, string #label, string #url) {}
+
+    pub fn html(): Html {
+        return web::html"<a href=\"{#url}\">{#label}</a>";
+    }
+}
+
+/*
+ * The first whole [label](url) at or after $from, or null.
+ */
+fn link_at(string $text, int $from): ?Link {
+    $open = index_of($text, LINK_OPEN, $from);
+    while ($open != null) {
+        $middle = index_of($text, LINK_MIDDLE, $open);
+        $close = $middle == null ? null : index_of($text, LINK_CLOSE, $middle);
+        if ($close == null) {
+            return null;
+        }
+        $label = slice($text, $open + 1, $middle - $open - 1);
+        if (!contains($label, LINK_OPEN)) {
+            $url = slice($text, $middle + len(LINK_MIDDLE), $close - $middle - len(LINK_MIDDLE));
+
+            return Link($open, $close + 1, $label, $url);
+        }
+        $open = index_of($text, LINK_OPEN, $open + 1);
+    }
+
+    return null;
 }

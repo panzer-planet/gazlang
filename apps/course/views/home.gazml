@@ -1,14 +1,20 @@
 namespace course;
-@template home_page(list $lessons)
+@template home_page(map $units)
 <section class="hero">
-  <h1>Learn GazLang in an afternoon</h1>
-  <p>A short course on a strict, friendly language for web servers and command line tools:
-  {{ len($lessons) }} lessons, each with a question to check you've got it.</p>
+  <h1>Learn GazLang</h1>
+  <p>A course on GazLang and its toolkit, from installing <code>gaz</code> to a web app with a
+  database, its tests and its deployment. Every lesson ends with a question to check you've got
+  it, and every example in it runs.</p>
   <p><a class="button" href="/register">Create a free account</a> or <a href="/login">sign in</a></p>
 </section>
 <h2>What you'll learn</h2>
-<ol class="syllabus">
+@foreach ($units as $unit => $lessons)
+<section class="unit">
+  <h3>{{ $unit }}</h3>
+  <ol>
 @foreach ($lessons as $lesson)
-  <li>{{ $lesson.title }}</li>
+    <li value="{{ $lesson.number() }}">{{ $lesson.title }}</li>
 @endforeach
-</ol>
+  </ol>
+</section>
+@endforeach

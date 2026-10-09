@@ -322,8 +322,8 @@ Run `php tools/bench.php 7` to measure on your own machine.
   (`.gazml`), which VS Code, Sublime and most editors read.
 - **`apps/todo/`** — a web app built to find what the language and library lack: registration,
   login and todos on PostgreSQL, with [a log of the friction](apps/todo/FRICTION.md).
-- **`apps/course/`** — a course on GazLang that students sign up for and take, on SQLite,
-  written from the docs alone.
+- **`apps/course/`** — a course on GazLang and its toolkit, from installing to deploying, that
+  students sign up for and take, on SQLite; every example in it is run by its tests.
 - **[docs/internals.md](docs/internals.md)** — how the compiler and VM fit together, the build,
   and how to work on them.
 - **[CLAUDE.md](CLAUDE.md)** — the rules and the reasons behind each design decision. The most

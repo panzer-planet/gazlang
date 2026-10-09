@@ -141,6 +141,10 @@ form button { margin-top: 16px; }
 
 .syllabus li, .lessons li { margin: 6px 0; }
 
+.unit h2, .unit h3 { margin-bottom: 4px; }
+.unit .count { color: var(--muted); font-size: 15px; font-weight: normal; margin-left: 8px; }
+.unit ol { margin-top: 4px; }
+
 .lessons { padding-left: 24px; }
 .lessons .mark { color: var(--good); font-size: 14px; margin-left: 8px; }
 
@@ -154,6 +158,10 @@ code, pre { font: 15px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
 code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
 pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
 pre code { padding: 0; background: none; }
+pre.output, pre.text { background: none; border: 1px solid var(--line); }
+pre.output::before { content: "Output"; display: block; color: var(--muted); font: 12px system-ui, sans-serif; margin-bottom: 4px; }
+.lesson h2 { font-size: 22px; margin-top: 32px; }
+.lesson ul { padding-left: 24px; }
 .kw { color: var(--kw); }
 .lit { color: var(--lit); }
 .num { color: var(--num); }

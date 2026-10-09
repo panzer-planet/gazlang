@@ -37,7 +37,7 @@ $port = number_setting("PORT", 8080);
 // Ready the database once, before the workers start, each of which opens its own connection.
 $setup = course::connect($database);
 course::migrate($setup);
-course::seed($setup, syllabus::lessons());
+course::seed($setup, syllabus::read("lessons"));
 $setup.close();
 
 $listener = socket_listen("127.0.0.1", $port);

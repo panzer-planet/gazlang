@@ -90,6 +90,9 @@ fn migrations(): list {
                 primary key (user_id, lesson_id)
             )",
         ],
+        [
+            db::sql"alter table lessons add column unit text not null default ''",
+        ],
     ];
 }
 
@@ -102,10 +105,11 @@ fn apply(db::Db $db, int $version, list $statements): null {
 }
 
 fn save_lesson(db::Db $db, int $position, syllabus::Lesson $lesson): null {
-    $id = $db.value(db::sql"insert into lessons (slug, position, title, body, question)
-        values ({$lesson.slug}, {$position}, {$lesson.title}, {$lesson.body}, {$lesson.question})
+    $id = $db.value(db::sql"insert into lessons (slug, position, unit, title, body, question)
+        values ({$lesson.slug}, {$position}, {$lesson.unit}, {$lesson.title}, {$lesson.body}, {$lesson.question})
         on conflict (slug) do update set
             position = excluded.position,
+            unit = excluded.unit,
             title = excluded.title,
             body = excluded.body,
             question = excluded.question
