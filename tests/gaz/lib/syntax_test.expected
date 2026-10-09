@@ -5,3 +5,5 @@ ok the line in the source being read
 ok the message, as --tokens prints it
 ok the inner lexer starts afresh
 ok the outer one carries on
+ok a template's buffer is one token
+ok anywhere else it is no name

@@ -1,11 +1,13 @@
 /**
- * A lesson's body as HTML: paragraphs, fenced code blocks and inline code, and nothing more.
+ * A lesson's body as HTML: paragraphs, fenced code blocks (GazLang, highlighted) and inline
+ * code, and nothing more.
  *
  * The text is the course's own, but it is still escaped as any value is (`web::html`), so a `<`
  * in an example shows as a `<`.
  */
 namespace course;
 
+import "std/highlight.gaz";
 import "std/text.gaz";
 import "std/web.gaz";
 
@@ -32,8 +34,11 @@ final kind Paragraph implements Block {
 final kind CodeBlock implements Block {
     fn _(string #code) {}
 
+    // Highlighted as the GazLang website shows code: the pieces as spans, every one escaped
     pub fn html(): Html {
-        return web::html"<pre><code>{#code}</code></pre>";
+        $code = highlight::to_html("gaz", #code);
+
+        return web::html"<pre><code>{$code}</code></pre>";
     }
 }
 

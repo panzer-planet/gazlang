@@ -3,7 +3,7 @@
  * and entries, and the navigation lists, with the templates that write them. No top level code,
  * so a test can render a template with what it likes (tests/gaz/site/pages_test.gaz).
  */
-import "./highlight.gaz";
+import "std/highlight.gaz";
 import "./markdown.gaz";
 import "./library.gaz";
 import "./documents.gaz" use Link, NavItem, Repository, root_of;
@@ -98,7 +98,7 @@ kind EntryView {
     }
 
     pub fn signature(): Html {
-        return Html(highlight::render(#entry.signature));
+        return highlight::render(#entry.signature);
     }
 
     pub fn doc(): Html {
@@ -123,7 +123,7 @@ kind LibraryView {
 
     // How a program imports it, highlighted
     pub fn import_line(): Html {
-        return Html(highlight::to_html("gaz", "import \"std/{#name}.gaz\";"));
+        return highlight::to_html("gaz", "import \"std/{#name}.gaz\";");
     }
 
     pub fn comment(): Html {

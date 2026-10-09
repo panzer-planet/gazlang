@@ -1,5 +1,5 @@
-// site/highlight.gaz: the class each piece of source is shown in, and HTML that escapes it all
-import "site/highlight.gaz";
+// std/highlight.gaz: the class each piece of source is shown in, and HTML that escapes it all
+import "std/highlight.gaz";
 import "std/test.gaz" use expect;
 
 // The pieces of some GazLang as "class:text" strings, whitespace left out, for comparing
@@ -53,9 +53,10 @@ expect("CRLF", shown("gaz", "1;\r\n// c\r\n2;\r\n"), ["num:1", ":;", "com:// c\r
 expect("CRLF round trips", round_trips("gaz", "fn f() {\r\n    return \"a\r\nb\";\r\n}\r\n"), true);
 
 // HTML: every piece escaped, a class a span
-expect("HTML is escaped", highlight::to_html("gaz", "\$a < \"<b>&'\" // <i>"),
+expect("HTML is an Html, so nothing escapes it again", kind_of(highlight::to_html("gaz", "1")) == Html, true);
+expect("HTML is escaped", highlight::to_html("gaz", "\$a < \"<b>&'\" // <i>").text,
     "<span class=\"var\">\$a</span> <span class=\"op\">&lt;</span> <span class=\"str\">&quot;&lt;b&gt;&amp;&#39;&quot;</span> <span class=\"com\">// &lt;i&gt;</span>");
-expect("plain text is escaped", highlight::to_html("", "<a href=\"x\">&</a>"), "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;");
+expect("plain text is escaped", highlight::to_html("", "<a href=\"x\">&</a>").text, "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;");
 expect("a language without a highlighter is plain", shown("text", "echo 1;"), [":echo 1;"]);
 
 // Bytecode, a line at a time

@@ -29,12 +29,9 @@
  */
 namespace gazlang;
 
-/*
- * TEMPLATE_BUFFER, and ParseError; the parser imports this file too, which a cycle of imports
- * allows, each file being read once
- */
-import "./lexer.gaz";
+// ParseError; the parser imports this file too, a cycle each file being read once allows
 import "./parser.gaz";
+import "std/syntax.gaz" use TEMPLATE_BUFFER;
 import "std/text.gaz" use quote;
 
 // The directives that open a block, and the one that closes each

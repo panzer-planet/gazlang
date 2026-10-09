@@ -9,6 +9,17 @@
   --good: #2f7d4f;
   --bad: #b3261e;
   --code: #f1eee6;
+
+  /* Code: each class std/highlight.gaz gives a piece, as the GazLang website colours them */
+  --kw: #cf222e;
+  --lit: #0550ae;
+  --num: #0550ae;
+  --str: #0a3069;
+  --var: #953800;
+  --mem: #6639ba;
+  --ty: #116329;
+  --fn: #8250df;
+  --op: #cf222e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +34,16 @@
     --good: #6cc790;
     --bad: #ff8a80;
     --code: #262b37;
+
+    --kw: #ff7b72;
+    --lit: #79c0ff;
+    --num: #79c0ff;
+    --str: #a5d6ff;
+    --var: #ffa657;
+    --mem: #d2a8ff;
+    --ty: #7ee787;
+    --fn: #d2a8ff;
+    --op: #ff7b72;
   }
 }
 
@@ -133,6 +154,16 @@ code, pre { font: 15px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
 code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
 pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
 pre code { padding: 0; background: none; }
+.kw { color: var(--kw); }
+.lit { color: var(--lit); }
+.num { color: var(--num); }
+.str { color: var(--str); }
+.com { color: var(--muted); font-style: italic; }
+.var { color: var(--var); }
+.mem { color: var(--mem); }
+.ty { color: var(--ty); }
+.fn { color: var(--fn); }
+.op { color: var(--op); }
 
 fieldset { border: 0; padding: 0; margin: 0; }
 legend { font-weight: 700; font-size: 18px; margin-bottom: 8px; }

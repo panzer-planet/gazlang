@@ -1,7 +1,8 @@
 # GazLang Development Guidelines
 
 GazLang is self-hosting: the lexer, parser and code generator are written in GazLang
-(`compiler/`), compiled to bytecode (`compiler/gazlang.gzb`, checked in) and built into a VM in C
+(`compiler/`, and the lexer in the standard library, `lib/syntax.gaz`), compiled to bytecode
+(`compiler/gazlang.gzb`, checked in) and built into a VM in C
 (`vm/`); together they are `bin/gaz`. The tests are PHP (PHPUnit classes, run in parallel by
 Pest), which runs `bin/gaz`.
 `README.md` is the invitation, `docs/language.md` the language reference, `docs/internals.md`
@@ -109,10 +110,12 @@ composer ci                         # what CI runs, cold: phpstan with no result
 
 ## Layout
 
-- `compiler/`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into
+- `compiler/`: `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into
   GazLang), `codegen.gaz`, `docblocks.gaz` (see "Docblocks"), and `gazlang.gaz`, the
   driver: `gazlang.gaz -- code|tokens|ast [FILE]`, reading standard input without a FILE, a
-  usage message and exit 2 otherwise. `gazlang.gzb` is its bytecode.
+  usage message and exit 2 otherwise. `gazlang.gzb` is its bytecode. The lexer is
+  `lib/syntax.gaz` (`std/syntax.gaz`, `namespace syntax`), so the compiler, the website, the
+  language server and any program read GazLang with one lexer.
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
@@ -144,10 +147,9 @@ composer ci                         # what CI runs, cold: phpstan with no result
   doesn't fit a line's shape as invalid, and accepts all the loader reads (comments,
   single-quoted strings and hex in a `PUSH`), not only what the compiler writes.
 - `site/`: the website, a GazLang program (see "The website"): `build.gaz` the driver,
-  `pages.gaz` and `templates/*.gazml` the pages, `markdown.gaz`, `highlight.gaz` (on the
-  compiler's lexer), `library.gaz` (the library's pages from its source), `documents.gaz` (links
-  and the repository), `verify.gaz` (the checks every page passes), `style.css`. Its tests are
-  `tests/gaz/site/` and `SiteTest`.
+  `pages.gaz` and `templates/*.gazml` the pages, `markdown.gaz`, `library.gaz` (the library's
+  pages from its source), `documents.gaz` (links and the repository), `verify.gaz` (the checks
+  every page passes), `style.css`. Its tests are `tests/gaz/site/` and `SiteTest`.
 - `tests/`: PHPUnit, `tests/gaz/` (GazLang programs, the standard library's in `tests/gaz/lib/`),
   `tests/expected/` (what every program prints), and `tests/corpora/`, the corpora: `lexer/`,
   `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/`, `csv/`.
@@ -291,6 +293,10 @@ that must find nothing to do.
   until a compiler that understands it has been built. Add it to `compiler/`, run
   `make compiler`, and only then use it in `compiler/`. A new instruction goes into the C VM
   before any bytecode using it runs.
+- **A change to `lib/syntax.gaz` is a change to the compiler**: `make compiler` too, since
+  `gazlang.gzb` holds the lexer compiled in. The compiler imports it as `std/syntax.gaz`, the
+  copy built into the `bin/gaz` compiling it, so `make compiler` rebuilds `bin/gaz` with `lib/`
+  first (`compiler` depends on it, and it on `lib/*.gaz`) and every stage reads the new lexer.
 - The bytecode is built in with `od` into `vm/build/compiler.c`, and the standard library the same
   way into `vm/build/std.c` (see `docs/library.md`): numbers only, so nothing to
   escape, and no trigraphs, which `-std=c11` turns on and the `??=` in it would be.
@@ -368,7 +374,8 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   syntax error, which is the common case mid-edit (the lexer reads up to its own first error); each
   file's outline is kept until its text changes, so a hover lexes only what changed. Nothing else is planned yet; add what a real
   session of using it shows is missing. It is `namespace gazlang`, not its own, reusing the
-  compiler's own `Lexer` and `Parser` as a test of the internals does (see "Modules and namespaces" and
+  compiler's own `Parser` as a test of the internals does (the lexer is `std/syntax.gaz`'s; see
+  "Modules and namespaces" and
   `tests/LspTest.php`), rather than making them `pub` for one caller. Framing a message needs an
   exact byte count (`Content-Length`), which needed a builtin of its own: `read_stdin_bytes($n)`,
   since `read_stdin()` reads to the end and blocks a server that stays open between messages. A
@@ -410,13 +417,15 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   needs a docblock** (`verify::undocumented()`): one without fails the build, naming the page and
   the line to write it at, so the library can't drift from its pages; a plain comment isn't shown.
   `.github/workflows/pages.yml` publishes it.
-  **GazLang is highlighted by the compiler's own lexer** (`Lexer.span()` says where each token
-  lies), so a colour can't disagree with the language, and every piece is cut from the source
-  rather than printed from a token, so whitespace, comments and escapes come out as written:
-  `round_trip_test.gaz` requires the pieces, and the HTML read back, to give every docs block and
-  every file of `lib/` and `examples/` byte for byte. Source the lexer refuses is shown plain, not
-  fatal. A fence names its language (`gaz`, `gzb`, `gazml`, `bash`); a plain fence right after
-  code is shown as its output. No JavaScript, fonts or anything fetched from elsewhere.
+  **GazLang is highlighted by the compiler's own lexer** (`std/highlight.gaz` on
+  `std/syntax.gaz`, whose `Lexer.span()` says where each token lies, in the library so an app
+  can show code as the site does), so a colour can't disagree with the language, and every
+  piece is cut from the source rather than printed from a token, so whitespace, comments and
+  escapes come out as written: `round_trip_test.gaz` requires the pieces, and the HTML read
+  back, to give every docs block and every file of `lib/` and `examples/` byte for byte. Source
+  the lexer refuses is shown plain, not fatal. A fence names its language (`gaz`, `gzb`,
+  `gazml`, `bash`); a plain fence right after code is shown as its output. No JavaScript, fonts or
+  anything fetched from elsewhere.
   **Every page is checked before anything is written** (`site/verify.gaz`): internal links and
   anchors, ids given once, tags closed in order, no block inside a `<p>`, and no Markdown the
   converter failed to read: each block's text outside code is read again, and if that finds a
@@ -615,7 +624,7 @@ version.
 ## Numbers
 
 - Literals: `0O` is refused, being hard to tell from `00`; `0o78`, `0o7.5` and `0o7e5` are each
-  one invalid literal rather than two tokens (`octal()` in `lexer.gaz`). Hex has no exponent
+  one invalid literal rather than two tokens (`octal()` in `lib/syntax.gaz`). Hex has no exponent
   (`0x1e5` is 485); no `0b`. `parse_number()` in `value.c` reads the same syntax for
   `to_float()`, and JSON numbers are valid.
 - An infinite float literal is a lexer error.
@@ -644,7 +653,7 @@ Names are ASCII.
   so strings nest; the parser desugars to `..`, so the VM needs nothing.
 - **A constant's name alone in braces interpolates it** (`{NAME}`, `{ns::NAME}`, `{Kind::NAME}`,
   the `}` right after the name), since a constant has no sigil, and without it `"{LIMIT}"` would
-  quietly be text. The shape is exact (`at_braced_name()` in `lexer.gaz`), so
+  quietly be text. The shape is exact (`at_braced_name()` in `lib/syntax.gaz`), so
   `{ X}`, `{X:1}`, `{"a": 1}` and CSS stay text. The lexer gives each part as an `IDENTIFIER`, a
   keyword too; an `IDENTIFIER` can start an interpolation only this way, so `interpolated_value()`
   in `parser.gaz` marks the name `#braced`, and once the program is read anything but a
@@ -1273,13 +1282,20 @@ and methods a table in C.
   that are derived or the code generator's (the driver's `SKIPPED`). On an error there is no
   partial tree, since the whole-program checks write into nodes parsed long before; nothing
   catches a `ParseError` and carries on, so the parser restores no state.
-- **Files that only declare** (`lexer.gaz`, `parser.gaz`, `nodes.gaz`, `template.gaz`,
-  `codegen.gaz`), as the compiler requires of any file that is imported; the driver, the main
-  file, is separate. Each imports what it names, `parser.gaz` and `template.gaz` each other.
+- **Files that only declare** (`parser.gaz`, `nodes.gaz`, `template.gaz`, `codegen.gaz`, and
+  the lexer, `std/syntax.gaz`), as the compiler requires of any file that is imported; the
+  driver, the main file, is separate. Each imports what it names, `parser.gaz` and
+  `template.gaz` each other.
+- **The lexer is the standard library's** (`lib/syntax.gaz`), not `compiler/`'s, so a program
+  outside the repository's project (`apps/course` highlighting its lessons) can read GazLang as
+  the compiler does: a namespace belongs to one project, and the library is the one every
+  project can import. Its public surface is what the compiler, the highlighter and the language
+  server need (`Lexer`, `Token`, `LexError`, `Lexer::KEYWORDS`, `TEMPLATE_BUFFER`), the rest
+  private to `syntax`.
 - **The driver raises `LexError` and `ParseError` messages again from the top level**
   (`throw $e.message`), so `--tokens` and `--ast` print only the message; a bug in a port is a
   different error and still arrives with its trace. `LexError` carries `#reason` and
-  `#source_line`, since `#line` is where in `lexer.gaz` it was raised. The one `try` in the lexer
+  `#source_line`, since `#line` is where in `syntax.gaz` it was raised. The one `try` in the lexer
   (`hex_value()`) holds only the arithmetic it is about, since `catch (Error)` also catches
   running out of call depth.
 - **What it leans on instead of writing out**: `slice(to_string([$v]), 1, -1)` is a value as a

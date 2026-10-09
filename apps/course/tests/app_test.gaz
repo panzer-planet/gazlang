@@ -97,6 +97,7 @@ expect("a second account for an email is refused", [$again["status"], shows($aga
 $lesson = $ada.get("/lessons/hello");
 expect("a lesson shows its question", shows($lesson, "Which command runs the file hello.gaz?"), true);
 expect("and its body", shows($lesson, "<code>gaz hello.gaz</code>"), true);
+expect("its code highlighted, and still escaped", shows($lesson, "<pre><code><span class=\"kw\">echo</span> <span class=\"str\">&quot;Hello, world!&quot;</span>;</code></pre>"), true);
 expect("an unknown lesson is a 404", $ada.get("/lessons/nope")["status"], 404);
 
 $none = answer($ada, "hello", null);

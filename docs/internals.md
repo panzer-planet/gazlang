@@ -44,7 +44,7 @@ about it and what isn't.
 - **It is a fixed point.** On every push, CI builds gaz, runs `make -C vm compiler` and fails if
   the bytecode that comes out isn't byte for byte the bytecode checked in. The seed is exactly
   what it makes of the sources: `compiler/` and the standard library files they import
-  (`std/text.gaz`, `std/chars.gaz`, `std/json.gaz`). You can check the same thing yourself:
+  (`std/syntax.gaz`, the lexer, and `std/text.gaz`, `std/chars.gaz`, `std/json.gaz`). You can check the same thing yourself:
   run `make -C vm compiler`, and `git status` shows nothing changed.
 - **That doesn't prove it matches the sources.** A seed that put something into what it
   compiled, and recognised its own source so as to put that in again, would pass the same check:
@@ -63,7 +63,7 @@ about it and what isn't.
 
 | Path | What it does |
 | --- | --- |
-| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `lexer.gaz`, `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, `docblocks.gaz` (a file's declarations and their docblocks, for the website and the language server; the compiler never imports it), and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in |
+| `compiler/` | the front end, in GazLang, all of it `namespace gazlang;`: `parser.gaz` and `nodes.gaz`, `template.gaz` (`.gazml` templates into GazLang), `codegen.gaz`, `docblocks.gaz` (a file's declarations and their docblocks, for the website and the language server; the compiler never imports it), and `gazlang.gaz`, the driver, which prints what `-c`, `--tokens` or `--ast` would (`gazlang.gaz -- code\|tokens\|ast [FILE]`, reading piped source without a FILE). `gazlang.gzb` is its bytecode, checked in. The lexer is the standard library's, `lib/syntax.gaz`, so any program can read GazLang as the compiler does |
 | `vm/` | the VM in C, built as `bin/gaz` with `gazlang.gzb` inside it: it runs source by compiling it with that first. `vm/gazvm.h` says which file does what; how it runs is [The C VM](vm.md) |
 | `lib/` | the standard library, written in GazLang, a namespace per file (`json::decode`, `chars::is_digit`), built into `bin/gaz` and imported as `std/json.gaz`; the rules behind it and the builtins are in [Builtins and the standard library](library.md), and its HTTP client and server in [HTTP](http.md) |
 | `examples/` | sample programs, which nothing tests |
@@ -188,7 +188,9 @@ php tools/bench.php                                    # gaz against PHP and Pyt
 - **`tests/corpora/cli/`** holds the programs `CliTest` runs through the command line. A change to its
   options, or to how it reads files and standard input, needs a row there.
 - **`compiler/gazlang.gzb`** is the compiler's bytecode, built into the VM. After changing
-  anything under `compiler/`, run `make -C vm compiler`. It compiles the compiler three times
+  anything under `compiler/`, or the lexer, `lib/syntax.gaz`, run `make -C vm compiler` (which
+  rebuilds `bin/gaz` with the library first, since the compiler imports the lexer as
+  `std/syntax.gaz`, the copy built into the `bin/gaz` compiling it). It compiles the compiler three times
   (the old compiler compiles the new one, which compiles itself twice), requires the last two
   to be the same, and only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit
   leaves a VM that can compile its fix. The compiler's own source can't use a new feature until

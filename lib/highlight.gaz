@@ -1,21 +1,26 @@
-/*
- * Syntax highlighting for the website: source text as a list of Pieces, each a run of the text
- * with the class it is shown in, and the pieces as HTML.
+/**
+ * Syntax highlighting, as the GazLang website shows code: source text as a list of `Piece`s,
+ * each a run of the text with the class it is shown in, and the pieces as HTML.
  *
- *   $pieces = highlight::gaz("echo 1;");       // [Piece("kw", "echo"), Piece("", " "), ...]
- *   echo highlight::to_html("gaz", $source);   // <span class="kw">echo</span> ...
+ *     $pieces = highlight::gaz("echo 1;");       // [Piece("kw", "echo"), Piece("", " "), ...]
+ *     echo highlight::to_html("gaz", $source);   // <span class="kw">echo</span> ...
  *
- * GazLang is split by the compiler's own lexer, so a colour can never disagree with the
- * language. The lexer drops whitespace and comments and decodes strings, so the text of every
- * piece is cut from the source by where the lexer says each token lies (Lexer.span()), never
- * written back from a token: joining the pieces' text gives the source, byte for byte.
- * Source the lexer refuses is one plain piece, so a broken example is shown, not fatal.
+ * GazLang is split by the compiler's own lexer (`std/syntax.gaz`), so a colour can never
+ * disagree with the language. The lexer drops whitespace and comments and decodes strings, so
+ * the text of every piece is cut from the source by where the lexer says each token lies, never
+ * written back from a token: joining the pieces' text gives the source, byte for byte. Source
+ * the lexer refuses is one plain piece, so a broken example is shown, not fatal.
  *
  * Bytecode, templates and shell commands have small highlighters of their own, line by line.
+ *
+ * The classes, for a stylesheet to colour: `kw` a keyword, `lit` true, false and null, `num` a
+ * number, `str` a string, `com` a comment, `var` a variable, `mem` a member (`#name`, `.name`),
+ * `ty` a kind, constant or type, `fn` a name that is called, `op` an operator; plain text has
+ * none.
  */
 namespace highlight;
 
-import "compiler/lexer.gaz" use Lexer, LexError;
+import "std/syntax.gaz" use Lexer, LexError;
 import "std/text.gaz";
 
 // The class of text shown plain: whitespace, punctuation, and anything not recognised
@@ -33,9 +38,18 @@ const TYPE = "ty";              // a kind or constant (a capital first), or a ty
 const FUNCTION = "fn";          // a name that is called
 const OPERATOR = "op";
 
-// The piece types that aren't tokens
+/**
+ * A piece's type for whitespace between GazLang tokens
+ */
 pub const SPACE_TYPE = "SPACE";
+/**
+ * A piece's type for a comment between GazLang tokens
+ */
 pub const COMMENT_TYPE = "COMMENT";
+/**
+ * A piece's type for anything that isn't GazLang read by the lexer: other languages, and source
+ * the lexer refused
+ */
 pub const TEXT_TYPE = "TEXT";
 
 const TOKEN_CLASSES = {
@@ -64,16 +78,23 @@ const BYTECODE_HEADERS = [
 ];
 const BYTECODE_KEYWORDS = ["in", "extends", "implements", "pub", "kin", "final", "local", "captured"];
 
-/*
- * A run of source text and how it is shown. $type is the lexer's token type for a token of
- * GazLang, or SPACE_TYPE, COMMENT_TYPE or TEXT_TYPE, so a reader of the pieces can tell a
- * token from what the lexer skipped, and source the lexer refused from source it read.
+/**
+ * A run of source text and how it is shown
  */
 pub kind Piece {
+    /**
+     * $class is the class it is shown in (`""` for plain text), $text the source itself, and
+     * $type the lexer's token type for a token of GazLang, or `SPACE_TYPE`, `COMMENT_TYPE` or
+     * `TEXT_TYPE`, so a reader of the pieces can tell a token from what the lexer skipped, and
+     * source the lexer refused from source it read
+     */
     fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE) {}
 }
 
-// The pieces of some text in a language named as a Markdown fence names it
+/**
+ * The pieces of $source in a language named as a Markdown fence names it: `gaz`, `gzb`
+ * (bytecode), `gazml` (a template) or `bash`; any other is one plain piece
+ */
 pub fn pieces(string $language, string $source): list {
     return match ($language) {
         "gaz" => gaz($source),
@@ -84,13 +105,17 @@ pub fn pieces(string $language, string $source): list {
     };
 }
 
-// Source in a language as HTML, for inside a <pre><code>
-pub fn to_html(string $language, string $source): string {
+/**
+ * $source in $language (as `pieces()` names it) as HTML, for inside a `<pre><code>`
+ */
+pub fn to_html(string $language, string $source): Html {
     return render(pieces($language, $source));
 }
 
-// Pieces as HTML: a class is a <span>, and all the text is escaped
-pub fn render(list $pieces): string {
+/**
+ * Pieces as HTML: a piece with a class is a `<span>` of that class, and all the text is escaped
+ */
+pub fn render(list $pieces): Html {
     $html = "";
     foreach ($pieces as $piece) {
         $text = Html::escape($piece.text);
@@ -101,10 +126,12 @@ pub fn render(list $pieces): string {
         }
     }
 
-    return $html;
+    return Html($html);
 }
 
-// GazLang source, split by the compiler's lexer; one plain piece if the lexer refuses it
+/**
+ * GazLang source, split by the compiler's lexer; one plain piece if the lexer refuses it
+ */
 pub fn gaz(string $source): list {
     try {
         return gaz_tokens($source);
@@ -267,10 +294,10 @@ fn first_word(string $line): list {
     return [slice($line, 0, $i), slice($line, $i)];
 }
 
-/*
- * Bytecode (docs/bytecode.md), a line at a time: a header or record word, or an instruction and
- * its operands. A value (after PUSH or a case's name, or in an @ location line) is a GazLang
- * literal, which the lexer highlights; the other operands are names, variables and numbers.
+/**
+ * Bytecode, a line at a time: a header or record word, or an instruction and its operands. A
+ * value (after `PUSH` or a case's name, or in an `@` location line) is a GazLang literal, which
+ * the lexer highlights; the other operands are names, variables and numbers.
  */
 pub fn bytecode(string $source): list {
     $pieces = [];
@@ -352,9 +379,9 @@ fn operand_class(string $word): string {
     };
 }
 
-/*
- * A .gazml template, a line at a time: a directive line is its word and GazLang, and anywhere
- * else {{ }}, {!! !!} and {{-- --}} are GazLang or a comment in HTML text
+/**
+ * A `.gazml` template, a line at a time: a directive line is its word and GazLang, and anywhere
+ * else `{{ }}`, `{!! !!}` and `{{-- --}}` are GazLang or a comment in HTML text
  */
 pub fn template(string $source): list {
     $pieces = [];
@@ -419,7 +446,9 @@ fn template_mark(string $line, int $i): ?list {
     };
 }
 
-// Shell commands: a # comment, at the start of a line or after a space, to the end of the line
+/**
+ * Shell commands: a `#` comment, at the start of a line or after a space, to the end of the line
+ */
 pub fn shell(string $source): list {
     $pieces = [];
     foreach (lines($source) as $line) {

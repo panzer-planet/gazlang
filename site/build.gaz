@@ -16,8 +16,8 @@
  * points to the releases page instead, so it never links to a build that doesn't exist yet.
  */
 import "std/cli.gaz";
+import "std/highlight.gaz";
 import "./pages.gaz";
-import "./highlight.gaz";
 import "./markdown.gaz";
 import "./library.gaz";
 import "./verify.gaz";
@@ -128,7 +128,7 @@ kind Site {
             #linker.add($document, $section);
         }
         // Rendered again, links and all, with the ids given in the same order
-        #renderers[$document] = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code));
+        #renderers[$document] = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code).text);
 
         return $sections;
     }
@@ -222,7 +222,7 @@ kind Site {
 
     // What renders the docblocks of a file of the library, its links going where the docs' go
     fn comment_renderer(string $source): markdown::Renderer {
-        $renderer = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code), false);
+        $renderer = markdown::Renderer(null, ($language, $code) -> highlight::to_html($language, $code).text, false);
         $root = root_of(LIBRARY_INDEX);
         $renderer.link = $url -> relative($root, #linker.resolve($source, $url));
 

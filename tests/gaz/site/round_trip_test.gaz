@@ -4,8 +4,8 @@
  * README and docs/, and on every file of lib/ and examples/, which must also all lex (a file
  * shown plain would pass the round trip while highlighting nothing).
  */
-import "site/highlight.gaz";
 import "site/markdown.gaz";
+import "std/highlight.gaz";
 import "std/test.gaz" use expect;
 
 const DOCUMENTS = ["README.md", "docs/language.md", "docs/bytecode.md", "docs/internals.md"];
@@ -20,7 +20,7 @@ fn problem(string $language, string $source): string {
     if (len(filter($pieces, $piece -> $piece.text == "")) > 0) {
         return "an empty piece";
     }
-    if (markdown::plain_text(highlight::render($pieces)) != $source) {
+    if (markdown::plain_text(highlight::render($pieces).text) != $source) {
         return "the HTML differs";
     }
 

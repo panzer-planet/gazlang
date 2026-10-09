@@ -1,8 +1,8 @@
 // The self-hosted parser on its biggest input, many times in one process
 namespace gazlang;
 
-import "compiler/lexer.gaz";
 import "compiler/parser.gaz";
+import "std/syntax.gaz" use Lexer;
 
 $path = "compiler/codegen.gaz";
 $text = read_file($path);

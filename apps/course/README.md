@@ -44,7 +44,8 @@ They drive the app through `http::TestClient`, as a browser would, on a database
 - `store.gaz`: every query, and the kinds the rows become (`User`, `Lesson`, `Choice`).
 - `accounts.gaz`: registering, signing in and out, and the forms' checks.
 - `learning.gaz`: the course overview, a lesson, and checking an answer.
-- `markup.gaz`: a lesson's body (paragraphs, fenced code and inline code) as HTML.
+- `markup.gaz`: a lesson's body (paragraphs, fenced code and inline code) as HTML, its code
+  highlighted by `std/highlight.gaz` as the GazLang website's is (the colours in `public/style.css`).
 - `pages.gaz`: what the handlers share, such as the layout and who is signed in.
 - `app.gaz`: the routes and middleware. `main.gaz` starts it.
 - `views/`: the pages, as `.gazml` templates.

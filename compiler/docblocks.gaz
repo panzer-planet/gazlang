@@ -16,7 +16,7 @@
  */
 namespace gazlang;
 
-import "./lexer.gaz";
+import "std/syntax.gaz" use Lexer, LexError;
 import "std/text.gaz" use trim_end, unindented;
 
 // The words before a declaration that say how far it escapes or what sort it is

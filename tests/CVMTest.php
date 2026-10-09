@@ -114,9 +114,10 @@ class CVMTest extends TestCase
             $this->assertSame($before, [file_get_contents($compiler), filemtime("{$dir}/bin/gaz")]);
             copy(CVM::ROOT.'/compiler/codegen.gaz', "{$dir}/compiler/codegen.gaz");
 
-            // One that moves every location after it is taken: the compiler is rebuilt, compiles
-            // itself to itself, and the VM is rebuilt with it
-            file_put_contents("{$dir}/compiler/lexer.gaz", "// a line\n".file_get_contents(CVM::ROOT.'/compiler/lexer.gaz'));
+            // One that moves every location after it is taken, in the lexer, which is the
+            // standard library's: the VM is rebuilt with the library first, then the compiler is
+            // rebuilt, compiles itself to itself, and the VM is rebuilt with it
+            file_put_contents("{$dir}/lib/syntax.gaz", "// a line\n".file_get_contents(CVM::ROOT.'/lib/syntax.gaz'));
             [, $err, $code] = $make();
             $this->assertSame([0, ''], [$code, $err]);
             $rebuilt = file_get_contents($compiler);

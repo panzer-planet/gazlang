@@ -5,7 +5,7 @@ namespace GazLang\Tests;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Checks the GazLang lexer (compiler/lexer.gaz, run by compiler/gazlang.gaz) on its corpus
+ * Checks the GazLang lexer (lib/syntax.gaz, run by compiler/gazlang.gaz) on its corpus
  *
  * Each tests/corpora/lexer/X.gaz has what `gaz --tokens` must print for it in X.tokens: each
  * token as `LINE TYPE VALUE`, then on a lexer error the error message, printed by

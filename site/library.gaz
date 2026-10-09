@@ -12,7 +12,7 @@
 namespace library;
 
 import "compiler/docblocks.gaz" use outline, Declaration;
-import "./highlight.gaz";
+import "std/highlight.gaz";
 import "std/text.gaz";
 
 /**

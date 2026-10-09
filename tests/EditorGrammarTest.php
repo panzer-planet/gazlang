@@ -35,8 +35,8 @@ class EditorGrammarTest extends GazLangTestCase
     {
         preg_match_all('#\\\\b\(([a-z|]+)\)\\\\b#', file_get_contents(self::GRAMMAR), $matches);
         $highlighted = explode('|', implode('|', $matches[1]));
-        // The keywords are the lexer's table, KEYWORDS in compiler/lexer.gaz
-        $lexer = (string) file_get_contents(self::ROOT.'/compiler/lexer.gaz');
+        // The keywords are the lexer's table, KEYWORDS in lib/syntax.gaz
+        $lexer = (string) file_get_contents(self::ROOT.'/lib/syntax.gaz');
         $this->assertSame(1, preg_match('/const KEYWORDS = \{(.*?)\};/s', $lexer, $table));
         preg_match_all('/"([a-z]+)" =>/', $table[1], $keywords);
         $this->assertGreaterThan(20, count($keywords[1]));
@@ -58,8 +58,8 @@ class EditorGrammarTest extends GazLangTestCase
         $grammar = (string) file_get_contents(self::GRAMMAR);
         $this->assertSame(1, preg_match('#<string>keyword\.operator\.gaz</string>\s*<key>match</key>\s*<string>([^<]+)</string>#', $grammar, $rule), 'the keyword.operator.gaz rule');
         $pattern = html_entity_decode($rule[1], ENT_XML1);
-        // The operators are the lexer's table, OPERATORS in compiler/lexer.gaz
-        $lexer = (string) file_get_contents(self::ROOT.'/compiler/lexer.gaz');
+        // The operators are the lexer's table, OPERATORS in lib/syntax.gaz
+        $lexer = (string) file_get_contents(self::ROOT.'/lib/syntax.gaz');
         $this->assertSame(1, preg_match('/const OPERATORS = \{(.*?)\};/s', $lexer, $table));
         preg_match_all('/"([^"]+)" =>/', $table[1], $operators);
         $this->assertGreaterThan(40, count($operators[1]));

@@ -6,9 +6,9 @@
 // It only declares, as an imported file does.
 namespace gazlang;
 
-import "./lexer.gaz";
 import "./nodes.gaz";
 import "./parser.gaz";
+import "std/syntax.gaz" use Token;
 import "std/text.gaz" use quote;
 
 kind CodeGenerator {

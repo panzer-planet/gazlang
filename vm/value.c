@@ -579,7 +579,7 @@ static bool name_start(unsigned char c) {
 /*
  * Whether the text from the { at i is a name in braces, which a string literal interpolates as
  * a constant: names joined by ::, then the } at once ({NAME}, {ns::NAME}). The same shape as
- * at_braced_name() in compiler/lexer.gaz.
+ * at_braced_name() in lib/syntax.gaz.
  */
 static bool braced_name_at(const Str *s, size_t i) {
     i++;

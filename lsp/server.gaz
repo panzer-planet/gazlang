@@ -3,18 +3,18 @@
  * diagnostics (parse and lex errors), hover (a builtin's arity, or a declaration's signature and
  * docblock), go-to-definition, completion and import links. bin/gaz lsp/server.gaz
  *
- * namespace gazlang, not its own: this reuses the compiler's own Lexer and Parser, which are
- * private to that namespace (as a test of the internals does; see CLAUDE.md).
+ * namespace gazlang, not its own: this reuses the compiler's own Parser, which is private to
+ * that namespace (as a test of the internals does; see CLAUDE.md). The lexer is std/syntax.gaz.
  */
 namespace gazlang;
 
-import "compiler/lexer.gaz";
 import "compiler/parser.gaz";
 import "compiler/docblocks.gaz";
 import "std/json.gaz" use decode, encode;
 import "std/chars.gaz" use char_at, is_alnum, span;
 import "std/regex.gaz";
 import "std/http.gaz";
+import "std/syntax.gaz" use Lexer;
 
 /*
  * The lexer's own keywords (Lexer::KEYWORDS), in its order, minus the ones the parser only

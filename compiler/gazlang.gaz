@@ -9,9 +9,9 @@
 namespace gazlang;
 
 import "./codegen.gaz";
-import "./lexer.gaz";
 import "./nodes.gaz";
 import "./parser.gaz";
+import "std/syntax.gaz" use Lexer, LexError;
 import "std/text.gaz" use quote;
 
 kind Dumper {

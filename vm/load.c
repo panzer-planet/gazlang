@@ -314,7 +314,7 @@ static const char *OPERATORS[][2] = {
     {"^", "BIT_XOR"}, {"<", "LESS_THAN"}, {">", "GREATER_THAN"}, {"=", "ASSIGN"}, {"!", "NOT"}, {"?", "QUESTION"},
     {"(", "LEFT_PAREN"}, {")", "RIGHT_PAREN"}, {";", "SEMICOLON"}, {":", "COLON"}, {"~", "BIT_NOT"},
 };
-/* The lexer's keywords (Lexer::KEYWORDS in compiler/lexer.gaz), but true, false and null, read above */
+/* The lexer's keywords (Lexer::KEYWORDS in lib/syntax.gaz), but true, false and null, read above */
 static const char *KEYWORDS[][2] = {
     {"echo", "ECHO"}, {"if", "IF"}, {"else", "ELSE"}, {"while", "WHILE"}, {"for", "FOR"}, {"foreach", "FOREACH"},
     {"as", "AS"}, {"break", "BREAK"}, {"continue", "CONTINUE"}, {"fn", "FN"}, {"return", "RETURN"},

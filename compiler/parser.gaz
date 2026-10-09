@@ -6,10 +6,10 @@
 // $root = Parser(Lexer($text), $path).parse(). Errors are ParseErrors.
 namespace gazlang;
 
-import "./lexer.gaz";
 import "./nodes.gaz";
 import "./template.gaz";
 import "std/json.gaz";
+import "std/syntax.gaz" use Lexer, LexError, Token;
 import "std/text.gaz" use quote;
 
 // #line and #file are Error's own, and say where in this file the error was raised, so the

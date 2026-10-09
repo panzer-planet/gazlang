@@ -459,6 +459,24 @@ behind them:
     second is refused and a fraction dropped (`ponytail:`, until times have nanoseconds). Its
     `$default` is told from none by a private kind (`NoDefault`), as a parameter can't say
     whether it was passed, and only `Unreadable` is caught, so running out of call depth isn't.
+- `syntax.gaz`: **the compiler's own lexer, in the library** so a program outside the
+  repository's project (an app showing GazLang, a linter) reads source exactly as the compiler
+  does: a namespace belongs to one project, and the library is the one every project can import.
+  The compiler imports it as `std/syntax.gaz` and so holds the copy built into the `bin/gaz` that
+  compiled it, which is why a change to it needs `make -C vm compiler`. Its public surface is
+  what its callers need (`Lexer`, `Token`, `LexError`, `Lexer::KEYWORDS`, and `TEMPLATE_BUFFER`
+  for the compiler's templates), the rest private, so the lexer's insides can change without
+  breaking a program. Its tokens are checked by the lexer corpus (`SelfHostedLexerTest`), its
+  API by `tests/gaz/lib/syntax_test.gaz`.
+- `highlight.gaz`: **on `syntax.gaz`, never a lexer of its own**, so a colour can't disagree with
+  the language, and every piece is cut from the source by `Lexer.span()` rather than written back
+  from a token, so joining the pieces gives the source byte for byte
+  (`tests/gaz/site/round_trip_test.gaz`, on every docs block and every file of `lib/` and
+  `examples/`). Source the lexer refuses is one plain piece, so a broken example is shown rather
+  than fatal. **`to_html()` and `render()` give an `Html`**, not a string: every piece is escaped
+  inside, so a caller can't escape it again or forget to, and it nests into `web::html` or a
+  template as it is. The class names are the website's (`kw`, `str`, ...), so an app's stylesheet
+  can colour code as the site does.
 - `term.gaz`'s drawing functions return their sequence, so a program prints them and a test
   compares them; `tui.gaz` draws into a `Screen`, a grid that `render()` diffs against what it last
   drew, so a program redraws it all every frame and a test reads `lines()` without a terminal.

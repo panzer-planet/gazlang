@@ -1,30 +1,61 @@
-// The GazLang lexer in GazLang: source text to tokens, as `gazlang --tokens` prints them.
-// tests/SelfHostedLexerTest.php checks its tokens and errors against tests/corpora/lexer.
-// Methods are named after the step they read (get_next_token(), number(), identifier()).
-//
-// It only declares, as an imported file does; the parser imports it: $lexer = Lexer($text),
-// then $lexer.get_next_token() until a token's type is "EOF". Errors are LexErrors.
-namespace gazlang;
+/**
+ * GazLang's own lexer: source text to tokens, as `gaz --tokens` prints them. It is the one the
+ * compiler reads every program with, so a tool built on it (a highlighter, the language server)
+ * can never disagree with the language.
+ *
+ *     import "std/syntax.gaz" use Lexer;
+ *
+ *     $lexer = Lexer("echo 1 + 2;");
+ *     echo $lexer.get_next_token();       // 1 ECHO echo
+ *
+ * Call `get_next_token()` until a token's `type` is `"EOF"`; `span()` says where in the text
+ * the last one lies. Whitespace and comments are skipped and strings decoded, so a token's
+ * `value` is what the source means and its span is how it was written. Source the lexer refuses
+ * raises a `LexError` at the first mistake, after the tokens before it.
+ */
+namespace syntax;
 
 import "std/chars.gaz" use char_at, is_digit, is_hex_digit;
 import "std/text.gaz" use quote;
 
-// The hidden variable a template's output is gathered in (template.gaz): a name no program can
-// write, which only source translated from a template may use
-const TEMPLATE_BUFFER = "$#html";
+/**
+ * The hidden variable a template's output is gathered in, which the compiler's translation of a
+ * `.gazml` file writes: a name no program can write, which only a `Lexer` made for translated
+ * source reads.
+ */
+pub const TEMPLATE_BUFFER = "$#html";
 
-kind Token {
+/**
+ * A token: its type, its value and the line it starts on. The parser makes some of its own
+ * (`Token("CONCAT", "..")` for an interpolated string), which have no line.
+ */
+pub kind Token {
+    /**
+     * What sort of token it is, in capitals: `"IDENTIFIER"`, `"INTEGER"`, `"STRING"`, a keyword's
+     * word (`"ECHO"`), an operator's name (`"CONCAT"`), or `"EOF"` at the end of the text
+     */
     pub #type;
+    /**
+     * What it stands for: a name or variable as written (`"$x"`, with its sigil), a number as an
+     * int or float, a string decoded, an operator or keyword as written, null at the end
+     */
     pub #value;
-    // Set by get_next_token(); a token made elsewhere, as the parser makes some, has none
+    /**
+     * The line it starts on, set by `get_next_token()`; null for a token made by hand
+     */
     pub #line = null;
 
+    /**
+     * A token of $type standing for $value
+     */
     fn _($type, $value) {
         #type = $type;
         #value = $value;
     }
 
-    // As --tokens prints it: "3 INTEGER 42", strings as literals, EOF with no value
+    /**
+     * As `gaz --tokens` prints it: `3 INTEGER 42`, a string as a literal, EOF with no value
+     */
     pub fn to_string() {
         $value = match {
             #type == "EOF" => "",
@@ -40,12 +71,24 @@ kind Token {
     }
 }
 
-// #line and #file are Error's own, and say where in this file the error was raised, so the
-// place in the source being read has names of its own. The parser adds the file to these.
+/**
+ * Source the lexer refuses, with the message `gaz --tokens` prints: the reason, then `on line
+ * N`. `line` and `file` are `Error`'s own and say where in the lexer it was raised, so the
+ * place in the source being read has names of its own.
+ */
 pub kind LexError extends Error {
+    /**
+     * What is wrong, without the line: `"Unterminated string"`
+     */
     pub #reason;
+    /**
+     * The line of the source it is on
+     */
     pub #source_line;
 
+    /**
+     * $reason, found on line $source_line of the source
+     */
     fn _($reason, $source_line) {
         ##_("{$reason} on line {$source_line}");
         #reason = $reason;
@@ -53,6 +96,10 @@ pub kind LexError extends Error {
     }
 }
 
+/**
+ * Reads GazLang source a token at a time. Each `Lexer` keeps its own place, so two can be read at
+ * once, as the compiler reads an imported file in the middle of another.
+ */
 pub kind Lexer {
     #text;
     #length;
@@ -106,7 +153,10 @@ pub kind Lexer {
         ":" => "COLON", "::" => "DOUBLE_COLON",
     };
 
-    // Lowercase and matched exactly: a capitalisation of one is an ordinary name
+    /**
+     * Every keyword and its token type, `{"echo" => "ECHO", ...}`: lowercase and matched exactly,
+     * so a capitalisation of one is an ordinary name
+     */
     pub const KEYWORDS = {
         "echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR",
         "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE",
@@ -125,9 +175,10 @@ pub kind Lexer {
         "\\" => "\\", "\"" => "\"", "$" => "$", "{" => "{",
     };
 
-    /*
-     * $template is for source translated from a template (template.gaz), which alone may name
-     * the hidden variable its output is gathered in
+    /**
+     * A lexer at the start of $text. A first line starting `#!` is skipped, as a script's is.
+     * $template is for source the compiler translated from a template, which alone may name
+     * `TEMPLATE_BUFFER`.
      */
     fn _($text, $template = false) {
         #text = $text;
@@ -624,17 +675,20 @@ pub kind Lexer {
         return Token($parent ? "PARENT" : "HASH", $sigil);
     }
 
-    /*
-     * Where in the text the last token read lies, as [start, end]: what highlights source by
-     * its tokens takes the text between two tokens as whitespace and comments. A bare
-     * interpolated variable's [key] is read with the variable, so its span covers it and the
-     * key's three tokens have empty ones.
+    /**
+     * Where in the text the last token read lies, as `[start, end]` byte offsets: the text
+     * between one token's end and the next one's start is whitespace and comments. A bare
+     * interpolated variable's `[key]` (`"$a[0]"`) is read with the variable, so its span covers
+     * it and the key's three tokens have empty ones.
      */
     pub fn span() {
         return [#start, #pos];
     }
 
-    // Skip whitespace and comments, then read one token
+    /**
+     * The next token, past any whitespace and comments: a `Token` whose type is `"EOF"` at the
+     * end of the text. Raises a `LexError` where the source is wrong.
+     */
     pub fn get_next_token() {
         #start = #pos;
         if (len(#queued_tokens) > 0) {

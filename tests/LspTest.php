@@ -458,7 +458,7 @@ class LspTest extends GazLangTestCase
      */
     public function test_completion_offers_every_keyword_of_the_lexer_but_the_hints()
     {
-        preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/compiler/lexer.gaz'), $table);
+        preg_match('/pub const KEYWORDS = \{(.*?)\};/s', file_get_contents(self::ROOT.'/lib/syntax.gaz'), $table);
         preg_match_all('/"(\w+)" =>/', $table[1], $words);
         $hints = ['include'];
         $offered = array_column(array_filter(

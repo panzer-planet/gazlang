@@ -1,8 +1,6 @@
-// compiler/lexer.gaz as the parser will use it, as a library. That it gives the right tokens
-// is SelfHostedLexerTest's job, against the PHP lexer on every .gaz file in the repository.
-namespace gazlang;
-
-import "compiler/lexer.gaz";
+// std/syntax.gaz as the parser and the highlighter use it. That it gives the right tokens is
+// SelfHostedLexerTest's job, on tests/corpora/lexer.
+import "std/syntax.gaz" use Lexer, LexError, Token, TEMPLATE_BUFFER;
 import "std/test.gaz" use expect;
 
 // The parser makes tokens of its own (the .. of an interpolated string), which have no line
@@ -15,7 +13,7 @@ try {
     echo "FAIL no error for a bad character";
 } catch (LexError $e) {
     expect("the reason, for the parser to add the file to", $e.reason, "Unexpected character '`'");
-    // Not $e.line, which is Error's own and says where in lexer.gaz the error was raised
+    // Not $e.line, which is Error's own and says where in syntax.gaz the error was raised
     expect("the line in the source being read", $e.source_line, 2);
     expect("the message, as --tokens prints it", $e.message, "Unexpected character '`' on line 2");
 }
@@ -26,3 +24,12 @@ $outer.get_next_token();
 $inner = Lexer('"x {$y} z"');
 expect("the inner lexer starts afresh", $inner.get_next_token().type, "STRING_START");
 expect("the outer one carries on", $outer.get_next_token().value, "b");
+
+// Source translated from a template alone may name the buffer its output is gathered in
+expect("a template's buffer is one token", Lexer("\$#html", true).get_next_token().value, TEMPLATE_BUFFER);
+try {
+    Lexer("\$#html").get_next_token();
+    echo "FAIL no error for the buffer outside a template";
+} catch (LexError $e) {
+    expect("anywhere else it is no name", $e.reason, "Invalid variable name: \$");
+}

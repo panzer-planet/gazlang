@@ -19,6 +19,7 @@ ok an unterminated comment
 ok a bad escape
 ok CRLF
 ok CRLF round trips
+ok HTML is an Html, so nothing escapes it again
 ok HTML is escaped
 ok plain text is escaped
 ok a language without a highlighter is plain
