@@ -61,6 +61,48 @@ echo $a == $b;
 true
 ```
 
+## Objects nobody can change
+
+Sharing is what you want for a connection, a router or a screen, but not for a value such as an
+amount of money: nobody should be able to change your price behind your back. Mark the kind
+`readonly`, and its fields are set by its constructor and by nothing else, ever:
+
+```gaz
+readonly kind Money {
+    fn _(pub int #cents, pub string #currency) {}
+
+    pub fn plus(Money $other): Money {
+        return Money(#cents + $other.cents, #currency);
+    }
+
+    pub fn to_string() {
+        return "{#currency} " .. #cents / 100;
+    }
+}
+
+$price = Money(1500, "ZAR");
+$total = $price.plus(Money(250, "ZAR"));
+echo $price;
+echo $total;
+
+try {
+    $total.cents = 0;
+} catch (Error $e) {
+    echo $e.message;
+}
+```
+
+```output
+ZAR 15.0
+ZAR 17.5
+Money #cents is read-only: only Money's constructor sets it
+```
+
+A method of a read-only kind changes nothing; it gives back a new object, as `plus()` does. Such
+an object can be shared as freely as a number. A single field can be read-only too, in a kind
+whose other fields can change: `pub readonly int #id;` is an id anyone can read and nobody can
+alter once the object is made.
+
 ## Extending a kind
 
 A kind can extend one other. An `abstract` kind can't be made itself, and its `abstract` methods
