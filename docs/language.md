@@ -316,7 +316,10 @@ and the right side of `??`, and its operand runs as far right as it can.
   `"Hello " .. $name |> upper` uppercases the whole greeting and `$items |> len > 3` compares the
   length. It is exactly the call it stands for: the same checks, errors and order of evaluation.
   A lambda right after `|>` must be in parentheses, since its body would run on over the rest of
-  the chain, and a method can't follow `|>` yet (`$x |> $obj.m()`).
+  the chain, and a method can't follow `|>` yet (`$x |> $obj.m()`). A chain written right after
+  `??` or a ternary's `:` without parentheses is an error, since it would pipe only that operand:
+  write `($x ?? "") |> trim` to pipe the result, or `$x ?? ("" |> trim)` to pipe the default
+  (`($c ? $a : $b) |> f` and `$c ? $a : ($b |> f)` likewise).
 
 ## Control flow
 

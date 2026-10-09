@@ -488,6 +488,9 @@ final kind Html {
     // The expression parenthesised() gave last for a ( expr ), so that pipe() can tell the
     // parenthesised expression that is called with the value from anything else starting with (
     #grouped = null;
+    // The call pipe() gave last, so that ?? and a ternary can tell an unparenthesised |> chain
+    // on their right, which pipes only that operand
+    #piped = null;
 
     // Assignment operator token types: = and the compound assignments
     const ASSIGNMENTS = [
@@ -1631,6 +1634,7 @@ final kind Html {
             #eat($token.type);
             if ($token.type == "PIPE") {
                 $node = #pipe($node, $token, $found + 1);
+                #piped = $node;
             } else {
                 $node = #at(BinOpAST($node, $token, #binary($found + 1)), $token);
             }
@@ -1685,6 +1689,15 @@ final kind Html {
         #fail_at("|> is followed by a function, a call or a parenthesised expression", #file, $token.line);
     }
 
+    /*
+     * Whether an operand of ?? or a ternary's else is an unparenthesised |> chain, which reads
+     * as piping the whole expression but pipes only that operand: refused, as both readings
+     * are plausible and parentheses say either
+     */
+    fn pipes_alone($operand) {
+        return $operand == #piped && $operand != #grouped;
+    }
+
     // A node the parser made in place of another, located where that one is
     fn relocated($node, $from) {
         [$node.line, $node.file] = [$from.line, $from.file];
@@ -1712,8 +1725,12 @@ final kind Html {
         $token = #current_token;
         if ($token.type == "COALESCE") {
             #eat("COALESCE");
+            $default = #coalesce();
+            if (#pipes_alone($default)) {
+                #fail_at("|> binds tighter than ??, so this pipes only the default: write (\$x ?? \$y) |> f to pipe the result, or \$x ?? (\$y |> f) to pipe the default", #file, $token.line);
+            }
 
-            return #at(BinOpAST($node, $token, #coalesce()), $token);
+            return #at(BinOpAST($node, $token, $default), $token);
         }
 
         return $node;
@@ -1768,9 +1785,14 @@ final kind Html {
         if ($token.type == "QUESTION") {
             #eat("QUESTION");
             $then = #expr();
+            $colon = #current_token;
             #eat("COLON");
+            $else = #ternary();
+            if (#pipes_alone($else)) {
+                #fail_at("|> binds tighter than ? :, so this pipes only the else branch: write (\$c ? \$a : \$b) |> f to pipe the result, or \$c ? \$a : (\$b |> f) to pipe the branch", #file, $colon.line);
+            }
 
-            return #at(TernaryAST($node, $then, #ternary()), $token);
+            return #at(TernaryAST($node, $then, $else), $token);
         }
 
         return $node;

@@ -20,8 +20,15 @@ $x
 $a + 1 |> f;
 $items |> len > 3;
 $a |> f == $b |> g;
-$a ?? $b |> f;
-$c ? $a |> f : $b |> g;
+$a |> f ?? $b;
+$c ? $a |> f : $b;
+$c |> f ? $a : $b;
+// Parenthesised on the right of ?? or after a ternary's :, which says what is piped
+$a ?? ($b |> f);
+($a ?? $b) |> f;
+$c ? $a : ($b |> g);
+($c ? $a : $b) |> g;
+$a ?? ($b |> f) ?? $c;
 fn f($a, $b = 0) { return $a; }
 fn g($a, $b = 0) { return $a; }
 fn h($a) { return $a; }

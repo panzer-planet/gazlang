@@ -1,0 +1,1 @@
+Error: |> binds tighter than ??, so this pipes only the default: write ($x ?? $y) |> f to pipe the result, or $x ?? ($y |> f) to pipe the default at tests/corpora/parser/error_pipe_after_coalesce_into_lambda.gaz:1

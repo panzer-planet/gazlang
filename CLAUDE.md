@@ -619,6 +619,11 @@ version.
   gave) is how a parenthesised expression is told from anything else that starts with `(`.
   - Its precedence costs `$x |> f .. "!"`, which pipes into `f .. "!"` and is refused saying `|>`
     binds looser than `..`.
+  - **An unparenthesised chain as `??`'s right side or a ternary's else is refused**
+    (`pipes_alone()`: the operand is `#piped`, the call `pipe()` gave last, and not `#grouped`),
+    since `$x ?? "" |> trim` pipes only the default while reading as piping the result, and either
+    is one pair of parentheses away. A ternary's middle is closed by `:`, so it can't mislead.
+    The precedence stays: moving it moves the trap to another pair.
   - **Refused**: a method (`|> $obj.m()`, `|> $obj.m`, `|> #m()`), the restrictive choice,
     loosenable later; anything else that isn't a name, a variable or a parenthesised expression
     (`|> 5`, `|> $h["k"]`). `ponytail:` `|> ($a, $b) -> ...` gets the plain `Unexpected ','`.

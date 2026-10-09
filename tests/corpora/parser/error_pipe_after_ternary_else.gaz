@@ -1,0 +1,3 @@
+$label = $done
+    ? "done"
+    : "open" |> upper;

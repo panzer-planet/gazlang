@@ -1,0 +1,4 @@
+$x = $a ?? ($b |> f)
+    |> g;
+fn f($v) { return $v; }
+fn g($v) { return $v; }

@@ -191,17 +191,17 @@ Compound
               value: "\$b"
     15: Statement 23
       expr: BinOp 23
-        left: Variable 23
-          token: 23 VAR_IDENTIFIER $a
-          value: "\$a"
-        token: 23 COALESCE ??
-        op: 23 COALESCE ??
-        right: FunctionCall 23
+        left: FunctionCall 23
           name: "f"
           args:
             0: Variable 23
-              token: 23 VAR_IDENTIFIER $b
-              value: "\$b"
+              token: 23 VAR_IDENTIFIER $a
+              value: "\$a"
+        token: 23 COALESCE ??
+        op: 23 COALESCE ??
+        right: Variable 23
+          token: 23 VAR_IDENTIFIER $b
+          value: "\$b"
     16: Statement 24
       expr: Ternary 24
         condition: Variable 24
@@ -213,78 +213,162 @@ Compound
             0: Variable 24
               token: 24 VAR_IDENTIFIER $a
               value: "\$a"
-        else: FunctionCall 24
+        else: Variable 24
+          token: 24 VAR_IDENTIFIER $b
+          value: "\$b"
+    17: Statement 25
+      expr: Ternary 25
+        condition: FunctionCall 25
+          name: "f"
+          args:
+            0: Variable 25
+              token: 25 VAR_IDENTIFIER $c
+              value: "\$c"
+        then: Variable 25
+          token: 25 VAR_IDENTIFIER $a
+          value: "\$a"
+        else: Variable 25
+          token: 25 VAR_IDENTIFIER $b
+          value: "\$b"
+    18: Statement 27
+      expr: BinOp 27
+        left: Variable 27
+          token: 27 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 27 COALESCE ??
+        op: 27 COALESCE ??
+        right: FunctionCall 27
+          name: "f"
+          args:
+            0: Variable 27
+              token: 27 VAR_IDENTIFIER $b
+              value: "\$b"
+    19: Statement 28
+      expr: FunctionCall 28
+        name: "f"
+        args:
+          0: BinOp 28
+            left: Variable 28
+              token: 28 VAR_IDENTIFIER $a
+              value: "\$a"
+            token: 28 COALESCE ??
+            op: 28 COALESCE ??
+            right: Variable 28
+              token: 28 VAR_IDENTIFIER $b
+              value: "\$b"
+    20: Statement 29
+      expr: Ternary 29
+        condition: Variable 29
+          token: 29 VAR_IDENTIFIER $c
+          value: "\$c"
+        then: Variable 29
+          token: 29 VAR_IDENTIFIER $a
+          value: "\$a"
+        else: FunctionCall 29
           name: "g"
           args:
-            0: Variable 24
-              token: 24 VAR_IDENTIFIER $b
+            0: Variable 29
+              token: 29 VAR_IDENTIFIER $b
               value: "\$b"
-    17: FunctionDeclaration 25
+    21: Statement 30
+      expr: FunctionCall 30
+        name: "g"
+        args:
+          0: Ternary 30
+            condition: Variable 30
+              token: 30 VAR_IDENTIFIER $c
+              value: "\$c"
+            then: Variable 30
+              token: 30 VAR_IDENTIFIER $a
+              value: "\$a"
+            else: Variable 30
+              token: 30 VAR_IDENTIFIER $b
+              value: "\$b"
+    22: Statement 31
+      expr: BinOp 31
+        left: Variable 31
+          token: 31 VAR_IDENTIFIER $a
+          value: "\$a"
+        token: 31 COALESCE ??
+        op: 31 COALESCE ??
+        right: BinOp 31
+          left: FunctionCall 31
+            name: "f"
+            args:
+              0: Variable 31
+                token: 31 VAR_IDENTIFIER $b
+                value: "\$b"
+          token: 31 COALESCE ??
+          op: 31 COALESCE ??
+          right: Variable 31
+            token: 31 VAR_IDENTIFIER $c
+            value: "\$c"
+    23: FunctionDeclaration 32
       name: "f"
       params: ["\$a", "\$b"]
       defaults:
         0: null
-        1: Num 25
-          token: 25 INTEGER 0
+        1: Num 32
+          token: 32 INTEGER 0
           value: 0
       body: Compound
         statements:
-          0: ReturnStatement 25
-            expr: Variable 25
-              token: 25 VAR_IDENTIFIER $a
+          0: ReturnStatement 32
+            expr: Variable 32
+              token: 32 VAR_IDENTIFIER $a
               value: "\$a"
       arity: [1, 2]
       kind: null
       abstract: false
-    18: FunctionDeclaration 26
+    24: FunctionDeclaration 33
       name: "g"
       params: ["\$a", "\$b"]
       defaults:
         0: null
-        1: Num 26
-          token: 26 INTEGER 0
+        1: Num 33
+          token: 33 INTEGER 0
           value: 0
       body: Compound
         statements:
-          0: ReturnStatement 26
-            expr: Variable 26
-              token: 26 VAR_IDENTIFIER $a
+          0: ReturnStatement 33
+            expr: Variable 33
+              token: 33 VAR_IDENTIFIER $a
               value: "\$a"
       arity: [1, 2]
       kind: null
       abstract: false
-    19: FunctionDeclaration 27
+    25: FunctionDeclaration 34
       name: "h"
       params: ["\$a"]
       defaults: [null]
       body: Compound
         statements:
-          0: ReturnStatement 27
-            expr: Variable 27
-              token: 27 VAR_IDENTIFIER $a
+          0: ReturnStatement 34
+            expr: Variable 34
+              token: 34 VAR_IDENTIFIER $a
               value: "\$a"
       arity: 1
       kind: null
       abstract: false
-    20: KindDeclaration 28
+    26: KindDeclaration 35
       name: "Point"
       parent: null
       abstract: false
       statics: []
       static_lines: []
       static_methods:
-        make: FunctionDeclaration 30
+        make: FunctionDeclaration 37
           name: "Point::make"
           params: ["\$x", "\$y"]
           defaults: [null, null]
           body: Compound
             statements:
-              0: ReturnStatement 30
-                expr: FunctionCall 30
+              0: ReturnStatement 37
+                expr: FunctionCall 37
                   name: "Point"
                   args:
-                    0: Variable 30
-                      token: 30 VAR_IDENTIFIER $x
+                    0: Variable 37
+                      token: 37 VAR_IDENTIFIER $x
                       value: "\$x"
           arity: 2
           kind: "Point"
@@ -295,7 +379,7 @@ Compound
       fields: []
       field_lines: []
       methods:
-        _: FunctionDeclaration 29
+        _: FunctionDeclaration 36
           name: "_"
           params: ["\$x"]
           defaults: [null]
@@ -316,18 +400,18 @@ Compound
       declared_at: {"_" => "Point"}
       hidden: []
       hidden_fields: []
-    21: FunctionDeclaration 30
+    27: FunctionDeclaration 37
       name: "Point::make"
       params: ["\$x", "\$y"]
       defaults: [null, null]
       body: Compound
         statements:
-          0: ReturnStatement 30
-            expr: FunctionCall 30
+          0: ReturnStatement 37
+            expr: FunctionCall 37
               name: "Point"
               args:
-                0: Variable 30
-                  token: 30 VAR_IDENTIFIER $x
+                0: Variable 37
+                  token: 37 VAR_IDENTIFIER $x
                   value: "\$x"
       arity: 2
       kind: "Point"
