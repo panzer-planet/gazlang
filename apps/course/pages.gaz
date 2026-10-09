@@ -1,0 +1,69 @@
+/**
+ * What every handler shares: who is signed in, and how a page is put in the layout.
+ */
+namespace course;
+
+import "std/crypto.gaz";
+import "std/http.gaz";
+import "store.gaz";
+import "views/layout.gazml";
+import "views/not_found.gazml";
+
+/**
+ * Middleware that puts the signed-in student in `$request["user"]`, or `null`. A session whose
+ * account has gone counts as signed out.
+ */
+fn current_user(Store $store): function {
+    return ($request, $next) -> {
+        $id = $request["session"]["user_id"] ?? null;
+        $user = $id == null ? null : $store.user($id);
+
+        return $next({...$request, "user" => $user});
+    };
+}
+
+/**
+ * The handler, for students only: anyone else is sent to sign in.
+ */
+fn students_only(function $handler): function {
+    return $request -> $request["user"] == null ? http::redirect("/login") : $handler($request);
+}
+
+/**
+ * A response showing `$content` in the layout.
+ */
+fn page(map $request, string $title, Html $content, int $status = 200): map {
+    $html = layout($title, $request["user"], $request["flash"], csrf($request), $content);
+
+    return {"status" => $status, "body" => $html};
+}
+
+fn not_found(map $request): map {
+    return page($request, "Not found", not_found_page(), 404);
+}
+
+/**
+ * The token every form of this request's page must send back.
+ */
+fn csrf(map $request): string {
+    return $request["session"]["csrf_token"];
+}
+
+/**
+ * A response that signs `$user` in with a new session, so nothing planted in the old one carries
+ * over, and shows `$message` on the page it goes to.
+ */
+fn start_session(map $request, User $user, string $to, string $message): map {
+    $session = {"user_id" => $user.id, "csrf_token" => crypto::token()};
+
+    return with_message($request, $session, $to, $message);
+}
+
+/**
+ * A redirect to `$to` that replaces the session with `$session` and shows `$message` there.
+ */
+fn with_message(map $request, map $session, string $to, string $message): map {
+    $flashed = http::flash($request, $message, $session);
+
+    return http::with_session(http::redirect($to), $flashed);
+}

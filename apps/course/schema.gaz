@@ -1,0 +1,122 @@
+/**
+ * The database: opening it, the migrations that make its tables, and filling it with the course.
+ */
+namespace course;
+
+import "std/db.gaz";
+import "syllabus.gaz";
+
+/**
+ * Opens the app's database with the settings every connection needs: foreign keys checked, and
+ * a wait for a lock rather than an error, since several workers write to the one file.
+ */
+pub fn connect(string $url): db::Db {
+    if (!starts_with($url, "sqlite:")) {
+        throw "The course runs on SQLite: its database must be a sqlite: URL";
+    }
+    $db = db::open($url);
+    $db.run(db::sql"pragma foreign_keys = on");
+    $db.run(db::sql"pragma busy_timeout = 5000");
+
+    return $db;
+}
+
+/**
+ * Brings the tables up to date, running each migration not run yet, in order, each in a
+ * transaction of its own. Run it once, before `workers()`.
+ */
+pub fn migrate(db::Db $db): null {
+    $db.run(db::sql"create table if not exists schema_versions (
+        version integer primary key,
+        applied_at integer not null
+    )");
+    $current = $db.value(db::sql"select coalesce(max(version), 0) from schema_versions");
+    foreach (migrations() as $index => $statements) {
+        $version = $index + 1;
+        if ($version > $current) {
+            $db.transaction($db -> apply($db, $version, $statements));
+        }
+    }
+}
+
+/**
+ * Makes the lessons in the database the ones given, in their order: a lesson is matched by its
+ * slug, so its students' progress survives an edit, and a lesson no longer given is removed with
+ * that progress.
+ */
+pub fn seed(db::Db $db, list $lessons): null {
+    $db.transaction($db -> {
+        foreach ($lessons as $position => $lesson) {
+            save_lesson($db, $position, $lesson);
+        }
+        $slugs = map($lessons, $lesson -> $lesson.slug);
+        $db.exec(db::sql"delete from lessons where slug not in {$slugs}");
+    });
+}
+
+/*
+ * Each migration is a list of statements. Add new ones at the end; never change one that has
+ * run somewhere.
+ */
+fn migrations(): list {
+    return [
+        [
+            db::sql"create table users (
+                id integer primary key,
+                name text not null,
+                email text not null unique,
+                password_hash text not null,
+                created_at integer not null
+            )",
+            db::sql"create table lessons (
+                id integer primary key,
+                slug text not null unique,
+                position integer not null,
+                title text not null,
+                body text not null,
+                question text not null
+            )",
+            db::sql"create table choices (
+                lesson_id integer not null references lessons (id) on delete cascade,
+                position integer not null,
+                text text not null,
+                correct integer not null check (correct in (0, 1)),
+                primary key (lesson_id, position)
+            )",
+            db::sql"create table completions (
+                user_id integer not null references users (id) on delete cascade,
+                lesson_id integer not null references lessons (id) on delete cascade,
+                completed_at integer not null,
+                primary key (user_id, lesson_id)
+            )",
+        ],
+    ];
+}
+
+fn apply(db::Db $db, int $version, list $statements): null {
+    foreach ($statements as $statement) {
+        $db.run($statement);
+    }
+    $now = time();
+    $db.exec(db::sql"insert into schema_versions (version, applied_at) values ({$version}, {$now})");
+}
+
+fn save_lesson(db::Db $db, int $position, syllabus::Lesson $lesson): null {
+    $id = $db.value(db::sql"insert into lessons (slug, position, title, body, question)
+        values ({$lesson.slug}, {$position}, {$lesson.title}, {$lesson.body}, {$lesson.question})
+        on conflict (slug) do update set
+            position = excluded.position,
+            title = excluded.title,
+            body = excluded.body,
+            question = excluded.question
+        returning id");
+    foreach ($lesson.choices as $order => $choice) {
+        $db.exec(db::sql"insert into choices (lesson_id, position, text, correct)
+            values ({$id}, {$order}, {$choice.text}, {$choice.correct})
+            on conflict (lesson_id, position) do update set
+                text = excluded.text,
+                correct = excluded.correct");
+    }
+    $count = len($lesson.choices);
+    $db.exec(db::sql"delete from choices where lesson_id = {$id} and position >= {$count}");
+}

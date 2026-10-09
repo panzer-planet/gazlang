@@ -1,0 +1,6 @@
+namespace course;
+@template not_found_page()
+<section class="card narrow">
+<h1>Nothing here</h1>
+<p>That page doesn't exist. <a href="/">Go to the start</a>.</p>
+</section>

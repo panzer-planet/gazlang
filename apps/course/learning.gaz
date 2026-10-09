@@ -1,0 +1,171 @@
+/**
+ * Taking the course: the overview of a student's progress, a lesson, and answering its question.
+ */
+namespace course;
+
+import "std/http.gaz";
+import "std/lists.gaz";
+import "markup.gaz";
+import "pages.gaz";
+import "store.gaz";
+import "views/course.gazml";
+import "views/home.gazml";
+import "views/lesson.gazml";
+
+/**
+ * A student's way through the course: which lessons they have passed, and what comes next.
+ */
+final kind Progress {
+    fn _(pub list #lessons, map #passed) {}
+
+    pub fn total(): int {
+        return len(#lessons);
+    }
+
+    pub fn passed_count(): int {
+        return len(filter(#lessons, $lesson -> #has_passed($lesson)));
+    }
+
+    pub fn has_passed(Lesson $lesson): bool {
+        return has_key(#passed, $lesson.id);
+    }
+
+    pub fn finished(): bool {
+        return #next_up() == null;
+    }
+
+    /**
+     * The first lesson not passed yet, or `null` when every one is.
+     */
+    pub fn next_up(): ?Lesson {
+        foreach (#lessons as $lesson) {
+            if (!#has_passed($lesson)) {
+                return $lesson;
+            }
+        }
+
+        return null;
+    }
+}
+
+/**
+ * Everything a lesson's page shows.
+ */
+final kind LessonView {
+    pub ?int #chosen = null;
+    pub ?string #verdict = null;
+    pub ?Lesson #previous = null;
+    pub ?Lesson #next = null;
+
+    fn _(
+        pub Lesson #lesson,
+        pub int #total,
+        pub Html #body,
+        pub list #choices,
+        pub bool #passed,
+        pub string #csrf
+    ) {}
+
+    /**
+     * Whether `$choice` was the answer sent, so a wrong answer stays selected.
+     */
+    pub fn chose(Choice $choice): bool {
+        return $choice.position == #chosen;
+    }
+}
+
+/**
+ * The handlers for the course.
+ */
+final kind Learning {
+    fn _(Store #store) {}
+
+    pub fn home(map $request): map {
+        if ($request["user"] != null) {
+            return http::redirect("/course");
+        }
+
+        return page($request, "Learn GazLang", home_page(#store.lessons()));
+    }
+
+    pub fn overview(map $request): map {
+        $user = $request["user"];
+        $progress = Progress(#store.lessons(), #store.passed($user));
+
+        return page($request, "Your course", course_page($user, $progress));
+    }
+
+    pub fn lesson(map $request): map {
+        $view = #view_of($request);
+        if ($view == null) {
+            return not_found($request);
+        }
+
+        return #show($request, $view, 200);
+    }
+
+    /**
+     * Checks the answer sent: a right one passes the lesson and moves on, a wrong one shows the
+     * lesson again with the answer still picked.
+     */
+    pub fn answer(map $request): map {
+        $view = #view_of($request);
+        if ($view == null) {
+            return not_found($request);
+        }
+        $view.chosen = to_int(http::form($request, {})["choice"] ?? "", null);
+        $choice = lists::find($view.choices, $choice -> $view.chose($choice));
+        if ($choice == null) {
+            $view.verdict = "Pick an answer first.";
+
+            return #show($request, $view, 422);
+        }
+        if (!$choice.correct) {
+            $view.verdict = "Not quite. Read the lesson again and have another go.";
+
+            return #show($request, $view, 422);
+        }
+        #store.pass($request["user"], $view.lesson);
+
+        return #move_on($request, $view);
+    }
+
+    /*
+     * The lesson the path names, ready to show, or `null` when there is none.
+     */
+    fn view_of(map $request): ?LessonView {
+        $lessons = #store.lessons();
+        $slug = $request["params"]["slug"];
+        foreach ($lessons as $index => $lesson) {
+            if ($lesson.slug == $slug) {
+                return #view($request, $lessons, $index);
+            }
+        }
+
+        return null;
+    }
+
+    fn view(map $request, list $lessons, int $index): LessonView {
+        $lesson = $lessons[$index];
+        $passed = has_key(#store.passed($request["user"]), $lesson.id);
+        $view = LessonView($lesson, len($lessons), render_body($lesson.body), #store.choices($lesson), $passed, csrf($request));
+        $view.previous = $lessons[$index - 1] ?? null;
+        $view.next = $lessons[$index + 1] ?? null;
+
+        return $view;
+    }
+
+    fn show(map $request, LessonView $view, int $status): map {
+        return page($request, $view.lesson.title, lesson_page($view), $status);
+    }
+
+    fn move_on(map $request, LessonView $view): map {
+        $progress = Progress(#store.lessons(), #store.passed($request["user"]));
+        if ($progress.finished()) {
+            return with_message($request, $request["session"], "/course", "Correct! That was the last lesson: you've finished the course.");
+        }
+        $next = $view.next ?? $progress.next_up();
+
+        return with_message($request, $request["session"], "/lessons/" .. $next.slug, "Correct! On to the next one.");
+    }
+}

@@ -1,0 +1,33 @@
+namespace course;
+import "std/web.gaz";
+import "learning.gaz";
+@template lesson_page(LessonView $view)
+<p class="crumbs"><a href="/course">Your course</a> · Lesson {{ $view.lesson.number() }} of {{ $view.total }}</p>
+<article class="lesson">
+<h1>{{ $view.lesson.title }}</h1>
+{{ $view.body }}
+</article>
+<form method="post" action="/lessons/{{ $view.lesson.slug }}" class="card quiz">
+  {{ web::csrf_field($view.csrf) }}
+  <fieldset>
+    <legend>{{ $view.lesson.question }}</legend>
+@foreach ($view.choices as $choice)
+    <label class="choice"><input type="radio" name="choice" value="{{ $choice.position }}"{{ $view.chose($choice) ? " checked" : "" }} required> {{ $choice.text }}</label>
+@endforeach
+  </fieldset>
+@if ($view.verdict != null)
+  <p class="verdict" role="alert">{{ $view.verdict }}</p>
+@endif
+  <button type="submit">Check my answer</button>
+@if ($view.passed)
+  <p class="passed">You've passed this lesson.</p>
+@endif
+</form>
+<nav class="pager">
+@if ($view.previous != null)
+  <a href="/lessons/{{ $view.previous.slug }}">← {{ $view.previous.title }}</a>
+@endif
+@if ($view.next != null)
+  <a class="next" href="/lessons/{{ $view.next.slug }}">{{ $view.next.title }} →</a>
+@endif
+</nav>

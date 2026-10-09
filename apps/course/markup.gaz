@@ -1,0 +1,95 @@
+/**
+ * A lesson's body as HTML: paragraphs, fenced code blocks and inline code, and nothing more.
+ *
+ * The text is the course's own, but it is still escaped as any value is (`web::html`), so a `<`
+ * in an example shows as a `<`.
+ */
+namespace course;
+
+import "std/text.gaz";
+import "std/web.gaz";
+
+const FENCE = "```";
+const TICK = "`";
+
+/**
+ * A piece of a body that knows how to show itself.
+ */
+interface Block {
+    fn html(): Html;
+}
+
+final kind Paragraph implements Block {
+    fn _(string #text) {}
+
+    pub fn html(): Html {
+        $pieces = inline_code(#text);
+
+        return web::html"<p>{$pieces}</p>";
+    }
+}
+
+final kind CodeBlock implements Block {
+    fn _(string #code) {}
+
+    pub fn html(): Html {
+        return web::html"<pre><code>{#code}</code></pre>";
+    }
+}
+
+/**
+ * The body as HTML, block by block.
+ *
+ *     echo render_body("Say `hi`.");     // <p>Say <code>hi</code>.</p>
+ */
+pub fn render_body(string $body): Html {
+    $shown = map(blocks($body), $block -> $block.html());
+
+    return web::html"{$shown}";
+}
+
+/*
+ * Blank lines end a paragraph and a fence line starts or ends a code block, inside which blank
+ * lines are kept.
+ */
+fn blocks(string $body): list {
+    $found = [];
+    $lines = [];
+    $in_code = false;
+    foreach (text::lines($body) as $line) {
+        $is_fence = trim($line) == FENCE;
+        $ends_paragraph = !$in_code && trim($line) == "";
+        if ($is_fence || $ends_paragraph) {
+            $found = [...$found, ...block_of($lines, $in_code)];
+            $lines = [];
+        }
+        if ($is_fence) {
+            $in_code = !$in_code;
+        } else if (!$ends_paragraph) {
+            $lines[] = $line;
+        }
+    }
+    if ($in_code) {
+        throw "A code block in a lesson is never closed: end it with a line of " .. FENCE;
+    }
+
+    return [...$found, ...block_of($lines, false)];
+}
+
+fn block_of(list $lines, bool $code): list {
+    if (len($lines) == 0) {
+        return [];
+    }
+    if ($code) {
+        return [CodeBlock(join($lines, "\n"))];
+    }
+
+    return [Paragraph(join($lines, " "))];
+}
+
+/*
+ * Text between backticks is code: splitting on them leaves the code at the odd places.
+ */
+fn inline_code(string $text): list {
+    return map(split($text, TICK), ($piece, $i) -> $i % 2 == 1 ? web::html"<code>{$piece}</code>" : $piece);
+}

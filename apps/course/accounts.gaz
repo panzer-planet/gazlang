@@ -1,0 +1,177 @@
+/**
+ * Accounts: creating one, signing in and signing out.
+ */
+namespace course;
+
+import "std/crypto.gaz";
+import "std/http.gaz";
+import "std/regex.gaz";
+import "pages.gaz";
+import "store.gaz";
+import "views/login.gazml";
+import "views/register.gazml";
+
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD = 200;   // a password is hashed, so its length is bounded
+const MAX_NAME = 100;
+const EMAIL_SHAPE = '[^@\s]+@[^@\s]+\.[^@\s]+';
+
+/**
+ * The registration form as sent, and what is wrong with it.
+ */
+final kind Registration {
+    pub map #errors = {};
+
+    fn _(pub string #name = "", pub string #email = "", pub string #password = "") {}
+
+    /**
+     * The form from the fields a browser sent, checked.
+     */
+    pub static fn submitted(map $fields): Registration {
+        $form = Registration(trim($fields["name"] ?? ""), email_of($fields), $fields["password"] ?? "");
+        $form.check();
+
+        return $form;
+    }
+
+    pub fn valid(): bool {
+        return len(#errors) == 0;
+    }
+
+    /**
+     * Marks the email as taken, which only the database can tell.
+     */
+    pub fn taken(): null {
+        #errors["email"] = "That email has an account already. Sign in instead?";
+    }
+
+    fn check(): null {
+        if (#name == "") {
+            #errors["name"] = "Tell us your name.";
+        } else if (utf8_length(#name) > MAX_NAME) {
+            #errors["name"] = "Keep your name under {MAX_NAME} characters.";
+        }
+        if (!regex::matches(#email, EMAIL_SHAPE)) {
+            #errors["email"] = "That doesn't look like an email address.";
+        }
+        if (len(#password) < MIN_PASSWORD) {
+            #errors["password"] = "Use at least {MIN_PASSWORD} characters.";
+        } else if (len(#password) > MAX_PASSWORD) {
+            #errors["password"] = "Keep your password under {MAX_PASSWORD} characters.";
+        }
+    }
+}
+
+/**
+ * The sign-in form as sent, and why it failed, if it did.
+ */
+final kind SignIn {
+    pub ?string #problem = null;
+
+    fn _(pub string #email = "", pub string #password = "") {}
+
+    pub static fn submitted(map $fields): SignIn {
+        return SignIn(email_of($fields), $fields["password"] ?? "");
+    }
+
+    pub fn refused(): null {
+        #problem = "That email and password don't match an account.";
+    }
+}
+
+/**
+ * The handlers for accounts.
+ */
+final kind Accounts {
+    /*
+     * Checked against when an email has no account, so a wrong email takes as long as a wrong
+     * password and the time of a refusal doesn't say which emails have accounts.
+     */
+    string #decoy;
+
+    fn _(Store #store) {
+        #decoy = crypto::hash_password(crypto::token());
+    }
+
+    pub fn register_form(map $request): map {
+        return #show_registration($request, Registration(), 200);
+    }
+
+    pub fn register(map $request): map {
+        $form = Registration::submitted(http::form($request, {}));
+        if (!$form.valid()) {
+            return #show_registration($request, $form, 422);
+        }
+        $user = #store.add_user($form.name, $form.email, crypto::hash_password($form.password));
+        if ($user == null) {
+            $form.taken();
+
+            return #show_registration($request, $form, 422);
+        }
+
+        return start_session($request, $user, "/course", "Welcome, {$user.name}! Here is your course.");
+    }
+
+    pub fn login_form(map $request): map {
+        if ($request["user"] != null) {
+            return http::redirect("/course");
+        }
+
+        return #show_sign_in($request, SignIn(), 200);
+    }
+
+    pub fn login(map $request): map {
+        $form = SignIn::submitted(http::form($request, {}));
+        $user = #check($form);
+        if ($user == null) {
+            $form.refused();
+
+            return #show_sign_in($request, $form, 422);
+        }
+
+        return start_session($request, $user, "/course", "Welcome back, {$user.name}.");
+    }
+
+    pub fn logout(map $request): map {
+        $session = {"csrf_token" => crypto::token()};
+
+        return with_message($request, $session, "/", "You're signed out. See you soon.");
+    }
+
+    /*
+     * The student the form's email and password belong to, or `null`. A hash made with older
+     * settings is replaced while the password is at hand.
+     */
+    fn check(SignIn $form): ?User {
+        $found = #store.credentials($form.email);
+        if ($found == null) {
+            crypto::verify_password($form.password, #decoy);
+
+            return null;
+        }
+        [$user, $hash] = $found;
+        if (!crypto::verify_password($form.password, $hash)) {
+            return null;
+        }
+        if (crypto::needs_rehash($hash)) {
+            #store.change_password_hash($user, crypto::hash_password($form.password));
+        }
+
+        return $user;
+    }
+
+    fn show_registration(map $request, Registration $form, int $status): map {
+        return page($request, "Create your account", register_page($form, csrf($request)), $status);
+    }
+
+    fn show_sign_in(map $request, SignIn $form, int $status): map {
+        return page($request, "Sign in", login_page($form, csrf($request)), $status);
+    }
+}
+
+/*
+ * Emails are kept in lowercase, so Ada@Example.com and ada@example.com are one account.
+ */
+fn email_of(map $fields): string {
+    return ($fields["email"] ?? "") |> trim |> lower;
+}

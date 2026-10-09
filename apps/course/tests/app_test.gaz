@@ -1,0 +1,142 @@
+/*
+ * The app driven as a browser drives it, on a database of its own in memory. Run from the app's
+ * directory: `../../bin/gaz test tests`.
+ */
+import "std/http.gaz";
+import "std/test.gaz" use expect;
+import "app.gaz";
+import "schema.gaz";
+import "syllabus.gaz";
+
+const SECRET = "a test secret of thirty-two bytes or more";
+
+fn client(): http::TestClient {
+    $db = course::connect("sqlite::memory:");
+    course::migrate($db);
+    course::seed($db, syllabus::lessons());
+
+    return http::TestClient(course::app($db, SECRET).handler());
+}
+
+/*
+ * The position of the lesson's right answer, from the course as written.
+ */
+fn right_answer(string $slug): int {
+    foreach (syllabus::lessons() as $lesson) {
+        foreach ($lesson.choices as $position => $choice) {
+            if ($lesson.slug == $slug && $choice.correct) {
+                return $position;
+            }
+        }
+    }
+    throw "No lesson {$slug}";
+}
+
+fn wrong_answer(string $slug): int {
+    return right_answer($slug) == 0 ? 1 : 0;
+}
+
+fn register(http::TestClient $client, string $name, string $email, string $password): map {
+    $form = $client.get("/register");
+
+    return $client.post("/register", {
+        "_csrf" => http::form_token($form),
+        "name" => $name,
+        "email" => $email,
+        "password" => $password,
+    });
+}
+
+fn answer(http::TestClient $client, string $slug, ?int $choice): map {
+    $page = $client.get("/lessons/{$slug}");
+    $fields = {"_csrf" => http::form_token($page)};
+    if ($choice != null) {
+        $fields["choice"] = to_string($choice);
+    }
+
+    return $client.post("/lessons/{$slug}", $fields);
+}
+
+fn shows(map $response, string $text): bool {
+    return contains($response["body"], $text);
+}
+
+// Visitors
+$visitor = client();
+$home = $visitor.get("/");
+expect("the home page lists the lessons", [$home["status"], shows($home, "Lists and maps are values")], [200, true]);
+expect("the course needs an account", $visitor.get("/course")["headers"]["location"], "/login");
+expect("so does a lesson", $visitor.get("/lessons/hello")["headers"]["location"], "/login");
+expect("the style sheet is served", $visitor.get("/style.css")["status"], 200);
+expect("an unknown page is a 404", $visitor.get("/nowhere")["status"], 404);
+expect("a form without its token is refused", $visitor.post("/login", {"email" => "a@b.co"})["status"], 403);
+
+// Registering
+$ada = client();
+$bad = register($ada, "", "not an email", "short");
+expect("a bad registration is shown again", $bad["status"], 422);
+expect("saying what is wrong with the name", shows($bad, "Tell us your name."), true);
+expect("and the email", shows($bad, "That doesn&#39;t look like an email address."), true);
+expect("and the password", shows($bad, "Use at least 8 characters."), true);
+expect("keeping what was typed", shows($bad, "value=\"not an email\""), true);
+
+$made = register($ada, "Ada", "Ada@Example.com", "correct horse");
+expect("registering goes to the course", [$made["status"], $made["headers"]["location"]], [303, "/course"]);
+$course = $ada.follow($made);
+expect("which welcomes the student", shows($course, "Welcome, Ada! Here is your course."), true);
+expect("with nothing passed yet", shows($course, "0 of 4 lessons passed."), true);
+expect("and the first lesson to start", shows($course, "Start: Hello, gaz"), true);
+expect("the flash is shown once", shows($ada.get("/course"), "Welcome, Ada!"), false);
+
+$other = client();
+register($other, "Ada", "ada@example.com", "correct horse");
+$again = register($other, "Imposter", "ADA@example.com", "something else");
+expect("a second account for an email is refused", [$again["status"], shows($again, "That email has an account already.")], [422, true]);
+
+// A lesson
+$lesson = $ada.get("/lessons/hello");
+expect("a lesson shows its question", shows($lesson, "Which command runs the file hello.gaz?"), true);
+expect("and its body", shows($lesson, "<code>gaz hello.gaz</code>"), true);
+expect("an unknown lesson is a 404", $ada.get("/lessons/nope")["status"], 404);
+
+$none = answer($ada, "hello", null);
+expect("no answer is asked for", [$none["status"], shows($none, "Pick an answer first.")], [422, true]);
+$wrong = answer($ada, "hello", wrong_answer("hello"));
+expect("a wrong answer is shown again", [$wrong["status"], shows($wrong, "Not quite.")], [422, true]);
+expect("with the answer still picked", shows($wrong, "value=\"" .. wrong_answer("hello") .. "\" checked"), true);
+$nonsense = answer($ada, "hello", 99);
+expect("an answer that isn't there is no answer", $nonsense["status"], 422);
+
+$right = answer($ada, "hello", right_answer("hello"));
+expect("a right answer moves on", [$right["status"], $right["headers"]["location"]], [303, "/lessons/strictness"]);
+expect("saying so", shows($ada.follow($right), "Correct! On to the next one."), true);
+expect("the lesson is passed", shows($ada.get("/lessons/hello"), "You've passed this lesson."), true);
+expect("and counted", shows($ada.get("/course"), "1 of 4 lessons passed."), true);
+answer($ada, "hello", right_answer("hello"));
+expect("passing it again counts once", shows($ada.get("/course"), "1 of 4 lessons passed."), true);
+
+// Finishing
+foreach (["strictness", "values"] as $slug) {
+    answer($ada, $slug, right_answer($slug));
+}
+$last = answer($ada, "functions", right_answer("functions"));
+expect("the last lesson goes back to the course", $last["headers"]["location"], "/course");
+$finished = $ada.follow($last);
+expect("which says the course is done", [shows($finished, "you&#39;ve finished the course"), shows($finished, "You finished the course")], [true, true]);
+
+// Signing out and in
+$out = $ada.post("/logout", {"_csrf" => http::form_token($finished)});
+expect("signing out goes home", $out["headers"]["location"], "/");
+expect("and the course is closed again", $ada.get("/course")["headers"]["location"], "/login");
+
+$form = $ada.get("/login");
+$refused = $ada.post("/login", {"_csrf" => http::form_token($form), "email" => "ada@example.com", "password" => "wrong"});
+expect("a wrong password is refused", [$refused["status"], shows($refused, "don&#39;t match an account")], [422, true]);
+$stranger = $ada.post("/login", {"_csrf" => http::form_token($form), "email" => "nobody@example.com", "password" => "wrong"});
+expect("as is an email with no account, in the same words", [$stranger["status"], shows($stranger, "don&#39;t match an account")], [422, true]);
+$in = $ada.post("/login", {"_csrf" => http::form_token($form), "email" => " ADA@example.com ", "password" => "correct horse"});
+expect("the right one signs in", [$in["status"], $in["headers"]["location"]], [303, "/course"]);
+expect("to the progress kept", shows($ada.follow($in), "You finished the course"), true);
+expect("a student is sent from the sign-in page to the course", $ada.get("/login")["headers"]["location"], "/course");
+
+test::done();

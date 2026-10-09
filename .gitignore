@@ -11,3 +11,4 @@ tests/.tmp/
 football.save
 site/dist/
 .fuzz-*
+apps/course/course.db

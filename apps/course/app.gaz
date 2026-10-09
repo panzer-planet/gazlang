@@ -1,0 +1,43 @@
+/**
+ * The course app: every route, and the middleware around them.
+ */
+namespace course;
+
+import "std/db.gaz";
+import "std/http.gaz";
+import "accounts.gaz";
+import "learning.gaz";
+import "pages.gaz";
+import "store.gaz";
+
+/**
+ * The app's router over a database `connect()` opened and `migrate()` made ready. `$secret`
+ * signs the session cookies: 32 bytes or more, the same in every worker.
+ */
+pub fn app(db::Db $db, string $secret): http::Router {
+    $store = Store($db);
+    $accounts = Accounts($store);
+    $learning = Learning($store);
+
+    $app = http::Router();
+    $app.use(http::security_headers());
+    $app.use(http::sessions($secret));
+    $app.use(http::csrf());
+    $app.use(current_user($store));
+
+    $app.get("/", $learning.home);
+    $app.get("/register", $accounts.register_form);
+    $app.post("/register", $accounts.register);
+    $app.get("/login", $accounts.login_form);
+    $app.post("/login", $accounts.login);
+    $app.post("/logout", $accounts.logout);
+
+    $app.get("/course", students_only($learning.overview));
+    $app.get("/lessons/:slug", students_only($learning.lesson));
+    $app.post("/lessons/:slug", students_only($learning.answer));
+
+    $app.get("/style.css", http::serve_static("public"));
+    $app.not_found(not_found);
+
+    return $app;
+}

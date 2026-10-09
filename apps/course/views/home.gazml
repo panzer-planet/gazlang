@@ -1,0 +1,14 @@
+namespace course;
+@template home_page(list $lessons)
+<section class="hero">
+  <h1>Learn GazLang in an afternoon</h1>
+  <p>A short course on a strict, friendly language for web servers and command line tools:
+  {{ len($lessons) }} lessons, each with a question to check you've got it.</p>
+  <p><a class="button" href="/register">Create a free account</a> or <a href="/login">sign in</a></p>
+</section>
+<h2>What you'll learn</h2>
+<ol class="syllabus">
+@foreach ($lessons as $lesson)
+  <li>{{ $lesson.title }}</li>
+@endforeach
+</ol>

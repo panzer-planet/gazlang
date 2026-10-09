@@ -1,0 +1,155 @@
+/**
+ * The course itself: its lessons, in order, each with one question.
+ *
+ * This is the source the database is filled from when the app starts (`course::seed()` in
+ * `schema.gaz`), so changing a lesson here and restarting changes it for everyone. A
+ * lesson's `slug` is its identity: rename one and its students' progress on it is gone.
+ *
+ * A body is paragraphs separated by blank lines; a block fenced by ``` lines is code, and text in
+ * single backticks is inline code (see `markup.gaz`).
+ */
+namespace syllabus;
+
+/**
+ * One answer to a lesson's question.
+ */
+pub final kind Choice {
+    fn _(pub string #text, pub bool #correct) {}
+
+    /**
+     * The answer that passes the lesson.
+     */
+    pub static fn right(string $text): Choice {
+        return Choice($text, true);
+    }
+
+    /**
+     * An answer that doesn't.
+     */
+    pub static fn wrong(string $text): Choice {
+        return Choice($text, false);
+    }
+}
+
+/**
+ * A lesson as written: what it teaches, and the question that checks it.
+ */
+pub final kind Lesson {
+    fn _(
+        pub string #slug,
+        pub string #title,
+        pub string #body,
+        pub string #question,
+        pub list #choices
+    ) {}
+}
+
+/**
+ * Every lesson, in the order they are taken.
+ */
+pub fn lessons(): list {
+    return [hello(), strictness(), values(), functions()];
+}
+
+fn hello(): Lesson {
+    return Lesson(
+        "hello",
+        "Hello, gaz",
+        'GazLang is a small, strict scripting language for web servers and command line tools. A program is a file of statements, each ending in `;`.
+
+```
+echo "Hello, world!";
+```
+
+Save that as `hello.gaz` and run it with `gaz hello.gaz`. `echo` prints a value and a newline.
+
+Variables start with `$` and need no declaration: `$name = "Ada";`. Inside double quotes a variable is interpolated, so `echo "Hi $name";` prints `Hi Ada`. Single quotes are raw text.',
+        "Which command runs the file hello.gaz?",
+        [
+            Choice::wrong("php hello.gaz"),
+            Choice::right("gaz hello.gaz"),
+            Choice::wrong("gaz --compile hello.gaz"),
+        ]
+    );
+}
+
+fn strictness(): Lesson {
+    return Lesson(
+        "strictness",
+        "Stop, don't guess",
+        'GazLang would rather stop than guess. Adding a string to a number is an error, not a quiet conversion:
+
+```
+echo "5" + 5;     // Error: Cannot use + on string
+echo 5 + 5;       // 10
+echo "5" .. 5;    // 55: .. joins text
+```
+
+A missing map key is an error too. When missing is a normal outcome, say so with `??`, which gives the right side instead:
+
+```
+$user = {"name" => "Ada"};
+echo $user["email"] ?? "no email";
+```
+
+Every error names its file and line, so a mistake is found where it was made.',
+        "What happens when a program runs echo \"5\" + 5; ?",
+        [
+            Choice::wrong("It prints 10"),
+            Choice::wrong("It prints 55"),
+            Choice::right("It stops with an error"),
+        ]
+    );
+}
+
+fn values(): Lesson {
+    return Lesson(
+        "values",
+        "Lists and maps are values",
+        'A list is written `[1, 2, 3]` and a map `{"key" => "value"}`. Both are values, like numbers: assigning one copies it, so nothing changes behind your back.
+
+```
+$a = [1, 2];
+$b = $a;
+$b[] = 3;         // appends to $b only
+echo $a;          // [1, 2]
+echo $b;          // [1, 2, 3]
+```
+
+Passing a list to a function copies it too, so a function hands back a new list rather than changing yours. Objects are the exception: they are handles, shared on purpose.',
+        'After $a = [1]; $b = $a; $b[] = 2; what is len($a)?',
+        [
+            Choice::right("1"),
+            Choice::wrong("2"),
+            Choice::wrong("It is an error"),
+        ]
+    );
+}
+
+fn functions(): Lesson {
+    return Lesson(
+        "functions",
+        "Functions and pipelines",
+        'Functions are declared with `fn`, and may say the types they take and give:
+
+```
+fn greet(string $name): string {
+    return "Hello, {$name}!";
+}
+```
+
+An anonymous function is written with `->`: `$double = $x -> $x * 2;`. A function is a value, so it can be passed to `map`, `filter` and `sort`.
+
+`|>` passes the value on its left as the first argument of the call on its right, so a chain reads in the order it runs:
+
+```
+echo "  Hello World  " |> trim |> lower;   // hello world
+```',
+        "What does \"  Hi \" |> trim |> upper give?",
+        [
+            Choice::wrong("\"  HI \""),
+            Choice::right("\"HI\""),
+            Choice::wrong("\"hi\""),
+        ]
+    );
+}

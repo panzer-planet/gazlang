@@ -1,0 +1,39 @@
+namespace course;
+import "std/web.gaz";
+import "store.gaz";
+@template layout(string $title, ?User $user, ?string $flash, string $csrf, Html $content)
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ $title }} · Learn GazLang</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">Learn <b>GazLang</b></a>
+@if ($user != null)
+  <nav>
+    <a href="/course">Your course</a>
+    <span class="who">{{ $user.name }}</span>
+    <form method="post" action="/logout" class="inline">
+      {{ web::csrf_field($csrf) }}
+      <button type="submit" class="link">Sign out</button>
+    </form>
+  </nav>
+@else
+  <nav>
+    <a href="/login">Sign in</a>
+    <a class="button" href="/register">Start learning</a>
+  </nav>
+@endif
+</header>
+<main>
+@if ($flash != null)
+  <p class="flash" role="status">{{ $flash }}</p>
+@endif
+{{ $content }}
+</main>
+</body>
+</html>

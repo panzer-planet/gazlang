@@ -1,0 +1,136 @@
+/**
+ * What the app reads and writes, as SQL, and the kinds the rows become.
+ */
+namespace course;
+
+import "std/db.gaz";
+
+/**
+ * A student with an account.
+ */
+pub final kind User {
+    fn _(pub int #id, pub string #name, pub string #email) {}
+
+    pub static fn from_row(map $row): User {
+        return User($row["id"], $row["name"], $row["email"]);
+    }
+}
+
+/**
+ * A lesson as the database holds it.
+ */
+final kind Lesson {
+    fn _(
+        pub int #id,
+        pub int #position,
+        pub string #slug,
+        pub string #title,
+        pub string #body,
+        pub string #question
+    ) {}
+
+    pub static fn from_row(map $row): Lesson {
+        return Lesson($row["id"], $row["position"], $row["slug"], $row["title"], $row["body"], $row["question"]);
+    }
+
+    /**
+     * Its place in the course, counted from 1 as a reader counts.
+     */
+    pub fn number(): int {
+        return #position + 1;
+    }
+}
+
+/**
+ * One answer to a lesson's question; `position` is how a form names it.
+ */
+final kind Choice {
+    fn _(pub int #position, pub string #text, pub bool #correct) {}
+
+    pub static fn from_row(map $row): Choice {
+        return Choice($row["position"], $row["text"], $row["correct"] == 1);
+    }
+}
+
+/**
+ * The queries, over one connection.
+ */
+final kind Store {
+    fn _(db::Db #db) {}
+
+    /**
+     * A new student, or `null` when the email has an account already.
+     */
+    pub fn add_user(string $name, string $email, string $password_hash): ?User {
+        $now = time();
+        try {
+            $row = #db.row(db::sql"insert into users (name, email, password_hash, created_at)
+                values ({$name}, {$email}, {$password_hash}, {$now})
+                returning id, name, email");
+        } catch (db::Failure $e) {
+            if ($e.problem == db::Problem::Unique) {
+                return null;
+            }
+            throw $e;
+        }
+
+        return User::from_row($row);
+    }
+
+    pub fn user(int $id): ?User {
+        $row = #db.row(db::sql"select id, name, email from users where id = {$id}");
+
+        return $row == null ? null : User::from_row($row);
+    }
+
+    /**
+     * The student with that email and the hash their password is checked against, as
+     * `[$user, $hash]`, or `null`.
+     */
+    pub fn credentials(string $email): ?list {
+        $row = #db.row(db::sql"select id, name, email, password_hash from users where email = {$email}");
+        if ($row == null) {
+            return null;
+        }
+
+        return [User::from_row($row), $row["password_hash"]];
+    }
+
+    pub fn change_password_hash(User $user, string $hash): null {
+        #db.exec(db::sql"update users set password_hash = {$hash} where id = {$user.id}");
+    }
+
+    /**
+     * Every lesson, in course order.
+     */
+    pub fn lessons(): list {
+        $rows = #db.query(db::sql"select id, position, slug, title, body, question from lessons order by position");
+
+        return map($rows, Lesson::from_row);
+    }
+
+    pub fn choices(Lesson $lesson): list {
+        $rows = #db.query(db::sql"select position, text, correct from choices where lesson_id = {$lesson.id} order by position");
+
+        return map($rows, Choice::from_row);
+    }
+
+    /**
+     * The ids of the lessons the student has passed, as a set: `{id => true}`.
+     */
+    pub fn passed(User $user): map {
+        $rows = #db.query(db::sql"select lesson_id from completions where user_id = {$user.id}");
+
+        return reduce($rows, ($set, $row) -> ({...$set, $row["lesson_id"] => true}), {});
+    }
+
+    /**
+     * Records that the student passed the lesson; passing it again changes nothing.
+     */
+    pub fn pass(User $user, Lesson $lesson): null {
+        $now = time();
+        #db.exec(db::sql"insert into completions (user_id, lesson_id, completed_at)
+            values ({$user.id}, {$lesson.id}, {$now})
+            on conflict do nothing");
+    }
+}

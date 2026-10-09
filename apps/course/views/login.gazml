@@ -1,0 +1,19 @@
+namespace course;
+import "std/web.gaz";
+import "accounts.gaz";
+@template login_page(SignIn $form, string $csrf)
+<section class="card narrow">
+<h1>Sign in</h1>
+<form method="post" action="/login">
+  {{ web::csrf_field($csrf) }}
+  <p class="error" role="alert">{{ $form.problem ?? "" }}</p>
+  <label for="email">Email</label>
+  <input id="email" name="email" type="email" value="{{ $form.email }}" autocomplete="email" required>
+
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+  <button type="submit">Sign in</button>
+</form>
+<p class="aside">New here? <a href="/register">Create an account</a>.</p>
+</section>

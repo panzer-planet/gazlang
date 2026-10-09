@@ -1,0 +1,27 @@
+namespace course;
+import "store.gaz";
+import "learning.gaz";
+@template course_page(User $user, Progress $progress)
+<h1>Hi, {{ $user.name }}</h1>
+@if ($progress.finished())
+<section class="card done">
+  <h2>You finished the course</h2>
+  <p>All {{ $progress.total() }} lessons passed. You know enough GazLang to read the
+  <a href="https://github.com/panzer-planet/gazlang/blob/master/docs/language.md">language reference</a>
+  and write your first program.</p>
+</section>
+@else
+<section class="card">
+  <p>{{ $progress.passed_count() }} of {{ $progress.total() }} lessons passed.</p>
+  <progress value="{{ $progress.passed_count() }}" max="{{ $progress.total() }}"></progress>
+  <p><a class="button" href="/lessons/{{ $progress.next_up().slug }}">{{ $progress.passed_count() == 0 ? "Start" : "Continue" }}: {{ $progress.next_up().title }}</a></p>
+</section>
+@endif
+<ol class="lessons">
+@foreach ($progress.lessons as $lesson)
+  <li class="{{ $progress.has_passed($lesson) ? "passed" : "open" }}">
+    <a href="/lessons/{{ $lesson.slug }}">{{ $lesson.title }}</a>
+    <span class="mark">{{ $progress.has_passed($lesson) ? "Passed" : "" }}</span>
+  </li>
+@endforeach
+</ol>
