@@ -81,6 +81,15 @@ $after = $sessions(request("GET", $browser), handler());
 expect("the request after has no flash", Seen::request["flash"], null);
 expect("and nothing to write", sets_cookie($after), false);
 
+/* A flash into a session the handler built, as a login does */
+$fresh = {"user_id" => 8, "csrf_token" => "a new token"};
+$log_in = $request -> http::with_session(http::redirect("/"), http::flash($request, "Welcome back.", $fresh));
+$login = $sessions(request("POST", $browser), $log_in);
+expect("flash() into a given session keeps nothing of the old one", http::session({"headers" => cookie_from($login)}, SECRET), {"user_id" => 8, "csrf_token" => "a new token", "flash" => "Welcome back."});
+$sessions(request("GET", cookie_from($login)), handler());
+expect("the next request sees that flash", Seen::request["flash"], "Welcome back.");
+expect("in the new session", Seen::request["session"], {"user_id" => 8, "csrf_token" => "a new token"});
+
 /* A cookie that doesn't check out is a fresh session */
 $tampered = {"cookie" => replace($browser["cookie"], "session=", "session=x")};
 $sessions(request("GET", $tampered), handler());

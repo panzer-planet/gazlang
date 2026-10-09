@@ -3000,11 +3000,16 @@ pub fn with_session(map $response, map $session): map {
 }
 
 /**
- * This request's session with $message in it for the next page to show once, as
- * $request["flash"]: give it to with_session()
+ * This request's session, or $session when given, with $message in it for the next page to show
+ * once, as $request["flash"]: give it to with_session(). A login or logout that builds a new
+ * session passes it:
+ *
+ *     $session = {"user_id" => $id, "csrf_token" => crypto::token()};
+ *     $flashed = http::flash($request, "Welcome back.", $session);
+ *     return http::with_session(http::redirect("/"), $flashed);
  */
-pub fn flash(map $request, string $message): map {
-    $session = $request["session"];
+pub fn flash(map $request, string $message, ?map $session = null): map {
+    $session ??= $request["session"];
     $session["flash"] = $message;
 
     return $session;

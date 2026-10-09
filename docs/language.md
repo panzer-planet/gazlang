@@ -2573,12 +2573,13 @@ $app.post("/todos", $request -> http::with_session(http::redirect("/"), http::fl
   `"failure"`, a function from the request to the response to send instead of the 403. Without
   `http::sessions()` before it, a request is an error saying so.
 - `http::with_session($response, $session)` is `$response` with `"session"` set, and
-  `http::flash($request, $message)` is this request's session with `$message` to show on the next
-  page.
+  `http::flash($request, $message, $session = null)` is this request's session, or `$session`
+  when given, with `$message` to show on the next page.
 - **A login builds a new session** rather than changing the old one, with a fresh
   `crypto::token()` as its `"csrf_token"` (`{"user_id" => $id, "csrf_token" => crypto::token()}`),
   so nothing an attacker planted in the session before it carries over. That is your app's code, as
-  is deciding who `"user_id"` is.
+  is deciding who `"user_id"` is. To greet the user on the next page, pass the new session to
+  `http::flash($request, "Welcome back.", $session)`.
 
 ```gaz
 import "std/http.gaz";

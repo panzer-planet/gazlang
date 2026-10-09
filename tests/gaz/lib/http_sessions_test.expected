@@ -16,6 +16,9 @@ ok showing it clears it, so the cookie is written
 ok without the flash
 ok the request after has no flash
 ok and nothing to write
+ok flash() into a given session keeps nothing of the old one
+ok the next request sees that flash
+ok in the new session
 ok a tampered cookie is a fresh session
 ok with a new token
 ok a cookie signed with another secret is a fresh session
