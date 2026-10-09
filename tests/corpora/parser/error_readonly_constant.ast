@@ -1,0 +1,1 @@
+Error: A constant needs no readonly: it never changes at tests/corpora/parser/error_readonly_constant.gaz:2

@@ -1,0 +1,3 @@
+interface Priced {
+    readonly fn price();
+}

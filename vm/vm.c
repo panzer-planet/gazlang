@@ -865,8 +865,9 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             break;
         case OP_SET_FIELD_POP: {
             int f = field_slot(in, fp->receiver, fp->block->owner);
-            /* A typed field takes the long way, which checks it */
-            if (f < 0 || (fp->receiver->kind->field_types && fp->receiver->kind->field_types[f])) {
+            /* A typed or read-only field takes the long way, which checks it */
+            Kind *c = fp->receiver->kind;
+            if (f < 0 || (c->field_types && c->field_types[f]) || (c->field_readonly && c->field_readonly[f])) {
                 op = in->orig;
                 goto dispatch;
             }
@@ -1165,7 +1166,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             while (nhandlers > handler_base && handlers[nhandlers - 1].frame == f) nhandlers--;
             while (sp > f->base) decref(POP());
             if (f->closure) decref(v_func(f->closure));
-            if (f->receiver) decref(v_object(f->receiver));
+            if (f->receiver) {
+                /* NEW's frame returning is the end of its object's construction */
+                if (f->block->kind == B_KIND) f->receiver->constructing = false;
+                decref(v_object(f->receiver));
+            }
             fp--;
             if (f == first) {
                 *result = r;
@@ -1240,6 +1245,7 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 raisef("Cannot set %s here", ((Str *)in->p)->data);
                 goto error;
             }
+            if (!check_field_readonly(o, f, fp->block->owner)) goto error;
             if (o->kind->field_types && !check_field_type(o, f, &TOP())) goto error;
             incref(TOP());
             set_slot(&o->fields[f], TOP());
@@ -1335,7 +1341,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 raise_depth(c->name->data);
                 goto error;
             }
-            if (!push_frame(c->block, &sp, in->a, pc, NULL, object_new(c))) goto error;
+            Object *o = object_new(c);
+            /* Until this frame returns: the one time a read-only field takes a write */
+            o->constructing = true;
+            if (!push_frame(c->block, &sp, in->a, pc, NULL, o)) goto error;
             pc = code + c->block->entry;
             break;
         }
@@ -1524,7 +1533,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             Handler h = handlers[--nhandlers];
             for (; fp > h.frame; fp--) {
                 if (fp->closure) decref(v_func(fp->closure));
-                if (fp->receiver) decref(v_object(fp->receiver));
+                if (fp->receiver) {
+                    /* A construction the error ends is over too, in case the object escaped */
+                    if (fp->block->kind == B_KIND) fp->receiver->constructing = false;
+                    decref(v_object(fp->receiver));
+                }
             }
             while (sp > h.sp) decref(POP());
             PUSH(((Value){.type = T_ERROR, .e = vm_error}));
@@ -1537,7 +1550,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         Value *bottom = first->base;
         for (; fp >= first; fp--) {
             if (fp->closure) decref(v_func(fp->closure));
-            if (fp->receiver) decref(v_object(fp->receiver));
+            if (fp->receiver) {
+                if (fp->block->kind == B_KIND) fp->receiver->constructing = false;
+                decref(v_object(fp->receiver));
+            }
         }
         while (sp > bottom) decref(POP());
         vm_sp = bottom;

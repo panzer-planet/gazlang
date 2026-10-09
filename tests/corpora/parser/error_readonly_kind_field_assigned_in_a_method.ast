@@ -1,0 +1,1 @@
+Error: Money #cents is read-only: only Money's constructor sets it at tests/corpora/parser/error_readonly_kind_field_assigned_in_a_method.gaz:5

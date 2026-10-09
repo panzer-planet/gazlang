@@ -1,0 +1,1 @@
+Error: readonly and final don't go together: readonly marks a field, final a method at tests/corpora/parser/error_final_readonly_method.gaz:2

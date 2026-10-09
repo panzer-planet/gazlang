@@ -1,0 +1,1 @@
+Error: Account #id is read-only: only Account's constructor sets it at tests/corpora/parser/error_readonly_field_assigned_in_a_child_constructor.gaz:11

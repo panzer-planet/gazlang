@@ -1,0 +1,1 @@
+Error: pub comes before readonly: write 'pub readonly #name ...' at tests/corpora/parser/error_readonly_before_pub_field.gaz:2

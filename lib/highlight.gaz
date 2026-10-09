@@ -73,10 +73,10 @@ const TEMPLATE_DIRECTIVES = ["template", "if", "elseif", "else", "endif", "forea
 
 // The words in a bytecode header or record line, as against an instruction's name
 const BYTECODE_HEADERS = [
-    "globals", "statics", "top", "fn", "kind", "abstract", "final", "interface", "enum", "lambda",
+    "globals", "statics", "top", "fn", "kind", "abstract", "final", "readonly", "interface", "enum", "lambda",
     "locals", "field", "method", "static", "case", "capture", "self",
 ];
-const BYTECODE_KEYWORDS = ["in", "extends", "implements", "pub", "kin", "final", "local", "captured"];
+const BYTECODE_KEYWORDS = ["in", "extends", "implements", "pub", "kin", "final", "readonly", "local", "captured"];
 
 /**
  * A run of source text and how it is shown

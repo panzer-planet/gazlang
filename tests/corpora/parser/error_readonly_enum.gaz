@@ -1,0 +1,3 @@
+readonly enum Filter {
+    Open;
+}

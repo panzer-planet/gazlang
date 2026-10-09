@@ -1,0 +1,1 @@
+Error: Kind Money is read-only, so its fields need no readonly at tests/corpora/parser/error_readonly_field_of_a_readonly_kind.gaz:2

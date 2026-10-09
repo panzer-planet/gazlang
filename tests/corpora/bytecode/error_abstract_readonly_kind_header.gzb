@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+abstract readonly page Page
+locals
+LOAD_THIS
+RET

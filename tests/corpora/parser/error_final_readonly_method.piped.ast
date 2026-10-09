@@ -1,0 +1,1 @@
+Error: readonly and final don't go together: readonly marks a field, final a method on line 2

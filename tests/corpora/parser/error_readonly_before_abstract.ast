@@ -1,0 +1,1 @@
+Error: abstract comes before readonly: write 'abstract readonly kind ...' at tests/corpora/parser/error_readonly_before_abstract.gaz:1

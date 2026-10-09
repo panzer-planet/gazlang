@@ -1,0 +1,3 @@
+readonly kind Money {
+    pub readonly #cents = 0;
+}

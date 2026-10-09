@@ -517,6 +517,12 @@ kind KindDeclarationAST extends AST {
     pub #abstract;
     // Whether no kind may extend it: set only when it is final, as #interfaces is set
     pub #final;
+    // Whether every field it has is read-only, written only while an object of it is being
+    // constructed: set only when it is, as #final is
+    pub #readonly;
+    // The fields it declares read-only itself, each true by name: set only once one is, so a
+    // kind without dumps as it always did (fields() leaves out what was never set)
+    pub #readonly_fields;
     // The interfaces it claims itself, in the order written: set only when it claims any, so a
     // kind without dumps as it always did (fields() leaves out what was never set)
     pub #interfaces;

@@ -532,6 +532,38 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   override), on a constructor (each kind's `_` is its own), on a method of a final kind (it is
   closed already), and on a function, field, constant, static member, interface or an interface's
   method.
+- **`readonly` closes a field once its object is made**: the field is written only while the
+  object is being constructed, by the constructor of the kind that declares it (a promoted
+  parameter and a field default count), and refused everywhere else, from outside and from the
+  kind's own methods alike, whatever the write (`=`, `+=`, `++`, `??=`, `..=`, `delete` under it,
+  and a write inside a list or map it holds, since that changes the field's value). The marker
+  comes after the visibility, as `final` does: `pub readonly #id;`, `pub readonly int #id = 0;`,
+  `fn _(pub readonly #id) {}`; `readonly pub` says to write `pub readonly`. A write the parser can
+  see (`#id = 1` in a method, or in a child's constructor, or in a lambda made in the constructor,
+  which may run later) is refused when the program is read, the rest when it runs, with one
+  sentence: `Account #id is read-only: only Account's constructor sets it`. The object a read-only
+  field holds is still a handle anyone can write (`$a.owner.name = "x"`); only the field itself is
+  closed. A `readonly kind` makes every field of its objects read-only, so a shared object nobody
+  can change behaves like a value: money, points, colours, a record read from a request. It
+  extends only a read-only kind and is extended only by one, so what its header says holds for
+  every field an object of it has; `abstract readonly kind` and `final readonly kind` are written
+  in that order. `readonly` is an error where it would close nothing: on a field of a read-only
+  kind (it is read-only already), a static field (a value that never changes is a `const`), a
+  method, a function, a constant, an interface or an enum.
+
+  ```gaz
+  readonly kind Money {
+      fn _(pub int #cents, pub string #currency) {}
+
+      pub fn plus(Money $other): Money {
+          return Money(#cents + $other.cents, #currency);
+      }
+  }
+
+  $price = Money(1500, "ZAR").plus(Money(250, "ZAR"));
+  echo $price.cents;                     // 1750
+  $price.cents = 0;                      // Error: Money #cents is read-only: only Money's constructor sets it
+  ```
 - **`fields()` and `echo` are not member access** and show every field that is set, whatever it
   escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.
@@ -924,7 +956,7 @@ comment, it can't appear in a docblock's text.
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
 default const import try catch finally throw true false kind extends abstract interface
-implements final enum namespace use pub kin static shared`, and `include` stays a keyword so that
+implements final readonly enum namespace use pub kin static shared`, and `include` stays a keyword so that
 writing it says to write `import`. Other
 languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 

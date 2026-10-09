@@ -1,0 +1,1 @@
+Error: Kind Money must be read-only: it extends Amount, which is on line 3

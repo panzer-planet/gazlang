@@ -1,0 +1,1 @@
+Error: Expected a field (#name) after readonly but found '5' at tests/corpora/parser/error_readonly_not_a_field.gaz:2

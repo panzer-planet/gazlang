@@ -1,0 +1,4 @@
+readonly kind Amount {}
+
+kind Money
+    extends Amount {}

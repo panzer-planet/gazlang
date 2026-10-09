@@ -1,0 +1,1 @@
+Error: A static field can't be read-only: a value that never changes is a const on line 2

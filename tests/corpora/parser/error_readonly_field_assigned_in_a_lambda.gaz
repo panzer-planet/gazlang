@@ -1,0 +1,9 @@
+// A lambda made in the constructor may run after construction, so it is not the constructor
+kind Account {
+    pub readonly #id;
+
+    fn _() {
+        $set = $id -> (#id = $id);
+        $set(1);
+    }
+}

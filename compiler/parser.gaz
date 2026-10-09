@@ -454,6 +454,20 @@ final kind Html {
         "fn" => "A method can't be both abstract and final: an abstract method is there to be defined by a child",
     };
 
+    // Why readonly can't mark a parameter that promotes no field
+    const READONLY_PARAMETER = "readonly marks a promoted field parameter (#name) of a constructor: a plain parameter can't be read-only";
+
+    // Why readonly can't mark what the token after it starts
+    const READONLY_REFUSED = {
+        "FN" => "Only a kind or a field can be read-only: nothing else is written after construction",
+        "ABSTRACT" => "Only a kind or a field can be read-only: nothing else is written after construction",
+        "FINAL" => "Only a kind or a field can be read-only: nothing else is written after construction",
+        "STATIC" => "A static field can't be read-only: a value that never changes is a const",
+        "CONST" => "A constant needs no readonly: it never changes",
+        "INTERFACE" => "An interface can't be read-only: it has no fields",
+        "ENUM" => "An enum needs no readonly: its cases never change",
+    };
+
     // How errors name the builtin kinds' source
     const BUILTIN_FILE = "<builtin>";
     // How source with no file is known as a module
@@ -985,7 +999,7 @@ final kind Html {
         }
         $node = #at(PropertyAST($this_node, $name), $token);
         $node.use = len(#member_uses);
-        #member_uses[] = [$node, #kind, null, false, false, #in_static != null];
+        #member_uses[] = [$node, #kind, null, false, false, #in_static != null, #in_constructor];
 
         return $node;
     }
@@ -2273,6 +2287,18 @@ final kind Html {
                 $vis = #current_token.type == "PUB" ? "pub" : "kin";
                 #eat(#current_token.type);
             }
+            // readonly on a promoted field parameter, after its marker as on a field declaration
+            $readonly = #current_token.type == "READONLY";
+            if ($readonly) {
+                #eat("READONLY");
+                if (#current_token.type == "PUB" || #current_token.type == "KIN") {
+                    #fail("{#current_token.value} comes before readonly: write '{#current_token.value} readonly #name ...'");
+                }
+                if ($kind == null) {
+                    #fail(#READONLY_PARAMETER);
+                }
+                #check_readonly_field($kind);
+            }
             $type = null;
             if (#at_type()) {
                 $type_token = #current_token;
@@ -2306,7 +2332,7 @@ final kind Html {
                 }
                 // No default of its own: its value always comes from the parameter, assigned
                 // in the constructor's body, whether given or defaulted there
-                #declare_field($kind, $name, null, $vis, $token.line, $type);
+                #declare_field($kind, $name, null, $vis, $token.line, $type, $readonly);
                 #promoted["{$kind.name}::{$name}"] = true;
                 $promoted[] = [$name, $token];
                 $params[] = $param;
@@ -2316,6 +2342,9 @@ final kind Html {
             }
             if ($vis != "") {
                 #fail("pub and kin mark a promoted field parameter (#name): plain parameters need neither");
+            }
+            if ($readonly) {
+                #fail(#READONLY_PARAMETER);
             }
 
             $param = #current_token.value;
@@ -2397,7 +2426,8 @@ final kind Html {
     fn promoted_assignment($kind, $name, $token) {
         $property = #at(PropertyAST(#at(ThisAST(), $token), $name), $token);
         $property.use = len(#member_uses);
-        #member_uses[] = [$property, $kind, null, false, false, false];
+        // The constructor's own write, so a read-only field takes it
+        #member_uses[] = [$property, $kind, null, false, false, false, true];
 
         $assign_token = Token("ASSIGN", "=");
         $assign_token.line = $token.line;
@@ -2425,8 +2455,32 @@ final kind Html {
             #fail("An interface can't be final: it is there to be implemented");
         } else if ($token.type == "ENUM") {
             #fail("An enum needs no final: nothing extends one");
-        } else if ($token.type != upper($what)) {
+        } else if ($token.type == "READONLY" && $what == "fn") {
+            #fail("readonly and final don't go together: readonly marks a field, final a method");
+        } else if ($token.type != upper($what) && $token.type != "READONLY") {
             #fail("Only a kind or a method can be final: nothing else is extended or overridden");
+        }
+    }
+
+    /*
+     * What can't follow readonly, refused saying why: a marker goes first (pub readonly kind, pub
+     * readonly #x), and so do abstract and final (abstract readonly kind), and nothing but a kind
+     * or a field is ever written after construction. $what is what readonly may mark here, "kind"
+     * at the top level or "field" in a kind, which the token after must then start.
+     */
+    fn refuse_after_readonly($what) {
+        $token = #current_token;
+        if ($token.type == "PUB" || $token.type == "KIN") {
+            $marked = $what == "kind" ? "kind" : "#name";
+            #fail("{$token.value} comes before readonly: write '{$token.value} readonly {$marked} ...'");
+        } else if (($token.type == "ABSTRACT" || $token.type == "FINAL") && $what == "kind") {
+            #fail("{$token.value} comes before readonly: write '{$token.value} readonly kind ...'");
+        } else if (has_key(#READONLY_REFUSED, $token.type)) {
+            #fail(#READONLY_REFUSED[$token.type]);
+        } else if ($what == "kind" && $token.type != "KIND") {
+            #fail("Expected a kind after readonly but found " .. #describe($token));
+        } else if ($what == "field" && $token.type != "HASH_IDENTIFIER" && !#at_type()) {
+            #fail("Expected a field (#name) after readonly but found " .. #describe($token));
         }
     }
 
@@ -2463,6 +2517,11 @@ final kind Html {
             #eat("FINAL");
             #refuse_after_final("kind");
         }
+        $readonly = #current_token.type == "READONLY";
+        if ($readonly) {
+            #eat("READONLY");
+            #refuse_after_readonly("kind");
+        }
         #eat("KIND");
         #check_new_name();
         // In a type, one of these words always means the builtin type, so no kind can take it
@@ -2484,6 +2543,9 @@ final kind Html {
         if ($final) {
             $kind.final = true;
         }
+        if ($readonly) {
+            $kind.readonly = true;
+        }
         #kinds[$name] = $kind;
         #declare($name, $pub);
         if ($parent != null) {
@@ -2503,6 +2565,13 @@ final kind Html {
                 $vis = #current_token.type == "PUB" ? "pub" : "kin";
                 #eat(#current_token.type);
             }
+            // After the marker, as final is: only a field is ever written after construction
+            $readonly_token = null;
+            if (#current_token.type == "READONLY") {
+                $readonly_token = #current_token;
+                #eat("READONLY");
+                #refuse_after_readonly("field");
+            }
             // A type goes before the name it types, so here it can only be a field's
             $type = null;
             if (#at_type()) {
@@ -2517,7 +2586,7 @@ final kind Html {
                 }
             }
             if (#current_token.type == "HASH_IDENTIFIER") {
-                #field_declaration($kind, $vis, $type);
+                #field_declaration($kind, $vis, $type, $readonly_token);
             } else if (#current_token.type == "CONST") {
                 #constant_declaration($kind, false, $vis);
             } else if (#current_token.type == "FN" || #current_token.type == "ABSTRACT") {
@@ -2728,6 +2797,8 @@ final kind Html {
             #fail("An enum's methods can't be abstract: nothing extends an enum to define them");
         } else if ($type == "FINAL") {
             #fail("Nothing extends an enum, so its methods need no final");
+        } else if ($type == "READONLY") {
+            #fail(#READONLY_REFUSED["ENUM"]);
         } else {
             #refuse_reserved_member();
             #fail("Expected a case (Name;), a method (fn), a constant (const) or a static method but found " .. #describe(#current_token));
@@ -2839,6 +2910,8 @@ final kind Html {
             #fail("An interface's methods are abstract already, so they need no abstract");
         } else if ($type == "FINAL") {
             #fail("An interface's methods are there to be defined, so none can be final");
+        } else if ($type == "READONLY") {
+            #fail("An interface has no fields, so nothing in it is read-only: it names methods only, as fn name(...);");
         } else if ($type != "FN") {
             #refuse_reserved_member();
             #fail("Expected a method (fn) but found " .. #describe($start));
@@ -2870,11 +2943,15 @@ final kind Html {
         $interface.methods[$name] = $method;
     }
 
-    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind, its type already read
-    fn field_declaration($kind, $vis = "", $type = null) {
+    // Parse a field declaration (HASH_IDENTIFIER [ASSIGN expr] SEMICOLON) into its kind, its type
+    // already read, $readonly_token being the readonly before it, already eaten, if there was one
+    fn field_declaration($kind, $vis = "", $type = null, $readonly_token = null) {
         $token = #current_token;
         $name = slice($token.value, 1);
         #check_new_member($kind, $name);
+        if ($readonly_token != null) {
+            #check_readonly_field($kind);
+        }
         #eat("HASH_IDENTIFIER");
 
         $default = null;
@@ -2890,19 +2967,31 @@ final kind Html {
         }
         #eat("SEMICOLON");
 
-        #declare_field($kind, $name, $default, $vis, $token.line, $type);
+        #declare_field($kind, $name, $default, $vis, $token.line, $type, $readonly_token != null);
+    }
+
+    // Whether readonly means anything on a field of this kind: a read-only kind's fields are
+    // read-only already
+    fn check_readonly_field($kind) {
+        if ($kind.readonly ?? false) {
+            #fail("Kind {$kind.name} is read-only, so its fields need no readonly");
+        }
     }
 
     // Register a field of $kind: the one place that writes fields/field_lines/vis, so a field
     // declared with #x; or #x = default; and one promoted from a constructor parameter stay
     // in sync as the same field to everything downstream (layout, visibility, codegen)
-    fn declare_field($kind, $name, $default, $vis, $line, $type = null) {
+    fn declare_field($kind, $name, $default, $vis, $line, $type = null, $readonly = false) {
         $kind.fields[$name] = $default;
         $kind.field_lines[$name] = $line;
         $kind.vis[$name] = $vis;
         if ($type != null) {
             $kind.field_types ??= {};
             $kind.field_types[$name] = $type;
+        }
+        if ($readonly) {
+            $kind.readonly_fields ??= {};
+            $kind.readonly_fields[$name] = true;
         }
     }
 
@@ -3694,6 +3783,19 @@ final kind Html {
         return "Cannot change {$key}: an enum's cases never change";
     }
 
+    // Whether a field is read-only: its kind is, or it says so itself. $declarer is the name
+    // of the kind that declares it, which is where either is written.
+    fn is_readonly_field($declarer, $name) {
+        $kind = #kinds[$declarer];
+
+        return ($kind.readonly ?? false) || has_key($kind.readonly_fields ?? {}, $name);
+    }
+
+    // What a write to a read-only field is refused with, worded as the VM words it
+    fn readonly_message($declarer, $name) {
+        return "{$declarer} #{$name} is read-only: only {$declarer}'s constructor sets it";
+    }
+
     // What is wrong with a qualified name nothing declares, or null when the name has no ::
     // or names a namespace, where being undefined is all there is to say
     fn qualified_error($name) {
@@ -3733,6 +3835,9 @@ final kind Html {
         #eat("STATIC");
         if (#current_token.type == "FINAL") {
             #fail("Only a kind or a method can be final: nothing else is extended or overridden");
+        }
+        if (#current_token.type == "READONLY") {
+            #fail(#READONLY_REFUSED["STATIC"]);
         }
         if (#current_token.type == "FN") {
             #static_method($kind, $start, $vis);
@@ -3983,7 +4088,7 @@ final kind Html {
             return #shared_declaration();
         } else if ($type == "FN") {
             #fail("Functions can only be declared at the top level");
-        } else if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL") {
+        } else if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL" || $type == "READONLY") {
             #fail("Kinds can only be declared at the top level");
         } else if ($type == "INTERFACE") {
             #fail("Interfaces can only be declared at the top level");
@@ -4157,8 +4262,8 @@ final kind Html {
         $root.statements = [...$inits, ...$root.statements];
 
         // In source order, so the first mistake in the program is the one reported
-        foreach (#member_uses as [$node, $kind, $argc, $assigned, $written, $in_static]) {
-            #check_member_use($node, $kind, $argc, $assigned, $written, $in_static);
+        foreach (#member_uses as [$node, $kind, $argc, $assigned, $written, $in_static, $in_constructor]) {
+            #check_member_use($node, $kind, $argc, $assigned, $written, $in_static, $in_constructor);
         }
         foreach (#gaps as $gapped) {
             #fail_gap($gapped);
@@ -4590,6 +4695,14 @@ final kind Html {
             if (#is_enum($parent)) {
                 #fail_at("Kind {$kind.name} can't extend {$parent.name}: it is an enum, whose cases are its only objects", $kind.file, $kind.line);
             }
+            // Read-only kinds extend and are extended by read-only kinds only, so what a kind's
+            // header says holds for every field an object of it has
+            if (($kind.readonly ?? false) && !($parent.readonly ?? false)) {
+                #fail_at("Kind {$kind.name} can't be read-only: it extends {$parent.name}, which isn't", $kind.file, $kind.line);
+            }
+            if (($parent.readonly ?? false) && !($kind.readonly ?? false)) {
+                #fail_at("Kind {$kind.name} must be read-only: it extends {$parent.name}, which is", $kind.file, $kind.line);
+            }
             $chain[] = $kind.name;
             if (in_array($parent.name, $chain)) {
                 // From the parent's first appearance in the chain, round to it again
@@ -4980,11 +5093,16 @@ final kind Html {
         return has_key($kind.members, "_") ? #kinds[$kind.members["_"]].methods["_"].arity : 0;
     }
 
-    // Check a #name against its kind: the member must exist, a method can't be assigned to, and a call must fit its arity
-    //
-    // Called methods are checked against the kind the method is written in: a child's
-    // version accepts every argument count this one does.
-    fn check_member_use($node, $kind, $argc, $assigned, $written, $in_static) {
+    /*
+     * Check a #name against its kind: the member must exist, a method can't be assigned to, a
+     * call must fit its arity, and a read-only field is written only by the constructor of the
+     * kind that declares it ($in_constructor: the constructor's own statements, not a lambda
+     * made there, which may run after construction)
+     *
+     * Called methods are checked against the kind the method is written in: a child's
+     * version accepts every argument count this one does.
+     */
+    fn check_member_use($node, $kind, $argc, $assigned, $written, $in_static, $in_constructor) {
         $static = #kind_static($kind, $node.name);
         if ($static != null) {
             if ($argc != null && !$kind.static_is_method[$node.name]) {
@@ -5025,6 +5143,11 @@ final kind Html {
         if (has_key($kind.layout, $node.name)) {
             if (($written || $assigned) && #is_enum($kind)) {
                 #fail_at("Cannot change #{$node.name}: an enum's cases never change", $node.file, $node.line);
+            }
+            $declarer = $kind.layout[$node.name];
+            $its_constructor = $in_constructor && $declarer == $kind.name;
+            if (($written || $assigned) && #is_readonly_field($declarer, $node.name) && !$its_constructor) {
+                #fail_at(#readonly_message($declarer, $node.name), $node.file, $node.line);
             }
             $node.field = true;
 
@@ -5086,7 +5209,7 @@ final kind Html {
                 }
             } else if ($type == "INCLUDE") {
                 #include_is_gone();
-            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "FINAL", "INTERFACE", "ENUM", "CONST"])) {
+            } else if (in_array($type, ["PUB", "FN", "KIND", "ABSTRACT", "FINAL", "READONLY", "INTERFACE", "ENUM", "CONST"])) {
                 #module.declaring = true;
                 foreach (#declaration() as $declared) {
                     $statements[] = $declared;
@@ -5115,7 +5238,7 @@ final kind Html {
         if ($type == "FN") {
             return [#function_declaration($pub)];
         }
-        if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL" || $type == "ENUM") {
+        if ($type == "KIND" || $type == "ABSTRACT" || $type == "FINAL" || $type == "READONLY" || $type == "ENUM") {
             // A static method is a function, so it is spliced in after its kind
             $from = len(#static_functions);
             $statements = [$type == "ENUM" ? #enum_declaration($pub) : #kind_declaration($pub)];

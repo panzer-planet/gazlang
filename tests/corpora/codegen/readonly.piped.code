@@ -1,0 +1,120 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ 28
+PUSH "w"
+PUSH 1
+NEW Savings 2
+PRINT
+@ 29
+PUSH 5
+NEW Change 1
+PRINT
+
+kind Account
+field id Account pub readonly
+field balance Account kin readonly int
+field owner Account readonly
+field note Account pub
+field name Account pub readonly string
+method _ Account pub
+locals $#argument_0 $#argument_1
+@ 6
+PUSH 0
+@ 4
+SET_FIELD balance
+POP
+@ 8
+PUSH ""
+@ 4
+SET_FIELD note
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+fn Account._ 2 2
+locals $name $id
+@ 10
+CHECK_PARAM 0 string
+LOAD 0
+SET_FIELD name
+POP
+@ 11
+LOAD 1
+SET_FIELD id
+POP
+@ 12
+LOAD 0
+SET_FIELD owner
+POP
+@ 10
+PUSH null
+RET
+
+kind Savings extends Account
+field id Account pub readonly
+field balance Account kin readonly int
+field owner Account readonly
+field note Account pub
+field name Account pub readonly string
+field rate Savings pub
+method _ Account pub
+locals $#argument_0 $#argument_1
+@ 6
+PUSH 0
+@ 16
+SET_FIELD balance
+POP
+@ 8
+PUSH ""
+@ 16
+SET_FIELD note
+POP
+@ 17
+PUSH 1
+@ 16
+SET_FIELD rate
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+readonly kind Money
+field cents Money pub int
+method _ Money pub
+locals $#argument_0
+@ 20
+CALL_CONSTRUCTOR Money
+POP
+LOAD_THIS
+RET
+
+fn Money._ 1 1
+locals $cents
+@ 21
+CHECK_PARAM 0 int
+LOAD 0
+SET_FIELD cents
+POP
+PUSH null
+RET
+
+final readonly kind Change extends Money
+field cents Money pub int
+field note Change pub
+method _ Money pub
+locals $#argument_0
+@ 25
+PUSH "change"
+@ 24
+SET_FIELD note
+POP
+CALL_CONSTRUCTOR Money
+POP
+LOAD_THIS
+RET

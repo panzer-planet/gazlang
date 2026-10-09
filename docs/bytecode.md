@@ -98,6 +98,17 @@ differ from the kind whose version runs: `method area Square kin Shape` is Squar
 a method Shape declared, and it is Shape's marker that says who may name it. Nothing said means
 the declarer is the definer.
 
+A `field` line may say `readonly` after its marker (or where the marker would be) and before its
+type, for a field written only while its object is being constructed: `field id Account pub
+readonly int`. Like the type, the word is the declaring kind's and is on every record that has the
+slot, a child's included. A kind's header may say `readonly` before `kind` (after `abstract` or
+`final`, if either is there), which makes every field of its objects read-only, so its field lines
+say nothing of it: `readonly kind Money`, `final readonly kind Change extends Money`. A read-only
+kind's parent is read-only, and so is every kind that extends it. Every write to or under a
+read-only field, however it is spelt, is refused unless the `NEW` that makes the object is still
+running (the field defaults and the constructor) and the code writing is the declaring kind's own
+(or the initialiser's), so a hand-written `SET_FIELD` or `SET_PATH` can't get round it.
+
 A kind's header may start with `abstract`, for a kind nothing constructs, or `final`, for a kind
 nothing extends. A `method` line may end with `final`, after its marker and any declarer, for a
 method no child may override: `method area Square pub Shape final`. A method a kind keeps to
@@ -135,6 +146,17 @@ field name Shape kin string
 field radius Circle pub float
 method _ Circle pub Shape
 method area Circle pub Shape final
+locals $#argument_0
+
+kind Account
+field id Account pub readonly int
+field balance Account pub
+method _ Account pub
+locals $#argument_0
+
+readonly kind Money
+field cents Money pub int
+method _ Money pub
 locals $#argument_0
 ```
 
@@ -428,6 +450,8 @@ A file that loads is one the VM can run, so the checks are part of the format:
   and a kind's parent. No kind is its own ancestor, through any number of parents.
 - No kind's parent is `final`, and every `pub` or `kin` entry a kind has of the name of a
   `final` entry of its parent's runs the same version and says `final` too.
+- A `readonly` kind's parent is `readonly`, a kind whose parent is `readonly` is too, and a
+  kind's `field` line of a parent's field says `readonly` exactly where the parent's does.
 - An interface's name is no kind's or other interface's, and it names each method once, with no
   code. Every `implements` line names an interface, each once in a kind, and a kind that isn't
   abstract has, for every interface it or an ancestor claims, a `pub` method of each name the

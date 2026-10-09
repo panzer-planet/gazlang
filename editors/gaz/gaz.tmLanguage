@@ -249,7 +249,7 @@
 					<key>name</key>
 					<string>storage.modifier.gaz</string>
 					<key>match</key>
-					<string>\b(abstract|final|extends|implements|pub|kin|static|shared)\b</string>
+					<string>\b(abstract|final|readonly|extends|implements|pub|kin|static|shared)\b</string>
 				</dict>
 			</array>
 		</dict>

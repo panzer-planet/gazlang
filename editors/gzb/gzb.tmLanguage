@@ -124,7 +124,7 @@
 						</dict>
 					</dict>
 					<key>match</key>
-					<string>^\s*(?:(abstract|final)\s+)?(kind)\s+([A-Za-z_][\w:.]*)(?:\s+(extends)\s+([A-Za-z_][\w:.]*))?\s*$</string>
+					<string>^\s*(?:((?:abstract|final)(?:\s+readonly)?|readonly)\s+)?(kind)\s+([A-Za-z_][\w:.]*)(?:\s+(extends)\s+([A-Za-z_][\w:.]*))?\s*$</string>
 				</dict>
 				<dict>
 					<key>captures</key>
@@ -908,7 +908,7 @@
 						</dict>
 					</dict>
 					<key>match</key>
-					<string>^\s*(field)\s+(\w+)\s+([A-Za-z_][\w:.]*)(?:\s+(pub|kin))?(?:\s+((?!pub\b|kin\b)[A-Za-z_][\w:]*(?:\|[A-Za-z_][\w:]*)*))?\s*$</string>
+					<string>^\s*(field)\s+(\w+)\s+([A-Za-z_][\w:.]*)(?:\s+((?:pub|kin)(?:\s+readonly)?|readonly))?(?:\s+((?!pub\b|kin\b|readonly\b)[A-Za-z_][\w:]*(?:\|[A-Za-z_][\w:]*)*))?\s*$</string>
 				</dict>
 				<dict>
 					<key>captures</key>

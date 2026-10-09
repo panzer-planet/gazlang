@@ -1,0 +1,7 @@
+kind Account {
+    pub readonly #id;
+
+    pub fn renumber() {
+        #id = 2;
+    }
+}

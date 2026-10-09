@@ -1,0 +1,3 @@
+kind Account {
+    fn _(readonly $id) {}
+}

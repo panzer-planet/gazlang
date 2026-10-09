@@ -1,0 +1,1 @@
+Error: final comes before readonly: write 'final readonly kind ...' at tests/corpora/parser/error_readonly_before_final.gaz:1

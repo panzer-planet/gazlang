@@ -930,15 +930,19 @@ static Block *read_block(const char *header) {
             const char *dot = strrchr(b->name->data, '.');
             if (dot) b->owner_name = str_intern(b->name->data, (size_t)(dot - b->name->data));
         }
-    } else if (!strcmp(block_word, "kind") || !strcmp(block_word, "abstract") || !strcmp(block_word, "final")) {
+    } else if (!strcmp(block_word, "kind") || !strcmp(block_word, "abstract") || !strcmp(block_word, "final") || !strcmp(block_word, "readonly")) {
         b->kind = B_KIND;
-        b->is_abstract = !strcmp(block_word, "abstract");
-        b->is_final = !strcmp(block_word, "final");
-        int from = 1;
-        if (b->is_abstract || b->is_final) {
-            if (w.n < 2 || strcmp(w.w[1], "kind")) fail("Expected '%s kind'", block_word);
-            from = 2;
+        /* [abstract | final] [readonly] kind Name: the words before kind, in that order */
+        int from = 0;
+        b->is_abstract = !strcmp(w.w[from], "abstract");
+        b->is_final = !strcmp(w.w[from], "final");
+        if (b->is_abstract || b->is_final) from++;
+        b->is_readonly = from < w.n && !strcmp(w.w[from], "readonly");
+        if (b->is_readonly) from++;
+        if (from > 0) {
+            if (from >= w.n || strcmp(w.w[from], "kind")) fail("Expected '%s kind'", w.w[from - 1]);
         }
+        from++;
         int rest = w.n - from;
         if (rest != 0 && rest != 1 && !(rest == 3 && !strcmp(w.w[from + 1], "extends"))) {
             fail("Expected 'kind Name' or 'kind Name extends Parent'");
@@ -994,10 +998,12 @@ static Block *read_block(const char *header) {
         const char *first = w.w[0];
         if (!strcmp(first, "field") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *declarer = intern(word(&w, 2));
-            /* Then what it escapes, if said, then its type, if it has one */
+            /* Then what it escapes, if said, then readonly, if it is, then its type, if it has one */
             int at = 3;
             Vis vis = V_OWN;
             if (w.n > at && is_vis_word(w.w[at])) vis = read_vis(&w, at++);
+            bool readonly = w.n > at && !strcmp(w.w[at], "readonly");
+            if (readonly) at++;
             Str *type = w.n > at ? intern(w.w[at++]) : NULL;
             if (w.n > at) fail("Expected the end of the line after field %s's type but found '%s'", name->data, w.w[at]);
             int n = b->nfields;
@@ -1005,6 +1011,8 @@ static Block *read_block(const char *header) {
             n = b->nfields;
             b->field_vis = push_vis(b->field_vis, &n, vis);
             n = b->nfields;
+            b->field_readonly = xrealloc(b->field_readonly, (size_t)(n + 1) * sizeof(bool));
+            b->field_readonly[n] = readonly;
             b->field_type_texts = push_name(b->field_type_texts, &n, type);
             b->field_declarers = push_name(b->field_declarers, &b->nfields, declarer);
         } else if (!strcmp(first, "static") && b->kind == B_KIND) {
@@ -1567,6 +1575,27 @@ static void check_final(Kind *c) {
     }
 }
 
+/* What readonly keeps: a read-only kind's parent and children are read-only too, so its header
+   speaks for every field an object of it has, and a child's record of a parent's field says
+   readonly exactly where the parent's does, so a kind is checked against its parent alone and no
+   generation can drop the word for the next to write through. */
+static void check_readonly(Kind *c) {
+    Kind *parent = c->parent;
+    if (!parent) return;
+    const char *kind = c->name->data, *parent_name = parent->name->data;
+    Block *pb = parent->block, *b = c->block;
+    if (b->is_readonly && !pb->is_readonly) fail_at(false, "Kind %s is read-only but extends %s, which isn't", kind, parent_name);
+    if (pb->is_readonly && !b->is_readonly) fail_at(false, "Kind %s extends read-only kind %s without being read-only", kind, parent_name);
+    for (int p = 0; p < pb->nfields; p++) {
+        for (int f = 0; f < b->nfields; f++) {
+            if (b->field_names[f] != pb->field_names[p] || b->field_readonly[f] == pb->field_readonly[p]) continue;
+            const char *field = pb->field_names[p]->data;
+            if (pb->field_readonly[p]) fail_at(false, "Kind %s inherits read-only field %s of %s without saying readonly", kind, field, parent_name);
+            fail_at(false, "Kind %s says field %s of %s is readonly, which %s doesn't", kind, field, parent_name, parent_name);
+        }
+    }
+}
+
 /* An enum's record: what keeps its cases its only objects, and each one's value where it is put.
    A backed enum has one field, value, pub and typed with what its cases are, so every write into
    it goes through check_field_type(), which refuses a case; an enum without values has none. Its
@@ -1623,6 +1652,12 @@ static void build_kinds(void) {
             if (!b->field_type_texts[f]) continue;
             if (!c->field_types) c->field_types = xcalloc((size_t)b->nfields + 1, sizeof(TypeSpec *));
             c->field_types[f] = read_type(b->field_type_texts[f]);
+        }
+        /* The same for read-only fields: every field of a read-only kind, and each whose line says so */
+        for (int f = 0; f < b->nfields; f++) {
+            if (!b->is_readonly && !b->field_readonly[f]) continue;
+            if (!c->field_readonly) c->field_readonly = xcalloc((size_t)b->nfields + 1, sizeof(bool));
+            c->field_readonly[f] = true;
         }
         /* A typed static field: its slot is the one the statics line names after this kind */
         for (int s = 0; s < b->nstatic_types; s++) {
@@ -1690,6 +1725,7 @@ static void build_kinds(void) {
         if (c->is_enum) check_enum(c);
     }
     for (int i = 0; i < prog->nkinds; i++) check_final(&prog->kinds[i]);
+    for (int i = 0; i < prog->nkinds; i++) check_readonly(&prog->kinds[i]);
     bool *flattened = xcalloc((size_t)prog->nkinds + 1, sizeof(bool));
     for (int i = 0; i < prog->nkinds; i++) flatten_interfaces(&prog->kinds[i], flattened);
     free(flattened);

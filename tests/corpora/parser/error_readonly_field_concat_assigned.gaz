@@ -1,0 +1,7 @@
+kind Account {
+    pub readonly #name = "";
+
+    pub fn suffix() {
+        #name ..= "!";
+    }
+}

@@ -718,7 +718,7 @@ function bytecodeBlocks(array $lines): array
     $blocks = [];
     $at = -1;
     foreach ($lines as $i => $line) {
-        if (preg_match('/^(top|fn |lambda |kind |abstract kind |final kind |interface |enum )/', $line)) {
+        if (preg_match('/^(top|fn |lambda |(?:(?:abstract |final )?readonly )?kind |abstract kind |final kind |interface |enum )/', $line)) {
             $blocks[] = ['body' => [], 'locals' => 0, 'labels' => []];
             $at = count($blocks) - 1;
         }

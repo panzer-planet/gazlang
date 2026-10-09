@@ -1,0 +1,1 @@
+Error: An enum needs no readonly: its cases never change on line 3

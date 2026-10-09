@@ -1,0 +1,134 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $account $money $e
+@ "readonly_bytecode.gaz" 13
+PUSH 1
+NEW Account 1
+STORE 0
+LOAD 0
+POP
+@ "readonly_bytecode.gaz" 14
+PUSH 2
+NEW Money 1
+STORE 1
+LOAD 1
+POP
+@ "readonly_bytecode.gaz" 15
+LOAD 0
+GET_PROPERTY id
+PUSH " "
+CONCAT
+LOAD 1
+GET_PROPERTY cents
+CONCAT
+PRINT
+@ "readonly_bytecode.gaz" 16
+TRY CATCH_0
+@ "readonly_bytecode.gaz" 17
+PUSH 3
+SET_PATH .id 0
+POP
+@ "readonly_bytecode.gaz" 16
+END_TRY
+JMP ENDTRY_0
+LABEL CATCH_0
+CATCH_VALUE
+STORE 2
+@ "readonly_bytecode.gaz" 19
+LOAD 2
+GET_PROPERTY message
+PRINT
+LABEL ENDTRY_0
+
+kind Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+field cause Error pub
+method _ Error pub
+method to_string Error pub
+locals $#argument_0 $#argument_1
+@ "<builtin>" 6
+PUSH null
+@ "<builtin>" 1
+SET_FIELD cause
+POP
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 2
+locals $message $cause
+@ "<builtin>" 7
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH null
+STORE 1
+LABEL PASSED_0
+@ "<builtin>" 8
+LOAD 0
+SET_FIELD message
+POP
+@ "<builtin>" 9
+LOAD 1
+SET_FIELD cause
+POP
+@ "<builtin>" 7
+PUSH null
+RET
+
+fn Error.to_string 0 0
+locals
+@ "<builtin>" 11
+PUSH ""
+LOAD_FIELD message
+CONCAT
+RET
+PUSH null
+RET
+
+kind Account
+field id Account pub readonly
+method _ Account pub
+locals $#argument_0
+@ "readonly_bytecode.gaz" 1
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+fn Account._ 1 1
+locals $id
+@ "readonly_bytecode.gaz" 5
+LOAD 0
+SET_FIELD id
+POP
+@ "readonly_bytecode.gaz" 4
+PUSH null
+RET
+
+readonly kind Money
+field cents Money pub
+method _ Money pub
+locals $#argument_0
+@ "readonly_bytecode.gaz" 9
+CALL_CONSTRUCTOR Money
+POP
+LOAD_THIS
+RET
+
+fn Money._ 1 1
+locals $cents
+@ "readonly_bytecode.gaz" 10
+LOAD 0
+SET_FIELD cents
+POP
+PUSH null
+RET

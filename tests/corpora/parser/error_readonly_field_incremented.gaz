@@ -1,0 +1,7 @@
+kind Account {
+    pub readonly #count = 0;
+
+    pub fn bump() {
+        #count++;
+    }
+}

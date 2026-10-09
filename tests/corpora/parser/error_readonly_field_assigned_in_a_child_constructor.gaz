@@ -1,0 +1,13 @@
+kind Account {
+    pub readonly #id;
+
+    fn _(int $id) {
+        #id = $id;
+    }
+}
+
+kind Savings extends Account {
+    fn _() {
+        #id = 1;
+    }
+}

@@ -907,6 +907,48 @@ and methods a table in C.
   the loader checks each kind against its parent alone (`check_final()` in `load.c`). Old files
   load unchanged, so the version stays 3.
 
+## readonly
+
+- **`readonly` closes a field once its object is made**, so an id, a key or a record read from a
+  request can be shared without any "did someone change it?" question, and a `readonly kind`
+  closes every field, so a shared object nobody can change behaves like a value (money, points,
+  colours). Objects stay handles: `==` is still identity, and the object a read-only field holds
+  is still writable through it (shallow, as everywhere else). A changed copy (`with`) and
+  field-by-field `==` for read-only kinds stay open in #88.
+- **Written only while the object is being constructed, and only by the declaring kind's own
+  constructor**: `_` itself, a promoted parameter, a field default, and a parent's `_` reached by
+  `##_(...)` for the parent's own fields. A child's constructor, a helper method and a lambda made
+  in the constructor (it may run later) are refused: the restrictive choice, Swift's and C#'s, and
+  loosening it later breaks nothing.
+- **Two checks, one sentence**: the parser refuses every `#field` write it can see
+  (`check_member_use()`, as `case_never_changes()` refuses a case: `=`, compound, `++`, `??=`,
+  `..=`, `delete` under it, `#tags[] = ...`), and the VM refuses the rest where every field write
+  already goes (`check_field_readonly()` in `ops.c`: `SET_FIELD`, `SET_FIELD_POP` takes the long
+  way, `write_path()` and `remove_path()` at every field step that isn't followed by another
+  field step, since a write inside a list or map the field holds changes the field and a step on
+  through a field writes another object), both with `Account #id is read-only: only Account's
+  constructor sets it`. The VM's window is `Object.constructing` (in the padding, so no object
+  grows), set by `NEW` and cleared when its frame returns or is unwound by an error, so an object
+  that escaped from a failing constructor is closed too; inside it a write is taken from the
+  declaring kind's code or the initialiser (`KIND_INITIALISER`), so a helper function of the kind
+  writing through a handle to the object works while the constructor runs and never after. A kind
+  with no read-only field pays a test of a NULL pointer.
+- **After the marker, as `final` is** (`pub readonly int #id`, `fn _(pub readonly #id)`,
+  `pub readonly kind`, and `abstract readonly kind`/`final readonly kind` in that order);
+  `readonly pub` says to write `pub readonly`. Refused where it closes nothing, each with a
+  sentence (`refuse_after_readonly()`, `READONLY_REFUSED`): a field of a read-only kind, a static
+  field (that is a `const`), a method, a function, a constant, an interface and its methods, an
+  enum and its methods, a plain parameter.
+- **Inheritance is read-only all the way**: a read-only kind extends only a read-only kind and is
+  extended only by one (`resolve_kind()`), so a header speaks for every field an object of it has
+  and no child reopens a parent's field. The restrictive choice; loosening it breaks nothing.
+- **In bytecode**: `readonly` before `kind` on the header (after `abstract`/`final`), and on a
+  field line after its marker and before its type, the declaring kind's word repeated on every
+  record that has the slot, so the loader checks each kind against its parent alone
+  (`check_readonly()` in `load.c`: the headers agree, and each field line says `readonly` exactly
+  where the parent's does). Old files load unchanged, so the version stays 3. `--ast` shows
+  `readonly` and `readonly_fields` only where set.
+
 ## Enums
 
 - **A closed kind whose cases are its only objects**, so typed parameters, `is_a`, `kind_of`,

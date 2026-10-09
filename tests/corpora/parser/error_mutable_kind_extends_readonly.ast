@@ -1,0 +1,1 @@
+Error: Kind Money must be read-only: it extends Amount, which is at tests/corpora/parser/error_mutable_kind_extends_readonly.gaz:3

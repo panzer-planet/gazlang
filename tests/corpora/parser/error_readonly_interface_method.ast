@@ -1,0 +1,1 @@
+Error: An interface has no fields, so nothing in it is read-only: it names methods only, as fn name(...); at tests/corpora/parser/error_readonly_interface_method.gaz:2

@@ -1,0 +1,60 @@
+// readonly on fields and on kinds: what each shape dumps (readonly and readonly_fields only where
+// set), and what stays allowed: the constructor's own writes, a promoted parameter, a default,
+// a parent's constructor through ##_, and a write to the object a read-only field holds
+kind Owner {
+    fn _(pub #name) {}
+}
+
+kind Account {
+    pub readonly #id;
+    pub readonly int #balance = 0;
+    readonly #owner;
+    pub #note = "";
+
+    fn _(pub readonly string #name, $id) {
+        #id = $id;
+        #balance = #balance + 1;
+        #owner = Owner($name);
+        #owner.name = upper($name);
+    }
+
+    pub fn rename($note) {
+        #note = $note;
+    }
+}
+
+pub readonly kind Money {
+    fn _(pub int #cents, pub string #currency) {}
+
+    pub fn plus(Money $other): Money {
+        return Money(#cents + $other.cents, #currency);
+    }
+}
+
+readonly kind Change
+    extends Money {
+    pub #note = "change";
+
+    fn _($cents) {
+        ##_($cents, "ZAR");
+    }
+}
+
+abstract readonly kind Shape {
+    pub abstract fn area();
+}
+
+final readonly kind Square extends Shape {
+    fn _(pub #side) {}
+
+    pub fn area() {
+        return #side * #side;
+    }
+}
+
+$account = Account("werner", 7);
+$account.note = "plain";
+$account.rename("renamed");
+echo $account;
+echo Money(1500, "ZAR").plus(Change(5));
+echo Square(3).area();

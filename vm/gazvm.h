@@ -177,6 +177,8 @@ struct Object {
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
     bool says_where;    /* the Error a catch made of a runtime error, whose message line ends
                            where it happened, as a thrown one's doesn't; in the padding too */
+    bool constructing;  /* while NEW's frame runs (the field defaults and the constructor): the
+                           one time a read-only field takes a write; in the padding too */
     int32_t case_number; /* a case of an enum: which, from 1 (0 for any other object), in the
                             padding before the fields, so it costs an object nothing */
     Value fields[];
@@ -274,6 +276,7 @@ struct Kind {
     Kind **field_declarers;  /* the kind declaring each, which its visibility is against */
     Vis *field_vis;
     TypeSpec **field_types;  /* each field's type, NULL for one without; NULL itself when no field has one */
+    bool *field_readonly;    /* whether each field is read-only (its kind is, or it says so); NULL when none is */
     int nmethods;
     Str **methods;      /* every method it can call, the constructor _ included */
     Kind **definers;    /* the kind whose version of each runs */
@@ -310,6 +313,7 @@ struct Block {
     struct { bool from_closure; int outer; int inner; } *map;   /* lambda: where each capture comes from */
     bool is_abstract;   /* kind */
     bool is_final;      /* kind: no kind may extend it */
+    bool is_readonly;   /* kind: every field of an object of it is read-only */
     bool is_enum;       /* kind: an enum, whose cases are its only objects */
     Str *backing;       /* enum: "string" or "int", the type its cases' values have, or NULL */
     int ncases;         /* enum: each case, with its value (unset when it isn't backed) */
@@ -325,6 +329,7 @@ struct Block {
     Str **field_names, **field_declarers;
     Vis *field_vis;
     Str **field_type_texts;  /* kind: each field's type as written, or NULL */
+    bool *field_readonly;    /* kind: whether each field's line says readonly */
     int nmethods;
     Str **method_names, **method_definers, **method_declarers;
     Vis *method_vis;
@@ -576,6 +581,7 @@ bool type_admits(TypeSpec *t, Value *v);
 bool type_has(TypeSpec *t, Type type);
 const char *describe_type(Value v);
 bool check_field_type(Object *o, int field, Value *v);
+bool check_field_readonly(Object *o, int field, Kind *asking);
 bool append_case(Object *o, Buf *out);   /* Filter::Open for a case of an enum, else false */
 /* The value may be widened to a float by a typed field's check, which is why it is a pointer */
 bool store_path(Value *slot, Str *var_name, Path *path, Value *keys, Value *value, Kind *asking, Value *joined);

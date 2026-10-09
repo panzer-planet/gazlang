@@ -1,0 +1,1 @@
+Error: An interface can't be read-only: it has no fields at tests/corpora/parser/error_readonly_interface.gaz:1

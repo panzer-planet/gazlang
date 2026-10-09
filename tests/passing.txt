@@ -751,6 +751,7 @@ snippet:fff09b153f8a
 snippet:fff0fce3fd64
 tests/corpora/bytecode/concat_path_without_steps.gzb
 tests/corpora/bytecode/enums.gzb
+tests/corpora/bytecode/error_abstract_readonly_kind_header.gzb
 tests/corpora/bytecode/error_abstract_without_kind.gzb
 tests/corpora/bytecode/error_array_extend_into_an_int.gzb
 tests/corpora/bytecode/error_array_push_onto_a_float.gzb
@@ -810,6 +811,7 @@ tests/corpora/bytecode/error_error_kind_without_its_fields.gzb
 tests/corpora/bytecode/error_extends_an_enum.gzb
 tests/corpora/bytecode/error_extends_an_interface.gzb
 tests/corpora/bytecode/error_extends_final_kind.gzb
+tests/corpora/bytecode/error_extends_readonly_kind.gzb
 tests/corpora/bytecode/error_extra_argument.gzb
 tests/corpora/bytecode/error_field_declarer_undefined.gzb
 tests/corpora/bytecode/error_field_in_a_lambda_made_at_top_level.gzb
@@ -878,6 +880,11 @@ tests/corpora/bytecode/error_no_globals.gzb
 tests/corpora/bytecode/error_no_locals_at_end.gzb
 tests/corpora/bytecode/error_not_bytecode.gzb
 tests/corpora/bytecode/error_parent_undefined.gzb
+tests/corpora/bytecode/error_readonly_field_added.gzb
+tests/corpora/bytecode/error_readonly_field_dropped.gzb
+tests/corpora/bytecode/error_readonly_field_line_too_long.gzb
+tests/corpora/bytecode/error_readonly_kind_extends_mutable.gzb
+tests/corpora/bytecode/error_readonly_kind_header.gzb
 tests/corpora/bytecode/error_record_line_out_of_place.gzb
 tests/corpora/bytecode/error_rethrow_of_a_number.gzb
 tests/corpora/bytecode/error_runs_off_the_end.gzb
@@ -943,6 +950,7 @@ tests/corpora/bytecode/foreach_next.gzb
 tests/corpora/bytecode/interfaces.gzb
 tests/corpora/bytecode/map_extend.gzb
 tests/corpora/bytecode/raised_error_as_a_value.gzb
+tests/corpora/bytecode/readonly.gzb
 tests/corpora/bytecode/set_field_undeclared.gzb
 tests/corpora/bytecode/spacing.gzb
 tests/corpora/bytecode/statics.gzb
@@ -971,6 +979,7 @@ tests/corpora/codegen/pattern_parameters.gaz
 tests/corpora/codegen/pipe.gaz
 tests/corpora/codegen/power.gaz
 tests/corpora/codegen/private_method_names_reused.gaz
+tests/corpora/codegen/readonly.gaz
 tests/corpora/codegen/rest_pattern.gaz
 tests/corpora/codegen/shared.gaz
 tests/corpora/codegen/statements.gaz
@@ -1074,6 +1083,7 @@ tests/corpora/parser/postfix.gaz
 tests/corpora/parser/power.gaz
 tests/corpora/parser/precedence.gaz
 tests/corpora/parser/promoted_fields.gaz
+tests/corpora/parser/readonly.gaz
 tests/corpora/parser/rest_pattern.gaz
 tests/corpora/parser/rest_pattern_in_foreach.gaz
 tests/corpora/parser/rest_pattern_parameters.gaz
@@ -1241,6 +1251,7 @@ tests/gaz/objects/kinds_test.gaz
 tests/gaz/objects/other_languages_words_test.gaz
 tests/gaz/objects/private_member_names_test.gaz
 tests/gaz/objects/promoted_fields_test.gaz
+tests/gaz/objects/readonly_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
 tests/gaz/operators/coalesce_test.gaz

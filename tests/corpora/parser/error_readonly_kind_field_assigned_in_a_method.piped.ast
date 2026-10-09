@@ -1,0 +1,1 @@
+Error: Money #cents is read-only: only Money's constructor sets it on line 5

@@ -1,0 +1,3 @@
+kind Account {
+    pub final readonly fn total() {}
+}

@@ -1,0 +1,1 @@
+Error: pub comes before readonly: write 'pub readonly kind ...' on line 1

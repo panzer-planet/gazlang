@@ -164,7 +164,7 @@ pub kind Lexer {
         "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE", "import" => "IMPORT",
         "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "throw" => "THROW", "true" => "TRUE",
         "false" => "FALSE", "kind" => "KIND", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
-        "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL", "enum" => "ENUM",
+        "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL", "readonly" => "READONLY", "enum" => "ENUM",
         "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "kin" => "KIN", "static" => "STATIC",
         "shared" => "SHARED",
     };

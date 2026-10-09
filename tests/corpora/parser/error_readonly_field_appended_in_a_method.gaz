@@ -1,0 +1,7 @@
+kind Account {
+    pub readonly #tags = [];
+
+    pub fn tag($tag) {
+        #tags[] = $tag;
+    }
+}

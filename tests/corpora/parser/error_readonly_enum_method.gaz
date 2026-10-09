@@ -1,0 +1,4 @@
+enum Filter {
+    Open;
+    readonly fn label() {}
+}

@@ -1,0 +1,31 @@
+ok the constructor, a promoted parameter and defaults set read-only fields
+ok a field the kind never set is unset, as any field is
+ok the kind's other fields are written as ever
+ok assigning a read-only field
+ok a compound assignment
+ok ++
+ok --
+ok ..=
+ok ??= on one never set
+ok ??= on one that is set writes nothing, so nothing is refused
+ok appending to a list it holds
+ok writing an element of the list
+ok writing a key of a map it holds
+ok deleting under it
+ok the kind's own code, once construction is over
+ok a promoted parameter's field
+ok so nothing changed
+ok the object a read-only field holds is still a handle anyone can write
+ok but the field itself can't be pointed elsewhere
+ok a read-only kind is constructed and its methods run
+ok every field of a read-only kind is read-only
+ok the kind's own method after construction too
+ok a read-only child's constructor sets its own fields and the parent's through ##_
+ok and both are read-only afterwards
+ok the child's own field included
+ok a read-only kind is a kind like any other
+ok the error left the object where the constructor put it
+ok and its read-only field is closed
+ok a method writing a read-only field
+ok a child's constructor writing a parent's
+ok a mutable kind extending a read-only one

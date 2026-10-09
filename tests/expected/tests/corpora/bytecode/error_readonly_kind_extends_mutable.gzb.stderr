@@ -1,0 +1,1 @@
+Error: Kind Fancy is read-only but extends Page, which isn't

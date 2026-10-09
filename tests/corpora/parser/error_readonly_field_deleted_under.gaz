@@ -1,0 +1,7 @@
+kind Account {
+    pub readonly #tags = [];
+
+    pub fn untag() {
+        delete #tags[0];
+    }
+}

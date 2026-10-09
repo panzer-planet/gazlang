@@ -474,6 +474,20 @@ bool check_field_type(Object *o, int field, Value *v) {
                   o->kind->fields[field]->data, t->text->data, describe_type(*v));
 }
 
+/*
+ * Every write to or under a read-only field comes here: it takes one only while its object is
+ * being constructed (NEW's frame is running: the field defaults, with the initialiser asking,
+ * and the constructor), and then only from the kind that declares it, whose constructor is the
+ * one that sets it. A kind without a read-only field pays a test of the pointer.
+ */
+bool check_field_readonly(Object *o, int field, Kind *asking) {
+    if (!o->kind->field_readonly || !o->kind->field_readonly[field]) return true;
+    Kind *declarer = o->kind->field_declarers[field];
+    if (o->constructing && (asking == KIND_INITIALISER || asking == declarer)) return true;
+    return raisef("%s #%s is read-only: only %s's constructor sets it", declarer->name->data,
+                  o->kind->fields[field]->data, declarer->name->data);
+}
+
 /* $obj.name: a field's value or a bound method; quiet reads an unset field as null */
 bool property(Value target, Str *name, bool quiet, Kind *asking, Value *out) {
     if (target.type != T_OBJECT) return raisef("Cannot use . on %s", describe_type(target));
@@ -562,6 +576,10 @@ static bool write_path(Value *slot, Str *var_name, Path *path, Value *keys, Valu
             Object *o = cur->o;
             int f = check_field(o, step->name, asking);
             if (f < 0) return false;
+            /* A write to the field, or inside a list or map it holds (a value, so that changes
+               the field); a step on through another field is a write to the object it holds */
+            bool through_object = s + 1 < path->nsteps && path->steps[s + 1].kind == S_FIELD;
+            if (!through_object && !check_field_readonly(o, f, asking)) return false;
             cur = &o->fields[f];
             if (cur->type == T_UNSET) {
                 exists = false;
@@ -656,6 +674,10 @@ bool remove_path(Value *slot, Str *var_name, Path *path, Value *keys, Kind *aski
             Object *o = cur->o;
             int f = check_field(o, step->name, asking);
             if (f < 0) return false;
+            /* As write_path(): deleting inside what the field holds changes the field, unless
+               the path goes on through another field, to an object the field holds */
+            bool through_object = !last && path->steps[s + 1].kind == S_FIELD;
+            if (!through_object && !check_field_readonly(o, f, asking)) return false;
             if (o->fields[f].type == T_UNSET) return raise_not_set(o, step->name);
             cur = &o->fields[f];
             continue;

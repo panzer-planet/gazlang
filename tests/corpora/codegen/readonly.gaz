@@ -1,0 +1,29 @@
+// readonly is a word on a record: before kind on a read-only kind's header (after abstract or
+// final), which speaks for every field, and on a field line after its marker and before its
+// type, on every kind that has the slot, so the loader can check a child against its parent
+kind Account {
+    pub readonly #id;
+    kin readonly int #balance = 0;
+    readonly #owner;
+    pub #note = "";
+
+    fn _(pub readonly string #name, $id) {
+        #id = $id;
+        #owner = $name;
+    }
+}
+
+kind Savings extends Account {
+    pub #rate = 1;
+}
+
+readonly kind Money {
+    fn _(pub int #cents) {}
+}
+
+final readonly kind Change extends Money {
+    pub #note = "change";
+}
+
+echo Savings("w", 1);
+echo Change(5);

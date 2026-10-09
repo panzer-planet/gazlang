@@ -1,0 +1,7 @@
+readonly kind Money {
+    fn _(pub #cents) {}
+
+    pub fn clear() {
+        #cents = 0;
+    }
+}

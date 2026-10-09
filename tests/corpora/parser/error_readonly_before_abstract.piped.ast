@@ -1,0 +1,1 @@
+Error: abstract comes before readonly: write 'abstract readonly kind ...' on line 1

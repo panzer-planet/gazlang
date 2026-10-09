@@ -1,0 +1,1 @@
+Error: readonly marks a promoted field parameter (#name) of a constructor: a plain parameter can't be read-only at tests/corpora/parser/error_readonly_plain_parameter.gaz:1

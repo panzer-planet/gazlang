@@ -1,0 +1,120 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+@ "readonly.gaz" 28
+PUSH "w"
+PUSH 1
+NEW Savings 2
+PRINT
+@ "readonly.gaz" 29
+PUSH 5
+NEW Change 1
+PRINT
+
+kind Account
+field id Account pub readonly
+field balance Account kin readonly int
+field owner Account readonly
+field note Account pub
+field name Account pub readonly string
+method _ Account pub
+locals $#argument_0 $#argument_1
+@ "readonly.gaz" 6
+PUSH 0
+@ "readonly.gaz" 4
+SET_FIELD balance
+POP
+@ "readonly.gaz" 8
+PUSH ""
+@ "readonly.gaz" 4
+SET_FIELD note
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+fn Account._ 2 2
+locals $name $id
+@ "readonly.gaz" 10
+CHECK_PARAM 0 string
+LOAD 0
+SET_FIELD name
+POP
+@ "readonly.gaz" 11
+LOAD 1
+SET_FIELD id
+POP
+@ "readonly.gaz" 12
+LOAD 0
+SET_FIELD owner
+POP
+@ "readonly.gaz" 10
+PUSH null
+RET
+
+kind Savings extends Account
+field id Account pub readonly
+field balance Account kin readonly int
+field owner Account readonly
+field note Account pub
+field name Account pub readonly string
+field rate Savings pub
+method _ Account pub
+locals $#argument_0 $#argument_1
+@ "readonly.gaz" 6
+PUSH 0
+@ "readonly.gaz" 16
+SET_FIELD balance
+POP
+@ "readonly.gaz" 8
+PUSH ""
+@ "readonly.gaz" 16
+SET_FIELD note
+POP
+@ "readonly.gaz" 17
+PUSH 1
+@ "readonly.gaz" 16
+SET_FIELD rate
+POP
+CALL_CONSTRUCTOR Account
+POP
+LOAD_THIS
+RET
+
+readonly kind Money
+field cents Money pub int
+method _ Money pub
+locals $#argument_0
+@ "readonly.gaz" 20
+CALL_CONSTRUCTOR Money
+POP
+LOAD_THIS
+RET
+
+fn Money._ 1 1
+locals $cents
+@ "readonly.gaz" 21
+CHECK_PARAM 0 int
+LOAD 0
+SET_FIELD cents
+POP
+PUSH null
+RET
+
+final readonly kind Change extends Money
+field cents Money pub int
+field note Change pub
+method _ Money pub
+locals $#argument_0
+@ "readonly.gaz" 25
+PUSH "change"
+@ "readonly.gaz" 24
+SET_FIELD note
+POP
+CALL_CONSTRUCTOR Money
+POP
+LOAD_THIS
+RET

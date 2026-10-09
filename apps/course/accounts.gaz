@@ -22,7 +22,11 @@ const EMAIL_SHAPE = '[^@\s]+@[^@\s]+\.[^@\s]+';
 final kind Registration {
     pub map #errors = {};
 
-    fn _(pub string #name = "", pub string #email = "", pub string #password = "") {}
+    fn _(
+        pub readonly string #name = "",
+        pub readonly string #email = "",
+        pub readonly string #password = ""
+    ) {}
 
     /**
      * The form from the fields a browser sent, checked.
@@ -68,7 +72,7 @@ final kind Registration {
 final kind SignIn {
     pub ?string #problem = null;
 
-    fn _(pub string #email = "", pub string #password = "") {}
+    fn _(pub readonly string #email = "", pub readonly string #password = "") {}
 
     pub static fn submitted(map $fields): SignIn {
         return SignIn(email_of($fields), $fields["password"] ?? "");
@@ -87,9 +91,9 @@ final kind Accounts {
      * Checked against when an email has no account, so a wrong email takes as long as a wrong
      * password and the time of a refusal doesn't say which emails have accounts.
      */
-    string #decoy;
+    readonly string #decoy;
 
-    fn _(Store #store) {
+    fn _(readonly Store #store) {
         #decoy = crypto::hash_password(crypto::token());
     }
 

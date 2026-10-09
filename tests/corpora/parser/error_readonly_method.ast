@@ -1,0 +1,1 @@
+Error: Only a kind or a field can be read-only: nothing else is written after construction at tests/corpora/parser/error_readonly_method.gaz:2

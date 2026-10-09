@@ -1,0 +1,7 @@
+kind Account {
+    pub readonly #id;
+
+    pub fn number() {
+        return #id ??= 1;
+    }
+}

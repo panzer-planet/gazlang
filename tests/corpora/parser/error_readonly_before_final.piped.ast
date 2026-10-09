@@ -1,0 +1,1 @@
+Error: final comes before readonly: write 'final readonly kind ...' on line 1

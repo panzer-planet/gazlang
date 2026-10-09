@@ -1114,6 +1114,7 @@ kind CodeGenerator {
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
                 "implements" => $kind.interfaces ?? [], "abstract" => $kind.abstract, "final" => $kind.final ?? false,
+                "readonly" => $kind.readonly ?? false,
                 "fields" => #field_records($kind), "methods" => #method_records($kind),
                 "statics" => #typed_statics($kind), "enum" => $enum, "backing" => $kind.backing ?? null,
                 "cases" => $kind.cases ?? {},
@@ -1141,13 +1142,15 @@ kind CodeGenerator {
         return Program(#blocks, keys(#global_addresses), keys(#static_addresses));
     }
 
-    // A kind's field lines, each slot as [name, declarer, vis, type text or null]: the type is
-    // the declaring kind's, so a child's record carries it too
+    // A kind's field lines, each slot as [name, declarer, vis, readonly, type text or null]: the
+    // type and the readonly are the declaring kind's, so a child's record carries them too (a
+    // read-only kind's header says it for every field, so its field lines say nothing)
     fn field_records($kind) {
         $records = [];
         foreach ($kind.slots as [$field, $declarer, $vis]) {
             $type = #kinds[$declarer].field_types[$field] ?? null;
-            $records[] = [$field, $declarer, $vis, $type?.text()];
+            $readonly = #kinds[$declarer].readonly_fields[$field] ?? false;
+            $records[] = [$field, $declarer, $vis, $readonly, $type?.text()];
         }
 
         return $records;
@@ -1409,13 +1412,17 @@ kind Program {
         } else if ($block["final"]) {
             $marker = "final ";
         }
+        if ($block["readonly"]) {
+            $marker ..= "readonly ";
+        }
         $lines = [$marker .. "kind " .. $block["name"]
             .. ($block["parent"] == null ? "" : " extends {$block["parent"]}")];
         foreach ($block["implements"] as $interface) {
             $lines[] = "implements {$interface}";
         }
-        foreach ($block["fields"] as [$field, $declarer, $vis, $type]) {
-            $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}") .. ($type == null ? "" : " {$type}");
+        foreach ($block["fields"] as [$field, $declarer, $vis, $readonly, $type]) {
+            $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}") .. ($readonly ? " readonly" : "")
+                .. ($type == null ? "" : " {$type}");
         }
         foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final]) {
             $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}")
@@ -1438,7 +1445,7 @@ kind Program {
         foreach ($block["implements"] as $interface) {
             $lines[] = "implements {$interface}";
         }
-        foreach ($block["fields"] as [$field, $declarer, $vis, $type]) {
+        foreach ($block["fields"] as [$field, $declarer, $vis, $_, $type]) {
             $lines[] = "field {$field} {$declarer} {$vis} {$type}";
         }
         foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final]) {

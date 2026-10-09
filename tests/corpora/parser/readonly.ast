@@ -1,0 +1,575 @@
+Compound
+  statements:
+@ "tests/corpora/parser/readonly.gaz"
+    0: KindDeclaration 4
+      name: "Owner"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"name" => "pub", "_" => "pub"}
+      fields: {"name" => null}
+      field_lines: {"name" => 5}
+      methods:
+        _: FunctionDeclaration 5
+          name: "_"
+          params: ["\$name"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $name
+                    value: "\$name"
+          arity: 1
+          kind: "Owner"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"name" => "Owner"}
+      members: {"_" => "Owner"}
+      abstract_methods: []
+      slots: [["name", "Owner", "pub"]]
+      method_table: [["_", "Owner", "pub", "Owner"]]
+      owner_vis: {"name" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Owner"}
+      hidden: []
+      hidden_fields: []
+    1: KindDeclaration 8
+      name: "Account"
+      parent: null
+      abstract: false
+      readonly_fields: {"id" => true, "balance" => true, "owner" => true, "name" => true}
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"id" => "pub", "balance" => "pub", "owner" => "", "note" => "pub", "name" => "pub", "_" => "pub", "rename" => "pub"}
+      fields:
+        id: null
+        balance: Num 10
+          token: 10 INTEGER 0
+          value: 0
+        owner: null
+        note: String 12
+          token: 12 STRING ""
+          value: ""
+        name: null
+      field_types:
+        balance: Type 10
+          names: ["int"]
+        name: Type 14
+          names: ["string"]
+      field_lines: {"id" => 9, "balance" => 10, "owner" => 11, "note" => 12, "name" => 14}
+      methods:
+        _: FunctionDeclaration 14
+          name: "_"
+          params: ["\$name", "\$id"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: Statement 14
+                expr: Assign 14
+                  left: Property 14
+                    target: This 14
+                    name: "name"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 14 ASSIGN =
+                  right: Variable 14
+                    token: 14 VAR_IDENTIFIER $name
+                    value: "\$name"
+              1: Statement 15
+                expr: Assign 15
+                  left: Property 15
+                    target: This 15
+                    name: "id"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 15 ASSIGN =
+                  right: Variable 15
+                    token: 15 VAR_IDENTIFIER $id
+                    value: "\$id"
+              2: Statement 16
+                expr: Assign 16
+                  left: Property 16
+                    target: This 16
+                    name: "balance"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 16 ASSIGN =
+                  right: BinOp 16
+                    left: Property 16
+                      target: This 16
+                      name: "balance"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    token: 16 PLUS +
+                    op: 16 PLUS +
+                    right: Num 16
+                      token: 16 INTEGER 1
+                      value: 1
+              3: Statement 17
+                expr: Assign 17
+                  left: Property 17
+                    target: This 17
+                    name: "owner"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 17 ASSIGN =
+                  right: FunctionCall 17
+                    name: "Owner"
+                    args:
+                      0: Variable 17
+                        token: 17 VAR_IDENTIFIER $name
+                        value: "\$name"
+              4: Statement 18
+                expr: Assign 18
+                  left: Property 18
+                    target: Property 18
+                      target: This 18
+                      name: "owner"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+                    name: "name"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 18 ASSIGN =
+                  right: FunctionCall 18
+                    name: "upper"
+                    args:
+                      0: Variable 18
+                        token: 18 VAR_IDENTIFIER $name
+                        value: "\$name"
+          arity: 2
+          param_types:
+            0: Type 14
+              names: ["string"]
+            1: null
+          kind: "Account"
+          abstract: false
+        rename: FunctionDeclaration 21
+          name: "rename"
+          params: ["\$note"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 22
+                expr: Assign 22
+                  left: Property 22
+                    target: This 22
+                    name: "note"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 22 ASSIGN =
+                  right: Variable 22
+                    token: 22 VAR_IDENTIFIER $note
+                    value: "\$note"
+          arity: 1
+          kind: "Account"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"id" => "Account", "balance" => "Account", "owner" => "Account", "note" => "Account", "name" => "Account"}
+      members: {"_" => "Account", "rename" => "Account"}
+      abstract_methods: []
+      slots: [["id", "Account", "pub"], ["balance", "Account", "pub"], ["owner", "Account", ""], ["note", "Account", "pub"], ["name", "Account", "pub"]]
+      method_table: [["_", "Account", "pub", "Account"], ["rename", "Account", "pub", "Account"]]
+      owner_vis: {"id" => "pub", "balance" => "pub", "owner" => "", "note" => "pub", "name" => "pub", "_" => "pub", "rename" => "pub"}
+      declared_at: {"_" => "Account", "rename" => "Account"}
+      hidden: []
+      hidden_fields: []
+    2: KindDeclaration 26
+      name: "Money"
+      parent: null
+      abstract: false
+      readonly: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"cents" => "pub", "currency" => "pub", "_" => "pub", "plus" => "pub"}
+      fields: {"cents" => null, "currency" => null}
+      field_types:
+        cents: Type 27
+          names: ["int"]
+        currency: Type 27
+          names: ["string"]
+      field_lines: {"cents" => 27, "currency" => 27}
+      methods:
+        _: FunctionDeclaration 27
+          name: "_"
+          params: ["\$cents", "\$currency"]
+          defaults: [null, null]
+          body: Compound
+            statements:
+              0: Statement 27
+                expr: Assign 27
+                  left: Property 27
+                    target: This 27
+                    name: "cents"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 27 ASSIGN =
+                  right: Variable 27
+                    token: 27 VAR_IDENTIFIER $cents
+                    value: "\$cents"
+              1: Statement 27
+                expr: Assign 27
+                  left: Property 27
+                    target: This 27
+                    name: "currency"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 27 ASSIGN =
+                  right: Variable 27
+                    token: 27 VAR_IDENTIFIER $currency
+                    value: "\$currency"
+          arity: 2
+          param_types:
+            0: Type 27
+              names: ["int"]
+            1: Type 27
+              names: ["string"]
+          kind: "Money"
+          abstract: false
+        plus: FunctionDeclaration 29
+          name: "plus"
+          params: ["\$other"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: ReturnStatement 30
+                expr: FunctionCall 30
+                  name: "Money"
+                  args:
+                    0: BinOp 30
+                      left: Property 30
+                        target: This 30
+                        name: "cents"
+                        field: true
+                        constant: false
+                        value: null
+                        static_name: null
+                      token: 30 PLUS +
+                      op: 30 PLUS +
+                      right: Property 30
+                        target: Variable 30
+                          token: 30 VAR_IDENTIFIER $other
+                          value: "\$other"
+                        name: "cents"
+                        field: false
+                        constant: false
+                        value: null
+                        static_name: null
+                    1: Property 30
+                      target: This 30
+                      name: "currency"
+                      field: true
+                      constant: false
+                      value: null
+                      static_name: null
+          arity: 1
+          param_types:
+            0: Type 29
+              names: ["Money"]
+          return_type: Type 29
+            names: ["Money"]
+          kind: "Money"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"cents" => "Money", "currency" => "Money"}
+      members: {"_" => "Money", "plus" => "Money"}
+      abstract_methods: []
+      slots: [["cents", "Money", "pub"], ["currency", "Money", "pub"]]
+      method_table: [["_", "Money", "pub", "Money"], ["plus", "Money", "pub", "Money"]]
+      owner_vis: {"cents" => "pub", "currency" => "pub", "_" => "pub", "plus" => "pub"}
+      declared_at: {"_" => "Money", "plus" => "Money"}
+      hidden: []
+      hidden_fields: []
+    3: KindDeclaration 34
+      name: "Change"
+      parent: "Money"
+      abstract: false
+      readonly: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"note" => "pub", "_" => "pub"}
+      fields:
+        note: String 36
+          token: 36 STRING "change"
+          value: "change"
+      field_lines: {"note" => 36}
+      methods:
+        _: FunctionDeclaration 38
+          name: "_"
+          params: ["\$cents"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 39
+                expr: ParentMethod 39
+                  name: "_"
+                  args:
+                    0: Variable 39
+                      token: 39 VAR_IDENTIFIER $cents
+                      value: "\$cents"
+                    1: String 39
+                      token: 39 STRING "ZAR"
+                      value: "ZAR"
+                  definer: "Money"
+          arity: 1
+          kind: "Change"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"cents" => "Money", "currency" => "Money", "note" => "Change"}
+      members: {"_" => "Change", "plus" => "Money"}
+      abstract_methods: []
+      slots: [["cents", "Money", "pub"], ["currency", "Money", "pub"], ["note", "Change", "pub"]]
+      method_table: [["_", "Change", "pub", "Money"], ["plus", "Money", "pub", "Money"]]
+      owner_vis: {"cents" => "pub", "currency" => "pub", "_" => "pub", "plus" => "pub", "note" => "pub"}
+      declared_at: {"_" => "Money", "plus" => "Money"}
+      hidden: []
+      hidden_fields: []
+    4: KindDeclaration 43
+      name: "Shape"
+      parent: null
+      abstract: true
+      readonly: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"area" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        area: FunctionDeclaration 44
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "Shape"
+          abstract: true
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: []
+      abstract_methods: {"area" => "Shape"}
+      slots: []
+      method_table: []
+      owner_vis: {"area" => "pub"}
+      declared_at: {"area" => "Shape"}
+      hidden: []
+      hidden_fields: []
+    5: KindDeclaration 47
+      name: "Square"
+      parent: "Shape"
+      abstract: false
+      final: true
+      readonly: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"side" => "pub", "_" => "pub", "area" => "pub"}
+      fields: {"side" => null}
+      field_lines: {"side" => 48}
+      methods:
+        _: FunctionDeclaration 48
+          name: "_"
+          params: ["\$side"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 48
+                expr: Assign 48
+                  left: Property 48
+                    target: This 48
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 48 ASSIGN =
+                  right: Variable 48
+                    token: 48 VAR_IDENTIFIER $side
+                    value: "\$side"
+          arity: 1
+          kind: "Square"
+          abstract: false
+        area: FunctionDeclaration 50
+          name: "area"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 51
+                expr: BinOp 51
+                  left: Property 51
+                    target: This 51
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 51 MULTIPLY *
+                  op: 51 MULTIPLY *
+                  right: Property 51
+                    target: This 51
+                    name: "side"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          kind: "Square"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"side" => "Square"}
+      members: {"_" => "Square", "area" => "Square"}
+      abstract_methods: []
+      slots: [["side", "Square", "pub"]]
+      method_table: [["_", "Square", "pub", "Square"], ["area", "Square", "pub", "Shape"]]
+      owner_vis: {"area" => "pub", "side" => "pub", "_" => "pub"}
+      declared_at: {"area" => "Shape", "_" => "Square"}
+      hidden: []
+      hidden_fields: []
+    6: Statement 55
+      expr: Assign 55
+        left: Variable 55
+          token: 55 VAR_IDENTIFIER $account
+          value: "\$account"
+        token: 55 ASSIGN =
+        right: FunctionCall 55
+          name: "Account"
+          args:
+            0: String 55
+              token: 55 STRING "werner"
+              value: "werner"
+            1: Num 55
+              token: 55 INTEGER 7
+              value: 7
+    7: Statement 56
+      expr: Assign 56
+        left: Property 56
+          target: Variable 56
+            token: 56 VAR_IDENTIFIER $account
+            value: "\$account"
+          name: "note"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        token: 56 ASSIGN =
+        right: String 56
+          token: 56 STRING "plain"
+          value: "plain"
+    8: Statement 57
+      expr: MethodCall 57
+        property: Property 57
+          target: Variable 57
+            token: 57 VAR_IDENTIFIER $account
+            value: "\$account"
+          name: "rename"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args:
+          0: String 57
+            token: 57 STRING "renamed"
+            value: "renamed"
+    9: EchoStatement 58
+      expr: Variable 58
+        token: 58 VAR_IDENTIFIER $account
+        value: "\$account"
+    10: EchoStatement 59
+      expr: MethodCall 59
+        property: Property 59
+          target: FunctionCall 59
+            name: "Money"
+            args:
+              0: Num 59
+                token: 59 INTEGER 1500
+                value: 1500
+              1: String 59
+                token: 59 STRING "ZAR"
+                value: "ZAR"
+          name: "plus"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args:
+          0: FunctionCall 59
+            name: "Change"
+            args:
+              0: Num 59
+                token: 59 INTEGER 5
+                value: 5
+    11: EchoStatement 60
+      expr: MethodCall 60
+        property: Property 60
+          target: FunctionCall 60
+            name: "Square"
+            args:
+              0: Num 60
+                token: 60 INTEGER 3
+                value: 3
+          name: "area"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args: []

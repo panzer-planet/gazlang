@@ -1,0 +1,1 @@
+Error: Account #count is read-only: only Account's constructor sets it at tests/corpora/parser/error_readonly_field_incremented.gaz:5

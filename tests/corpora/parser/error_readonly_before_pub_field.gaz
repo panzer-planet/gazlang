@@ -1,0 +1,3 @@
+kind Account {
+    readonly pub #id;
+}

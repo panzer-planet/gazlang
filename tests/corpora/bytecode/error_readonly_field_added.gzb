@@ -1,0 +1,17 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+
+kind Page
+field title Page pub
+locals
+LOAD_THIS
+RET
+
+kind Fancy extends Page
+field title Page pub readonly
+locals
+LOAD_THIS
+RET

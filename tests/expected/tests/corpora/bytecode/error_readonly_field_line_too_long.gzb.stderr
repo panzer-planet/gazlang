@@ -1,0 +1,1 @@
+Error: Expected the end of the line after field title's type but found 'extra' at tests/corpora/bytecode/error_readonly_field_line_too_long.gzb:8

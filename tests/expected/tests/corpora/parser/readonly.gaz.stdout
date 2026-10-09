@@ -1,0 +1,3 @@
+Account {#id => 7, #balance => 1, #owner => Owner {#name => "WERNER"}, #note => "renamed", #name => "werner"}
+Money {#cents => 1505, #currency => "ZAR"}
+9

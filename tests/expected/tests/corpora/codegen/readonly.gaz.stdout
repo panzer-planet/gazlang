@@ -1,0 +1,2 @@
+Savings {#id => 1, #balance => 0, #owner => "w", #note => "", #name => "w", #rate => 1}
+Change {#cents => 5, #note => "change"}

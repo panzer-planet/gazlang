@@ -1,0 +1,1 @@
+Error: An enum needs no readonly: its cases never change at tests/corpora/parser/error_readonly_enum.gaz:1
