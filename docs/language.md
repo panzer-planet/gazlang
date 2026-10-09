@@ -62,7 +62,9 @@ const KINDS = ["int", "float", {"nested" => AREA}];
 kind Token {
     pub const EOF = "EOF";                           // pub, to be reached from outside
     const ENDS = [#EOF, Token::EOF .. "!"];
-    fn is_eof($type) { return $type == #EOF; }     // #NAME inside the kind
+    fn is_eof($type) {                               // #NAME inside the kind
+        return $type == #EOF;
+    }
 }
 echo AREA .. " " .. Token::EOF;                      // Kind::NAME outside it
 ```
@@ -185,11 +187,16 @@ Keys are ints or strings, and `"1"` and `1` are different keys. Both types are *
 assigning or passing one copies it.
 
 ```gaz
-$list[0]            $map["key"]          // read; missing is an error
-$list[] = 4                              // append
-$map["new"] = 1     $rows[0]["total"] = 5
-delete $list[1];    delete $map["key"];
-foreach ($map as $key => $value) { }
+echo $list[0];                  // read; a missing index or key is an error
+echo $map["key"];
+$list[] = 4;                    // append
+$map["new"] = 1;
+$rows[0]["total"] = 5;
+delete $list[1];
+delete $map["key"];
+foreach ($map as $key => $value) {
+    echo "{$key}: {$value}";
+}
 ```
 
 `...` spreads a list into a list literal, which is how lists are joined and prepended to:
@@ -354,8 +361,12 @@ matching one are evaluated, and nothing matching with no `default` is an error (
 
 ```gaz
 match ($c) {
-    "\"" => { read_string(); }
-    "\\" => { @pos += 2; }
+    "\"" => {
+        read_string();
+    }
+    "\\" => {
+        @pos += 2;
+    }
     default => fail("bad character")
 }
 ```
@@ -363,7 +374,9 @@ match ($c) {
 ## Functions
 
 ```gaz
-fn add($a, $b = 1) { return $a + $b; }
+fn add($a, $b = 1) {
+    return $a + $b;
+}
 ```
 
 Top level only, and callable before they are declared, so mutual recursion works. Defaults come
@@ -373,17 +386,26 @@ item of a list, a map or a `match`, so a list written one per line diffs cleanly
 A bare name is a value, builtins included:
 
 ```gaz
-$f = add;      $f(1, 2);
-$g = len;      $h["save"]($doc);      pick()(1, 2);
+$f = add;
+echo $f(1, 2);                  // 3
+
+$g = len;
+echo $g("four");                // 4
+
+$handlers = {"save" => $f};
+echo $handlers["save"](5, 6);   // 11: a value from a map, called
+echo pick()(1, 2);              // and a function a call returned, called in turn
 ```
 
 Anonymous functions are `->`:
 
 ```gaz
 $double = $x -> $x * 2;
-$sum    = ($a, $b = 1) -> $a + $b;
-$noop   = () -> { return 42; };          // a block body returns only through return
-$pair   = $x -> ({"value" => $x});      // { after -> is a block, so a map is parenthesised
+$sum = ($a, $b = 1) -> $a + $b;
+$answer = () -> {                       // a block body returns only through return
+    return 42;
+};
+$pair = $x -> ({"value" => $x});        // { after -> is a block, so a map is parenthesised
 $nothing = () -> null;                  // -> {} is an error: an empty block, not a map
 ```
 
@@ -392,8 +414,14 @@ whose only use of a parameter is such a write is refused when the program is rea
 list, or keep it in an object, which is shared:
 
 ```gaz
-fn with_item($list) { $list[] = 1; return $list; }     // the caller takes the result
-fn add_to($list) { $list[] = 1; }                      // error: $list is a copy
+fn with_item($list) {           // the caller takes the result
+    $list[] = 1;
+    return $list;
+}
+
+fn add_to($list) {              // error: $list is a copy
+    $list[] = 1;
+}
 ```
 
 A parameter can be a list pattern, which takes its argument apart as `[$a, $b] = $x` would
@@ -407,7 +435,10 @@ echo map($scores, [, $points] -> $points);
 [, $month, $day] = [2026, 8, 8];                    // an empty slot at the start
 [$first, , $third] = ["a", "b", "c"];               // in the middle
 [$x, $y, ,] = [1, 2, 3];                            // at the end: [$x, $y,] is only two elements
-fn distance([$x1, $y1], [$x2, $y2] = [0, 0]) { return abs($x2 - $x1) + abs($y2 - $y1); }
+
+fn distance([$x1, $y1], [$x2, $y2] = [0, 0]) {
+    return abs($x2 - $x1) + abs($y2 - $y1);
+}
 ```
 
 A closure **owns** the variables it captured: it copies them in when created, and its calls
@@ -419,14 +450,19 @@ To let closures and the scope around them work on the same variable, declare it 
 
 ```gaz
 shared $events = [];
-$hear = $e -> { $events[] = $e; };     // fills the list the outside reads
+$hear = $e -> {                         // fills the list the outside reads
+    $events[] = $e;
+};
 $hear("kick off");
 echo len($events);                      // 1
 
 shared $count = 0;
-$inc = () -> { $count++; };
+$inc = () -> {
+    $count++;
+};
 $get = () -> $count;
-$inc(); $inc();
+$inc();
+$inc();
 echo $get() .. " " .. $count;           // 2 2
 ```
 
@@ -439,9 +475,14 @@ in a loop gets its own, and a call of a function gets its own:
 ```gaz
 fn counter($start) {
     shared $n = $start;
-    return () -> { $n++; return $n; };
+    return () -> {
+        $n++;
+        return $n;
+    };
 }
-$a = counter(10);  $b = counter(20);
+
+$a = counter(10);
+$b = counter(20);
 echo $a() .. " " .. $a() .. " " .. $b();   // 11 12 21
 ```
 
@@ -459,16 +500,26 @@ reserved word.
 ```gaz
 abstract kind Shape {
     kin #name;                           // Shape's and its children's, not anyone else's
-    fn _($name) { #name = $name; }
+
+    fn _($name) {
+        #name = $name;
+    }
+
     pub abstract fn area();
-    pub fn to_string() { return "{#name} with area {#area()}"; }
+
+    pub fn to_string() {
+        return "{#name} with area {#area()}";
+    }
 }
 
 kind Circle extends Shape {
     fn _(pub #radius) {                  // pub #radius: a field, set from the parameter
         ##_("circle");                   // the parent's constructor
     }
-    pub fn area() { return 3.14159 * #radius * #radius; }
+
+    pub fn area() {
+        return 3.14159 * #radius * #radius;
+    }
 }
 
 $c = Circle(2);                          // constructing is a call; there is no new
@@ -842,7 +893,11 @@ echo Account::made;
 ```gaz
 kind NotFound extends Error {
     pub #key;
-    fn _($key) { ##_("Not found: {$key}"); #key = $key; }
+
+    fn _($key) {
+        ##_("Not found: {$key}");
+        #key = $key;
+    }
 }
 
 try {
@@ -886,7 +941,9 @@ try {
 
   ```gaz
   kind NotSaved extends Error {
-      fn _($what, $cause) { ##_("Could not save {$what}", $cause); }
+      fn _($what, $cause) {
+          ##_("Could not save {$what}", $cause);
+      }
   }
 
   fn insert($title) {
@@ -1357,7 +1414,9 @@ an argument that isn't a string or holds a NUL byte.
 
 ```gaz
 $r = run(["git", "log", "-1", "--format=%s"]);
-if ($r["status"] != 0) { throw $r["stderr"]; }
+if ($r["status"] != 0) {
+    throw $r["stderr"];
+}
 ```
 
 `$options` is a map, and a key it doesn't know is an error:
@@ -1874,14 +1933,25 @@ kind Counter {
     static #limit = 2 * 5;            // its value is a constant expression
     #id;                              // an ordinary field, one per object
 
-    fn _() { #count++; #id = #count; }
-    pub static fn next() { #count++; return #count; }
-    fn mine() { return "{#id} of {#count}"; }
+    fn _() {
+        #count++;
+        #id = #count;
+    }
+
+    pub static fn next() {
+        #count++;
+        return #count;
+    }
+
+    fn mine() {
+        return "{#id} of {#count}";
+    }
 }
 
 kind Tally extends Counter {}        // shares the same slot
 
-Counter(); Counter();
+Counter();
+Counter();
 echo Counter::count .. " " .. Tally::count;
 echo Counter::next();
 Counter::count = 100;                 // a pub slot, so it can be written from anywhere
@@ -2741,7 +2811,9 @@ term::fullscreen(() -> {
     print("press a key, q to quit");
     while (true) {
         $key = term::name($input.read());
-        if ($key == "q" || $key == "ctrl+c" || $key == "eof") { break; }
+        if ($key == "q" || $key == "ctrl+c" || $key == "eof") {
+            break;
+        }
     }
 });
 ```

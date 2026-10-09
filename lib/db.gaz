@@ -32,7 +32,9 @@
  *   try {
  *       $db.exec(db::sql"insert into users (email) values ({$email})");
  *   } catch (db::Failure $e) {
- *       if ($e.problem != db::Problem::Unique) { throw $e; }
+ *       if ($e.problem != db::Problem::Unique) {
+ *           throw $e;
+ *       }
  *       // the email is taken
  *   }
  */
