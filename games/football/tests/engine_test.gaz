@@ -1016,7 +1016,7 @@ try {
 
 /* ---- The calendar ---- */
 $saturdays = calendar::saturdays(2026);
-expect("a season's Saturdays: 41 from 8 August to 15 May, every seventh day", [len($saturdays), date::format($saturdays[0]), date::format($saturdays[40]), count_where($saturdays, $d -> date::weekday($d) == 5)], [41, "Sat 8 Aug 2026", "Sat 15 May 2027", 41]);
+expect("a season's Saturdays: 41 from 8 August to 15 May, every seventh day", [len($saturdays), date::format($saturdays[0]), date::format($saturdays[40]), count_where($saturdays, $d -> date::weekday($d) == date::Weekday::Saturday)], [41, "Sat 8 Aug 2026", "Sat 15 May 2027", 41]);
 expect("the first Saturday is on or after 8 August, whatever the year", [date::format(calendar::saturdays(2027)[0]), date::format(calendar::saturdays(2025)[0])], ["Sat 14 Aug 2027", "Sat 9 Aug 2025"]);
 $premier = calendar::matchdays(2026, 38);
 $championship = calendar::matchdays(2026, 46);
@@ -1028,7 +1028,7 @@ fn dates_set($days) {
     }
     return $set;
 }
-$tuesdays = filter($championship, $d -> date::weekday($d) == 1);
+$tuesdays = filter($championship, $d -> date::weekday($d) == date::Weekday::Tuesday);
 expect("forty-six: every Saturday and five Tuesdays, in order, none twice, within the season", [len($championship), count_where($championship, $d -> in_array($d, $saturdays)), len($tuesdays), $championship == sort($championship, ($a, $b) -> $a <=> $b), len(keys(dates_set($championship))), $championship[0] >= date::days(2026, 8, 8), $championship[45] <= date::days(2027, 5, 16)], [46, 41, 5, true, 46, true, true]);
 expect("each Tuesday is the one before a Saturday of the season", count_where($tuesdays, $d -> in_array($d + 4, $saturdays)), 5);
 expect("a division can be short of matchdays: fewer than the Saturdays are spread over them", [len(calendar::matchdays(2026, 10)), date::format(calendar::matchdays(2026, 10)[0])], [10, "Sat 8 Aug 2026"]);
@@ -1211,7 +1211,7 @@ $cup_days = calendar::cup_dates(2026, 6);
 expect("six rounds: five Wednesdays from mid-September to March, in order, and the final on a Saturday in late May", [map($cup_days, $d -> date::format($d))], [["Wed 16 Sep 2026", "Wed 4 Nov 2026", "Wed 16 Dec 2026", "Wed 3 Feb 2027", "Wed 17 Mar 2027", "Sat 22 May 2027"]]);
 expect("in order, and none on a league day (Saturdays, and Tuesdays)", [$cup_days == sort($cup_days, ($a, $b) -> $a <=> $b), count_where(slice($cup_days, 0, 5), $d -> in_array($d, calendar::matchdays(2026, 46)) || in_array($d, calendar::matchdays(2026, 38)))], [true, 0]);
 expect("a cup of one round is just the final, of two the Wednesday and the final", [map(calendar::cup_dates(2026, 1), $d -> date::format($d)), map(calendar::cup_dates(2026, 2), $d -> date::format($d))], [["Sat 22 May 2027"], ["Wed 16 Sep 2026", "Sat 22 May 2027"]]);
-expect("and it follows the year: the next season's are a year on", [date::format(calendar::cup_dates(2027, 3)[2]), date::weekday(calendar::cup_dates(2027, 3)[2])], ["Sat 27 May 2028", 5]);
+expect("and it follows the year: the next season's are a year on", [date::format(calendar::cup_dates(2027, 3)[2]), date::weekday(calendar::cup_dates(2027, 3)[2])], ["Sat 27 May 2028", date::Weekday::Saturday]);
 
 /* ---- The board ---- */
 $board = Board();

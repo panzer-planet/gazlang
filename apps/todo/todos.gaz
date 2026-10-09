@@ -13,7 +13,7 @@ const MAX_TITLE_LENGTH = 200;
 fn shown_in(date::Zone $zone, int $time): string {
     $moment = $zone.at($time);
 
-    return date::short($moment.days) .. ", " .. $moment.short_clock();
+    return $moment.short() .. ", " .. $moment.short_clock();
 }
 
 // A time for a <time> element's datetime: "2026-10-01T12:04:27Z"
@@ -58,10 +58,8 @@ kind Todo {
         if (#due_at == null) {
             return "";
         }
-        $moment = $zone.at(#due_at);
-        $clock = $moment.second == 0 ? $moment.short_clock() : $moment.clock();
 
-        return date::iso($moment.days) .. "T" .. $clock;
+        return $zone.at(#due_at).reading().iso();
     }
 
     // Whether it is still to do and was due before $now, a time

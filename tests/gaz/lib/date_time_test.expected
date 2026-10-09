@@ -2,6 +2,10 @@ ok time 0 is the start of 1970, a Thursday
 ok a second before is the end of 1969
 ok a moment's parts
 ok its clocks and offset
+ok a moment formats its own date, as the day number functions do
+ok and gives its reading, the date and the seconds after midnight
+ok a zone's date at a time: the day its clocks show, where UTC is still the day before
+ok and is the day Zone.at() shows, which Zone.time() turns back
 ok the end of a year and the start of the next
 ok leap days: 29 February 2000 and 2024, and 1 March 1900, which has none
 ok long before 1970, to the first year and year 0
@@ -119,6 +123,9 @@ ok with a default, bad text gives it
 ok a reading as a datetime-local field sends it
 ok with seconds, a fraction and a space
 ok a zone says which time it is
+ok a reading writes what a field sends, with seconds only when there are some
+ok and it round-trips: a moment's reading, written and read back, is the reading
+ok a reading's seconds are within the day
 ok refused reading: "2026-10-05T14:30Z"
 ok refused reading: "2026-10-05T14:30:00+02:00"
 ok refused reading: "2026-10-05T14"

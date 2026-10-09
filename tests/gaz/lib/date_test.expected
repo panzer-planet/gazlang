@@ -16,3 +16,7 @@ ok an impossible date is an error (2026-2-29)
 ok an impossible date is an error (2026-4-31)
 ok an impossible date is an error (2026-1-0)
 ok no month 13
+ok the weekdays are an enum counting from Monday, 0, to Sunday, 6
+ok the next weekday takes a case: a Monday from a Sunday is the day after
+ok a weekday is a case, not its number
+ok a day number is an int

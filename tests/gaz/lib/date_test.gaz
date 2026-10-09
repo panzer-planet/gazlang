@@ -1,10 +1,10 @@
 import "std/test.gaz" use expect, throws;
 import "std/date.gaz";
 
-expect("day 0 is 1 January 1970, a Thursday", [date::days(1970, 1, 1), date::weekday(0), date::format(0)], [0, 3, "Thu 1 Jan 1970"]);
+expect("day 0 is 1 January 1970, a Thursday", [date::days(1970, 1, 1), date::weekday(0), date::format(0)], [0, date::Weekday::Thursday, "Thu 1 Jan 1970"]);
 expect("known days", [date::days(2000, 1, 1), date::days(2026, 8, 8), date::days(1969, 12, 31), date::days(2038, 1, 19)], [10957, 20673, -1, 24855]);
 expect("and back", [date::civil(10957), date::civil(20673), date::civil(-1), date::civil(24855)], [[2000, 1, 1], [2026, 8, 8], [1969, 12, 31], [2038, 1, 19]]);
-expect("known weekdays: 8 Aug 2026 is a Saturday, 29 Feb 2000 a Tuesday, 25 Dec 1999 a Saturday", [date::weekday(date::days(2026, 8, 8)), date::weekday(date::days(2000, 2, 29)), date::weekday(date::days(1999, 12, 25))], [5, 1, 5]);
+expect("known weekdays: 8 Aug 2026 is a Saturday, 29 Feb 2000 a Tuesday, 25 Dec 1999 a Saturday", [date::weekday(date::days(2026, 8, 8)), date::weekday(date::days(2000, 2, 29)), date::weekday(date::days(1999, 12, 25))], [date::Weekday::Saturday, date::Weekday::Tuesday, date::Weekday::Saturday]);
 expect("every day of four years round-trips and counts on by one", (function_round_trip()), [true, 1461]);
 fn function_round_trip() {
     $start = date::days(2024, 1, 1);
@@ -13,10 +13,10 @@ fn function_round_trip() {
     $count = 0;
     for ($n = $start; $n < $start + 1461; $n++) {
         [$y, $m, $d] = date::civil($n);
-        if (date::days($y, $m, $d) != $n || ($previous != null && date::weekday($n) != ($previous + 1) % 7)) {
+        if (date::days($y, $m, $d) != $n || ($previous != null && date::weekday($n).value != ($previous + 1) % 7)) {
             $ok = false;
         }
-        $previous = date::weekday($n);
+        $previous = date::weekday($n).value;
         $count++;
     }
     return [$ok, $count];
@@ -25,7 +25,7 @@ expect("leap years: divisible by four, except centuries that aren't by 400", [da
 expect("days in a month", [date::days_in_month(2024, 2), date::days_in_month(2023, 2), date::days_in_month(2026, 4), date::days_in_month(2026, 12)], [29, 28, 30, 31]);
 expect("a year is 365 days or 366 in a leap year", [date::days(2027, 1, 1) - date::days(2026, 1, 1), date::days(2025, 1, 1) - date::days(2024, 1, 1)], [365, 366]);
 expect("the parts", [date::year(20673), date::month(20673), date::day(20673)], [2026, 8, 8]);
-expect("the next weekday on or after: a Saturday from a Monday, and the day itself", [date::format(date::next_weekday(date::days(2026, 8, 3), 5)), date::format(date::next_weekday(date::days(2026, 8, 8), 5)), date::format(date::next_weekday(date::days(2026, 8, 9), 5))], ["Sat 8 Aug 2026", "Sat 8 Aug 2026", "Sat 15 Aug 2026"]);
+expect("the next weekday on or after: a Saturday from a Monday, and the day itself", [date::format(date::next_weekday(date::days(2026, 8, 3), date::Weekday::Saturday)), date::format(date::next_weekday(date::days(2026, 8, 8), date::Weekday::Saturday)), date::format(date::next_weekday(date::days(2026, 8, 9), date::Weekday::Saturday))], ["Sat 8 Aug 2026", "Sat 8 Aug 2026", "Sat 15 Aug 2026"]);
 expect("months added: the same day, or the last of a shorter month, across a year end", [date::iso(date::add_months(date::days(2026, 1, 31), 1)), date::iso(date::add_months(date::days(2026, 11, 15), 3)), date::iso(date::add_months(date::days(2026, 3, 31), -1)), date::iso(date::add_months(date::days(2024, 1, 31), 1))], ["2026-02-28", "2027-02-15", "2026-02-28", "2024-02-29"]);
 expect("formats", [date::format(date::days(2026, 12, 25)), date::short(date::days(2026, 8, 8)), date::iso(date::days(2026, 8, 8)), date::iso(date::days(2026, 12, 25))], ["Fri 25 Dec 2026", "8 Aug", "2026-08-08", "2026-12-25"]);
 foreach ([[2026, 13, 1], [2026, 0, 1], [2026, 2, 29], [2026, 4, 31], [2026, 1, 0]] as [$y, $m, $d]) {
@@ -37,3 +37,9 @@ foreach ([[2026, 13, 1], [2026, 0, 1], [2026, 2, 29], [2026, 4, 31], [2026, 1, 0
     }
 }
 throws("no month 13", () -> date::days_in_month(2026, 13), "There is no month 13");
+expect("the weekdays are an enum counting from Monday, 0, to Sunday, 6", [date::Weekday::cases(), map(date::Weekday::cases(), $w -> $w.value), date::Weekday::from(5)], [[date::Weekday::Monday, date::Weekday::Tuesday, date::Weekday::Wednesday, date::Weekday::Thursday, date::Weekday::Friday, date::Weekday::Saturday, date::Weekday::Sunday], [0, 1, 2, 3, 4, 5, 6], date::Weekday::Saturday]);
+expect("the next weekday takes a case: a Monday from a Sunday is the day after", date::format(date::next_weekday(date::days(2026, 8, 9), date::Weekday::Monday)), "Mon 10 Aug 2026");
+$five = 5;
+$text = "20673";
+throws("a weekday is a case, not its number", () -> date::next_weekday(date::days(2026, 8, 9), $five), "date::next_weekday() expects \$weekday to be date::Weekday, got int");
+throws("a day number is an int", () -> date::format($text), "date::format() expects \$days to be int, got string");

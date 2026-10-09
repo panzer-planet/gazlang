@@ -61,11 +61,15 @@ $utc = date::utc();
 $london = date::zone("Europe/London", ZONEINFO);
 
 /* Times in UTC */
-expect("time 0 is the start of 1970, a Thursday", [shown($utc, 0), $utc.at(0).weekday()], ["1970-01-01T00:00:00Z UTC", 3]);
+expect("time 0 is the start of 1970, a Thursday", [shown($utc, 0), $utc.at(0).weekday()], ["1970-01-01T00:00:00Z UTC", date::Weekday::Thursday]);
 expect("a second before is the end of 1969", shown($utc, -1), "1969-12-31T23:59:59Z UTC");
 $moment = $utc.at(1786197729);
 expect("a moment's parts", [$moment.time, $moment.days, $moment.year, $moment.month, $moment.day, $moment.hour, $moment.minute, $moment.second, $moment.offset, $moment.dst, $moment.abbreviation], [1786197729, 20673, 2026, 8, 8, 14, 2, 9, 0, false, "UTC"]);
 expect("its clocks and offset", [$moment.clock(), $moment.short_clock(), $moment.offset_text()], ["14:02:09", "14:02", "+00:00"]);
+expect("a moment formats its own date, as the day number functions do", [$moment.format(), $moment.short()], [date::format($moment.days), "8 Aug"]);
+expect("and gives its reading, the date and the seconds after midnight", [$moment.reading().days, $moment.reading().seconds, $london.at(1786197729).reading().seconds], [20673, date::time_of_day(14, 2, 9), date::time_of_day(15, 2, 9)]);
+expect("a zone's date at a time: the day its clocks show, where UTC is still the day before", [$london.date(date::parse("2026-08-08T23:30:00Z").time), $utc.date(date::parse("2026-08-08T23:30:00Z").time), $utc.date(0), $utc.date(-1)], [date::days(2026, 8, 9), date::days(2026, 8, 8), 0, -1]);
+expect("and is the day Zone.at() shows, which Zone.time() turns back", [$london.date(1786197729) == $london.at(1786197729).days, $london.time($london.date(1786197729), $london.at(1786197729).reading().seconds)], [true, 1786197729]);
 expect("the end of a year and the start of the next", [shown($utc, 1798761599), shown($utc, 1798761600)], ["2026-12-31T23:59:59Z UTC", "2027-01-01T00:00:00Z UTC"]);
 expect("leap days: 29 February 2000 and 2024, and 1 March 1900, which has none", [shown($utc, 951782400), shown($utc, 1709164800), shown($utc, -2203891200)], ["2000-02-29T00:00:00Z UTC", "2024-02-29T00:00:00Z UTC", "1900-03-01T00:00:00Z UTC"]);
 expect("long before 1970, to the first year and year 0", [shown($utc, -10000000000), shown($utc, -62135596800), shown($utc, -62167219200)], ["1653-02-10T06:13:20Z UTC", "0001-01-01T00:00:00Z UTC", "0000-01-01T00:00:00Z UTC"]);
@@ -229,6 +233,9 @@ expect("a reading as a datetime-local field sends it", [$reading.days, $reading.
 $with_seconds = date::parse_reading("2026-10-05 14:30:15.250");
 expect("with seconds, a fraction and a space", [$with_seconds.days, $with_seconds.seconds], [date::days(2026, 10, 5), date::time_of_day(14, 30, 15)]);
 expect("a zone says which time it is", $london.time($reading.days, $reading.seconds), date::parse("2026-10-05T14:30:00+01:00").time);
+expect("a reading writes what a field sends, with seconds only when there are some", [$reading.iso(), $with_seconds.iso(), date::Reading(0, 0).iso()], ["2026-10-05T14:30", "2026-10-05T14:30:15", "1970-01-01T00:00"]);
+expect("and it round-trips: a moment's reading, written and read back, is the reading", [date::parse_reading($with_seconds.iso()).seconds, date::parse_reading($london.at(1786197729).reading().iso()).days, date::parse_reading($london.at(1786197729).reading().iso()).seconds], [$with_seconds.seconds, 20673, date::time_of_day(15, 2, 9)]);
+throws("a reading's seconds are within the day", () -> date::Reading(20000, 86400), "A time of day is 0 to 86399 seconds after midnight, not 86400");
 $wrong_readings = {
     "2026-10-05T14:30Z" => "expected nothing more, found \"Z\"",
     "2026-10-05T14:30:00+02:00" => "expected nothing more, found \"+\"",

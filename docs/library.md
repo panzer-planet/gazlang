@@ -432,7 +432,20 @@ behind them:
     `file_info()` give it, so it compares, sorts and is stored as a number; a `Moment` is one
     read in a zone, for its fields and formatting, made when shown rather than passed around,
     since a kind is a handle. Formatting is named pieces (`rfc3339()`, `clock()`,
-    `date::format()`), not a format string to learn.
+    `date::format()`), not a format string to learn. A day number and seconds after midnight
+    are ints too, so the overview docblock opens with a table of the five values (the three
+    ints, `Moment`, `Reading`), how each is made and what it turns into; the same table is in
+    `docs/language.md`. Every day-number function is typed `int`, so a `Moment` or a string
+    where a day number goes is an error naming the parameter.
+  - **A weekday is an enum** (`date::Weekday`, `Monday` = 0 to `Sunday` = 6), so a program
+    names the day it means rather than a magic number, and a number is an error; `.value` keeps
+    the index for a table of names (`format()`'s short names, `http_date()`'s). A `Moment`
+    formats its own date as a day number's `format()` and `short()` do, but has no `iso()`:
+    `Reading.iso()` is the date and the clock, and one name means one shape. It gives its
+    `reading()` (date and seconds after midnight, the offset left behind), and `Reading.iso()`
+    writes what `parse_reading()` reads, so a stored time goes back into a
+    `datetime-local` field as `$zone.at($time).reading().iso()`. `Zone.date($time)` is the day
+    number the clocks show, the inverse of `Zone.time($days, $seconds)`.
   - **Named zones are TZif files read in GazLang** (RFC 8536), the system's
     `/usr/share/zoneinfo` unless a program names a directory, never libc's `localtime()`, whose
     answer depends on `TZ` and the platform. The POSIX TZ rule at a file's end is written out

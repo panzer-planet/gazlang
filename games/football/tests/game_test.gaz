@@ -729,8 +729,8 @@ foreach ($game.everyone() as $team) {
     }
 }
 $dates = $game.league.dates;
-expect("the fixtures are dated: Saturdays, and the first on 8 August", [len($dates), date::format($dates[0]), count_where($dates, $d -> date::weekday($d) == 5)], [38, "Sat 8 Aug 2026", 38]);
-expect("the Championship has forty-six, five of them on a Tuesday", [len($game.other_league.dates), count_where($game.other_league.dates, $d -> date::weekday($d) == 1)], [46, 5]);
+expect("the fixtures are dated: Saturdays, and the first on 8 August", [len($dates), date::format($dates[0]), count_where($dates, $d -> date::weekday($d) == date::Weekday::Saturday)], [38, "Sat 8 Aug 2026", 38]);
+expect("the Championship has forty-six, five of them on a Tuesday", [len($game.other_league.dates), count_where($game.other_league.dates, $d -> date::weekday($d) == date::Weekday::Tuesday)], [46, 5]);
 $live = $game.begin_matchday();
 expect("time moves to the day the first match is played", [$game.date_label(), $live.mine != null, $game.next_fixture_date()], ["Sat 8 Aug 2026", true, $game.league.dates[0]]);
 $wrong = [];
@@ -943,7 +943,7 @@ expect("a saved game keeps the contracts", map($again.club.players, $p -> $p.con
 /* ---- The cup ---- */
 $game = Game::start(100, 25);
 $cup = $game.cup;
-expect("a cup for every club: six rounds from the first round in September to the final in May, on Wednesdays and a Saturday", [$cup.rounds_total(), date::format($cup.dates[0]), date::format($cup.dates[5]), count_where(slice($cup.dates, 0, 5), $d -> date::weekday($d) == 2), date::weekday($cup.dates[5])], [6, "Wed 16 Sep 2026", "Sat 22 May 2027", 5, 5]);
+expect("a cup for every club: six rounds from the first round in September to the final in May, on Wednesdays and a Saturday", [$cup.rounds_total(), date::format($cup.dates[0]), date::format($cup.dates[5]), count_where(slice($cup.dates, 0, 5), $d -> date::weekday($d) == date::Weekday::Wednesday), date::weekday($cup.dates[5])], [6, "Wed 16 Sep 2026", "Sat 22 May 2027", 5, date::Weekday::Saturday]);
 $league_dates = [...$game.league.dates, ...$game.other_league.dates];
 expect("none on a day a league match is", count_where($cup.dates, $d -> in_array($d, $league_dates)), 0);
 expect("the club is in the cup at the start, as are the others", count_where($game.everyone(), $t -> $cup.is_in($t)), 44);

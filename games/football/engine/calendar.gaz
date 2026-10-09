@@ -17,7 +17,7 @@ pub fn review_day($year) { return date::days($year + 1, 6, 1); }
 pub fn saturdays($year) {
     $days = [];
     $last = date::days($year + 1, 5, 16);
-    for ($day = date::next_weekday(date::days($year, 8, 8), 5); $day <= $last; $day += 7) {
+    for ($day = date::next_weekday(date::days($year, 8, 8), date::Weekday::Saturday); $day <= $last; $day += 7) {
         $days[] = $day;
     }
 
@@ -81,14 +81,14 @@ pub fn window_opens($day) {
  */
 pub fn cup_dates($year, $rounds) {
     $dates = [];
-    $first = date::next_weekday(date::days($year, 9, 15), 2);
-    $last = date::next_weekday(date::days($year + 1, 3, 17), 2);
+    $first = date::next_weekday(date::days($year, 9, 15), date::Weekday::Wednesday);
+    $last = date::next_weekday(date::days($year + 1, 3, 17), date::Weekday::Wednesday);
     $midweek = $rounds - 1;
     for ($i = 0; $i < $midweek; $i++) {
         $target = $midweek == 1 ? $first : $first + intdiv($i * ($last - $first), $midweek - 1);
-        $dates[] = date::next_weekday($target, 2);
+        $dates[] = date::next_weekday($target, date::Weekday::Wednesday);
     }
-    $dates[] = date::next_weekday(date::days($year + 1, 5, 22), 5);
+    $dates[] = date::next_weekday(date::days($year + 1, 5, 22), date::Weekday::Saturday);
 
     return $dates;
 }

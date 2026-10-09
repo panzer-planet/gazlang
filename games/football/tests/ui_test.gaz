@@ -396,7 +396,7 @@ expect("c stops for the contracts that ran out on 30 June", [$game.date_label(),
 press($shell, "c");
 expect("and again for the transfer window on 1 July", [$game.date_label(), $game.live, $shell.section(), shows(look($shell), "The transfer window is open")], ["Thu 1 Jul 2027", null, "Inbox", true]);
 press($shell, "c");
-expect("and then goes to the first match of the new season, on a Saturday in August", [$game.live != null, date::month($game.date), date::weekday($game.date), $shell.section()], [true, 8, 5, "Inbox"]);
+expect("and then goes to the first match of the new season, on a Saturday in August", [$game.live != null, date::month($game.date), date::weekday($game.date), $shell.section()], [true, 8, date::Weekday::Saturday, "Inbox"]);
 expect("which is on the screen", [shows(look($shell), "Match day"), contains(look($shell).lines()[0], "Aug 2027")], [true, true]);
 
 /* ---- Watching a matchday ---- */

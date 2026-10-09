@@ -1626,7 +1626,7 @@ pub fn http_date($time) {
     $day = ($moment.day < 10 ? "0" : "") .. $moment.day;
     $date = "{$day} " .. MONTH_NAMES[$moment.month - 1] .. " {$moment.year}";
 
-    return DAY_NAMES[$moment.weekday()] .. ", {$date} " .. $moment.clock() .. " GMT";
+    return DAY_NAMES[$moment.weekday().value] .. ", {$date} " .. $moment.clock() .. " GMT";
 }
 
 const CONTENT_TYPES = {

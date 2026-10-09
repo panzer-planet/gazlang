@@ -200,7 +200,7 @@ kind TodoForm {
             return null;
         }
         $due = $zone.at(#due_at($zone));
-        $when = $due.short_clock() .. " " .. $due.abbreviation .. " on " .. date::short($due.days);
+        $when = $due.short_clock() .. " " .. $due.abbreviation .. " on " .. $due.short();
         if (len($times) == 0) {
             return "The clocks in {$zone.name} skip that time as they go forward, so it is due at {$when}.";
         }
