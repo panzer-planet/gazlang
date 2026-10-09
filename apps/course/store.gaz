@@ -27,7 +27,7 @@ final kind Lesson {
         pub string #unit,
         pub string #title,
         pub string #body,
-        pub string #question
+        pub string #question,
     ) {}
 
     pub static fn from_row(map $row): Lesson {
@@ -38,7 +38,7 @@ final kind Lesson {
             $row["unit"],
             $row["title"],
             $row["body"],
-            $row["question"]
+            $row["question"],
         );
     }
 

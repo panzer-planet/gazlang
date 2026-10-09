@@ -1,0 +1,2 @@
+@template pub trailing($title, $body,)
+<p>{{ $title }}: {{ $body }}</p>

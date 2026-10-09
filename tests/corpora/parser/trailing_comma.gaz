@@ -1,0 +1,107 @@
+namespace shapes;
+
+// A trailing comma after the last argument and the last parameter, in every form
+interface Measured {
+    fn area(
+        int $scale,
+    );
+}
+
+kind Shape {
+    pub string #name = "";
+
+    fn _(
+        string $name,
+    ) {
+        #name = $name;
+    }
+
+    pub fn describe(
+        $prefix,
+        $suffix = "",
+    ) {
+        return $prefix .. #name .. $suffix;
+    }
+}
+
+kind Square extends Shape implements Measured {
+    fn _(
+        pub int #side,
+        pub readonly ?string #label = null,
+        [$x, $y] = [0, 0],
+    ) {
+        ##_(
+            "square",
+        );
+    }
+
+    pub fn area(
+        int $scale,
+    ) {
+        return #side * #side * $scale;
+    }
+
+    pub fn twice() {
+        return #area(
+            2,
+        );
+    }
+
+    pub fn told() {
+        return ##describe(
+            "a ",
+            "!",
+        );
+    }
+
+    pub static fn unit(
+        int $side,
+    ) {
+        return Square(
+            $side,
+        );
+    }
+}
+
+fn add(
+    int $a,
+    int $b = 1,
+): int {
+    return $a + $b;
+}
+
+fn pick() {
+    return add;
+}
+
+echo add(
+    1,
+    2,
+);
+echo shapes::add(
+    1,
+);
+$square = Square::unit(
+    3,
+);
+echo $square.area(
+    1,
+);
+$f = add;
+echo $f(
+    4,
+    5,
+);
+echo pick()(
+    6,
+);
+$lambda = (
+    $a,
+    int $b = 2,
+) -> $a * $b;
+echo $lambda(3,);
+$pair = (
+    [$a, $b],
+) -> $a + $b;
+echo $pair([1, 2],);
+echo len("one",);

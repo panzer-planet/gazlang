@@ -25,7 +25,7 @@ final kind Registration {
     fn _(
         pub readonly string #name = "",
         pub readonly string #email = "",
-        pub readonly string #password = ""
+        pub readonly string #password = "",
     ) {}
 
     /**

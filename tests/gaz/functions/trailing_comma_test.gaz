@@ -1,0 +1,50 @@
+import "std/test.gaz" use expect;
+import "tests/gaz/templates/views/trailing.gazml";
+
+/* A trailing comma after the last argument or parameter changes nothing */
+fn join_three(
+    $a,
+    $b,
+    $c = "c",
+) {
+    return $a .. $b .. $c;
+}
+
+kind Point {
+    fn _(
+        pub int #x,
+        pub int #y = 0,
+    ) {
+    }
+
+    pub fn moved(
+        int $dx,
+    ) {
+        return Point(
+            #x + $dx,
+            #y,
+        );
+    }
+}
+
+expect("a call", join_three(
+    "a",
+    "b",
+), "abc");
+expect("every argument", join_three("x", "y", "z",), "xyz");
+expect("promoted parameters", Point(1,).moved(2,).x, 3);
+expect("the default after a trailing comma", Point(
+    5,
+).y, 0);
+
+$times = (
+    $a,
+    $b = 10,
+) -> $a * $b;
+expect("a lambda", $times(3,), 30);
+expect("a call on a value", $times(
+    2,
+    4,
+), 8);
+expect("a builtin", len([1, 2],), 2);
+expect("a template", to_string(trailing("t", "b",)), "<p>t: b</p>\n");

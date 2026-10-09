@@ -51,7 +51,7 @@ pub final kind Lesson {
         pub string #title,
         pub string #body,
         pub string #question,
-        pub list #choices
+        pub list #choices,
     ) {}
 }
 

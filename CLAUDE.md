@@ -714,6 +714,12 @@ Names are ASCII.
 - `foreach` iterates the list or map as it was when the loop started; the loop variables (`$` or
   `@`, or a list pattern for the value) keep their last values. Anything else is `foreach expects
   a list or map`.
+- **A trailing comma** is allowed after the last item of every bracketed list (a list, a map, a
+  `match`, a call's arguments, a parameter list, a lambda head), so one item per line diffs
+  cleanly; a comma alone (`f(,)`) or two in a row (`f(1,,)`) is still an error (in a list
+  literal two in a row are an empty slot), and `($a,)` without `->` is the comma error
+  `($a, $b)` is. Lists that end at a word or a `;` (`implements`, a
+  `use` clause, a match arm's values) take none, since nothing closes them.
 - `fn` is top level only so `break` can't reach a caller's loop. The parser checks every call's
   name and argument count once the whole program is read, so the VM trusts calls. A default is
   evaluated inside the function, so it sees earlier parameters and a `[]` default is never

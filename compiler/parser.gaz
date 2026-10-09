@@ -888,17 +888,19 @@ final kind Html {
         return $node;
     }
 
-    // Parse a call's arguments (LPAREN [expr (COMMA expr)*] RPAREN)
+    // Parse a call's arguments (LPAREN [expr (COMMA expr)* [COMMA]] RPAREN)
+    //
+    // A trailing comma is allowed, as in a list literal, so one argument per line diffs cleanly
     fn arguments() {
         #eat("LEFT_PAREN");
 
         $args = [];
-        if (#current_token.type != "RIGHT_PAREN") {
+        while (#current_token.type != "RIGHT_PAREN") {
             $args[] = #expr();
-            while (#current_token.type == "COMMA") {
-                #eat("COMMA");
-                $args[] = #expr();
+            if (#current_token.type != "COMMA") {
+                break;
             }
+            #eat("COMMA");
         }
         #eat("RIGHT_PAREN");
 
@@ -1034,7 +1036,7 @@ final kind Html {
 
     // Parse a parenthesised expression, or a lambda whose parameters are in parentheses
     //
-    // (LPAREN [expr (COMMA expr)*] RPAREN [ARROW lambda_body]): a comma list is parsed
+    // (LPAREN [expr (COMMA expr)* [COMMA]] RPAREN [ARROW lambda_body]): a comma list is parsed
     // either way, so no lookahead is needed to tell ($a, $b = 1) -> ... from ($a + 1).
     // Only a ( that starts an expression at the ternary's level (see ternary()) can head a
     // lambda, so 1 + ($x) -> 2 is a syntax error like 1 + $x -> 2, and anywhere else a
@@ -1057,6 +1059,10 @@ final kind Html {
                 }
                 $comma ??= #current_token;
                 #eat("COMMA");
+                // A trailing comma is allowed, as after a function's last parameter
+                if (#current_token.type == "RIGHT_PAREN") {
+                    break;
+                }
                 $items[] = #lambda_item($head);
             }
         }
@@ -2280,7 +2286,7 @@ final kind Html {
         }
     }
 
-    // Parse a function or method's parameter list (LPAREN [param (COMMA param)*] RPAREN),
+    // Parse a function or method's parameter list (LPAREN [param (COMMA param)* [COMMA]] RPAREN),
     // param: [type] VAR_IDENTIFIER [ASSIGN expr] | [PUB | KIN] [type] HASH_IDENTIFIER [ASSIGN expr] | list_pattern [ASSIGN expr]
     //
     // $owner is what the parameters belong to, for errors: "function f", "method Point.move".
@@ -2303,6 +2309,10 @@ final kind Html {
         while (#current_token.type != "RIGHT_PAREN") {
             if ($params != []) {
                 #eat("COMMA");
+                // A trailing comma is allowed, so one parameter per line diffs cleanly
+                if (#current_token.type == "RIGHT_PAREN") {
+                    break;
+                }
             }
             $vis = "";
             if ($kind != null && (#current_token.type == "PUB" || #current_token.type == "KIN")) {

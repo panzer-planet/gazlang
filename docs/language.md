@@ -368,6 +368,8 @@ fn add($a, $b = 1) { return $a + $b; }
 
 Top level only, and callable before they are declared, so mutual recursion works. Defaults come
 after the required parameters and are evaluated on each call that leaves the argument out.
+A trailing comma is allowed after the last parameter and the last argument, as after the last
+item of a list, a map or a `match`, so a list written one per line diffs cleanly.
 A bare name is a value, builtins included:
 
 ```gaz

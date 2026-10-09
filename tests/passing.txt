@@ -1102,6 +1102,7 @@ tests/corpora/parser/template.gaz
 tests/corpora/parser/template_namespace.gaz
 tests/corpora/parser/templates/product.gaz
 tests/corpora/parser/throw.gaz
+tests/corpora/parser/trailing_comma.gaz
 tests/corpora/parser/try.gaz
 tests/corpora/parser/types.gaz
 tests/corpora/parser/uses_error_by_extending.gaz
@@ -1194,6 +1195,7 @@ tests/gaz/files/mtime_test.gaz
 tests/gaz/files/sync_test.gaz
 tests/gaz/functions/default_parameters_test.gaz
 tests/gaz/functions/shared_test.gaz
+tests/gaz/functions/trailing_comma_test.gaz
 tests/gaz/lib/chars_test.gaz
 tests/gaz/lib/cli_test.gaz
 tests/gaz/lib/crypto_test.gaz
