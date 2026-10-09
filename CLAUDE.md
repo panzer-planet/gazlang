@@ -327,8 +327,9 @@ A new open item is filed as an issue with a topic and a kind label, never added 
 - **Not building**: taint mode (a mark on strings leaks, since one-byte strings are shared and
   `url_decode()` rebuilds text with `chr()`; Ruby removed taint as useless; tagged literals
   prevent the bug instead), contracts (types and a guard line cover them),
-  `sh"..."` (`run()` already takes an argv list, which is safe), native decimals and full record
-  and replay (for now).
+  `sh"..."` (`run()` already takes an argv list, which is safe), `do ... while` (`while (true)`
+  with a `break` says it, and most such loops leave from the middle, which it can't; it would take
+  `do` from every program), native decimals and full record and replay (for now).
 - **`gaz test`** (`std/test.gaz`, `test::main()`): every check is one line, `ok ` or `FAIL `,
   which is what the runner counts, so a value's newlines on a FAIL line are escaped too.
   - **`throws` matches a kind exactly** (`kind_of($e) == $kind`), not by `is_a`: under `is_a`,
