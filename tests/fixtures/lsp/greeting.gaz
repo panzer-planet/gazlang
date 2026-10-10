@@ -1,0 +1,5 @@
+import "./helper.gaz";
+
+fn greeting() {
+    return "Hello, " .. helper();
+}

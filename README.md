@@ -317,7 +317,7 @@ Run `php tools/bench.php 7` to measure on your own machine.
 - **`games/`** — programs built on the language, in this repository so the language can improve
   as they ask: a [football manager](games/football/README.md) for the terminal.
 - **`lsp/`** — a Language Server Protocol server for GazLang, `bin/gaz lsp/server.gaz`,
-  diagnostics, hover, go-to-definition and completion.
+  diagnostics, hover, go-to-definition, completion and quick fixes.
 - **`editors/`** — TextMate grammars for source (`.gaz`), bytecode (`.gzb`) and templates
   (`.gazml`), which VS Code, Sublime and most editors read.
 - **`apps/todo/`** — a web app built to find what the language and library lack: registration,

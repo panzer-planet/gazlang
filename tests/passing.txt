@@ -1174,6 +1174,7 @@ tests/fixtures/import/main.gaz
 tests/fixtures/import/runtime.gaz
 tests/fixtures/json_roundtrip.gaz
 tests/fixtures/lsp/documented.gaz
+tests/fixtures/lsp/greeting.gaz
 tests/fixtures/lsp/helper.gaz
 tests/fixtures/lsp/importer.gaz
 tests/fixtures/read_stdin.gaz

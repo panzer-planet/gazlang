@@ -1,7 +1,7 @@
 /*
  * A Language Server Protocol server for GazLang, over stdio, as every editor spawns one:
  * diagnostics (parse and lex errors), hover (a builtin's arity, or a declaration's signature and
- * docblock), go-to-definition, completion and import links. bin/gaz lsp/server.gaz
+ * docblock), go-to-definition, completion, import links and quick fixes. bin/gaz lsp/server.gaz
  *
  * namespace gazlang, not its own: this reuses the compiler's own Parser, which is private to
  * that namespace (as a test of the internals does; see CLAUDE.md). The lexer is std/syntax.gaz.
@@ -468,6 +468,196 @@ fn text_line($text, $at) {
     return $lines[$at] ?? "";
 }
 
+// How many UTF-16 code units $text is, which is what an LSP position's character counts
+fn utf16_length($text) {
+    if (!utf8_valid($text)) {
+        return len($text);
+    }
+    $units = utf8_length($text);
+    if ($units == len($text)) {
+        return $units;
+    }
+    foreach (utf8_chars($text) as $char) {
+        // A character of four bytes is outside the Basic Multilingual Plane: two code units
+        if (len($char) == 4) {
+            $units++;
+        }
+    }
+    return $units;
+}
+
+// The byte offset in $line that $units UTF-16 code units from its start reach
+fn byte_offset($line, $units) {
+    if (!utf8_valid($line)) {
+        return min($units, len($line));
+    }
+    $offset = 0;
+    foreach (utf8_chars($line) as $char) {
+        $units -= len($char) == 4 ? 2 : 1;
+        if ($units < 0) {
+            break;
+        }
+        $offset += len($char);
+    }
+    return $offset;
+}
+
+/*
+ * Where each line of a document starts, to turn the byte offsets the lexer gives (span()) into
+ * LSP positions, whose character counts UTF-16 code units, and back
+ */
+kind Positions {
+    #starts = [0];
+
+    fn _(#text) {
+        $at = index_of(#text, "\n");
+        while ($at != null) {
+            #starts[] = $at + 1;
+            $at = $at + 1 < len(#text) ? index_of(#text, "\n", $at + 1) : null;
+        }
+    }
+
+    // The position of byte $offset, as {"line", "character"}
+    pub fn at($offset) {
+        $line = #line_of($offset);
+        $start = #starts[$line];
+        return {"line" => $line, "character" => utf16_length(slice(#text, $start, $offset - $start))};
+    }
+
+    // The byte offset of an LSP position; one past the text's end is its end
+    pub fn offset($position) {
+        $line = $position["line"];
+        if ($line >= len(#starts)) {
+            return len(#text);
+        }
+        $start = #starts[$line];
+        $stop = $line + 1 < len(#starts) ? #starts[$line + 1] - 1 : len(#text);
+        return $start + byte_offset(slice(#text, $start, $stop - $start), $position["character"]);
+    }
+
+    // The range between two byte offsets
+    pub fn range($start, $stop) {
+        return {"start" => #at($start), "end" => #at($stop)};
+    }
+
+    // The zero-based line byte $offset is on, by bisection
+    fn line_of($offset) {
+        $low = 0;
+        $high = len(#starts) - 1;
+        while ($low < $high) {
+            $middle = ($low + $high + 1) >> 1;
+            if (#starts[$middle] <= $offset) {
+                $low = $middle;
+            } else {
+                $high = $middle - 1;
+            }
+        }
+        return $low;
+    }
+}
+
+/*
+ * The hints in the compiler's own messages that name their fix exactly: an import to add
+ * (import_hint() in compiler/parser.gaz) and a keyword to write instead (keyword_hint() and
+ * undefined_hint()). Read from the message rather than worked out again here, so a quick fix
+ * can't disagree with the error it answers: the compiler already chose the import's spelling (std/, ./ or
+ * from the project root), and the tests/corpora recordings hold the wording byte for byte.
+ */
+const IMPORT_HINT = 'add import "([^"]+)";\)$';
+const KEYWORD_HINT = '\(keywords are lowercase: write \'([a-z]+)\', not \'([A-Za-z_][A-Za-z0-9_]*)\'\)$';
+const ELSE_IF_HINT = '\(write \'(else if)\', not \'([A-Za-z_][A-Za-z0-9_]*)\'\)$';
+// A diagnostic for a mistake in a file the document imports (see diagnostics()), whose fix is that file's
+const ELSEWHERE = '^in .*:[0-9]+: ';
+
+/*
+ * The quick fixes for the diagnostics a client sends back with a codeAction request: one for
+ * each diagnostic of ours whose message names its fix, as a CodeAction with its edit
+ */
+fn code_actions($uri, $diagnostics) {
+    $text = @documents[$uri] ?? null;
+    if ($text == null) {
+        return [];
+    }
+    $actions = [];
+    foreach ($diagnostics as $diagnostic) {
+        $message = $diagnostic["message"];
+        if (($diagnostic["source"] ?? null) != "gazlang" || regex::search($message, ELSEWHERE)) {
+            continue;
+        }
+        $fix = import_fix($text, $message) ?? keyword_fix($text, $message, $diagnostic["range"]["start"]["line"]);
+        if ($fix != null) {
+            [$title, $edit] = $fix;
+            $actions[] = {
+                "title" => $title,
+                "kind" => "quickfix",
+                "diagnostics" => [$diagnostic],
+                "isPreferred" => true,
+                "edit" => {"changes" => {$uri => [$edit]}},
+            };
+        }
+    }
+    return $actions;
+}
+
+// [title, edit] adding the import a message names, or null
+fn import_fix($text, $message) {
+    $found = regex::groups($message, IMPORT_HINT);
+    if ($found == null) {
+        return null;
+    }
+    $at = {"line" => import_insertion_line($text), "character" => 0};
+    return ["Add import \"{$found[1]}\"", {"range" => {"start" => $at, "end" => $at}, "newText" => "import \"{$found[1]}\";\n"}];
+}
+
+/*
+ * The zero-based line a new import goes on: below the last import, else below the namespace
+ * line, else at the top (below a script's #! line)
+ */
+fn import_insertion_line($text) {
+    $line = starts_with($text, "#!") ? 1 : 0;
+    $tokens = source_tokens($text);
+    foreach ($tokens as $i => $token) {
+        if ($token.type == "IMPORT" || $token.type == "NAMESPACE") {
+            $end = $i;
+            while ($end < len($tokens) && $tokens[$end].type != "SEMICOLON") {
+                $end++;
+            }
+            if ($end < len($tokens)) {
+                // A token's line counts from 1, so the line after the ; is its line counted from 0
+                $line = $tokens[$end].line;
+            }
+        }
+    }
+    return $line;
+}
+
+/*
+ * [title, edit] writing the keyword a message names in place of the name written, or null: the
+ * last name so written at or before the diagnostic's line, since the compiler's hint can be about
+ * the token before the one it stopped at, or the start of the statement
+ */
+fn keyword_fix($text, $message, $line) {
+    $found = regex::groups($message, KEYWORD_HINT) ?? regex::groups($message, ELSE_IF_HINT);
+    if ($found == null) {
+        return null;
+    }
+    [$whole, $right, $wrong] = $found;
+    $written = null;
+    foreach (source_tokens($text) as $token) {
+        if ($token.line > $line + 1) {
+            break;
+        }
+        if (in_array($token.type, ["IDENTIFIER", "TAG"]) && $token.value == $wrong) {
+            $written = $token;
+        }
+    }
+    if ($written == null) {
+        return null;
+    }
+    $range = Positions($text).range($written.start, $written.stop);
+    return ["Write '{$right}'", {"range" => $range, "newText" => $right}];
+}
+
 @documents = {}; // uri -> text, for hover and definition; didOpen and didChange fill it
 @outlines = {};  // path -> [text, Outline], see outline_of()
 
@@ -496,6 +686,7 @@ while (true) {
                     "definitionProvider" => true,
                     "completionProvider" => {},
                     "documentLinkProvider" => {},
+                    "codeActionProvider" => {"codeActionKinds" => ["quickfix"]},
                 },
             }),
             "shutdown" => respond($connection, $message["id"], null),
@@ -510,6 +701,7 @@ while (true) {
             "textDocument/definition" => respond($connection, $message["id"], definition($params["textDocument"]["uri"], $params["position"])),
             "textDocument/completion" => respond($connection, $message["id"], completions($params["textDocument"]["uri"], $params["position"] ?? null)),
             "textDocument/documentLink" => respond($connection, $message["id"], document_links($params["textDocument"]["uri"])),
+            "textDocument/codeAction" => respond($connection, $message["id"], code_actions($params["textDocument"]["uri"], $params["context"]["diagnostics"])),
             default => has_key($message, "id")
                 ? $connection.write({
                     "jsonrpc" => "2.0",

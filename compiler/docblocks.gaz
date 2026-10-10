@@ -86,26 +86,37 @@ pub fn outline_of_file(string $path): Outline {
     return outline(read_file($path));
 }
 
-// A token of the source and where it lies in it
+// A token of the source and where it lies in it, as byte offsets
 kind SourceToken {
     fn _(pub string #type, pub #value, pub int #line, pub int #start, pub int #stop) {}
 }
 
+/*
+ * The tokens of GazLang source as SourceTokens, up to its end or to the lexer's first mistake:
+ * what was read before a mistake is still there to outline (or for the language server to read)
+ */
+fn source_tokens(string $source): list {
+    $tokens = [];
+    $lexer = Lexer($source);
+    try {
+        $token = $lexer.get_next_token();
+        while ($token.type != "EOF") {
+            [$start, $stop] = $lexer.span();
+            $tokens[] = SourceToken($token.type, $token.value, $token.line, $start, $stop);
+            $token = $lexer.get_next_token();
+        }
+    } catch (LexError $e) {
+        return $tokens;
+    }
+
+    return $tokens;
+}
+
 kind OutlineReader {
-    #tokens = [];
+    #tokens;
 
     fn _(string #source) {
-        $lexer = Lexer($source);
-        try {
-            $token = $lexer.get_next_token();
-            while ($token.type != "EOF") {
-                [$start, $stop] = $lexer.span();
-                #tokens[] = SourceToken($token.type, $token.value, $token.line, $start, $stop);
-                $token = $lexer.get_next_token();
-            }
-        } catch (LexError $e) {
-            // What was read before the mistake is still outlined
-        }
+        #tokens = source_tokens($source);
     }
 
     pub fn read(): Outline {

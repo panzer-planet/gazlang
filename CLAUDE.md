@@ -372,7 +372,13 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   of an `import`, the `.gaz` and `.gazml` files and folders it could name instead, from the file's own
   directory after `./` and from its project root otherwise, `std/` having no directory to list) and
   document links (each `import` path links to the file it names, `std/` and missing files left out)
-  are done. Declarations, docblocks and imports come from `compiler/docblocks.gaz`, the lexer's
+  and quick fixes (`textDocument/codeAction`: the fix a diagnostic's own message names, the import
+  `import_hint()` spells, added below the last import, or the keyword `keyword_hint()` or
+  `undefined_hint()` names, written over the last name so spelt up to the error's line; read from
+  the message rather than worked out again, so a fix can't disagree with the error it answers, and
+  none for an error in an imported file, whose fix is that file's) are done. New positions count UTF-16
+  code units (`Positions`), the protocol's default encoding; hover, definition and links still
+  count bytes, which differs only on a line with non-ASCII before the name. Declarations, docblocks and imports come from `compiler/docblocks.gaz`, the lexer's
   reading, not from the parsed tree, since the tree doesn't exist while the document has an unrelated
   syntax error, which is the common case mid-edit (the lexer reads up to its own first error); each
   file's outline is kept until its text changes, so a hover lexes only what changed. Nothing else is planned yet; add what a real

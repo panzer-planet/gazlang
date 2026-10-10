@@ -59,7 +59,7 @@ class LspTest extends GazLangTestCase
         $this->assertSame(
             ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => [
                 'textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true, 'completionProvider' => [],
-                'documentLinkProvider' => [],
+                'documentLinkProvider' => [], 'codeActionProvider' => ['codeActionKinds' => ['quickfix']],
             ]]],
             $messages[0]
         );
@@ -528,6 +528,103 @@ class LspTest extends GazLangTestCase
         $this->assertSame(7, $byLabel['Point']['kind']);
         $this->assertSame(21, $byLabel['SIDES']['kind']);
         $this->assertSame('Here', $byLabel['here']['detail']);
+    }
+
+    /**
+     * The quick fixes offered for a document's own diagnostics: one session to get them published,
+     * a second to send them back with a codeAction request, as a client does
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function quickFixesFor(string $uri, string $text): array
+    {
+        $open = ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+            'textDocument' => ['uri' => $uri, 'text' => $text],
+        ]];
+        $diagnostics = $this->session([$open])[0]['params']['diagnostics'];
+        $this->assertCount(1, $diagnostics);
+
+        return $this->session([$open, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/codeAction', 'params' => [
+            'textDocument' => ['uri' => $uri],
+            'range' => $diagnostics[0]['range'],
+            'context' => ['diagnostics' => $diagnostics],
+        ]]])[1]['result'];
+    }
+
+    /** The import the compiler's message names is added below the document's last import */
+    public function test_a_quick_fix_adds_the_import_the_error_names()
+    {
+        $uri = 'file://'.realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        $actions = $this->quickFixesFor($uri, "// Greets\nimport \"./greeting.gaz\";\n\necho greeting() .. helper();\n");
+
+        $this->assertCount(1, $actions);
+        $this->assertSame('Add import "./helper.gaz"', $actions[0]['title']);
+        $this->assertSame('quickfix', $actions[0]['kind']);
+        $this->assertStringContainsString('add import "./helper.gaz";', $actions[0]['diagnostics'][0]['message']);
+        $at = ['line' => 2, 'character' => 0];
+        $this->assertSame(
+            [$uri => [['range' => ['start' => $at, 'end' => $at], 'newText' => "import \"./helper.gaz\";\n"]]],
+            $actions[0]['edit']['changes']
+        );
+    }
+
+    /**
+     * A miscapitalised keyword is replaced where it is written, its position counted in UTF-16
+     * code units as the protocol's are: the emoji before it is four bytes but two units
+     */
+    public function test_a_quick_fix_writes_the_keyword_in_lowercase()
+    {
+        $actions = $this->quickFixesFor('file:///a.gaz', "\$s = \"\u{1F600}\"; IF (1) {\n    echo \$s;\n}\n");
+
+        $this->assertCount(1, $actions);
+        $this->assertSame("Write 'if'", $actions[0]['title']);
+        $this->assertSame(
+            ['file:///a.gaz' => [['range' => ['start' => ['line' => 0, 'character' => 11], 'end' => ['line' => 0, 'character' => 13]], 'newText' => 'if']]],
+            $actions[0]['edit']['changes']
+        );
+    }
+
+    public function test_a_quick_fix_writes_else_if_for_elseif()
+    {
+        $actions = $this->quickFixesFor('file:///a.gaz', "if (true) {\n} elseif (false) {\n}\n");
+
+        $this->assertSame("Write 'else if'", $actions[0]['title']);
+        $this->assertSame(
+            [['range' => ['start' => ['line' => 1, 'character' => 2], 'end' => ['line' => 1, 'character' => 8]], 'newText' => 'else if']],
+            $actions[0]['edit']['changes']['file:///a.gaz']
+        );
+    }
+
+    /** An error whose message names no fix, or another tool's diagnostic, gets none */
+    public function test_a_diagnostic_naming_no_fix_gets_no_quick_fix()
+    {
+        $this->assertSame([], $this->quickFixesFor('file:///a.gaz', "echo nothing();\n"));
+
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => "IF (1) {\n}\n"],
+            ]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/codeAction', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz'],
+                'range' => ['start' => ['line' => 0, 'character' => 0], 'end' => ['line' => 0, 'character' => 0]],
+                'context' => ['diagnostics' => [[
+                    'range' => ['start' => ['line' => 0, 'character' => 0], 'end' => ['line' => 0, 'character' => 2]],
+                    'source' => 'spelling', 'message' => "(keywords are lowercase: write 'if', not 'IF')",
+                ]]],
+            ]],
+        ]);
+        $this->assertSame([], $messages[1]['result']);
+    }
+
+    public function test_a_codeaction_request_without_its_context_is_an_error_response()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/codeAction', 'params' => ['textDocument' => ['uri' => 'file:///a.gaz']]],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'shutdown'],
+        ]);
+
+        $this->assertSame(-32603, $messages[0]['error']['code']);
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 2, 'result' => null], $messages[1]);
     }
 
     public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()
