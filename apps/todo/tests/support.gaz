@@ -9,6 +9,7 @@ namespace todo;
 import "std/http.gaz";
 import "std/db.gaz";
 import "std/date.gaz";
+import "std/fs.gaz";
 import "app.gaz";
 import "database.gaz";
 import "config.gaz";
@@ -19,10 +20,15 @@ const TEST_SECRET = "a-secret-for-tests-that-is-long-enough";
 const TEST_OFFSET = 7200;   // the zone times are shown in, two hours ahead of UTC
 const BROWSER_ADDRESS = "192.0.2.1";   // where a browser's requests come from unless it says
 
+// The app's own directory, the tests' parent, wherever they were started
+fn app_directory(): string {
+    return fs::parent(main_dir());
+}
+
 // The test database with the schema up to date and no rows
 fn fresh_database() {
     $db = connect(getenv("TODO_TEST_DATABASE_URL") ?? TEST_DATABASE);
-    migrate($db, "migrations");
+    migrate($db, app_directory() .. "/migrations");
     $db.exec(db::raw("truncate users, login_failures restart identity cascade"));
 
     return $db;
@@ -44,7 +50,7 @@ fn london_config(): Config {
 
 // A browser on the app's router, its requests from $address (null: a client the system no longer knows)
 fn browser($db, Config $config, ?string $address = BROWSER_ADDRESS): http::TestClient {
-    return http::TestClient(build_app($config, $db).handler(), {"remote_address" => $address});
+    return http::TestClient(build_app($config, $db, app_directory()).handler(), {"remote_address" => $address});
 }
 
 // What a response's body says, as text

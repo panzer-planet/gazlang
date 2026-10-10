@@ -1213,7 +1213,8 @@ mapped to its parameter count, or `[fewest, most]` when some are optional).
 program that wants to reliably re-invoke itself, as `gaz test` does to run each `*_test.gaz` file
 in its own process: passing this to `run()` reinvokes the same interpreter the same way it was
 started, since `run()`'s `posix_spawnp` resolves a bare name, a relative path or an absolute one
-exactly as the shell would have.
+exactly as the shell would have. It names the interpreter, not the program it is running: where
+the program's own file is, is `main_dir()` (see "Paths").
 
 `read_line()` is the next line of standard input without its `"\n"` or `"\r\n"` (the last line
 may have neither), or `null` once the input has ended, so `while (($line = read_line()) != null)`
@@ -1374,6 +1375,7 @@ too. `fs::write_atomic()` does both.
 | --- | --- |
 | `cwd()` | The working directory |
 | `chdir($path)` | Changes the working directory |
+| `main_dir()` | The directory of the file `gaz` was asked to run, or `null` when there is none |
 | `real_path($path)` | The absolute path, with every symlink, `.` and `..` resolved |
 | `file_exists($path)` | Whether there is anything at `$path` |
 
@@ -1384,6 +1386,20 @@ so they never move with it. It is the process's: a worker's `chdir()` changes on
 (see `workers()`). `program_path()` relative to where the program started stops naming gaz after a
 `chdir()`, so a program that runs itself again works out `real_path(program_path())` first when
 it was invoked by a relative path.
+
+`main_dir()` is the directory of the main file, the one `gaz` was asked to run, absolute and with
+every symlink resolved, as `real_path()` gives it. It is worked out once, as the program starts, so
+a `chdir()` doesn't move it and every worker gets the same answer. A program finds the files that
+live beside it from there rather than from the working directory, so it runs from anywhere:
+
+```gaz
+$app.not_found(http::serve_static(main_dir() .. "/public"));
+```
+
+Run as bytecode (`gaz app.gzb`), the main file is the bytecode file, and under `gaz test` it is
+each test file, so a test reaches its project's files from `fs::parent(main_dir())`. Piped source
+and `gaz -e` have no main file, so `main_dir()` is `null` there, never the working directory.
+
 `real_path($path)` is the absolute path with every symlink, `.` and `..` resolved (a directory
 too), and an error when there is nothing there; `file_exists($path)` is whether there is, so
 `file_exists("a/../b")` is false when `a` is missing, as the system sees it.
@@ -2539,7 +2555,7 @@ test::done();
 - `gaz test` runs a file as `<program_path()> <file> <file> [--update]`: the file's own path,
   once to say what to run and again as its first program argument, since a running program has no
   builtin giving the *file's* own path (`program_path()` names the interpreter, not the script
-  it is running). `test::snapshot()` reads that argument to find where to record; a test file has
+  it is running, and `main_dir()` only the directory the file is in). `test::snapshot()` reads that argument to find where to record; a test file has
   no reason to read `args()` itself.
 
 **Routing**, with `http::Router()` (in `std/http.gaz`, so nothing extra to import):

@@ -10,18 +10,19 @@ GazLang in this repository.
 
 ## Running it
 
-From this directory:
+From the repository's root, or from anywhere else with the path to `main.gaz`:
 
 ```bash
-../../bin/gaz main.gaz
+bin/gaz apps/course/main.gaz
 ```
 
 Then open http://localhost:8080. It needs nothing installed: the database is SQLite, a file
-(`course.db`) made and migrated on the first start.
+(`course.db`, next to `main.gaz`) made and migrated on the first start. The lessons and the
+stylesheet are found next to `main.gaz` too (`main_dir()`), whatever the working directory.
 
 | Variable | What it is | Default |
 | --- | --- | --- |
-| `COURSE_DATABASE` | The database, a `sqlite:` URL | `sqlite:course.db` |
+| `COURSE_DATABASE` | The database, a `sqlite:` URL | `sqlite:course.db` next to `main.gaz` |
 | `COURSE_SECRET` | Signs the session cookies, 32 bytes or more | a new one each start, which signs everybody out |
 | `PORT` | The port to listen on | `8080` |
 | `WORKERS` | How many requests are answered at once | `4` |
@@ -31,7 +32,7 @@ It listens on 127.0.0.1 only; put nginx or Caddy in front for anything public, a
 ## Tests
 
 ```bash
-../../bin/gaz test tests
+bin/gaz test apps/course/tests
 ```
 
 They drive the app through `http::TestClient`, as a browser would, on a database in memory.

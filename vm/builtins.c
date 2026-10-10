@@ -34,6 +34,7 @@ char *piped_input;
 size_t piped_input_len;
 char **program_argv;
 char *program_exe;   /* argv[0] as main() was given it: program_path() */
+char *main_directory;   /* set once by main() before the program runs: main_dir() */
 
 /* In the order builtins() gives them */
 const BuiltinInfo builtin_info[] = {
@@ -74,6 +75,7 @@ const BuiltinInfo builtin_info[] = {
     {"worker_retire", 0, 0}, {"worker_deadline", 2, 4},
     {"worker_accept", 2, 2}, {"worker_release", 2, 3},
     {"db_error", 1, 1},
+    {"main_dir", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -107,6 +109,7 @@ enum {
     B_WORKER_RETIRE, B_WORKER_DEADLINE,
     B_WORKER_ACCEPT, B_WORKER_RELEASE,
     B_DB_ERROR,
+    B_MAIN_DIR,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -2008,6 +2011,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     }
     case B_PROGRAM_PATH:
         *out = v_str(str_cstr(program_exe));
+        return true;
+    case B_MAIN_DIR:
+        *out = main_directory ? v_str(str_cstr(main_directory)) : v_null();
         return true;
     case B_RAND_INT:
         if (!want(index, a, INT) || !want(index, b, INT)) return false;

@@ -1,15 +1,15 @@
 /*
  * The course as written: every lesson reads, and every example in it is GazLang the real gaz
  * accepts. A `gaz` block must compile, and one followed by an `output` block (past any `bash`
- * ones) must print exactly that, so a lesson can't teach what the language doesn't do. Run from
- * the app's directory: `../../bin/gaz test tests`.
+ * ones) must print exactly that, so a lesson can't teach what the language doesn't do: `gaz test
+ * tests` in the app's directory, or `gaz test apps/course/tests` from the repository's root.
  */
+import "std/fs.gaz";
 import "std/lists.gaz";
 import "std/test.gaz" use expect;
 import "markup.gaz";
 import "syllabus.gaz";
 
-const LESSONS = "lessons";
 
 /*
  * The output block an example's text promises, or null: the next block, past any shell
@@ -40,7 +40,7 @@ fn check_example(string $label, list $blocks, int $index): null {
     expect("{$label} prints what the lesson says", trim($ran["stdout"] .. $ran["stderr"]), trim($output));
 }
 
-$lessons = syllabus::read(LESSONS);
+$lessons = syllabus::read(fs::parent(main_dir()) .. "/lessons");
 $slugs = map($lessons, $lesson -> $lesson.slug);
 expect("every lesson has a slug of its own", len(lists::unique($slugs)), len($slugs));
 

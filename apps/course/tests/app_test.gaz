@@ -1,7 +1,8 @@
 /*
- * The app driven as a browser drives it, on a database of its own in memory. Run from the app's
- * directory: `../../bin/gaz test tests`.
+ * The app driven as a browser drives it, on a database of its own in memory: `gaz test tests` in
+ * the app's directory, or `gaz test apps/course/tests` from the repository's root.
  */
+import "std/fs.gaz";
 import "std/highlight.gaz";
 import "std/http.gaz";
 import "std/test.gaz" use expect;
@@ -11,13 +12,17 @@ import "schema.gaz";
 import "syllabus.gaz";
 
 const SECRET = "a test secret of thirty-two bytes or more";
-const LESSONS = "lessons";
 
 /*
  * The course as written, which the checks below follow, so they hold whatever the lessons say.
  */
 fn lessons(): list {
-    return syllabus::read(LESSONS);
+    return syllabus::read(app_directory() .. "/lessons");
+}
+
+// The app's own directory, this file's parent, wherever the tests were started
+fn app_directory(): string {
+    return fs::parent(main_dir());
 }
 
 fn client(): http::TestClient {
@@ -25,7 +30,7 @@ fn client(): http::TestClient {
     course::migrate($db);
     course::seed($db, lessons());
 
-    return http::TestClient(course::app($db, SECRET).handler());
+    return http::TestClient(course::app($db, SECRET, app_directory()).handler());
 }
 
 /*

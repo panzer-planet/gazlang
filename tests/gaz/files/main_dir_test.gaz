@@ -1,0 +1,70 @@
+import "std/test.gaz" use expect;
+import "std/fs.gaz";
+
+/*
+ * main_dir(): the directory of the file gaz was asked to run, absolute and with every symlink
+ * resolved, whatever the working directory, or null when there is no file. The programs it asks
+ * about are written into a directory of this run's own, made by fs::temp_dir() and removed at the
+ * end, and run as gaz processes, since main_dir() is about how gaz was started.
+ */
+const PROGRAM = "echo main_dir();";
+const MOVING = "\$before = main_dir(); chdir(\"/\"); echo \$before == main_dir() ? \$before : \"moved\";";
+const TEST_FILE = "import \"std/test.gaz\" use expect;\n"
+    .. "expect(\"absolute\", starts_with(main_dir(), \"/\"), true);\n"
+    .. "expect(\"the test file's own directory\", file_exists(main_dir() .. \"/where_test.gaz\"), true);\n";
+
+/* What a gaz process printed, run with these arguments and this standard input */
+fn gaz(string $binary, list $arguments, string $input = ""): string {
+    return trim(run([$binary, ...$arguments], $input)["stdout"]);
+}
+
+fn this_file(): null {
+    expect("this test's own directory", ends_with(main_dir(), "/tests/gaz/files"), true);
+    expect("which holds this file", file_exists(main_dir() .. "/main_dir_test.gaz"), true);
+    expect("already resolved", real_path(main_dir()), main_dir());
+}
+
+fn files(string $gaz, string $dir, string $start): null {
+    $app = real_path($dir .. "/app");
+    expect("a file by its absolute path", gaz($gaz, [$dir .. "/app/main.gaz"]), $app);
+    expect("with -f", gaz($gaz, ["-f", $dir .. "/app/main.gaz"]), $app);
+    expect("through a symlinked directory", gaz($gaz, [$dir .. "/link/main.gaz"]), $app);
+    expect("a symlinked file is where it leads", gaz($gaz, [$dir .. "/main_link.gaz"]), $app);
+    expect("a chdir() doesn't move it", gaz($gaz, [$dir .. "/app/moving.gaz"]), $app);
+    chdir($dir);
+    expect("a file by a relative path, from elsewhere", gaz($gaz, ["app/main.gaz"]), $app);
+    write_file("elsewhere/main.gzb", run([$gaz, "-c", "app/main.gaz"])["stdout"]);
+    expect("bytecode is its own directory", gaz($gaz, ["elsewhere/main.gzb"]), real_path("elsewhere"));
+    $tested = run([$gaz, "test", "app/tests"]);
+    expect("under gaz test, the test file's directory", [$tested["status"], contains($tested["stdout"], "2 checks, 0 failed")], [0, true]);
+    chdir($start);
+}
+
+fn no_file(string $gaz): null {
+    expect("piped source has none", gaz($gaz, [], PROGRAM), "null");
+    expect("nor has -e", gaz($gaz, ["-e", PROGRAM]), "null");
+}
+
+/* A bare name is found on PATH; a relative path to gaz would stop working after the chdir() */
+$gaz = program_path();
+if (contains($gaz, "/")) {
+    $gaz = real_path($gaz);
+}
+$start = cwd();
+$dir = fs::temp_dir("main-dir-test");
+try {
+    make_dir($dir .. "/app/tests", true);
+    make_dir($dir .. "/elsewhere");
+    write_file($dir .. "/app/main.gaz", PROGRAM);
+    write_file($dir .. "/app/moving.gaz", MOVING);
+    write_file($dir .. "/app/tests/where_test.gaz", TEST_FILE);
+    symlink("app", $dir .. "/link");
+    symlink("app/main.gaz", $dir .. "/main_link.gaz");
+    this_file();
+    files($gaz, $dir, $start);
+    no_file($gaz);
+} finally {
+    chdir($start);
+    fs::remove_tree($dir);
+}
+expect("the scratch directory is gone", file_exists($dir), false);

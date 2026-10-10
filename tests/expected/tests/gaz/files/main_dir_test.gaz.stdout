@@ -1,0 +1,14 @@
+ok this test's own directory
+ok which holds this file
+ok already resolved
+ok a file by its absolute path
+ok with -f
+ok through a symlinked directory
+ok a symlinked file is where it leads
+ok a chdir() doesn't move it
+ok a file by a relative path, from elsewhere
+ok bytecode is its own directory
+ok under gaz test, the test file's directory
+ok piped source has none
+ok nor has -e
+ok the scratch directory is gone

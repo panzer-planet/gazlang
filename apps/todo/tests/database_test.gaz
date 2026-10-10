@@ -19,13 +19,14 @@ fn refusal($f) {
 $db = connect(getenv("TODO_TEST_DATABASE_URL") ?? TEST_DATABASE);
 $db.exec(db::raw("drop table if exists users, todos, login_failures, schema_migrations cascade"));
 
-$files = filter(list_dir("migrations"), $file -> ends_with($file, ".sql"));
+$migrations = app_directory() .. "/migrations";
+$files = filter(list_dir($migrations), $file -> ends_with($file, ".sql"));
 expect("there are migrations to apply", len($files) >= 3, true);
-$applied = migrate($db, "migrations");
+$applied = migrate($db, $migrations);
 expect("every migration is applied on a new database, in name order", $applied, $files);
 $tables = map($db.query(db::sql"select table_name from information_schema.tables where table_schema = 'public' order by 1"), $row -> $row["table_name"]);
 expect("and the tables are there", $tables, ["login_failures", "schema_migrations", "todos", "users"]);
-expect("nothing is applied twice", migrate($db, "migrations"), []);
+expect("nothing is applied twice", migrate($db, $migrations), []);
 expect("each is recorded", $db.value(db::sql"select count(*) from schema_migrations"), len($files));
 
 /* The schema's own rules, which the app leans on */

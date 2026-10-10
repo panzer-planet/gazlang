@@ -12,9 +12,10 @@ import "store.gaz";
 
 /**
  * The app's router over a database `connect()` opened and `migrate()` made ready. `$secret`
- * signs the session cookies: 32 bytes or more, the same in every worker.
+ * signs the session cookies: 32 bytes or more, the same in every worker. `$directory` is the
+ * app's own, where `public/` is: `main_dir()` for `main.gaz`.
  */
-pub fn app(db::Db $db, string $secret): http::Router {
+pub fn app(db::Db $db, string $secret, string $directory): http::Router {
     $store = Store($db);
     $accounts = Accounts($store);
     $learning = Learning($store);
@@ -36,7 +37,7 @@ pub fn app(db::Db $db, string $secret): http::Router {
     $app.get("/lessons/:slug", students_only($learning.lesson));
     $app.post("/lessons/:slug", students_only($learning.answer));
 
-    $app.get("/style.css", http::serve_static("public"));
+    $app.get("/style.css", http::serve_static($directory .. "/public"));
     $app.not_found(not_found);
 
     return $app;

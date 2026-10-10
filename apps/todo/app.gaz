@@ -191,8 +191,8 @@ kind Handlers {
     }
 }
 
-// The Router for the app, to be given to http::serve()
-pub fn build_app(Config $config, $db) {
+// The Router for the app, to be given to http::serve(); $directory is the app's own, where public/ is
+pub fn build_app(Config $config, $db, string $directory) {
     $users = Users($db);
     $handlers = Handlers(Todos($db), Auth($users, $config.password_options), LoginThrottle($db), $config.time_zone, $config.trusted_proxies);
     $app = http::Router();
@@ -212,7 +212,7 @@ pub fn build_app(Config $config, $db) {
     $app.post("/todos/:id", authenticated($handlers.update));
     $app.post("/todos/:id/toggle", authenticated($handlers.toggle));
     $app.post("/todos/:id/delete", authenticated($handlers.remove));
-    $app.not_found(http::serve_static("public"));
+    $app.not_found(http::serve_static($directory .. "/public"));
 
     return $app;
 }

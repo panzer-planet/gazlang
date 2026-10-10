@@ -8,13 +8,14 @@ the same commit as the app code that needed it.
 
 ## Run it
 
-It needs PostgreSQL and a `gaz` built with its driver (`make -C vm` finds libpq). From this directory:
+It needs PostgreSQL and a `gaz` built with its driver (`make -C vm` finds libpq). From the
+repository's root, or from anywhere else with the path to `main.gaz`:
 
 ```bash
 createdb gaz_todo
 DATABASE_URL=postgres:///gaz_todo \
 SESSION_SECRET="$(openssl rand -hex 32)" \
-../../bin/gaz main.gaz
+bin/gaz apps/todo/main.gaz
 ```
 
 It migrates the schema, then listens on `http://127.0.0.1:8080`. The environment says the rest:
@@ -28,9 +29,9 @@ It migrates the schema, then listens on `http://127.0.0.1:8080`. The environment
 | `SECURE_COOKIES` | `1` marks the session cookie `Secure`, for use behind HTTPS | off |
 | `TRUSTED_PROXIES` | the addresses of the proxies in front, separated by commas, whose `X-Forwarded-For` says who the client is (see `http::client_address()`); without it the connection's own address is the client's | none |
 | `TIME_ZONE` | the zone times are shown in and due dates are read in, e.g. `Africa/Johannesburg` (from the system's time zone database) | `UTC` |
-| `MIGRATIONS` | a directory of `.sql` files | `migrations` |
 
-Run it from this directory: the migrations and the stylesheet are found from where it was started.
+The migrations and the stylesheet are found next to `main.gaz` (`main_dir()`), whatever the working
+directory.
 There is no TLS here, so put a proxy in front for HTTPS (and for slow clients: a proxy that buffers
 whole requests keeps a few slow connections from using up the workers).
 
@@ -41,7 +42,7 @@ which they empty, so never point them at one with anything in it:
 
 ```bash
 createdb gaz_todo_test
-../../bin/gaz test tests
+bin/gaz test apps/todo/tests
 ```
 
 They drive the real router through a `Browser` that keeps cookies (`tests/support.gaz`), so a test

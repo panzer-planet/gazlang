@@ -1,7 +1,8 @@
 /*
- * Runs the course: `gaz main.gaz` from this directory, then open http://localhost:8080.
+ * Runs the course: `gaz main.gaz`, from any directory, then open http://localhost:8080. The
+ * lessons, the stylesheet and the database are found next to this file.
  *
- * COURSE_DATABASE  where the database is (sqlite:course.db)
+ * COURSE_DATABASE  where the database is (sqlite:course.db next to this file)
  * COURSE_SECRET    signs session cookies, 32 bytes or more; without it every start makes a new
  *                  one, which signs everybody out
  * PORT             the port to listen on (8080)
@@ -26,7 +27,7 @@ fn number_setting(string $name, int $default): int {
     return to_int($text, null) ?? throw "{$name} must be a whole number, not \"{$text}\"";
 }
 
-$database = setting("COURSE_DATABASE", "sqlite:course.db");
+$database = setting("COURSE_DATABASE", "sqlite:" .. main_dir() .. "/course.db");
 $secret = getenv("COURSE_SECRET");
 if ($secret == null) {
     print_error("COURSE_SECRET isn't set, so this start signs everybody out: set one to keep sessions\n");
@@ -37,7 +38,7 @@ $port = number_setting("PORT", 8080);
 // Ready the database once, before the workers start, each of which opens its own connection.
 $setup = course::connect($database);
 course::migrate($setup);
-course::seed($setup, syllabus::read("lessons"));
+course::seed($setup, syllabus::read(main_dir() .. "/lessons"));
 $setup.close();
 
 $listener = socket_listen("127.0.0.1", $port);
@@ -45,4 +46,4 @@ echo "Learn GazLang is running at http://localhost:{$port}";
 workers(number_setting("WORKERS", 4));
 
 $db = course::connect($database);
-http::serve($listener, course::app($db, $secret).handler());
+http::serve($listener, course::app($db, $secret, main_dir()).handler());

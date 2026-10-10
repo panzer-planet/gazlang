@@ -130,10 +130,11 @@ composer ci                         # what CI runs, cold: phpstan with no result
   `apps/`: web apps built to find what hurts, in the repository for the same reason as the games
   (`apps/todo`: registration, login and todos on PostgreSQL, with `FRICTION.md`, the evidence for
   what the library and language lack, in the order a stranger would meet it). Its tests need a
-  PostgreSQL database and run from the app's directory, so CI doesn't: `cd apps/todo &&
-  ../../bin/gaz test tests`. `apps/course`: students register and take a course on GazLang and its
-  toolkit, on SQLite, written from the docs alone; its lessons are Markdown files whose every `gaz`
-  example its tests compile and run, and its tests run the same way, from its directory.
+  PostgreSQL database, so CI doesn't run them: `bin/gaz test apps/todo/tests`. `apps/course`:
+  students register and take a course on GazLang and its toolkit, on SQLite, written from the docs
+  alone; its lessons are Markdown files whose every `gaz` example its tests compile and run
+  (`bin/gaz test apps/course/tests`). Both find their files from `main_dir()`, so they run from
+  any directory.
 - `gaz.json` (`{"name": "..."}`) marks a project's root: the repository's, `apps/todo`'s,
   `apps/course`'s and `games/football`'s. A root-relative `import` resolves from the nearest one
   above the module, and the compiler refuses any key but `"name"` (see "Modules and namespaces").

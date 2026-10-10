@@ -2016,6 +2016,19 @@ static int unknown_option(const char *arg) {
     return 1;
 }
 
+/* The directory holding the file gaz was asked to run, with every symlink resolved, for main_dir():
+   worked out here, once, so a later chdir() doesn't move it and a worker inherits it. A source
+   file or a bytecode file alike, as bytecode resolves its locations against its own directory.
+   Held until the process ends, so never freed; NULL if the file went away since it was read. */
+static char *directory_of(const char *file) {
+    char *path = realpath(file, NULL);
+    if (!path) return NULL;
+    char *slash = strrchr(path, '/');   /* there is one: realpath() gives an absolute path */
+    if (slash == path) slash[1] = '\0';   /* a file in / itself: the directory is "/" */
+    else *slash = '\0';
+    return path;
+}
+
 /* The CLI, whose options are read as PHP's getopt("hvf:e:ctS", [help, version, file:, eval:, code,
    tokens, ast, watch, serve, tty::]) and its check for options getopt doesn't know. Options end at the
    first argument that isn't one or after "--". Then, unless "--" ended them, -f named a file, or
@@ -2177,6 +2190,7 @@ int main(int argc, char **argv) {
             free(job.text);
             return watch(argv[0], file, argc - i, argv + i);
         }
+        main_directory = directory_of(file);
     } else if (isatty(STDIN_FILENO) && !from_stdin) {
         /* No file and nothing piped: there is no interactive mode */
         fputs(HELP, stderr);

@@ -1,13 +1,12 @@
 /*
- * The todo app. Run it from this directory, with the environment saying where things are:
+ * The todo app, run from any directory, with the environment saying where things are:
  *
- *   DATABASE_URL=postgres:///gaz_todo SESSION_SECRET=<32 or more random bytes> ../../bin/gaz main.gaz
+ *   DATABASE_URL=postgres:///gaz_todo SESSION_SECRET=<32 or more random bytes> bin/gaz apps/todo/main.gaz
  *
  * Also read: HOST (127.0.0.1), PORT (8080), WORKERS (4), SECURE_COOKIES (1 to mark the session
  * cookie Secure, for use behind HTTPS), TRUSTED_PROXIES (none; the addresses of the proxies in front,
- * separated by commas, whose X-Forwarded-For says who the client is) and MIGRATIONS (migrations, a
- * directory of .sql files).
- * The schema is brought up to date before it listens.
+ * separated by commas, whose X-Forwarded-For says who the client is).
+ * The schema is brought up to date, from migrations/ next to this file, before it listens.
  */
 namespace todo;
 
@@ -24,7 +23,7 @@ $config = Config::from_environment();
 
 // Migrate on a connection of its own, closed before the workers start
 $setup = connect($config.database_url);
-foreach (migrate($setup, getenv("MIGRATIONS") ?? "migrations") as $migration) {
+foreach (migrate($setup, main_dir() .. "/migrations") as $migration) {
     echo "migrated " .. $migration;
 }
 LoginThrottle($setup).purge();
@@ -36,7 +35,7 @@ workers($config.workers);
 
 // Each worker opens its own: one opened before workers() can't be used in a worker
 $db = connect($config.database_url);
-http::serve($listener, build_app($config, $db).handler(), {
+http::serve($listener, build_app($config, $db, main_dir()).handler(), {
     "max_body" => REQUEST_BODY_LIMIT,
     "max_requests" => REQUESTS_PER_WORKER,
 });

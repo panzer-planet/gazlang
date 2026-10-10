@@ -631,6 +631,7 @@ extern char *piped_input;       /* standard input main() read, which read_stdin(
 extern size_t piped_input_len;
 extern char **program_argv;
 extern char *program_exe;       /* argv[0] as main() was given it, for program_path() */
+extern char *main_directory;    /* the main file's directory, symlinks resolved, or NULL: main_dir() */
 int builtin_find(const char *name, size_t len);
 bool call_builtin(int index, Value *args, int argc, Value *out);
 static inline bool arity_fits(int lo, int hi, int argc) { return argc >= lo && argc <= hi; }

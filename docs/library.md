@@ -74,6 +74,16 @@ own](http.md).
   `read_line($f)` mistake again.
 - `chdir()`: `cwd()` is `getcwd()`, never cached. Tested by `tests/gaz/workers/chdir_test.gaz` (a
   worker moves and recycles itself, and the next one the master forks is where the master is).
+- `main_dir()`: `realpath()` of the main file with its last name cut off (`directory_of()` in
+  `vm.c`), worked out by `main()` once, before the program runs, so a `chdir()` can't move it and
+  a worker inherits it. **`null` with no main file** (piped source, `-e`, the `gaz test` and `-S`
+  bootstraps), not the working directory, since pretending would hide the case where a program's
+  files can't be found. **Bytecode is its own directory**, as its `@` locations resolve against
+  it. **Not the main file's own path**: a program wants the files beside it, and the name would
+  only invite parsing it. Tested by `tests/gaz/files/main_dir_test.gaz`, which runs `gaz` on files
+  it writes: by relative and symlinked paths, after a `chdir()`, as bytecode, under `gaz test`,
+  piped and with `-e`. The fuzzer needn't skip it: its value is the program's directory, which a
+  replay runs in again.
 - `rename_file()`: `EXDEV` written out, since its words differ between Linux and macOS. No
   copy-and-delete fallback: a move that can't be atomic shouldn't pretend to be.
 - Directories: `list_dir()` sorts with `str_cmp`, since `readdir()`'s order is the file system's;

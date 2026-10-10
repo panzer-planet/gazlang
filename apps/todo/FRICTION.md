@@ -10,8 +10,8 @@ Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
 (handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), 6
-(`http::TestClient`), and the redirect, the timestamps, the due dates, the CSRF field and static files
-in 10. Half done: 9 (decoding needs no `try`; the request is still parsed twice). Open: 7, 8, the rest of
+(`http::TestClient`), 8 (`main_dir()`), and the redirect, the timestamps, the due dates, the CSRF field and static files
+in 10. Half done: 9 (decoding needs no `try`; the request is still parsed twice). Open: 7, the rest of
 9, and the rest of 10, each
 linking the issue that tracks it (label `todo-app`).
 
@@ -170,16 +170,19 @@ route, so a group of routes with a requirement has no home.
 - **Options**: a second argument or a method on routes (`$app.get($path, $handler, [$middleware])`),
   or `$app.group($middleware, $routes)`. The wrapper is five words, so this is the least urgent.
 
-## 8. Files are found from the working directory, and a program can't ask where it is  (open: [#50](https://github.com/panzer-planet/gazlang/issues/50))
+## 8. Files are found from the working directory, and a program can't ask where it is  (resolved: `main_dir()`)
 
 An `import` is from the file's own directory or project root, but `read_file()`, `list_dir()` and `serve_static()` are
 relative to where the program was started, and nothing says where the main file is
 (`program_path()` is the interpreter). The app must be run from `apps/todo` (`migrations`,
 `public`), and `main.gaz` says so.
 
-- **Today**: a comment, and `MIGRATIONS` as an override.
-- **Options**: `script_dir()`; or import-style resolution for a relative path given to those
+- **Was**: a comment, and `MIGRATIONS` as an override.
+- **Options were**: `script_dir()`; or import-style resolution for a relative path given to those
   builtins; or accept it, since a deployed app has a working directory it chose.
+- **Resolved** by `main_dir()`, the main file's directory with its symlinks resolved, worked out
+  once when the program starts. `main.gaz` finds `migrations/` and `public/` from it and the tests
+  from the parent of theirs, so the app runs from anywhere, and the override went.
 
 ## 9. The request is a plain map, so each helper parses it again
 
