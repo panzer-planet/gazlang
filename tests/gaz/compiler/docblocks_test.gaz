@@ -151,3 +151,13 @@ expect("a file of GazLang", outline_of_file("lib/csv.gaz").namespace, "csv");
 // The paths imports name, as the lexer reads them: not a comment or a string that says one
 $imports = outline("import \"./a.gaz\";\nimport \"std/text.gaz\" use quote;\n// import \"./not.gaz\";\n\$s = 'import \"./nor.gaz\";';\n").imports;
 expect("the paths imports name", $imports, ["./a.gaz", "std/text.gaz"]);
+
+// Where each declaration and its name lie, as byte offsets: a body included, a field's name with its #
+$spanned = "kind Box {\n    #lid = {};\n    fn open() { if (true) {} }\n}\nconst N = 1;\n";
+$cut = $d -> [slice($spanned, $d.start, $d.stop - $d.start), slice($spanned, $d.name_start, $d.name_stop - $d.name_start)];
+expect("the spans of a declaration and its name", map(outline($spanned).declarations, $cut), [
+    [slice($spanned, 0, len($spanned) - 14), "Box"],
+    ["#lid = {};", "#lid"],
+    ["fn open() { if (true) {} }", "open"],
+    ["const N = 1;", "N"],
+]);

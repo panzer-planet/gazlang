@@ -1,7 +1,8 @@
 /*
  * A Language Server Protocol server for GazLang, over stdio, as every editor spawns one:
  * diagnostics (parse and lex errors), hover (a builtin's arity, or a declaration's signature and
- * docblock), go-to-definition, completion, import links and quick fixes. bin/gaz lsp/server.gaz
+ * docblock), go-to-definition, completion, import links, quick fixes, the outline and signature
+ * help. bin/gaz lsp/server.gaz
  *
  * namespace gazlang, not its own: this reuses the compiler's own Parser, which is private to
  * that namespace (as a test of the internals does; see CLAUDE.md). The lexer is std/syntax.gaz.
@@ -658,6 +659,270 @@ fn keyword_fix($text, $message, $line) {
     return ["Write '{$right}'", {"range" => $range, "newText" => $right}];
 }
 
+// The SymbolKind for what a declaration is
+const SYMBOL_KINDS = {
+    "function" => 12, "kind" => 5, "interface" => 11, "enum" => 10, "constant" => 14, "case" => 22,
+    "field" => 8, "static field" => 8, "method" => 6, "static method" => 6, "constructor" => 9,
+};
+
+/*
+ * The document's outline as DocumentSymbols: its functions, kinds, interfaces, enums and
+ * constants, each kind's members its children, from the same outline hover reads
+ */
+fn document_symbols($uri) {
+    $text = @documents[$uri] ?? null;
+    if ($text == null) {
+        return [];
+    }
+    $positions = Positions($text);
+    $symbols = [];
+    foreach (outline_of(path_from_uri($uri) ?? "", $text).declarations as $declaration) {
+        $symbol = document_symbol($declaration, $positions);
+        if ($declaration.owner == null) {
+            $symbols[] = $symbol;
+        } else if ($symbols != [] && last($symbols)["name"] == $declaration.owner) {
+            $symbols[len($symbols) - 1]["children"][] = $symbol;
+        }
+    }
+    return $symbols;
+}
+
+fn document_symbol($declaration, $positions) {
+    $symbol = {
+        "name" => $declaration.name,
+        // The signature on one line, as an outline view has room for
+        "detail" => join(map(split($declaration.signature, "\n"), trim), " "),
+        "kind" => SYMBOL_KINDS[$declaration.what],
+        "range" => $positions.range($declaration.start, $declaration.stop),
+        "selectionRange" => $positions.range($declaration.name_start, $declaration.name_stop),
+    };
+    if (in_array($declaration.what, ["kind", "interface", "enum"])) {
+        $symbol["children"] = [];
+    }
+    return $symbol;
+}
+
+// A bracket open at the cursor: the index of its token, and how many commas it holds so far
+kind OpenBracket {
+    pub #commas = 0;
+
+    fn _(pub #type, pub #at) {}
+}
+
+// How a token changes the depth of brackets: 1 for an opener, -1 for a closer
+fn depth_change($token) {
+    return match {
+        in_array($token.type, OPENERS) => 1,
+        in_array($token.type, CLOSERS) => -1,
+        default => 0,
+    };
+}
+
+/*
+ * The innermost ( still open at byte $offset of the document's tokens, as an OpenBracket, or
+ * null: what a call's argument list is, before which its callee stands
+ */
+fn open_call($tokens, $offset) {
+    $open = [];
+    foreach ($tokens as $i => $token) {
+        if ($token.start >= $offset) {
+            break;
+        }
+        if (in_array($token.type, OPENERS)) {
+            $open[] = OpenBracket($token.type, $i);
+        } else if (in_array($token.type, CLOSERS) && $open != []) {
+            delete $open[len($open) - 1];
+        } else if ($token.type == "COMMA" && $open != []) {
+            last($open).commas++;
+        }
+    }
+    foreach (reverse($open) as $bracket) {
+        if ($bracket.type == "LEFT_PAREN") {
+            return $bracket;
+        }
+    }
+    return null;
+}
+
+// What a call's signature help shows: its label and docblock, and where each parameter lies in the label
+kind CallSignature {
+    fn _(pub #label, pub #doc) {}
+}
+
+/*
+ * The signature of what is called just before token $at: a builtin, a function or kind by name
+ * (Kind::name for a static method, ns::name for a namespace's function), or #method in the kind the
+ * cursor is in. A method through a value ($obj.method) is left alone: which kind $obj is takes
+ * types the server doesn't have, and a guess could show the wrong signature.
+ */
+fn call_signature($tokens, $at, $files, $offset) {
+    if ($at == 0) {
+        return null;
+    }
+    $callee = $tokens[$at - 1];
+    $before = $at >= 2 ? $tokens[$at - 2].type : null;
+    if ($callee.type == "HASH_IDENTIFIER") {
+        $kind = enclosing_kind($files[0], $offset);
+        $method = $kind == null ? null : find_member($files, $kind.name, slice($callee.value, 1));
+        return $method == null ? null : CallSignature($method.signature, $method.doc);
+    }
+    if ($callee.type != "IDENTIFIER" || $before == "FN") {
+        return null;
+    }
+    $name = $callee.value;
+    if ($before == "DOUBLE_COLON" && $at >= 3) {
+        $member = find_member($files, $tokens[$at - 3].value, $name);
+        if ($member != null) {
+            return CallSignature($member.signature, $member.doc);
+        }
+    } else if (has_key(builtins(), $name)) {
+        return CallSignature($name, "builtin, " .. describe_arity(builtins()[$name]));
+    }
+    $found = find_declaration($files, $name);
+    if ($found == null || $found[1].owner != null) {
+        return null;
+    }
+    $declaration = $found[1];
+    if ($declaration.what != "kind") {
+        return CallSignature($declaration.signature, $declaration.doc);
+    }
+    // Constructing a kind runs its _, or the one it inherits
+    $constructor = find_member($files, $name, "_");
+    if ($constructor == null) {
+        return null;
+    }
+    $signature = $constructor.signature;
+    return CallSignature($name .. slice($signature, index_of($signature, "(")), $declaration.doc ?? $constructor.doc);
+}
+
+// The kind, enum or interface of a file whose body holds byte $offset, or null
+fn enclosing_kind($file, $offset) {
+    foreach ($file.outline.declarations as $declaration) {
+        if ($declaration.owner == null && in_array($declaration.what, ["kind", "enum", "interface"])
+            && $declaration.start <= $offset && $offset < $declaration.stop) {
+            return $declaration;
+        }
+    }
+    return null;
+}
+
+/*
+ * The member $name of the kind named $kind in $files, or of the kind it extends, and so on up, as a
+ * Declaration, or null. A qualified kind (ns::Kind) is looked up by its last part.
+ */
+fn find_member($files, $kind, $name) {
+    $seen = [];
+    while ($kind != null && !in_array($kind, $seen)) {
+        $seen[] = $kind;
+        $declared = null;
+        foreach ($files as $file) {
+            foreach ($file.outline.declarations as $declaration) {
+                if ($declaration.owner == $kind && $declaration.name == $name) {
+                    return $declaration;
+                }
+                if ($declaration.owner == null && $declaration.name == $kind && $declaration.what == "kind") {
+                    $declared = $declared ?? $declaration;
+                }
+            }
+        }
+        $kind = $declared == null ? null : parent_of($declared);
+    }
+    return null;
+}
+
+// The name of the kind a kind's signature says it extends (its last part), or null
+fn parent_of($declaration) {
+    $found = regex::groups($declaration.signature, 'extends\s+([A-Za-z_][A-Za-z0-9_:]*)');
+    if ($found == null) {
+        return null;
+    }
+    return last(split($found[1], "::"));
+}
+
+// A parameter of a signature: where it lies in it as byte offsets, and the variables it names, each [name, start, stop]
+kind Parameter {
+    fn _(pub #start, pub #stop, pub #names) {}
+}
+
+/*
+ * The parameters of a signature's first parameter list, read with the lexer so a default holding
+ * a comma or a bracket is one parameter. A promoted #x names $x, a pattern each variable in it.
+ */
+fn parameters_of($signature) {
+    $tokens = source_tokens($signature);
+    $t = 0;
+    while ($t < len($tokens) && $tokens[$t].type != "LEFT_PAREN") {
+        $t++;
+    }
+    $parameters = [];
+    $group = [];
+    $depth = 0;
+    while ($t < len($tokens)) {
+        $token = $tokens[$t];
+        $depth += depth_change($token);
+        $ends = $depth == 0 || $depth == 1 && $token.type == "COMMA";
+        if ($ends) {
+            if ($group != []) {
+                $parameters[] = parameter($group);
+            }
+            $group = [];
+        } else if ($depth > 1 || $token.type != "LEFT_PAREN") {
+            $group[] = $token;
+        }
+        if ($depth == 0) {
+            break;
+        }
+        $t++;
+    }
+    return $parameters;
+}
+
+// A Parameter from its tokens: the variables are those before its default's =
+fn parameter($group) {
+    $names = [];
+    foreach ($group as $token) {
+        if ($token.type == "ASSIGN") {
+            break;
+        }
+        if ($token.type == "VAR_IDENTIFIER") {
+            $names[] = [$token.value, $token.start, $token.stop];
+        } else if ($token.type == "HASH_IDENTIFIER") {
+            $names[] = ["$" .. slice($token.value, 1), $token.start, $token.stop];
+        }
+    }
+    return Parameter($group[0].start, last($group).stop, $names);
+}
+
+/*
+ * Signature help for the call around the cursor: its signature as written (hover's), its
+ * docblock, each parameter's place in the label, and which one the cursor is in, by the commas
+ * before it at the call's own depth
+ */
+fn signature_help($uri, $position) {
+    $text = @documents[$uri] ?? null;
+    if ($text == null) {
+        return null;
+    }
+    $offset = Positions($text).offset($position);
+    $tokens = source_tokens($text);
+    $call = open_call($tokens, $offset);
+    if ($call == null) {
+        return null;
+    }
+    $signature = call_signature($tokens, $call.at, reachable_files(path_from_uri($uri), $text), $offset);
+    if ($signature == null) {
+        return null;
+    }
+    $label = $signature.label;
+    $information = {"label" => $label, "parameters" => map(parameters_of($label), $p -> ({
+        "label" => [utf16_length(slice($label, 0, $p.start)), utf16_length(slice($label, 0, $p.stop))],
+    }))};
+    if ($signature.doc != null) {
+        $information["documentation"] = {"kind" => "markdown", "value" => $signature.doc};
+    }
+    return {"signatures" => [$information], "activeSignature" => 0, "activeParameter" => $call.commas};
+}
+
 @documents = {}; // uri -> text, for hover and definition; didOpen and didChange fill it
 @outlines = {};  // path -> [text, Outline], see outline_of()
 
@@ -687,6 +952,8 @@ while (true) {
                     "completionProvider" => {},
                     "documentLinkProvider" => {},
                     "codeActionProvider" => {"codeActionKinds" => ["quickfix"]},
+                    "documentSymbolProvider" => true,
+                    "signatureHelpProvider" => {"triggerCharacters" => ["(", ","]},
                 },
             }),
             "shutdown" => respond($connection, $message["id"], null),
@@ -701,6 +968,8 @@ while (true) {
             "textDocument/definition" => respond($connection, $message["id"], definition($params["textDocument"]["uri"], $params["position"])),
             "textDocument/completion" => respond($connection, $message["id"], completions($params["textDocument"]["uri"], $params["position"] ?? null)),
             "textDocument/documentLink" => respond($connection, $message["id"], document_links($params["textDocument"]["uri"])),
+            "textDocument/documentSymbol" => respond($connection, $message["id"], document_symbols($params["textDocument"]["uri"])),
+            "textDocument/signatureHelp" => respond($connection, $message["id"], signature_help($params["textDocument"]["uri"], $params["position"])),
             "textDocument/codeAction" => respond($connection, $message["id"], code_actions($params["textDocument"]["uri"], $params["context"]["diagnostics"])),
             default => has_key($message, "id")
                 ? $connection.write({

@@ -34,6 +34,8 @@ const STATEMENT_ENDS = ["SEMICOLON", "LEFT_BRACE", "RIGHT_BRACE"];
  * member of one (with #owner its name; an interface's methods and an enum's cases are all pub). $signature
  * is its source from its first word up to its body, or to the end of the statement for one
  * without; $line the line its first word is on; $doc the docblock right above it, or null.
+ * $start and $stop are byte offsets of the whole of it, body included; $name_start and $name_stop
+ * of its name (a field's with its #).
  */
 pub kind Declaration {
     pub const FUNCTION = "function";
@@ -55,7 +57,11 @@ pub kind Declaration {
         pub ?string #owner,
         pub string #signature,
         pub int #line,
-        pub ?string #doc
+        pub ?string #doc,
+        pub int #start = 0,
+        pub int #stop = 0,
+        pub int #name_start = 0,
+        pub int #name_stop = 0
     ) {}
 }
 
@@ -201,9 +207,11 @@ kind OutlineReader {
         if ($body == Declaration::ENUM && #is_case($t)) {
             $end = #declaration_end($t, Declaration::CASE);
             $start = #tokens[$t].start;
-            $signature = slice(#source, $start, #tokens[$end - 1].stop - $start);
+            $stop = #tokens[$end - 1].stop;
+            $signature = slice(#source, $start, $stop - $start);
+            $case = Declaration(Declaration::CASE, #text($t), true, $owner, $signature, #tokens[$t].line, #docblock_above($t), $start, $stop, $start, #tokens[$t].stop);
 
-            return [Declaration(Declaration::CASE, #text($t), true, $owner, $signature, #tokens[$t].line, #docblock_above($t)), $end];
+            return [$case, $end];
         }
         $u = $t;
         $modifiers = [];
@@ -233,9 +241,43 @@ kind OutlineReader {
         $start = #tokens[$t].start;
         $signature = slice(#source, $start, #tokens[$end - 1].stop - $start);
         $pub = $body == Declaration::INTERFACE || in_array("PUB", $modifiers);
-        $declaration = Declaration($what, $name, $pub, $owner, $signature, #tokens[$t].line, #docblock_above($t));
+        $name_token = #tokens[#type($u) == "HASH_IDENTIFIER" ? $u : $u + 1];
+        $declaration = Declaration(
+            $what,
+            $name,
+            $pub,
+            $owner,
+            $signature,
+            #tokens[$t].line,
+            #docblock_above($t),
+            $start,
+            #body_stop($end),
+            $name_token.start,
+            $name_token.stop
+        );
 
         return [$declaration, $end];
+    }
+
+    /*
+     * Where a declaration ends, given the token after its signature: past the brace closing its
+     * body when one opens there, else where the signature ends
+     */
+    fn body_stop(int $end): int {
+        if (#type($end) != "LEFT_BRACE" || #type($end - 1) == "SEMICOLON") {
+            return #tokens[$end - 1].stop;
+        }
+        $depth = 0;
+        $u = $end;
+        while ($u < len(#tokens)) {
+            $depth += #depth_change(#type($u), ["LEFT_BRACE"], ["RIGHT_BRACE"]);
+            if ($depth == 0) {
+                return #tokens[$u].stop;
+            }
+            $u++;
+        }
+
+        return #tokens[len(#tokens) - 1].stop;
     }
 
     // fn, const, a field's #name, or kind or interface followed by its name (not a field's type,

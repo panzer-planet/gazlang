@@ -13,3 +13,4 @@ ok a declaration cut off by the end
 ok a template declares nothing
 ok a file of GazLang
 ok the paths imports name
+ok the spans of a declaration and its name

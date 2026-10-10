@@ -376,7 +376,15 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   `import_hint()` spells, added below the last import, or the keyword `keyword_hint()` or
   `undefined_hint()` names, written over the last name so spelt up to the error's line; read from
   the message rather than worked out again, so a fix can't disagree with the error it answers, and
-  none for an error in an imported file, whose fix is that file's) are done. New positions count UTF-16
+  none for an error in an imported file, whose fix is that file's), the document's outline
+  (`textDocument/documentSymbol`: hierarchical, a kind's, interface's or enum's members its
+  children, each range the declaration with its body and the selection its name, from the
+  outline's spans) and signature help (the innermost `(` open at the cursor, by the lexer; a call by
+  name, `Kind::name`, `ns::name`, constructing a kind (its `_`, or the one it inherits by
+  `extends`) or `#method` in the kind the cursor is in, the signature as written and its docblock
+  as hover shows them, the parameter by the commas at the call's own depth; `$obj.method()` gets
+  none, since which kind `$obj` is takes types the server hasn't got, and a guess could show the
+  wrong signature) are done. New positions count UTF-16
   code units (`Positions`), the protocol's default encoding; hover, definition and links still
   count bytes, which differs only on a line with non-ASCII before the name. Declarations, docblocks and imports come from `compiler/docblocks.gaz`, the lexer's
   reading, not from the parsed tree, since the tree doesn't exist while the document has an unrelated

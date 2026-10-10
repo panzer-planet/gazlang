@@ -60,6 +60,7 @@ class LspTest extends GazLangTestCase
             ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['capabilities' => [
                 'textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true, 'completionProvider' => [],
                 'documentLinkProvider' => [], 'codeActionProvider' => ['codeActionKinds' => ['quickfix']],
+                'documentSymbolProvider' => true, 'signatureHelpProvider' => ['triggerCharacters' => ['(', ',']],
             ]]],
             $messages[0]
         );
@@ -625,6 +626,109 @@ class LspTest extends GazLangTestCase
 
         $this->assertSame(-32603, $messages[0]['error']['code']);
         $this->assertSame(['jsonrpc' => '2.0', 'id' => 2, 'result' => null], $messages[1]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $request  The request after the document is opened
+     */
+    private function askAbout(string $text, array $request): mixed
+    {
+        $request['jsonrpc'] = '2.0';
+        $request['id'] = 1;
+        $request['params']['textDocument'] = ['uri' => 'file:///a.gaz'];
+
+        return $this->session([
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $text],
+            ]],
+            $request,
+        ])[1]['result'];
+    }
+
+    /** @return array{start: array{line: int, character: int}, end: array{line: int, character: int}} */
+    private static function range(int $line, int $start, int $endLine, int $end): array
+    {
+        return ['start' => ['line' => $line, 'character' => $start], 'end' => ['line' => $endLine, 'character' => $end]];
+    }
+
+    /**
+     * The outline is hierarchical: a kind's members are its children, an enum's cases too; each
+     * range covers the whole declaration, body included, and its selectionRange the name, counted
+     * in UTF-16 code units past a non-ASCII string
+     */
+    public function test_document_symbols_are_the_outline_with_members_as_children()
+    {
+        $text = "const GREETING = \"h\u{e9}llo\"; const N = 1;\nkind Box {\n    #lid = 1;\n    fn open() {\n    }\n}\nenum Colour { Red; }\nfn main() {}\n";
+        $symbols = $this->askAbout($text, ['method' => 'textDocument/documentSymbol', 'params' => []]);
+
+        $this->assertSame(['GREETING', 'N', 'Box', 'Colour', 'main'], array_column($symbols, 'name'));
+        $this->assertSame([14, 14, 5, 10, 12], array_column($symbols, 'kind'));
+        $this->assertSame(['name' => 'N', 'detail' => 'const N = 1;', 'kind' => 14,
+            'range' => self::range(0, 26, 0, 38), 'selectionRange' => self::range(0, 32, 0, 33)], $symbols[1]);
+        $this->assertSame(self::range(1, 0, 5, 1), $symbols[2]['range']);
+        $this->assertSame([
+            ['name' => 'lid', 'detail' => '#lid = 1;', 'kind' => 8, 'range' => self::range(2, 4, 2, 13), 'selectionRange' => self::range(2, 4, 2, 8)],
+            ['name' => 'open', 'detail' => 'fn open()', 'kind' => 6, 'range' => self::range(3, 4, 4, 5), 'selectionRange' => self::range(3, 7, 3, 11)],
+        ], $symbols[2]['children']);
+        $this->assertSame([['Red', 22]], array_map(fn ($c) => [$c['name'], $c['kind']], $symbols[3]['children']));
+        $this->assertArrayNotHasKey('children', $symbols[4]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function signatureAt(string $text, int $line, int $character): ?array
+    {
+        return $this->askAbout($text, ['method' => 'textDocument/signatureHelp', 'params' => [
+            'position' => ['line' => $line, 'character' => $character],
+        ]]);
+    }
+
+    /**
+     * Signature help names the call around the cursor, with the parameter it is in by the commas
+     * at the call's own depth (not those inside a list or a nested call), each parameter's place in
+     * the label, and the docblock
+     */
+    public function test_signature_help_shows_the_parameter_the_cursor_is_in()
+    {
+        $text = "/**\n * Adds\n */\nfn add(int \$a, \$b = [1, 2]): int { return \$a; }\necho add([3, 4], len(\"\u{e9}\"), );\n";
+        $help = $this->signatureAt($text, 4, 25); // at the last comma, past the two-byte é: still in add
+
+        $this->assertSame([
+            'signatures' => [[
+                'label' => 'fn add(int $a, $b = [1, 2]): int',
+                'parameters' => [['label' => [7, 13]], ['label' => [15, 26]]],
+                'documentation' => ['kind' => 'markdown', 'value' => 'Adds'],
+            ]],
+            'activeSignature' => 0,
+            'activeParameter' => 1,
+        ], $help);
+        $this->assertSame(0, $this->signatureAt($text, 4, 13)['activeParameter']); // inside [3, 4]
+        $this->assertSame('len', $this->signatureAt($text, 4, 21)['signatures'][0]['label']);
+        $this->assertNull($this->signatureAt($text, 4, 4)); // before any call
+    }
+
+    /** Constructing a kind shows its constructor's parameters; #method a method of the kind the cursor is in */
+    public function test_signature_help_for_a_constructor_and_a_method()
+    {
+        $text = "kind Base {\n    fn _(pub #w, pub #h) {}\n    fn grow(\$by) {}\n}\nkind Box extends Base {\n    fn more() { #grow(); }\n}\necho Box(1, );\n";
+
+        $this->assertSame('Box(pub #w, pub #h)', $this->signatureAt($text, 7, 12)['signatures'][0]['label']);
+        $this->assertSame(1, $this->signatureAt($text, 7, 12)['activeParameter']);
+        $this->assertSame('fn grow($by)', $this->signatureAt($text, 5, 22)['signatures'][0]['label']);
+    }
+
+    public function test_a_signature_help_request_without_a_position_is_an_error_response()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/signatureHelp', 'params' => ['textDocument' => ['uri' => 'file:///a.gaz']]],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'textDocument/documentSymbol', 'params' => []],
+            ['jsonrpc' => '2.0', 'id' => 3, 'method' => 'shutdown'],
+        ]);
+
+        $this->assertSame(-32603, $messages[0]['error']['code']);
+        $this->assertSame(-32603, $messages[1]['error']['code']);
+        $this->assertSame(['jsonrpc' => '2.0', 'id' => 3, 'result' => null], $messages[2]);
     }
 
     public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()
