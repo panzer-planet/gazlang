@@ -61,6 +61,8 @@ class LspTest extends GazLangTestCase
                 'textDocumentSync' => 1, 'hoverProvider' => true, 'definitionProvider' => true, 'completionProvider' => [],
                 'documentLinkProvider' => [], 'codeActionProvider' => ['codeActionKinds' => ['quickfix']],
                 'documentSymbolProvider' => true, 'signatureHelpProvider' => ['triggerCharacters' => ['(', ',']],
+                // Its legend is test_semantic_tokens_are_announced_with_their_legend's
+                'semanticTokensProvider' => $messages[0]['result']['capabilities']['semanticTokensProvider'] ?? null,
             ]]],
             $messages[0]
         );
@@ -729,6 +731,122 @@ class LspTest extends GazLangTestCase
         $this->assertSame(-32603, $messages[0]['error']['code']);
         $this->assertSame(-32603, $messages[1]['error']['code']);
         $this->assertSame(['jsonrpc' => '2.0', 'id' => 3, 'result' => null], $messages[2]);
+    }
+
+    /**
+     * The semantic tokens of a document, decoded from the protocol's relative five-integer form
+     * by the legend initialize announces: each as "line:character length type [modifiers]"
+     *
+     * @return list<string>
+     */
+    private function semanticTokensOf(string $text): array
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 0, 'method' => 'initialize', 'params' => ['capabilities' => new \stdClass]],
+            ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz', 'text' => $text],
+            ]],
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/semanticTokens/full', 'params' => [
+                'textDocument' => ['uri' => 'file:///a.gaz'],
+            ]],
+        ]);
+        $legend = $messages[0]['result']['capabilities']['semanticTokensProvider']['legend'];
+        $data = $messages[2]['result']['data'];
+        $tokens = [];
+        $line = 0;
+        $character = 0;
+        foreach (array_chunk($data, 5) as [$lineDelta, $characterDelta, $length, $type, $bits]) {
+            $character = $lineDelta === 0 ? $character + $characterDelta : $characterDelta;
+            $line += $lineDelta;
+            $modifiers = array_values(array_filter($legend['tokenModifiers'], fn ($bit) => ($bits & (1 << $bit)) !== 0, ARRAY_FILTER_USE_KEY));
+            $tokens[] = "{$line}:{$character} {$length} {$legend['tokenTypes'][$type]}".($modifiers ? ' '.implode(',', $modifiers) : '');
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * Each name is a token by what it resolves to among the declarations the document reaches,
+     * the standard library's marked defaultLibrary; a name that resolves to nothing (unknown, the
+     * type map) gets none. Positions count UTF-16 code units: é is one and the emoji two.
+     */
+    public function test_semantic_tokens_name_what_each_name_resolves_to()
+    {
+        $text = <<<'GAZ'
+            namespace demo;
+            import "std/text.gaz";
+            const LIMIT = 3;
+            readonly kind Box {
+                #size;
+                fn _(int $size) { #size = $size; }
+                fn grow(): Box { return Box(#size + LIMIT); }
+            }
+            enum Colour { Red; }
+            fn main(map $options) {
+                $s = "é😀"; $b = Box(len($s));
+                echo $b.grow(), Colour::Red, text::quote($b.size), unknown;
+            }
+
+            GAZ;
+
+        $this->assertSame([
+            '0:10 4 namespace declaration',
+            '2:6 5 variable declaration,readonly',
+            '3:14 3 class declaration',
+            '4:4 5 property declaration,readonly',
+            '5:7 1 method declaration',
+            '5:13 5 parameter declaration',
+            '5:22 5 property readonly',
+            '5:30 5 parameter',
+            '6:7 4 method declaration',
+            '6:15 3 class',
+            '6:28 3 class',
+            '6:32 5 property readonly',
+            '6:40 5 variable readonly',
+            '8:5 6 enum declaration',
+            '8:14 3 enumMember declaration',
+            '9:3 4 function declaration',
+            '9:12 8 parameter declaration',
+            '10:4 2 variable',
+            '10:16 2 variable',
+            '10:21 3 class',
+            '10:25 3 function defaultLibrary',
+            '10:29 2 variable',
+            '11:9 2 variable',
+            '11:12 4 method',
+            '11:20 6 enum',
+            '11:28 3 enumMember',
+            '11:33 4 namespace defaultLibrary',
+            '11:39 5 function defaultLibrary',
+            '11:45 2 variable',
+            '11:48 4 property readonly',
+        ], $this->semanticTokensOf($text));
+    }
+
+    public function test_semantic_tokens_are_announced_with_their_legend()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => ['capabilities' => new \stdClass]],
+        ]);
+
+        $this->assertSame([
+            'legend' => [
+                'tokenTypes' => ['namespace', 'class', 'interface', 'enum', 'function', 'method', 'property', 'enumMember', 'parameter', 'variable'],
+                'tokenModifiers' => ['declaration', 'readonly', 'defaultLibrary'],
+            ],
+            'full' => true,
+        ], $messages[0]['result']['capabilities']['semanticTokensProvider']);
+    }
+
+    public function test_a_semantic_tokens_request_without_a_document_is_an_error_response()
+    {
+        $messages = $this->session([
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'textDocument/semanticTokens/full', 'params' => []],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'textDocument/semanticTokens/full', 'params' => ['textDocument' => ['uri' => 'file:///unopened.gaz']]],
+        ]);
+
+        $this->assertSame(-32603, $messages[0]['error']['code']);
+        $this->assertSame(['data' => []], $messages[1]['result']);
     }
 
     public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()

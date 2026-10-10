@@ -1,8 +1,8 @@
 /*
  * A Language Server Protocol server for GazLang, over stdio, as every editor spawns one:
  * diagnostics (parse and lex errors), hover (a builtin's arity, or a declaration's signature and
- * docblock), go-to-definition, completion, import links, quick fixes, the outline and signature
- * help. bin/gaz lsp/server.gaz
+ * docblock), go-to-definition, completion, import links, quick fixes, the outline, signature
+ * help and semantic tokens. bin/gaz lsp/server.gaz
  *
  * namespace gazlang, not its own: this reuses the compiler's own Parser, which is private to
  * that namespace (as a test of the internals does; see CLAUDE.md). The lexer is std/syntax.gaz.
@@ -923,6 +923,388 @@ fn signature_help($uri, $position) {
     return {"signatures" => [$information], "activeSignature" => 0, "activeParameter" => $call.commas};
 }
 
+/*
+ * The semantic token legend, announced at initialize: a token's type is its index in
+ * TOKEN_TYPES, its modifiers a bit for each of TOKEN_MODIFIERS. A constant is a readonly
+ * variable, as the protocol has no constant type.
+ */
+const TOKEN_TYPES = ["namespace", "class", "interface", "enum", "function", "method", "property", "enumMember", "parameter", "variable"];
+const TOKEN_MODIFIERS = ["declaration", "readonly", "defaultLibrary"];
+const DECLARATION = 1;
+const READONLY = 2;
+const DEFAULT_LIBRARY = 4;
+
+// The token type for what a declaration is
+const TYPE_OF_DECLARATION = {
+    "function" => "function", "kind" => "class", "interface" => "interface", "enum" => "enum",
+    "constant" => "variable", "case" => "enumMember", "field" => "property", "static field" => "property",
+    "method" => "method", "static method" => "method", "constructor" => "method",
+};
+
+// A declaration a name can resolve to, and whether it is the standard library's
+kind Named {
+    fn _(pub #declaration, pub #library) {}
+}
+
+/*
+ * What the names a document can reach resolve to, by name alone: its top level declarations and
+ * those of what it imports (the standard library's too), each kind's members, and the namespaces
+ */
+kind Names {
+    #top_level = {};
+    #members = {};
+    // name -> every member of that name in any kind, for a .name whose object's kind isn't known
+    #members_named = {};
+    #namespaces = {};
+
+    fn _($files, $library) {
+        foreach ([...$files, ...$library] as $file) {
+            $is_library = in_array($file, $library);
+            if ($file.outline.namespace != null) {
+                #namespaces[$file.outline.namespace] = #namespaces[$file.outline.namespace] ?? $is_library;
+            }
+            foreach ($file.outline.declarations as $declaration) {
+                #add(Named($declaration, $is_library));
+            }
+        }
+    }
+
+    fn add($named) {
+        $declaration = $named.declaration;
+        if ($declaration.owner == null) {
+            #top_level[$declaration.name] = #top_level[$declaration.name] ?? $named;
+            return;
+        }
+        #add_member($declaration.owner, $declaration.name, $named);
+        if ($declaration.what == "constructor") {
+            // A promoted parameter (pub #x) declares a field
+            foreach (parameters_of($declaration.signature) as $parameter) {
+                foreach ($parameter.names as [$name, $start, $stop]) {
+                    if (char_at($declaration.signature, $start) == "#") {
+                        $field = Declaration("field", slice($name, 1), false, $declaration.owner, "", $declaration.line, null);
+                        #add_member($declaration.owner, $field.name, Named($field, $named.library));
+                    }
+                }
+            }
+        }
+    }
+
+    fn add_member($owner, $name, $named) {
+        $key = "{$owner}.{$name}";
+        #members[$key] = #members[$key] ?? $named;
+        #members_named[$name] = [...(#members_named[$name] ?? []), $named];
+    }
+
+    // The top level declaration of a name, as a Named, or null
+    pub fn top($name) {
+        return #top_level[$name] ?? null;
+    }
+
+    // Whether a name is a namespace, and whether it is the standard library's, or null if it isn't one
+    pub fn namespace($name) {
+        return #namespaces[$name] ?? null;
+    }
+
+    // Whether a top level name is a kind, interface or enum
+    pub fn is_kind($name) {
+        $named = #top($name);
+        return $named != null && in_array($named.declaration.what, ["kind", "interface", "enum"]);
+    }
+
+    // The member $name of the kind $kind, or of the kind it extends, and so on up, or null
+    pub fn member($kind, $name) {
+        $seen = [];
+        while ($kind != null && !in_array($kind, $seen)) {
+            $seen[] = $kind;
+            $found = #members["{$kind}.{$name}"] ?? null;
+            if ($found != null) {
+                return $found;
+            }
+            $declared = #top($kind);
+            $kind = $declared == null ? null : parent_of($declared.declaration);
+        }
+        return null;
+    }
+
+    /*
+     * The member a .name means when the object's kind isn't known: one of the members of that
+     * name, if every one is the same token type (all fields, or all methods), else null
+     */
+    pub fn any_member($name) {
+        $named = #members_named[$name] ?? [];
+        if ($named == []) {
+            return null;
+        }
+        $type = TYPE_OF_DECLARATION[$named[0].declaration.what];
+        foreach ($named as $each) {
+            if (TYPE_OF_DECLARATION[$each.declaration.what] != $type) {
+                return null;
+            }
+        }
+        return $named[0];
+    }
+}
+
+/*
+ * The standard library's files the reachable ones import, as ReachableFiles named <std>/..., for
+ * names to resolve into (and be marked defaultLibrary). Not chased further: a file sees only
+ * what it imports.
+ */
+fn library_files($files) {
+    $library = [];
+    $seen = [];
+    foreach ($files as $file) {
+        foreach ($file.outline.imports as $import) {
+            $std = import_target($import, "", "").std;
+            $text = $std == null || in_array($std, $seen) ? null : std_source($std);
+            if ($text != null) {
+                $seen[] = $std;
+                $library[] = ReachableFile("<std>/{$std}", $text, outline_of("<std>/{$std}", $text));
+            }
+        }
+    }
+    return $library;
+}
+
+// A semantic token before encoding: where it lies, as byte offsets, its type's name and its modifier bits
+kind SemanticToken {
+    fn _(pub #start, pub #stop, pub #type, pub #modifiers) {}
+}
+
+// A function, method or constructor of the document and the variables its parameters name
+kind Scope {
+    fn _(pub #declaration, pub #parameters) {}
+}
+
+/*
+ * Semantic tokens for the document's names, by what each resolves to among the declarations it
+ * can reach. A name that resolves to nothing gets no token, so the editor's own grammar colours
+ * it, and a wrong guess is never shown.
+ */
+kind Highlighter {
+    #names;
+    #builtins;
+    #source_tokens;
+    // The document's own declarations by where their name starts, to mark each as a declaration
+    #declared_at = {};
+    #scopes = [];
+    #kinds = [];
+
+    fn _($files, $library) {
+        #names = Names($files, $library);
+        #builtins = builtins();
+        #source_tokens = source_tokens($files[0].text);
+        foreach ($files[0].outline.declarations as $declaration) {
+            #declared_at[$declaration.name_start] = $declaration;
+            if (in_array($declaration.what, ["function", "method", "static method", "constructor"])) {
+                #scopes[] = Scope($declaration, parameters_of($declaration.signature));
+            } else if ($declaration.owner == null && in_array($declaration.what, ["kind", "enum", "interface"])) {
+                #kinds[] = $declaration;
+            }
+        }
+    }
+
+    pub fn tokens() {
+        $found = [];
+        foreach (#source_tokens as $i => $token) {
+            $semantic = #classify($i, $token);
+            if ($semantic != null) {
+                $found[] = $semantic;
+            }
+        }
+        return $found;
+    }
+
+    fn classify($i, $token) {
+        $declared = #declared_at[$token.start] ?? null;
+        if ($declared != null && in_array($token.type, ["IDENTIFIER", "HASH_IDENTIFIER"])) {
+            return #named($token.start, $token.stop, Named($declared, false), DECLARATION);
+        }
+        return match ($token.type) {
+            "IDENTIFIER", "TAG" => #identifier($i, $token),
+            "VAR_IDENTIFIER", "GLOBAL_VAR_IDENTIFIER" => #variable($token),
+            "HASH_IDENTIFIER" => #own_member($token, slice($token.value, 1), $token.start),
+            "PARENT_IDENTIFIER" => #parent_member($token),
+            "PROPERTY" => #any_member($token, 1),
+            "NULLSAFE_PROPERTY" => #any_member($token, 2),
+            default => null,
+        };
+    }
+
+    fn type($i) {
+        return $i >= 0 && $i < len(#source_tokens) ? #source_tokens[$i].type : null;
+    }
+
+    // A bare name, a qualifier before ::, or a name after one
+    fn identifier($i, $token) {
+        $name = $token.value;
+        if (#type($i - 1) == "NAMESPACE") {
+            return SemanticToken($token.start, $token.stop, "namespace", DECLARATION);
+        }
+        if (#type($i + 1) == "DOUBLE_COLON") {
+            return #qualifier($token);
+        }
+        if (#type($i - 1) == "DOUBLE_COLON" && #type($i - 2) == "IDENTIFIER") {
+            $qualifier = #source_tokens[$i - 2].value;
+            $named = #names.is_kind($qualifier) ? #names.member($qualifier, $name) : #names.top($name);
+            return #named($token.start, $token.stop, $named, 0);
+        }
+        // A namespace's own function may share a builtin's name, and wins over it
+        $named = #names.top($name);
+        // map is a builtin and a type name: only a call of it is surely the builtin
+        $is_type = in_array($name, Parser::TYPE_NAMES) && #type($i + 1) != "LEFT_PAREN";
+        if ($named == null && has_key(#builtins, $name) && !$is_type) {
+            return SemanticToken($token.start, $token.stop, "function", DEFAULT_LIBRARY);
+        }
+        return #named($token.start, $token.stop, $named, 0);
+    }
+
+    // The name before a ::, a kind's or a namespace's
+    fn qualifier($token) {
+        if (#names.is_kind($token.value)) {
+            return #named($token.start, $token.stop, #names.top($token.value), 0);
+        }
+        $library = #names.namespace($token.value);
+        if ($library == null) {
+            return null;
+        }
+        return SemanticToken($token.start, $token.stop, "namespace", $library ? DEFAULT_LIBRARY : 0);
+    }
+
+    /*
+     * A $variable: a parameter of the function it is in (marked a declaration where its parameter
+     * list names it), or any other variable. Its token is the name alone: an interpolated "$a[0]"
+     * spans its key too.
+     */
+    fn variable($token) {
+        $stop = $token.start + len($token.value);
+        $scope = #scope_at($token.start);
+        if ($token.type == "VAR_IDENTIFIER" && $scope != null) {
+            foreach ($scope.parameters as $parameter) {
+                foreach ($parameter.names as [$name, $start, $end]) {
+                    if ($name == $token.value) {
+                        $declaring = $scope.declaration.start + $start == $token.start;
+                        return SemanticToken($token.start, $stop, "parameter", $declaring ? DECLARATION : 0);
+                    }
+                }
+            }
+        }
+        return SemanticToken($token.start, $stop, "variable", 0);
+    }
+
+    // The innermost function, method or constructor of the document around byte $offset, or null
+    fn scope_at($offset) {
+        $inside = null;
+        foreach (#scopes as $scope) {
+            if ($scope.declaration.start <= $offset && $offset < $scope.declaration.stop) {
+                $inside = $scope;
+            }
+        }
+        return $inside;
+    }
+
+    // The kind of the document whose body holds byte $offset, or null
+    fn kind_at($offset) {
+        foreach (#kinds as $kind) {
+            if ($kind.start <= $offset && $offset < $kind.stop) {
+                return $kind;
+            }
+        }
+        return null;
+    }
+
+    // #name: a member of the kind it is written in, or one that kind inherits
+    fn own_member($token, $name, $start) {
+        $kind = #kind_at($token.start);
+        if ($kind == null) {
+            return null;
+        }
+        return #named($start, $token.stop, #names.member($kind.name, $name), 0);
+    }
+
+    // ##name: the parent's version of a method
+    fn parent_member($token) {
+        $kind = #kind_at($token.start);
+        $parent = $kind == null ? null : parent_of($kind);
+        if ($parent == null) {
+            return null;
+        }
+        return #named($token.start, $token.stop, #names.member($parent, slice($token.value, 2)), 0);
+    }
+
+    // .name or ?.name, the mark left out of the token: what every member of that name is
+    fn any_member($token, $mark) {
+        return #named($token.start + $mark, $token.stop, #names.any_member(slice($token.value, $mark)), 0);
+    }
+
+    // A token for what a name resolved to, or null when it resolved to nothing
+    fn named($start, $stop, $named, $modifiers) {
+        if ($named == null) {
+            return null;
+        }
+        $declaration = $named.declaration;
+        if ($named.library) {
+            $modifiers = $modifiers | DEFAULT_LIBRARY;
+        }
+        if (#is_readonly($declaration)) {
+            $modifiers = $modifiers | READONLY;
+        }
+        return SemanticToken($start, $stop, TYPE_OF_DECLARATION[$declaration.what], $modifiers);
+    }
+
+    // A constant, or a field declared readonly or of a readonly kind
+    fn is_readonly($declaration) {
+        if ($declaration.what == "constant") {
+            return true;
+        }
+        if ($declaration.what != "field") {
+            return false;
+        }
+        $owner = #names.top($declaration.owner);
+        return is_marked_readonly($declaration.signature, "#")
+            || $owner != null && is_marked_readonly($owner.declaration.signature, "kind");
+    }
+}
+
+// Whether the words of a signature before $word include readonly
+fn is_marked_readonly($signature, $word) {
+    $before = index_of($signature, $word);
+    return $before != null && in_array("readonly", split(slice($signature, 0, $before), " "));
+}
+
+/*
+ * The document's semantic tokens, encoded as the protocol wants: five integers for each (line
+ * and start character, each relative to the token before, then length, type and modifiers), in
+ * UTF-16 code units
+ */
+fn semantic_tokens($uri) {
+    $text = @documents[$uri] ?? null;
+    if ($text == null) {
+        return {"data" => []};
+    }
+    $files = reachable_files(path_from_uri($uri), $text);
+    $positions = Positions($text);
+    $type_index = {};
+    foreach (TOKEN_TYPES as $i => $type) {
+        $type_index[$type] = $i;
+    }
+    $data = [];
+    $line = 0;
+    $character = 0;
+    foreach (Highlighter($files, library_files($files)).tokens() as $token) {
+        $at = $positions.at($token.start);
+        $data[] = $at["line"] - $line;
+        $data[] = $at["line"] == $line ? $at["character"] - $character : $at["character"];
+        $data[] = utf16_length(slice($text, $token.start, $token.stop - $token.start));
+        $data[] = $type_index[$token.type];
+        $data[] = $token.modifiers;
+        $line = $at["line"];
+        $character = $at["character"];
+    }
+    return {"data" => $data};
+}
+
+
 @documents = {}; // uri -> text, for hover and definition; didOpen and didChange fill it
 @outlines = {};  // path -> [text, Outline], see outline_of()
 
@@ -954,6 +1336,10 @@ while (true) {
                     "codeActionProvider" => {"codeActionKinds" => ["quickfix"]},
                     "documentSymbolProvider" => true,
                     "signatureHelpProvider" => {"triggerCharacters" => ["(", ","]},
+                    "semanticTokensProvider" => {
+                        "legend" => {"tokenTypes" => TOKEN_TYPES, "tokenModifiers" => TOKEN_MODIFIERS},
+                        "full" => true,
+                    },
                 },
             }),
             "shutdown" => respond($connection, $message["id"], null),
@@ -970,6 +1356,7 @@ while (true) {
             "textDocument/documentLink" => respond($connection, $message["id"], document_links($params["textDocument"]["uri"])),
             "textDocument/documentSymbol" => respond($connection, $message["id"], document_symbols($params["textDocument"]["uri"])),
             "textDocument/signatureHelp" => respond($connection, $message["id"], signature_help($params["textDocument"]["uri"], $params["position"])),
+            "textDocument/semanticTokens/full" => respond($connection, $message["id"], semantic_tokens($params["textDocument"]["uri"])),
             "textDocument/codeAction" => respond($connection, $message["id"], code_actions($params["textDocument"]["uri"], $params["context"]["diagnostics"])),
             default => has_key($message, "id")
                 ? $connection.write({

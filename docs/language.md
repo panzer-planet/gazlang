@@ -1011,8 +1011,8 @@ pub fn with_vat(int|float $price): float {
 
 The website's pages of the standard library show each `pub` name's docblock (and a file's first
 docblock, above its `namespace` line, as its overview), and the language server shows them on
-hover and in completion. A plain comment stays the source's own. Since `*/` ends any block
-comment, it can't appear in a docblock's text.
+hover, in completion and in signature help. A plain comment stays the source's own. Since `*/`
+ends any block comment, it can't appear in a docblock's text.
 
 ## Names
 

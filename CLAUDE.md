@@ -384,7 +384,13 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   `extends`) or `#method` in the kind the cursor is in, the signature as written and its docblock
   as hover shows them, the parameter by the commas at the call's own depth; `$obj.method()` gets
   none, since which kind `$obj` is takes types the server hasn't got, and a guess could show the
-  wrong signature) are done. New positions count UTF-16
+  wrong signature) and semantic tokens (`textDocument/semanticTokens/full`, the whole document
+  only: each name by what it resolves to by name alone among the declarations the document
+  reaches, the `std/` files it imports included and marked `defaultLibrary`, a constant as a
+  `readonly` variable since the protocol has no constant type, `.name` only when every member of
+  that name reachable is the same sort, `map` only when called, since it is a type name too; a
+  name that resolves to nothing gets no token, so the editor's grammar colours it and a wrong
+  guess is never shown) are done. New positions count UTF-16
   code units (`Positions`), the protocol's default encoding; hover, definition and links still
   count bytes, which differs only on a line with non-ASCII before the name. Declarations, docblocks and imports come from `compiler/docblocks.gaz`, the lexer's
   reading, not from the parsed tree, since the tree doesn't exist while the document has an unrelated

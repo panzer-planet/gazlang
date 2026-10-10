@@ -374,7 +374,7 @@ kind Parser {
     #member_calls = [];
 
     // The type_of() names, which a type is made of besides kinds; no kind can be called one
-    const TYPE_NAMES = ["int", "float", "string", "bool", "null", "list", "map", "function", "kind", "object", "socket", "db", "file"];
+    pub const TYPE_NAMES = ["int", "float", "string", "bool", "null", "list", "map", "function", "kind", "object", "socket", "db", "file"];
     // Three of them are keywords, so they arrive as their own tokens rather than as names
     const TYPE_KEYWORDS = ["NULL", "KIND"];
 
