@@ -9,18 +9,18 @@ ready-made `gaz` for three systems:
 - `gaz-VERSION-macos-arm64.tar.gz` for a Mac with Apple silicon
 - `gaz-VERSION-macos-x86_64.tar.gz` for an Intel Mac
 
-Download yours, unpack it and put `gaz` somewhere on your `PATH`. For version 0.11.0 on an Apple
+Download yours, unpack it and put `gaz` somewhere on your `PATH`. For version 0.12.0 on an Apple
 silicon Mac:
 
 ```bash
-curl -LO https://github.com/panzer-planet/gazlang/releases/download/v0.11.0/gaz-0.11.0-macos-arm64.tar.gz
-tar -xzf gaz-0.11.0-macos-arm64.tar.gz
-sudo mv gaz-0.11.0-macos-arm64/gaz /usr/local/bin/
+curl -LO https://github.com/panzer-planet/gazlang/releases/download/v0.12.0/gaz-0.12.0-macos-arm64.tar.gz
+tar -xzf gaz-0.12.0-macos-arm64.tar.gz
+sudo mv gaz-0.12.0-macos-arm64/gaz /usr/local/bin/
 gaz --version
 ```
 
 ```output
-gaz 0.11.0
+gaz 0.12.0
 ```
 
 Each release also has a `SHA256SUMS` file: compare its line for your download with what
