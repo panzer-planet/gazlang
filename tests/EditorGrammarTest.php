@@ -21,6 +21,24 @@ class EditorGrammarTest extends GazLangTestCase
         $this->assertSame([], array_values(array_diff($highlighted, $builtins)), 'names the grammar highlights that are not builtins');
     }
 
+    /**
+     * The builtin types are coloured apart from a kind's name, so the grammar's list of them, in
+     * both type rules (a parameter's or field's, and inside a return type), must be the parser's
+     * TYPE_NAMES less null and kind, which are keywords coloured as such.
+     */
+    public function test_it_colours_exactly_the_builtin_types_apart_from_kinds()
+    {
+        $grammar = (string) file_get_contents(self::GRAMMAR);
+        preg_match_all('#<string>support\.type\.primitive\.gaz</string>\s*<key>match</key>\s*<string>[^<]*?\\\\b\(([a-z|]+)\)\\\\b#', $grammar, $rules);
+        $this->assertCount(2, $rules[1], 'a support.type.primitive.gaz rule in each type rule');
+        $this->assertSame(1, preg_match('/const TYPE_NAMES = \[([^\]]+)\]/', (string) file_get_contents(self::ROOT.'/compiler/parser.gaz'), $table));
+        preg_match_all('/"([a-z]+)"/', $table[1], $names);
+        $expected = array_values(array_diff($names[1], ['null', 'kind']));
+        foreach ($rules[1] as $listed) {
+            $this->assertSame($expected, explode('|', $listed));
+        }
+    }
+
     public function test_the_bytecode_grammar_names_exactly_the_instructions()
     {
         // Its catch-all rule lists every instruction, and marks any other uppercase word invalid

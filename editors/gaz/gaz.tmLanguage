@@ -264,32 +264,58 @@
 		     a return type between a parameter list's ) and the { or ; of the body; a keyword before
 		     a $ or # (echo $x, kin #energy) was matched by the keywords rule already, and null
 		     and kind are keywords, so a type made of those keeps their colour -->
+		<!-- Each name of a type is matched alone, so in a union (int|Shape $x) a builtin type is
+		     support.type.primitive.gaz and a kind's name entity.name.type.gaz, coloured apart as a
+		     keyword-like word and a class are; the builtin types are Parser::TYPE_NAMES less the
+		     keywords null and kind, which EditorGrammarTest holds -->
 		<key>types</key>
 		<dict>
 			<key>patterns</key>
 			<array>
 				<dict>
 					<key>name</key>
-					<string>entity.name.type.gaz</string>
+					<string>support.type.primitive.gaz</string>
 					<key>match</key>
-					<string>(?&lt;![\w.$@#])\??[A-Za-z_][\w:]*(?:\s*\|\s*[A-Za-z_][\w:]*)*(?=\s+[$#][a-zA-Z_])</string>
+					<string>(?&lt;![\w.$@#])\??\b(int|float|string|bool|list|map|function|object|socket|db|file)\b(?=(?:\s*\|\s*\??[A-Za-z_][\w:]*)*\s+[$#][a-zA-Z_])</string>
 				</dict>
 				<dict>
+					<key>name</key>
+					<string>entity.name.type.gaz</string>
 					<key>match</key>
-					<string>(\))\s*(:)\s*(\??[A-Za-z_][\w:]*(?:\s*\|\s*[A-Za-z_][\w:]*)*)(?=\s*[{;])</string>
-					<key>captures</key>
+					<string>(?&lt;![\w.$@#])\??[A-Za-z_][\w:]*(?=(?:\s*\|\s*\??[A-Za-z_][\w:]*)*\s+[$#][a-zA-Z_])</string>
+				</dict>
+				<dict>
+					<key>begin</key>
+					<string>(\))\s*(:)(?=\s*\??[A-Za-z_][\w:]*(?:\s*\|\s*\??[A-Za-z_][\w:]*)*\s*[{;])</string>
+					<key>beginCaptures</key>
 					<dict>
 						<key>2</key>
 						<dict>
 							<key>name</key>
 							<string>punctuation.separator.type.gaz</string>
 						</dict>
-						<key>3</key>
+					</dict>
+					<key>end</key>
+					<string>(?=\s*[{;])</string>
+					<key>patterns</key>
+					<array>
+						<dict>
+							<key>include</key>
+							<string>#constants</string>
+						</dict>
+						<dict>
+							<key>name</key>
+							<string>support.type.primitive.gaz</string>
+							<key>match</key>
+							<string>\b(int|float|string|bool|list|map|function|object|socket|db|file)\b</string>
+						</dict>
 						<dict>
 							<key>name</key>
 							<string>entity.name.type.gaz</string>
+							<key>match</key>
+							<string>[A-Za-z_][\w:]*</string>
 						</dict>
-					</dict>
+					</array>
 				</dict>
 			</array>
 		</dict>
