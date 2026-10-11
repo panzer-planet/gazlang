@@ -35,7 +35,7 @@ pub abstract kind Player {
     // Injured in the match being played, and off the pitch
     pub #hurt = false;
 
-    fn _(#name, pub #rating, pub #number) {}
+    fn _(#name, pub #rating, pub #number);
 
     pub abstract fn position();
     pub abstract fn attacking();

@@ -62,7 +62,7 @@ pub kind Declaration {
         pub int #stop = 0,
         pub int #name_start = 0,
         pub int #name_stop = 0
-    ) {}
+    );
 }
 
 /**
@@ -71,7 +71,7 @@ pub kind Declaration {
  * imports name, as written
  */
 pub kind Outline {
-    fn _(pub ?string #namespace, pub ?string #overview, pub list #declarations, pub list #imports = []) {}
+    fn _(pub ?string #namespace, pub ?string #overview, pub list #declarations, pub list #imports = []);
 }
 
 /**
@@ -94,7 +94,7 @@ pub fn outline_of_file(string $path): Outline {
 
 // A token of the source and where it lies in it, as byte offsets
 kind SourceToken {
-    fn _(pub string #type, pub #value, pub int #line, pub int #start, pub int #stop) {}
+    fn _(pub string #type, pub #value, pub int #line, pub int #start, pub int #stop);
 }
 
 /*

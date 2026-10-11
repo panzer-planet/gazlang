@@ -20,7 +20,7 @@ abstract kind Shape {
 }
 
 kind Square extends Shape {
-    fn _(pub #side) {}
+    fn _(pub #side);
 
     // Defining the abstract method closes it to Square's children
     pub final fn area() {

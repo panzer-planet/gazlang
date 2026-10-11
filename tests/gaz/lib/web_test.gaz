@@ -60,7 +60,7 @@ $int = 12;
 $float = 1.5;
 expect("null, bools, ints and floats", text(web::html"{$nothing} {$yes} {$no} {$int} {$float}"), "null true false 12 1.5");
 kind Name {
-    fn _(#text) {}
+    fn _(#text);
 
     pub fn to_string() {
         return #text;

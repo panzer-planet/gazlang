@@ -12,7 +12,7 @@ interface Shape {
 }
 
 kind Circle implements Shape {
-    fn _(float #radius) {}
+    fn _(float #radius);
 
     pub fn area(): float {
         return 3.0 * #radius * #radius;
@@ -20,7 +20,7 @@ kind Circle implements Shape {
 }
 
 kind Rectangle implements Shape {
-    fn _(float #width, float #height) {}
+    fn _(float #width, float #height);
 
     pub fn area(): float {
         return #width * #height;

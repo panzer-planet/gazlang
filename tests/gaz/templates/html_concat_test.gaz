@@ -9,7 +9,7 @@ import "./views/layout.gazml";
 const REFUSED = "Cannot concatenate Html: build it with web::html\"...\", or use .text for its markup as a plain string";
 
 kind Card {
-    fn _(#title) {}
+    fn _(#title);
 
     pub fn html() {
         return shown(#title);
@@ -61,7 +61,7 @@ expect("a layout around a template", contains(to_string(layout("t", shown($h))),
 
 /* Another object that prints through to_string() still concatenates */
 kind Name {
-    fn _(#text) {}
+    fn _(#text);
 
     pub fn to_string() {
         return #text;

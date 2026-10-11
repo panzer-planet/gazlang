@@ -9,7 +9,7 @@ import "std/db.gaz";
  * A student with an account.
  */
 pub final kind User {
-    fn _(pub int #id, pub string #name, pub string #email) {}
+    fn _(pub int #id, pub string #name, pub string #email);
 
     pub static fn from_row(map $row): User {
         return User($row["id"], $row["name"], $row["email"]);
@@ -28,7 +28,7 @@ final kind Lesson {
         pub string #title,
         pub string #body,
         pub string #question,
-    ) {}
+    );
 
     pub static fn from_row(map $row): Lesson {
         return Lesson(
@@ -54,7 +54,7 @@ final kind Lesson {
  * One answer to a lesson's question; `position` is how a form names it.
  */
 final kind Choice {
-    fn _(pub int #position, pub string #text, pub bool #correct) {}
+    fn _(pub int #position, pub string #text, pub bool #correct);
 
     pub static fn from_row(map $row): Choice {
         return Choice($row["position"], $row["text"], $row["correct"] == 1);
@@ -65,7 +65,7 @@ final kind Choice {
  * The queries, over one connection.
  */
 final kind Store {
-    fn _(db::Db #db) {}
+    fn _(db::Db #db);
 
     /**
      * A new student, or `null` when the email has an account already.

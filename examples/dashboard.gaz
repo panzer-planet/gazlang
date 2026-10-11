@@ -17,7 +17,7 @@ const BAR_COLUMN = 32;
 const HELP = "up/down pick   +/- change   q quit";
 
 kind Task {
-    fn _(pub string #name, pub int #done, pub int #total) {}
+    fn _(pub string #name, pub int #done, pub int #total);
 
     pub fn advance(): null {
         #done = min(#done + 1, #total);
@@ -35,7 +35,7 @@ kind Task {
 kind Board {
     int #selected = 0;
 
-    fn _(pub list #tasks) {}
+    fn _(pub list #tasks);
 
     pub fn select_previous(): null {
         #selected = max(#selected - 1, 0);

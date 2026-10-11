@@ -88,7 +88,7 @@ pub kind Piece {
      * `TEXT_TYPE`, so a reader of the pieces can tell a token from what the lexer skipped, and
      * source the lexer refused from source it read
      */
-    fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE) {}
+    fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE);
 }
 
 /**

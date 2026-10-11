@@ -21,7 +21,7 @@ pub abstract kind Player {
     pub #match_goals = 0;
     pub #saves = 0;
 
-    fn _(#name, pub #rating, pub #number) {}
+    fn _(#name, pub #rating, pub #number);
 
     pub abstract fn position();
     pub abstract fn attacking();

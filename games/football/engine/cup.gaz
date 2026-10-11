@@ -15,7 +15,7 @@ pub kind Tie {
     // [home, away] kicks scored, when it went to penalties
     pub #penalties = null;
 
-    fn _(pub #match) {}
+    fn _(pub #match);
 
     pub fn winner() {
         [$home, $away] = #penalties ?? [#match.home_goals, #match.away_goals];

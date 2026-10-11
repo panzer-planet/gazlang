@@ -4,7 +4,7 @@ import "std/test.gaz" use expect, throws;
 // that visibility, and assigns it from the parameter: sugar for a field declared elsewhere in
 // the kind plus #name = $name; as the first line of the body.
 kind Point {
-    fn _(pub #x, #y) {}
+    fn _(pub #x, #y);
     pub fn to_string() { return "({#x}, {#y})"; }
 }
 $p = Point(3, 4);
@@ -32,7 +32,7 @@ expect("the body runs after promotion, and can use it", Box(3, 4).area, 12);
 
 // kin promotes for a kind and what extends it, exactly as kin #x; would
 kind Base {
-    fn _(kin #secret) {}
+    fn _(kin #secret);
     pub fn reveal() { return #secret; }
 }
 expect("kin promotion is visible to the declaring kind", Base(1).reveal(), 1);

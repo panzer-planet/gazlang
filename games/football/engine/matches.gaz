@@ -14,7 +14,7 @@ const LEAD_EASING = 0.7;
 const CHASING = 1.2;
 
 pub abstract kind Event {
-    fn _(pub #minute, pub #team) {}
+    fn _(pub #minute, pub #team);
     pub abstract fn describe();
     pub fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
 }

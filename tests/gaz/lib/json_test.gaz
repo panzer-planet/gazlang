@@ -82,7 +82,7 @@ throws("an object without to_json() is an error that names it", () -> json::enco
 // An object is what its to_json() gives, which may hold objects; private fields stay private
 kind User {
     #password_hash = "secret";
-    fn _(pub #name, pub #friends = []) {}
+    fn _(pub #name, pub #friends = []);
     pub fn to_json() { return {"name" => #name, "friends" => #friends}; }
     pub static fn from_json($data) { return User($data["name"], map($data["friends"], User::from_json)); }
 }

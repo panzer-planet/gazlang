@@ -3,5 +3,5 @@
 namespace shop;
 
 kind Product {
-    fn _(pub string #name, pub int #price) {}
+    fn _(pub string #name, pub int #price);
 }

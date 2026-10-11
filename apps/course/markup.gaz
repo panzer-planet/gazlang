@@ -36,7 +36,7 @@ interface Block {
 }
 
 final kind Paragraph implements Block {
-    fn _(string #text) {}
+    fn _(string #text);
 
     pub fn html(): Html {
         $text = render_inline(#text);
@@ -46,7 +46,7 @@ final kind Paragraph implements Block {
 }
 
 final kind Heading implements Block {
-    fn _(string #text) {}
+    fn _(string #text);
 
     pub fn html(): Html {
         $text = render_inline(#text);
@@ -56,7 +56,7 @@ final kind Heading implements Block {
 }
 
 final kind Bullets implements Block {
-    fn _(list #items) {}
+    fn _(list #items);
 
     pub fn html(): Html {
         $items = map(#items, $item -> #item($item));
@@ -76,7 +76,7 @@ final kind Bullets implements Block {
  * notes for the tests (`nocheck`).
  */
 final kind CodeBlock implements Block {
-    fn _(pub string #info, pub string #code) {}
+    fn _(pub string #info, pub string #code);
 
     pub fn language(): string {
         return split(#info, " ")[0];
@@ -253,7 +253,7 @@ fn inline(string $text): list {
 }
 
 final kind Link {
-    fn _(pub int #start, pub int #end, string #label, string #url) {}
+    fn _(pub int #start, pub int #end, string #label, string #url);
 
     pub fn html(): Html {
         return web::html"<a href=\"{#url}\">{#label}</a>";

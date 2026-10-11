@@ -6,7 +6,7 @@ import "std/random.gaz";
 import "std/lists.gaz" use max_by;
 
 abstract kind Event {
-    fn _(#minute, pub #team) {}
+    fn _(#minute, pub #team);
     pub abstract fn describe();
     pub fn to_string() { return pad_left("{#minute}'", 4) .. "  " .. #describe(); }
 }

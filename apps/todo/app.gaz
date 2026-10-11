@@ -49,7 +49,7 @@ fn login_session(int $user_id, string $message): map {
 }
 
 kind Handlers {
-    fn _(#todos, #auth, #throttle, #zone, #trusted_proxies) {}
+    fn _(#todos, #auth, #throttle, #zone, #trusted_proxies);
 
     // --- Accounts ---
 

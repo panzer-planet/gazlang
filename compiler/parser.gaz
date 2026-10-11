@@ -425,7 +425,7 @@ kind Shared {
     fn _(pub #value);
 }
 final kind Html {
-    fn _(pub #text) {}
+    fn _(pub #text);
 
     pub fn to_string() {
         return #text;

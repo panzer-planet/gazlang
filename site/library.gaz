@@ -28,14 +28,14 @@ pub kind Entry {
      * highlighted pieces, from its first word up to its body or the end of the statement, $doc
      * its docblock's text ("" without one) and $line where it is in the source
      */
-    fn _(pub string #what, pub string #name, pub list #signature, pub string #doc, pub int #line = 0) {}
+    fn _(pub string #what, pub string #name, pub list #signature, pub string #doc, pub int #line = 0);
 }
 
 /**
  * A file of the library: its name, its namespace, its overview, and its entries
  */
 pub kind Library {
-    fn _(pub string #name, pub string #namespace, pub string #comment, pub list #entries) {}
+    fn _(pub string #name, pub string #namespace, pub string #comment, pub list #entries);
 }
 
 /**

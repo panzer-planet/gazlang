@@ -16,7 +16,7 @@ const GITHUB = "github.com";
 
 // A link as a page shows it
 pub kind Link {
-    fn _(pub string #title, pub string #href) {}
+    fn _(pub string #title, pub string #href);
 }
 
 /*
@@ -24,13 +24,13 @@ pub kind Link {
  * under it
  */
 pub kind NavItem {
-    fn _(pub string #title, pub string #href, pub bool #current = false, pub list #children = []) {}
+    fn _(pub string #title, pub string #href, pub bool #current = false, pub list #children = []);
 }
 
 // Where the repository is on GitHub, for links to its files and releases; its name may be unknown
 pub kind Repository {
     // "owner/name", or null when the site doesn't know where it is
-    fn _(pub ?string #name) {}
+    fn _(pub ?string #name);
 
     pub fn known(): bool {
         return #name != null;
@@ -130,7 +130,7 @@ pub kind Section {
     pub list #headings = [];
     pub string #page = "";
 
-    fn _(pub string #markdown) {}
+    fn _(pub string #markdown);
 
     pub fn title(): string {
         return #headings[0].text;
@@ -192,7 +192,7 @@ pub kind Linker {
      * $pages is each document's path in the repository and its first page on the site; $root
      * is where the repository is, to tell a directory from a file
      */
-    fn _(Repository #repository, map #pages, string #root) {}
+    fn _(Repository #repository, map #pages, string #root);
 
     pub fn add(string $document, Section $section): null {
         #anchors[$document] ??= {};

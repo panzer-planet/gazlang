@@ -47,7 +47,7 @@ fn is_plain_text(string $text): bool {
 }
 
 kind RegistrationForm {
-    fn _(pub string #email, pub string #password, pub string #confirmation) {}
+    fn _(pub string #email, pub string #password, pub string #confirmation);
 
     pub static fn from_request(map $request): RegistrationForm {
         $fields = http::form($request, {});
@@ -99,7 +99,7 @@ kind RegistrationForm {
 }
 
 kind LoginForm {
-    fn _(pub string #email, pub string #password) {}
+    fn _(pub string #email, pub string #password);
 
     pub static fn from_request(map $request): LoginForm {
         $fields = http::form($request, {});
@@ -122,7 +122,7 @@ kind LoginForm {
  * sends it ("2026-10-05T14:30", or "" for not due), read as the clocks of the app's zone show it
  */
 kind TodoForm {
-    fn _(pub string #title, pub string #due = "") {}
+    fn _(pub string #title, pub string #due = "");
 
     pub static fn from_request(map $request): TodoForm {
         $fields = http::form($request, {});

@@ -903,7 +903,7 @@ kind Scanner {
 // The values in one content attribute of a <meta>: where their placements are, and the program's
 // text around them, one more piece than values
 kind MetaContent {
-    fn _(pub #indexes, pub #pieces) {}
+    fn _(pub #indexes, pub #pieces);
 }
 
 // An attribute's text cut where its values were, from its text before each value and the whole
@@ -934,7 +934,7 @@ kind Refresh {
     #at = 0;
     #found = [];
 
-    fn _(#pieces) {}
+    fn _(#pieces);
 
     // Where each value between the content's pieces goes, in order
     pub static fn placements(list $pieces): list {

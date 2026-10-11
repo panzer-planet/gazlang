@@ -38,7 +38,7 @@ const LEAST_CHOICES = 2;
  * One answer to a lesson's question.
  */
 pub final kind Choice {
-    fn _(pub string #text, pub bool #correct) {}
+    fn _(pub string #text, pub bool #correct);
 }
 
 /**
@@ -52,7 +52,7 @@ pub final kind Lesson {
         pub string #body,
         pub string #question,
         pub list #choices,
-    ) {}
+    );
 }
 
 /**

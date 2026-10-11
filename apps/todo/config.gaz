@@ -12,7 +12,7 @@ const DEFAULT_WORKERS = 4;
 const MINIMUM_SECRET_LENGTH = 32;
 
 kind Config {
-    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}, pub date::Zone #time_zone = date::utc(), pub list #trusted_proxies = []) {}
+    fn _(pub string #database_url, pub string #secret, pub string #host, pub int #port, pub int #workers, pub bool #secure_cookies, pub map #password_options = {}, pub date::Zone #time_zone = date::utc(), pub list #trusted_proxies = []);
 
     // The Config the environment describes, or an error saying what is missing
     pub static fn from_environment(): Config {

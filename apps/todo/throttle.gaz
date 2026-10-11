@@ -25,7 +25,7 @@ const MAX_ADDRESS_FAILURES = 20;
 const UNKNOWN_ADDRESS = "unknown";   // never an address's text, so no client shares the bucket
 
 kind LoginThrottle {
-    fn _(#db) {}
+    fn _(#db);
 
     pub fn blocked(string $email, ?string $address): bool {
         $bucket = bucket($address);

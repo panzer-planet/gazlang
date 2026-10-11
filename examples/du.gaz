@@ -20,7 +20,7 @@ const EXTENSION_WIDTH = 12;
 const NUMBER_WIDTH = 10;
 
 kind SizedFile {
-    fn _(pub string #path, pub int #size) {}
+    fn _(pub string #path, pub int #size);
 }
 
 kind Extension {

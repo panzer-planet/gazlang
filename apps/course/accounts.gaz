@@ -26,7 +26,7 @@ final kind Registration {
         pub readonly string #name = "",
         pub readonly string #email = "",
         pub readonly string #password = "",
-    ) {}
+    );
 
     /**
      * The form from the fields a browser sent, checked.
@@ -72,7 +72,7 @@ final kind Registration {
 final kind SignIn {
     pub ?string #problem = null;
 
-    fn _(pub readonly string #email = "", pub readonly string #password = "") {}
+    fn _(pub readonly string #email = "", pub readonly string #password = "");
 
     pub static fn submitted(map $fields): SignIn {
         return SignIn(email_of($fields), $fields["password"] ?? "");

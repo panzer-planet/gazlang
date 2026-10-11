@@ -57,7 +57,7 @@ pub abstract kind Shape {
     kin const SIDES = {"a" => 1};
 
     /** Makes one */
-    fn _(pub #size) {}
+    fn _(pub #size);
 
     /** Grows it */
     pub fn grow($by = 1): Shape { return #; }
@@ -103,7 +103,7 @@ expect("every declaration, with the docblock right above it", map($outline.decla
     "field Shape.secret 48: #secret; | null",
     "static field Shape.made pub 50: pub static #made = 0; | How many were made",
     "constant Shape.SIDES 51: kin const SIDES = {\"a\" => 1}; | null",
-    "constructor Shape._ 54: fn _(pub #size) | Makes one",
+    "constructor Shape._ 54: fn _(pub #size); | Makes one",
     "method Shape.grow pub 57: pub fn grow(\$by = 1): Shape | Grows it",
     "static method Shape.unit pub 59: pub static fn unit() | One of side 1",
     "method Shape.draw pub 61: pub abstract fn draw(); | Draws it",

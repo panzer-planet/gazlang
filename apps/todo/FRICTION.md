@@ -21,7 +21,7 @@ linking the issue that tracks it (label `todo-app`).
   by every query), `insert ... on conflict do nothing returning ...` and `update ... returning`
   all worked first time, ints and bools came back as ints and bools, and a plain-string query is
   an error. `on conflict` made the "email taken" race a non-problem.
-- **Kinds with promoted constructor parameters** (`fn _(pub int #id, ...) {}`) made the models
+- **Kinds with promoted constructor parameters** (`fn _(pub int #id, ...);`) made the models
   and forms about as short as they can be. `User::from_row($row)` was 3 lines each and in one place.
 - **Bound methods as handlers** (`$app.get("/", $handlers.home)`) and `Router`'s params, 405 with
   `Allow`, middleware that wraps the 404s too: routing needed nothing added.

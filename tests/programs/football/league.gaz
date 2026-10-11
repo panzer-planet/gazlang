@@ -14,7 +14,7 @@ kind Standing {
     pub #scored = 0;
     #conceded = 0;
 
-    fn _(pub #team) {}
+    fn _(pub #team);
 
     pub fn record($scored, $conceded) {
         #played++;

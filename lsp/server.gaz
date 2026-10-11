@@ -203,7 +203,7 @@ fn outline_of($key, $text) {
 
 // A file a document reaches, with its text and outline
 kind ReachableFile {
-    fn _(pub #path, pub #text, pub #outline) {}
+    fn _(pub #path, pub #text, pub #outline);
 }
 
 /*
@@ -706,7 +706,7 @@ fn document_symbol($declaration, $positions) {
 kind OpenBracket {
     pub #commas = 0;
 
-    fn _(pub #type, pub #at) {}
+    fn _(pub #type, pub #at);
 }
 
 // How a token changes the depth of brackets: 1 for an opener, -1 for a closer
@@ -746,7 +746,7 @@ fn open_call($tokens, $offset) {
 
 // What a call's signature help shows: its label and docblock, and where each parameter lies in the label
 kind CallSignature {
-    fn _(pub #label, pub #doc) {}
+    fn _(pub #label, pub #doc);
 }
 
 /*
@@ -841,7 +841,7 @@ fn parent_of($declaration) {
 
 // A parameter of a signature: where it lies in it as byte offsets, and the variables it names, each [name, start, stop]
 kind Parameter {
-    fn _(pub #start, pub #stop, pub #names) {}
+    fn _(pub #start, pub #stop, pub #names);
 }
 
 /*
@@ -943,7 +943,7 @@ const TYPE_OF_DECLARATION = {
 
 // A declaration a name can resolve to, and whether it is the standard library's
 kind Named {
-    fn _(pub #declaration, pub #library) {}
+    fn _(pub #declaration, pub #library);
 }
 
 /*
@@ -1068,12 +1068,12 @@ fn library_files($files) {
 
 // A semantic token before encoding: where it lies, as byte offsets, its type's name and its modifier bits
 kind SemanticToken {
-    fn _(pub #start, pub #stop, pub #type, pub #modifiers) {}
+    fn _(pub #start, pub #stop, pub #type, pub #modifiers);
 }
 
 // A function, method or constructor of the document and the variables its parameters name
 kind Scope {
-    fn _(pub #declaration, pub #parameters) {}
+    fn _(pub #declaration, pub #parameters);
 }
 
 /*

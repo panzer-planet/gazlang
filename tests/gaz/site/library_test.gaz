@@ -37,7 +37,7 @@ pub kind Shape {
     pub const SIDES = {"a" => 1};
 
     /** Makes one */
-    fn _(pub #size) {}
+    fn _(pub #size);
 
     // A plain comment, which no page shows
     pub fn grow($by = 1): Shape { return #; }
@@ -73,7 +73,7 @@ expect("a pub kind's members and constructor", map($library.entries[1].members, 
     "field name: pub string #name = \"x\"; | ",
     "static field made: pub static #made = 0; | ",
     "constant SIDES: pub const SIDES = {\"a\" => 1}; | ",
-    "constructor _: fn _(pub #size) | Makes one",
+    "constructor _: fn _(pub #size); | Makes one",
     "method grow: pub fn grow(\$by = 1): Shape | ",
     "static method unit: pub static fn unit() | ",
     "method draw: pub abstract fn draw(); | ",

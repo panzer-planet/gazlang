@@ -10,7 +10,7 @@ pub kind Tie {
     // [home, away] kicks scored, when it went to penalties
     pub #penalties = null;
 
-    fn _(pub #match) {}
+    fn _(pub #match);
 
     pub fn winner() {
         [$home, $away] = #penalties ?? [#match.home_goals, #match.away_goals];
@@ -33,7 +33,7 @@ pub kind Cup {
     // Each round as it was played: [name, ties]
     pub #rounds = [];
 
-    fn _(pub #name) {}
+    fn _(pub #name);
 
     // Plays the cup between $teams, strongest first, giving the winners. When their number
     // isn't a power of two, the weakest play a first round and the strongest go straight

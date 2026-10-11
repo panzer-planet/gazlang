@@ -612,7 +612,7 @@ const SPACES = " \t\r\n";
 
 /* One step of a script: a key to press, time to let pass, or a screen to show */
 kind Step {
-    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0) {}
+    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0);
 }
 
 /*

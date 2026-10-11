@@ -26,7 +26,7 @@ abstract kind Polygon implements Shape {
 }
 
 kind Square extends Polygon implements Named {
-    fn _(float #side) {}
+    fn _(float #side);
 
     pub fn area(): float {
         return #side * #side * #factor;

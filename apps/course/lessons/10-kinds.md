@@ -9,7 +9,7 @@ its name. There is no `new` and no `class`.
 kind Account {
     pub float #balance = 0;
 
-    fn _(pub string #owner) {}
+    fn _(pub string #owner);
 
     pub fn deposit(float $amount) {
         #balance += $amount;
@@ -69,7 +69,7 @@ amount of money: nobody should be able to change your price behind your back. Ma
 
 ```gaz
 readonly kind Money {
-    fn _(pub int #cents, pub string #currency) {}
+    fn _(pub int #cents, pub string #currency);
 
     pub fn plus(Money $other): Money {
         return Money(#cents + $other.cents, #currency);
@@ -118,7 +118,7 @@ abstract kind Shape {
 }
 
 kind Square extends Shape {
-    fn _(pub #side) {}
+    fn _(pub #side);
 
     pub fn area() {
         return #side * #side;

@@ -38,7 +38,7 @@ const FENCE_TICKS = 3;
 
 // A line that opens a fence: how far it is indented, how many backticks, and its language
 kind Fence {
-    fn _(pub int #indent, pub int #ticks, pub string #language) {}
+    fn _(pub int #indent, pub int #ticks, pub string #language);
 
     // Whether a line closes this fence: backticks alone, at least as many
     pub fn closed_by(string $line): bool {
@@ -55,18 +55,18 @@ kind Fence {
 
 // A link's parts: [label](url "title"), and where it ends in the text
 kind LinkParts {
-    fn _(pub string #label, pub string #url, pub ?string #title, pub int #end) {}
+    fn _(pub string #label, pub string #url, pub ?string #title, pub int #end);
 }
 
 pub kind Heading {
-    fn _(pub int #level, pub string #text, pub string #id) {}
+    fn _(pub int #level, pub string #text, pub string #id);
 }
 
 // The lines of a document with a place in them, which the block readers move along
 kind Lines {
     pub int #at = 0;
 
-    fn _(pub list #lines) {}
+    fn _(pub list #lines);
 
     pub fn done(): bool {
         return #at >= len(#lines);

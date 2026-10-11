@@ -150,7 +150,7 @@ fn fill($pieces, $args) {
 
 // One % placeholder: its flags, width, precision and conversion, and how it formats a value
 kind Placeholder {
-    fn _(pub #text, #left, #zeros, #width, #precision, #conversion) {}
+    fn _(pub #text, #left, #zeros, #width, #precision, #conversion);
 
     // The placeholder whose % is at $start, checked
     pub static fn read($template, $start) {

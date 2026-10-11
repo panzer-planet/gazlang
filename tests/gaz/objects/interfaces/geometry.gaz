@@ -9,7 +9,7 @@ pub interface Measured {
 }
 
 pub kind Ruler implements Measured {
-    fn _(float #length) {}
+    fn _(float #length);
 
     pub fn size(): float {
         return #length;

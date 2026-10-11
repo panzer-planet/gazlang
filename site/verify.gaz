@@ -41,7 +41,7 @@ const BLOCK_ELEMENTS = [
 
 // A tag that is open, where it was opened
 kind OpenTag {
-    fn _(pub string #name, pub int #line) {}
+    fn _(pub string #name, pub int #line);
 }
 
 /**

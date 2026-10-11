@@ -11,7 +11,7 @@ import "std/test.gaz" use expect, throws;
  */
 
 kind Owner {
-    fn _(pub #name) {}
+    fn _(pub #name);
 }
 
 kind Account {
@@ -40,7 +40,7 @@ kind Account {
 }
 
 readonly kind Money {
-    fn _(pub int #cents, pub string #currency) {}
+    fn _(pub int #cents, pub string #currency);
 
     pub fn plus(Money $other): Money {
         return Money(#cents + $other.cents, #currency);

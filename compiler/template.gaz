@@ -226,7 +226,7 @@ kind TemplateLine {
     #text = "";
     #at = 0;
 
-    fn _(#line, #number, #file) {}
+    fn _(#line, #number, #file);
 
     pub fn source() {
         while (#at < len(#line)) {

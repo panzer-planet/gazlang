@@ -533,11 +533,11 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 - **Fields are declared** (`#x;` or `#x = default;`). A default is evaluated per object, so a
   `[]` default is never shared. Reading one never set is an error; `??` reads it as null.
 - **A constructor parameter written `#name` promotes it to a field**, `pub`/`kin` marking its
-  visibility as they would on a plain field declaration: `fn _(pub #x, #y) {}` declares `#x`
+  visibility as they would on a plain field declaration: `fn _(pub #x, #y);` declares `#x`
   (pub) and `#y` (private) and assigns them from the parameters, as if written `#x = $x; #y =
   $y;` at the top of the body. A default on a promoted parameter is the parameter's own
   (evaluated per call, so it may use `$` earlier parameters), not a field default. A
-  constructor with nothing else to do can end `;` instead of `{}`.
+  constructor with nothing else to do ends at `;`, not an empty `{}`.
 - **`#` is this object**, `#name` a field or method, `##name` the parent's version of a method.
   All checked at parse time against the kind.
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity. Lists and maps
@@ -594,7 +594,7 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   kind's own methods alike, whatever the write (`=`, `+=`, `++`, `??=`, `..=`, `delete` under it,
   and a write inside a list or map it holds, since that changes the field's value). The marker
   comes after the visibility, as `final` does: `pub readonly #id;`, `pub readonly int #id = 0;`,
-  `fn _(pub readonly #id) {}`; `readonly pub` says to write `pub readonly`. A write the parser can
+  `fn _(pub readonly #id);`. `readonly pub` says to write `pub readonly`. A write the parser can
   see (`#id = 1` in a method, or in a child's constructor, or in a lambda made in the constructor,
   which may run later) is refused when the program is read, the rest when it runs, with one
   sentence: `Account #id is read-only: only Account's constructor sets it`. The object a read-only
@@ -609,7 +609,7 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 
   ```gaz
   readonly kind Money {
-      fn _(pub int #cents, pub string #currency) {}
+      fn _(pub int #cents, pub string #currency);
 
       pub fn plus(Money $other): Money {
           return Money(#cents + $other.cents, #currency);
@@ -649,7 +649,7 @@ abstract kind Polygon implements Shape {
 }
 
 kind Square extends Polygon implements Named {
-    fn _(float #side) {}
+    fn _(float #side);
 
     pub fn area(): float {
         return #side * #side * #factor;

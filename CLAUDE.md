@@ -93,8 +93,9 @@ composer ci                         # what CI runs, cold: phpstan with no result
   what they do (`select_next()`, `advance()`), named constants for layout and other magic
   numbers, drawing and input handling apart from the state they show, and one statement or idea
   per line: no `if` body on its condition's line, no ternaries nested into arguments, no long
-  chains packed onto one line. A longer file is the accepted price. `examples/dashboard.gaz` is
-  the model. New code and rewrites follow it; existing code changes when it is worked on, not in
+  chains packed onto one line. A constructor with nothing to do but promote its parameters ends
+  at `;` (`fn _(pub #x, #y);`), never an empty `{}`. A longer file is the accepted price.
+  `examples/dashboard.gaz` is the model. New code and rewrites follow it; existing code changes when it is worked on, not in
   a sweep.
 - **C** (`vm/`): plain C11 plus POSIX (`-D_DEFAULT_SOURCE`, which glibc needs for
   `open_memstream` and `realpath`; `builtins.c` defines `_GNU_SOURCE` too, for `memmem` before glibc 2.38), libc, libm and pthreads, and OpenSSL in `net.c`

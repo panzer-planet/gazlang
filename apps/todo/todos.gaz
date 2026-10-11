@@ -23,7 +23,7 @@ fn rfc3339_in_utc(int $time): string {
 
 kind Todo {
     // $created_at and $due_at are times, seconds since 1970; a todo needn't be due
-    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at, pub ?int #due_at = null) {}
+    fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at, pub ?int #due_at = null);
 
     /*
      * created_at arrives as PostgreSQL writes a timestamptz, "2026-10-01 14:04:27.78+02", and
@@ -69,7 +69,7 @@ kind Todo {
 }
 
 kind Todos {
-    fn _(#db) {}
+    fn _(#db);
 
     fn columns() {
         return db::raw("id, user_id, title, done, created_at::text as created_at, floor(extract(epoch from due_at))::bigint as due_at");

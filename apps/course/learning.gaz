@@ -16,7 +16,7 @@ import "views/lesson.gazml";
  * A student's way through the course: which lessons they have passed, and what comes next.
  */
 final kind Progress {
-    fn _(pub list #lessons, map #passed) {}
+    fn _(pub list #lessons, map #passed);
 
     pub fn total(): int {
         return len(#lessons);
@@ -78,7 +78,7 @@ final kind LessonView {
         pub list #choices,
         pub bool #passed,
         pub string #csrf
-    ) {}
+    );
 
     /**
      * Whether `$choice` was the answer sent, so a wrong answer stays selected.
@@ -92,7 +92,7 @@ final kind LessonView {
  * The handlers for the course.
  */
 final kind Learning {
-    fn _(Store #store) {}
+    fn _(Store #store);
 
     pub fn home(map $request): map {
         if ($request["user"] != null) {

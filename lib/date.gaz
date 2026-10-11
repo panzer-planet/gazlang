@@ -375,7 +375,7 @@ pub kind Zone {
      * A zone called $name, with $first in force before the first of $transitions (in order of
      * time) and $rule, if there is one, after the last
      */
-    fn _(pub string #name, list #transitions, Offset #first, ?Rule #rule) {}
+    fn _(pub string #name, list #transitions, Offset #first, ?Rule #rule);
 
     /**
      * What the zone's clocks show at $time, in seconds since 1970 in UTC
@@ -679,12 +679,12 @@ pub kind Reading {
  * daylight saving time, and what the zone calls it
  */
 kind Offset {
-    fn _(pub int #seconds, pub bool #dst, pub string #abbreviation) {}
+    fn _(pub int #seconds, pub bool #dst, pub string #abbreviation);
 }
 
 // The moment a zone's clocks change to an offset
 kind Transition {
-    fn _(pub int #time, pub Offset #offset) {}
+    fn _(pub int #time, pub Offset #offset);
 }
 
 // What reading a date, a time or a zone's rule stops with on text it can't read
@@ -753,7 +753,7 @@ fn is_zone_word(string $word): bool {
 kind Cursor {
     int #at = 0;
 
-    fn _(string #text) {}
+    fn _(string #text);
 
     pub fn done(): bool {
         return #at >= len(#text);
@@ -930,7 +930,7 @@ fn read_moment(Cursor $cursor): Moment {
 kind Bytes {
     int #at = 0;
 
-    fn _(pub string #name, string #data) {}
+    fn _(pub string #name, string #data);
 
     pub fn byte(): int {
         return ord(#text(1));
@@ -987,7 +987,7 @@ kind Bytes {
 
 // A TZif file's header: its version, and how many of each part its data has
 kind Header {
-    fn _(pub int #version, pub int #utc_count, pub int #standard_count, pub int #leap_count, pub int #transition_count, pub int #type_count, pub int #char_count) {}
+    fn _(pub int #version, pub int #utc_count, pub int #standard_count, pub int #leap_count, pub int #transition_count, pub int #type_count, pub int #char_count);
 
     // The length of the data after the header, when each time takes $time_size bytes
     pub fn data_length(int $time_size): int {
@@ -1000,7 +1000,7 @@ kind Header {
 
 // A local time type as a TZif file has it, before its abbreviation is looked up
 kind TimeType {
-    fn _(pub int #seconds, pub int #dst, pub int #abbreviation_index) {}
+    fn _(pub int #seconds, pub int #dst, pub int #abbreviation_index);
 }
 
 /*
@@ -1009,7 +1009,7 @@ kind TimeType {
  * POSIX TZ rule for the times after its transitions
  */
 kind TzifReader {
-    fn _(Bytes #bytes) {}
+    fn _(Bytes #bytes);
 
     pub fn zone(): Zone {
         $header = #header();
@@ -1148,7 +1148,7 @@ kind TzifReader {
  * the zone has one
  */
 kind Rule {
-    fn _(Offset #standard, ?Offset #daylight, ?Change #start, ?Change #end) {}
+    fn _(Offset #standard, ?Offset #daylight, ?Change #start, ?Change #end);
 
     pub fn offset_at(int $time): Offset {
         if (#daylight == null) {
@@ -1285,7 +1285,7 @@ fn read_change_time(Cursor $cursor): int {
 
 // When in a year a rule's clocks change: a day, and a time on it in the offset being left
 abstract kind Change {
-    fn _(int #time) {}
+    fn _(int #time);
 
     kin abstract fn day_in(int $year): int;
 

@@ -52,7 +52,7 @@ pub kind Command {
      * A command named $name, as its help names it, with a one-line $summary for its help;
      * command() makes a subcommand with its handler and the command above it
      */
-    fn _(pub #name, pub #summary, #on_run = null, #above = null) {}
+    fn _(pub #name, pub #summary, #on_run = null, #above = null);
 
     /**
      * A flag, --$name, true when given and false when not; $short is its one-letter -x, or null
@@ -277,7 +277,7 @@ kind Option {
 
 // A value given by position: required, optional (with a default) or the rest (a list)
 kind Argument {
-    fn _(pub #name, pub #help, pub #kind, pub #default) {}
+    fn _(pub #name, pub #help, pub #kind, pub #default);
 
     pub fn usage() {
         return match (#kind) {
@@ -294,7 +294,7 @@ kind Parse {
     #positional = [];
     #at = 0;
 
-    fn _(#command, #argv) {}
+    fn _(#command, #argv);
 
     pub fn result() {
         #start_values();
@@ -463,7 +463,7 @@ kind Parse {
 
 // The --help text of a command
 kind Help {
-    fn _(#command) {}
+    fn _(#command);
 
     pub fn text() {
         $sections = [#command.summary .. "\n", "Usage: " .. #usage() .. "\n"];
