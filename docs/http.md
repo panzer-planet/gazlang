@@ -79,10 +79,11 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   is healthy; keeping it and retrying would lift that. `Slot.listening` is set on entering any
   `socket_accept()`, so a worker that waits on a second listener (an admin port) before the
   shared one relieves the retiring worker early.
-- **A worker that dies takes only the connection it holds**: the master closed its own copy when it
-  handed the connection over, so a crash, a `worker_deadline()` 503 or an `exit()` in a handler
-  ends that client's connection and no other; the master closes the worker's channel when it reaps
-  it, and a connection queued for a worker goes to the next one that asks.
+- **A worker that dies takes only the connection it holds**: the master closes its own copy when it
+  reaps the worker, if the worker sent nothing since the hand-over, so a crash, a
+  `worker_deadline()` 503 or an `exit()` in a handler ends that client's connection and no other;
+  the master closes the worker's channel when it reaps it, and a connection queued for a worker goes
+  to the next one that asks.
 - **Stopping**: a worker catches SIGTERM without `SA_RESTART`, so a waiting `accept()` wakes;
   `socket_accept()` and `worker_accept()` wait in `poll()` a second at a time, so a stop that lands
   between the check and the wait is still seen. The grace is `STOP_GRACE`. Under the master
@@ -137,21 +138,23 @@ for the same reason.
   request in 30000 under load (wrk's "read" errors; a client of sixteen keep-alive connections saw
   15 in 580000 requests), and none in over 1.3 million with the copy kept. The worker's closing its
   own copy after giving one back made no difference measured, and keeping that one would hold a
-  connection open after the master had closed it.
+  connection open after the master had closed it. When the worker's next message is an `I`, the
+  master's copy is the connection given back: the `I` carries no descriptor, so one only ever
+  travels from the master to a worker, and a keep-alive request costs one `SCM_RIGHTS`, not two.
 - **The wire format**: a header of 18 bytes, `[type 1][flags 1][length 4][first byte's time 8]
   [served 4]` (the time `CLOCK_MONOTONIC` seconds as a double, the clock `monotonic_time()` reads,
   which every process on a machine shares; `served` the requests the connection has had answered;
   numbers in the machine's own order, both ends being one program on one machine), then `length`
-  bytes, and the connection's descriptor on the message when it carries one. A worker sends `R`
-  (the rule, with the listener's descriptor: its first `worker_accept()`), `W` (it waits for a
-  connection: a `worker_accept()` that hasn't said so, and a `worker_release()` that closes one)
-  and `I` (a kept-open connection back, with the bytes read past its requests and their count,
-  flagged `waits`, which folds in the `W` the next `worker_accept()` would send: a message saved
-  each way per request). The master sends `C` (a complete head), `L` (over the cap with no end
-  within it), `T` (the head's time ran out after bytes came) or `E` (the client closed, or the read
-  failed, in the middle of a head), with the count. A worker counts as waiting only once it has
-  said so, and says so only on its way back to `worker_accept()` (`http::serve()` always goes
-  back, unless stopping), so nothing is handed to a process about to end.
+  bytes, and the connection's descriptor on a message from the master that hands one over. A worker
+  sends `R` (the rule, with the listener's descriptor: its first `worker_accept()`), `W` (it waits
+  for a connection: a `worker_accept()` that hasn't said so, and a `worker_release()` that closes
+  one) and `I` (a kept-open connection back, without its descriptor, with the bytes read past its
+  requests and their count, flagged `waits`, which folds in the `W` the next `worker_accept()` would
+  send: a message saved each way per request). The master sends `C` (a complete head), `L` (over the
+  cap with no end within it), `T` (the head's time ran out after bytes came) or `E` (the client
+  closed, or the read failed, in the middle of a head), with the count. A worker counts as waiting
+  only once it has said so, and says so only on its way back to `worker_accept()` (`http::serve()`
+  always goes back, unless stopping), so nothing is handed to a process about to end.
 - **No HTTP in the master**: the worker registers a rule, `worker_accept($listener, $rule)` with
   `{"ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536, "within" =>
   header_timeout, "idle" => idle_timeout, "max_connections" => 1024, "timeout" => timeout}`

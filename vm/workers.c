@@ -283,14 +283,15 @@ bool worker_deadline(int fd, double seconds, Str *answer, Str *line) {
  * Each worker has a channel to the master, a socketpair(AF_UNIX, SOCK_STREAM) made before its
  * fork. A message either way is a header of HEADER_SIZE bytes, [type][flags][length, 4 bytes]
  * [the head's first byte's time, 8 bytes, CLOCK_MONOTONIC seconds][requests served on the
- * connection, 4 bytes], then `length` bytes; a connection travels as a descriptor passed with SCM_RIGHTS on its message, so the master never
- * relays a byte of a request. Both ends are one program on one machine, so numbers are in its own
+ * connection, 4 bytes], then `length` bytes; a connection travels to a worker as a descriptor passed with SCM_RIGHTS on its
+ * message, so the master never relays a byte of a request. Both ends are one program on one machine, so numbers are in its own
  * byte order.
  *
  *   worker -> master   R  the rule (a Rule), with the listener's descriptor: the first worker_accept()
  *                      W  it waits for a connection: a worker_accept() that hasn't said so already
  *                      I  a kept-open connection back, with the bytes read past its last request
- *                         and the count of requests served on it; with FLAG_WAITS, as it always
+ *                         and the count of requests served on it, but not its descriptor, since
+ *                         the master still holds its own copy; with FLAG_WAITS, as it always
  *                         has (a W folded in, saving a message each way)
  *   master -> worker   C  a complete head          L  over the cap, with no end within it
  *                      T  the deadline passed      E  closed, or failed, in the middle of a head
@@ -299,7 +300,9 @@ bool worker_deadline(int fd, double seconds, Str *answer, Str *line) {
  *
  * The master keeps its copy of a connection it handed over until that worker's next message shows
  * the descriptor arrived (Channel.sent; worker_release() asks at once when it closes one, so the
- * client sees its end then). On macOS, with the master closing its copy straight after sendmsg(),
+ * client sees its end then). When that message is an I, the copy is what goes back in the table,
+ * so a descriptor only ever travels from the master to a worker, and a keep-alive request costs
+ * one SCM_RIGHTS, not two. On macOS, with the master closing its copy straight after sendmsg(),
  * a connection was now and then shut down under its client after the hand-over: in bursts a few
  * seconds apart, about one request in 30000 under load (wrk's "read" errors), and none in over a
  * million with the copy kept. The worker closing its own copy after giving one back made no
@@ -721,9 +724,10 @@ bool worker_release(Socket *s, Value bytes, int64_t served, Value *out) {
         return raisef("worker_release() expects at most %zu bytes, the rule's cap: a longer head is the reader's to refuse", cap);
     }
     held = -1;
-    /* A master that has gone takes the connection with it */
+    /* A master that has gone takes the connection with it. The I carries no descriptor: the master
+       still holds its own copy of the connection it handed this worker (Channel.sent) */
     if (bytes.type == T_STRING && !stopping) {
-        asked = send_message(channel, MSG_IDLE, FLAG_WAITS, 0, (uint32_t)served, bytes.s->data, bytes.s->len, s->fd);
+        asked = send_message(channel, MSG_IDLE, FLAG_WAITS, 0, (uint32_t)served, bytes.s->data, bytes.s->len, -1);
     } else if (!stopping) {
         /* Asking now tells the master this worker has the connection, so it lets go of its copy
            (Channel.sent) and the client sees the end now, not at the worker's next request */
@@ -1085,25 +1089,27 @@ static void wants(Pool *pool, Channel *ch) {
 static bool take_message(Pool *pool, int i, const char *header, const char *payload, size_t len) {
     Channel *ch = &pool->channels[i];
     char type = header[0];
-    if (ch->sent >= 0) {
-        close(ch->sent);
-        ch->sent = -1;
+    /* Any message from the worker shows the connection handed to it arrived, so the master's copy
+       is no longer needed to keep it open: an I gives that connection back, and the master's copy
+       is the one that goes into the table; anything else closes it */
+    int handed = ch->sent;
+    ch->sent = -1;
+    if (type == MSG_IDLE && pool->registered && ch->holding && handed >= 0 && len <= head_cap(&pool->rule)) {
+        uint32_t served;
+        memcpy(&served, header + AT_SERVED, sizeof served);
+        ch->holding = false;
+        conn_add(pool, handed, payload, len, true, served);
+        if (header[AT_FLAGS] & FLAG_WAITS) wants(pool, ch);
+        return true;
     }
+    if (handed >= 0) close(handed);
     if (type == MSG_WANT) {
         wants(pool, ch);
         return true;
     }
-    int fd = type == MSG_REGISTER || type == MSG_IDLE ? take_fd(ch) : -1;
+    int fd = type == MSG_REGISTER ? take_fd(ch) : -1;
     if (fd < 0) return false;
-    if (type == MSG_REGISTER && len == sizeof pool->rule) return take_rule(pool, payload, fd);
-    if (type == MSG_IDLE && pool->registered && ch->holding && len <= head_cap(&pool->rule)) {
-        uint32_t served;
-        memcpy(&served, header + AT_SERVED, sizeof served);
-        ch->holding = false;
-        conn_add(pool, fd, payload, len, true, served);
-        if (header[AT_FLAGS] & FLAG_WAITS) wants(pool, ch);
-        return true;
-    }
+    if (len == sizeof pool->rule) return take_rule(pool, payload, fd);
     close(fd);
     return false;
 }
