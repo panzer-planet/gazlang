@@ -322,6 +322,15 @@ fn rendered(list $todos, int $now): string {
 }
 expect("at the moment it is due, not yet overdue", contains(rendered($todos, $at), "overdue"), false);
 expect("a second later it is", [contains(rendered($todos, $at + 1), "<li class=\"open overdue\">"), len(split(rendered($todos, $at + 1), "class=\"open overdue\"")) - 1], [true, 1]);
+/* Through the router, with the app's clock stopped at a moment of the test's choosing */
+shared $now = $at;
+$dana = browser($db, clocked_config(() -> $now));
+register($dana, "dana@example.com", "a fourth long password");
+$dana.post("/todos", {"_csrf" => http::form_token($dana.get("/")), "title" => "due at noon", "due" => "2026-10-05T14:00"});
+expect("due at noon, two hours ahead of UTC", due_of($db, "due at noon"), $at);
+expect("the page drawn at noon doesn't call it overdue", contains(text_of($dana.get("/")), "overdue"), false);
+$now = $at + 1;
+expect("the page drawn a second later does", contains(text_of($dana.get("/")), "<li class=\"open overdue\">"), true);
 expect("the overdue rule itself", [Todo(1, 1, "x", false, 0, 10).is_overdue(11), Todo(1, 1, "x", false, 0, 10).is_overdue(10), Todo(1, 1, "x", true, 0, 10).is_overdue(11), Todo(1, 1, "x", false, 0).is_overdue(11)], [true, false, false, false]);
 
 /* --- Showing all, open or done todos, and coming back to the same --- */

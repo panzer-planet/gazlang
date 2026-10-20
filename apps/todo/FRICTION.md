@@ -230,11 +230,12 @@ have caught running out of call depth.
   written as `to_timestamp({$due_at})` and read as `floor(extract(epoch from due_at))::bigint`, where
   `created_at` is read as text and parsed. Either works; a column the driver turned into an int (or
   a `Moment`) would remove the casts ([#54](https://github.com/panzer-planet/gazlang/issues/54)).
-- **A page that depends on the time is tested around the clock, not with it**: the list reads
-  `time()` once per request and passes it to the template, so overdue marking is tested by rendering
-  the template with a fixed time, and through the router only with due dates far in the past or the
-  future. A clock in `Config` (a function, `time` by default) would let the router tests fix it too
-  ([#55](https://github.com/panzer-planet/gazlang/issues/55)).
+- **A page that depends on the time was tested around the clock, not with it** (resolved: a clock in
+  `Config`): the list read `time()` once per request and passed it to the template, so overdue
+  marking was tested by rendering the template with a fixed time, and through the router only with
+  due dates far in the past or the future ([#55](https://github.com/panzer-planet/gazlang/issues/55)).
+  `Config.clock` is a function, `time` by default, and the router tests give one that returns a
+  `shared` variable, so a test moves the moment a page is drawn at and asks the router again.
 - **Database errors were strings** (resolved: `db::Failure`), so tests asserted on their words
   (`postgres: duplicate key value violates unique constraint "users_email_key"`), which is fragile
   across PostgreSQL versions and had no SQLSTATE to match on ([#56](https://github.com/panzer-planet/gazlang/issues/56)).

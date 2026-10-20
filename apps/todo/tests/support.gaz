@@ -43,6 +43,11 @@ fn proxied_config(string $proxy): Config {
     return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET), [$proxy]);
 }
 
+// The test Config with $clock for the app's, so a test says what moment a page is drawn at
+fn clocked_config(function $clock): Config {
+    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET), [], $clock);
+}
+
 // The same in a zone whose clocks change, from the system's time zone database
 fn london_config(): Config {
     return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::zone("Europe/London"));
