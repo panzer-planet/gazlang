@@ -73,7 +73,7 @@ about it and what isn't.
 | `lsp/` | the language server, `bin/gaz lsp/server.gaz` |
 | `site/` | the website, a GazLang program: `bin/gaz site/build.gaz` |
 | `tests/` | PHPUnit, which runs `bin/gaz`; `tests/gaz/` GazLang programs; `tests/programs/` bigger programs that the tests run; `tests/corpora/`, the corpora `lexer/`, `parser/`, `codegen/`, `vm/`, `bytecode/`, `cli/`, `json/` and `csv/`; `passing.txt`, the entries the C VM must pass; and `expected/`, what every program must print |
-| `tools/` | the scripts that work on the whole project (see [Commands](#commands)): recording (`progress.php`, `snippets.php`), the fuzzer, the C VM's coverage, and the benchmarks with their programs in `bench/` |
+| `tools/` | the scripts that work on the whole project (see [Commands](#commands)): recording (`progress.php`, `snippets.php`), the fuzzer, the C VM's coverage, the benchmarks with their programs in `bench/`, and `unicode.php`, which writes the C VM's case tables |
 
 ## What holds it together
 

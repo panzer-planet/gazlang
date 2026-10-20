@@ -13,6 +13,22 @@ own](http.md).
   share that one decoder so they can't disagree. **Builtins, not a library**: a check belongs on
   every request path, over every byte of a form field, which is C's work. `tests/Utf8Test.php`
   checks all three against PCRE's UTF-8, which shares no code with them.
+- **Case and slicing by characters**: `utf8_upper`, `utf8_lower`, `utf8_fold` and `utf8_slice`,
+  on well formed text only, as `utf8_length` is. `upper`/`lower` stay bytes, safe on any input,
+  so no program changed meaning. The mappings are the full ones that hold in every language
+  (`SpecialCasing.txt` without its conditions, so ß uppercases to SS; no Turkish or Lithuanian),
+  plus the one condition that isn't a language's, the final sigma, read as every widely used
+  implementation reads it: case-ignorable characters are skipped first, so one that is also cased
+  (`ʰ`, U+0345) never counts as the cased letter before a sigma. Folding is `CaseFolding.txt`'s C
+  and F lines. **The tables are the standard's own files, not the platform's**:
+  `php tools/unicode.php` downloads a pinned version into `vm/build/unicode/` and writes
+  `vm/unicode_tables.h`, which is checked in so a build needs no network; moving to a new
+  Unicode is changing `VERSION` there and reviewing the diff. `vm/unicode.c` reads them (binary
+  search; ASCII never reaches a table). `tests/Utf8CaseTest.php` checks every code point and
+  random text heavy in the hard cases against both PHP's mbstring and ICU, and `utf8_slice`
+  against `mb_substr`; the oracles map a line at a time, since mbstring given a whole text
+  converts it in pieces and can miss what follows a sigma at the end of one. Title case waits for
+  a program that wants it.
 - Lists and maps: `map`, `filter`, `reduce` and `sort` call back through `call_value()` in `vm.c`,
   checked as a call written in the program is, after every type is checked. A comparator-less
   `sort` is `binary_op(OP_CMP)`; `sort` is a defined merge sort (`merge_sort()` in `builtins.c`)

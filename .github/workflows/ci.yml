@@ -84,6 +84,8 @@ jobs:
         with:
           php-version: '8.5'
           coverage: none
+          # Utf8CaseTest's oracles for case mapping (Homebrew's php has both)
+          extensions: mbstring, intl
       - name: Install PHP and Composer
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         run: |

@@ -76,6 +76,7 @@ const BuiltinInfo builtin_info[] = {
     {"worker_accept", 2, 2}, {"worker_release", 2, 3},
     {"db_error", 1, 1},
     {"main_dir", 0, 0},
+    {"utf8_upper", 1, 1}, {"utf8_lower", 1, 1}, {"utf8_fold", 1, 1}, {"utf8_slice", 2, 3},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -110,6 +111,7 @@ enum {
     B_WORKER_ACCEPT, B_WORKER_RELEASE,
     B_DB_ERROR,
     B_MAIN_DIR,
+    B_UTF8_UPPER, B_UTF8_LOWER, B_UTF8_FOLD, B_UTF8_SLICE,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -424,13 +426,17 @@ static size_t utf8_first_bad(Str *s) {
     return at;
 }
 
+/* The error every builtin that reads text as characters raises on text that isn't well formed */
+static bool well_formed(int index, Str *s) {
+    size_t bad = utf8_first_bad(s);
+    if (bad == s->len) return true;
+    return raisef("%s() expects well formed UTF-8, but byte %zu doesn't start a well formed character",
+                  builtin_info[index].name, bad);
+}
+
 /* utf8_length() and utf8_chars(): the characters counted, or made into a list of strings */
 static bool utf8_characters(int index, Str *s, Value *out) {
-    size_t bad = utf8_first_bad(s);
-    if (bad < s->len) {
-        return raisef("%s() expects well formed UTF-8, but byte %zu doesn't start a well formed character",
-                      builtin_info[index].name, bad);
-    }
+    if (!well_formed(index, s)) return false;
     const unsigned char *text = (const unsigned char *)s->data;
     List *chars = index == B_UTF8_CHARS ? list_new(0) : NULL;
     int64_t count = 0;
@@ -441,6 +447,30 @@ static bool utf8_characters(int index, Str *s, Value *out) {
         at += size;
     }
     *out = chars ? v_list(chars) : v_int(count);
+    return true;
+}
+
+/* utf8_slice($s, $start, $length): slice()'s rules, counting characters of well formed UTF-8 */
+static bool utf8_slice(Value *args, int argc, Value *out) {
+    if (!want(B_UTF8_SLICE, args[1], M(T_INT))) return false;
+    Value length = argc > 2 ? args[2] : v_null();
+    if (!want(B_UTF8_SLICE, length, M(T_INT) | M(T_NULL))) return false;
+    if (!want(B_UTF8_SLICE, args[0], M(T_STRING))) return false;
+    Str *s = args[0].s;
+    if (!well_formed(B_UTF8_SLICE, s)) return false;
+    const unsigned char *text = (const unsigned char *)s->data;
+    int64_t characters = 0;
+    for (size_t at = 0; at < s->len; characters++) at += utf8_character(text, s->len, at);
+    int64_t from = 0, count = 0;
+    if (!slice_bounds(characters, args[1].i, length.type == T_INT, length.i, &from, &count)) {
+        *out = v_string(s->data, 0);
+        return true;
+    }
+    size_t start = 0;
+    for (int64_t i = 0; i < from; i++) start += utf8_character(text, s->len, start);
+    size_t end = start;
+    for (int64_t i = 0; i < count; i++) end += utf8_character(text, s->len, end);
+    *out = v_string(s->data + start, end - start);
     return true;
 }
 
@@ -2226,6 +2256,14 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_UTF8_CHARS:
         if (!want(index, a, STRING)) return false;
         return utf8_characters(index, a.s, out);
+    case B_UTF8_UPPER:
+    case B_UTF8_LOWER:
+    case B_UTF8_FOLD:
+        if (!want(index, a, STRING) || !well_formed(index, a.s)) return false;
+        *out = v_str(utf8_case(a.s, index == B_UTF8_UPPER ? CASE_UPPER : index == B_UTF8_LOWER ? CASE_LOWER : CASE_FOLD));
+        return true;
+    case B_UTF8_SLICE:
+        return utf8_slice(args, argc, out);
     case B_FILE_CLOSE:
         if (!want(index, a, M(T_FILE))) return false;
         *out = v_null();

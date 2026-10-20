@@ -1,0 +1,52 @@
+ok upper of ASCII
+ok lower of ASCII
+ok empty
+ok NUL is left alone
+ok accents
+ok upper() leaves them
+ok Cyrillic
+ok Greek
+ok four-byte letters (Deseret)
+ok what has no case is left alone
+ok sharp s uppercases to SS
+ok the capital sharp s lowercases to one
+ok a ligature comes apart
+ok dotted capital I keeps its dot as a combining mark
+ok dotless i uppercases to I
+ok three characters from one
+ok so the length can change
+ok final sigma
+ok inside a word
+ok each word of several
+ok alone it isn't the end of a word
+ok nor after a space
+ok an apostrophe after it is skipped
+ok a letter after an apostrophe still follows it
+ok a combining mark before it is skipped
+ok a modifier letter is skipped, though it has case
+ok uppercasing has no such rule
+ok fold of ASCII
+ok sharp s folds to ss
+ok so it matches STRASSE
+ok lowercasing doesn't
+ok every sigma folds alike
+ok the Kelvin sign folds to k
+ok Cherokee folds to its capitals
+ok a slice of characters
+ok slice() would cut the é in half
+ok to the end
+ok from the end
+ok a negative length stops short of the end
+ok a length past the end stops there
+ok a start past the end is empty
+ok a start before the beginning is the beginning
+ok nothing
+ok null as the length is to the end
+ok upper of a bad byte
+ok lower of a character cut short
+ok fold of a surrogate
+ok slice of an overlong form
+ok upper takes a string
+ok slice takes a string, not a list
+ok slice's start is an int
+ok slice's length is an int or null

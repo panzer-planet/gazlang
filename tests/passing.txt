@@ -1271,6 +1271,7 @@ tests/gaz/sockets/wait_test.gaz
 tests/gaz/strings/braced_constant_test.gaz
 tests/gaz/strings/interpolation_test.gaz
 tests/gaz/strings/tagged_test.gaz
+tests/gaz/strings/utf8_case_test.gaz
 tests/gaz/strings/utf8_test.gaz
 tests/gaz/templates/html_concat_test.gaz
 tests/gaz/templates/namespaced_test.gaz

@@ -34,7 +34,7 @@ multi-way branch — read as themselves rather than as nested calls or `if`/`els
   digits that read back as the same float (`0.30000000000000004`, `1.0`, `-0.0`). A result too
   large to hold is a `Float overflow` error. A float can't be a key, an index or a string position.
 - **Strings**: byte strings, so `len("é")` is 2 and `upper` is ASCII. UTF-8 passes through
-  untouched, and `utf8_valid`, `utf8_length` and `utf8_chars` read it as characters (see "Builtins").
+  untouched, and the `utf8_` builtins read it as characters, slice it and change its case (see "Builtins").
 - **Booleans**: `true` and `false`. A bool is not a number: `true == 1` is false, and
   `true + 1` is an error. Use `to_int(true)`.
 - **`null`**: a keyword. It equals only itself, so `null == 0` and `null == false` are false.
@@ -1053,6 +1053,10 @@ all of a kind's fields, methods and constants across its hierarchy, and an enum'
 | `utf8_valid($s)` | Whether `$s` is well formed UTF-8 |
 | `utf8_length($s)` | The number of characters in well formed UTF-8; anything else is an error |
 | `utf8_chars($s)` | The characters of well formed UTF-8, each a string of 1 to 4 bytes; anything else is an error |
+| `utf8_slice($s, $start, $length = null)` | `slice` counting the characters of well formed UTF-8 instead of bytes |
+| `utf8_upper($s)` | Well formed UTF-8 with every letter in uppercase |
+| `utf8_lower($s)` | Well formed UTF-8 with every letter in lowercase |
+| `utf8_fold($s)` | Well formed UTF-8 folded for comparing without case |
 
 The builtins for strings are `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
@@ -1065,18 +1069,24 @@ an error. `starts_with` at the end of the string (`$offset` = `len($s)`) is true
 prefix.
 
 **Strings are bytes**, and every builtin above counts and cuts bytes: `len`, `slice`, `reverse` and
-`split($s, "")` (which gives the bytes, one string each) can cut a character in half. Three builtins
-read a string as UTF-8 instead:
+`split($s, "")` (which gives the bytes, one string each) can cut a character in half, and `upper`
+and `lower` change only ASCII letters. The `utf8_` builtins read a string as UTF-8 instead:
 
 ```gaz
 echo [len("café"), utf8_length("café")];
 echo utf8_chars("é€😀");
 echo [utf8_valid("café"), utf8_valid("caf\xe9")];
+echo [utf8_slice("café au lait", 0, 4), utf8_slice("café", -2)];
+echo [upper("straße"), utf8_upper("straße"), utf8_lower("ΟΔΟΣ")];
+echo utf8_fold("Straße") == utf8_fold("STRASSE");
 ```
 ```
 [5, 4]
 ["é", "€", "😀"]
 [true, false]
+["café", "fé"]
+["STRAßE", "STRASSE", "οδος"]
+true
 ```
 
 `utf8_valid` follows RFC 3629: no character written in more bytes than it needs, no surrogates
@@ -1084,9 +1094,20 @@ echo [utf8_valid("café"), utf8_valid("caf\xe9")];
 `"\0"`. `utf8_length` and `utf8_chars` refuse text that isn't, naming the byte where the first bad
 character starts (`utf8_length() expects well formed UTF-8, but byte 3 doesn't start a well formed
 character`), since a count of something that isn't characters would be a wrong answer, not an
-answer. **Check text from outside with `utf8_valid` first**: a file or a socket can hold any bytes,
-and a database or a JSON document refuses what isn't UTF-8. What `http::query()`, `http::form()`,
-`http::cookies()` and the router decode from a request is checked already (see "Libraries").
+answer; so do `utf8_slice`, `utf8_upper`, `utf8_lower` and `utf8_fold`. **Check text from outside
+with `utf8_valid` first**: a file or a socket can hold any bytes, and a database or a JSON document
+refuses what isn't UTF-8. What `http::query()`, `http::form()`, `http::cookies()` and the router
+decode from a request is checked already (see "Libraries").
+
+`utf8_slice` takes the characters `slice` would take if each were one byte: from `$start`, `$length`
+of them or to the end, a negative one counting from the end. `utf8_upper` and `utf8_lower` follow
+Unicode's case mappings, the same in every language and on every machine, so a character can become
+more than one: `ß` uppercases to `SS`, `ﬁ` to `FI`, and `İ` lowercases to `i` and a combining dot.
+A capital sigma lowercases to `ς` at the end of a word and to `σ` anywhere else. Turkish and
+Lithuanian rules, which depend on the language, are left out. **Compare without case with
+`utf8_fold`, not `utf8_lower`**: folding makes every spelling of a word that differs only in case the
+same (`Straße` and `STRASSE` both fold to `strasse`, every sigma to `σ`), which lowercasing doesn't.
+The mappings are Unicode 17.0's.
 
 ### Numbers
 

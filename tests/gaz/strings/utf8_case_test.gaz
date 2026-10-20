@@ -1,0 +1,81 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * utf8_upper(), utf8_lower(), utf8_fold() and utf8_slice(): case and slicing by characters, on
+ * well formed UTF-8. Unicode's full mappings that hold in every language, so a character can
+ * become more than one, and a capital sigma lowercases by where it is in a word.
+ * tests/Utf8CaseTest.php checks every character against two other implementations; this says
+ * what each rule means.
+ */
+
+// ASCII, as upper() and lower() do it
+expect("upper of ASCII", utf8_upper("Hello, World 42!"), "HELLO, WORLD 42!");
+expect("lower of ASCII", utf8_lower("Hello, World 42!"), "hello, world 42!");
+expect("empty", utf8_upper(""), "");
+expect("NUL is left alone", utf8_lower("A\0B"), "a\0b");
+
+// Beyond ASCII, which upper() and lower() leave alone
+expect("accents", utf8_upper("caf\u{e9} cr\u{e8}me"), "CAF\u{c9} CR\u{c8}ME");
+expect("upper() leaves them", upper("caf\u{e9}"), "CAF\u{e9}");
+expect("Cyrillic", utf8_lower("\u{41c}\u{43e}\u{441}\u{43a}\u{432}\u{430}"), "\u{43c}\u{43e}\u{441}\u{43a}\u{432}\u{430}");
+expect("Greek", utf8_upper("\u{3b1}\u{3b8}\u{3ae}\u{3bd}\u{3b1}"), "\u{391}\u{398}\u{389}\u{39d}\u{391}");
+expect("four-byte letters (Deseret)", utf8_lower("\u{10400}"), "\u{10428}");
+expect("what has no case is left alone", utf8_upper("\u{4e2d}\u{6587} \u{1F600} 5\u{20ac}"), "\u{4e2d}\u{6587} \u{1F600} 5\u{20ac}");
+
+// Full mappings: one character can become several
+expect("sharp s uppercases to SS", utf8_upper("stra\u{df}e"), "STRASSE");
+expect("the capital sharp s lowercases to one", utf8_lower("\u{1e9e}"), "\u{df}");
+expect("a ligature comes apart", utf8_upper("\u{fb01}x"), "FIX");
+expect("dotted capital I keeps its dot as a combining mark", utf8_lower("\u{130}"), "i\u{307}");
+expect("dotless i uppercases to I", utf8_upper("\u{131}"), "I");
+expect("three characters from one", utf8_upper("\u{390}"), "\u{399}\u{308}\u{301}");
+expect("so the length can change", [len(utf8_upper("\u{df}")), utf8_length(utf8_upper("\u{df}"))], [2, 2]);
+
+// The capital sigma: final at the end of a word, otherwise not
+expect("final sigma", utf8_lower("\u{39f}\u{394}\u{39f}\u{3a3}"), "\u{3bf}\u{3b4}\u{3bf}\u{3c2}");
+expect("inside a word", utf8_lower("\u{3a3}\u{39f}\u{3a6}\u{399}\u{391}"), "\u{3c3}\u{3bf}\u{3c6}\u{3b9}\u{3b1}");
+expect("each word of several", utf8_lower("\u{39f}\u{3a3} \u{39f}\u{3a3}."), "\u{3bf}\u{3c2} \u{3bf}\u{3c2}.");
+expect("alone it isn't the end of a word", utf8_lower("\u{3a3}"), "\u{3c3}");
+expect("nor after a space", utf8_lower("a \u{3a3}"), "a \u{3c3}");
+expect("an apostrophe after it is skipped", utf8_lower("\u{39f}\u{3a3}'"), "\u{3bf}\u{3c2}'");
+expect("a letter after an apostrophe still follows it", utf8_lower("\u{39f}\u{3a3}'\u{39f}"), "\u{3bf}\u{3c3}'\u{3bf}");
+expect("a combining mark before it is skipped", utf8_lower("\u{39f}\u{301}\u{3a3}"), "\u{3bf}\u{301}\u{3c2}");
+expect("a modifier letter is skipped, though it has case", utf8_lower("\u{2b0}\u{3a3}"), "\u{2b0}\u{3c3}");
+expect("uppercasing has no such rule", utf8_upper("\u{3bf}\u{3c2}"), "\u{39f}\u{3a3}");
+
+// Folding, for comparing without case: not the same as lowercasing
+expect("fold of ASCII", utf8_fold("Hello"), "hello");
+expect("sharp s folds to ss", utf8_fold("Stra\u{df}e"), "strasse");
+expect("so it matches STRASSE", utf8_fold("Stra\u{df}e") == utf8_fold("STRASSE"), true);
+expect("lowercasing doesn't", utf8_lower("Stra\u{df}e") == utf8_lower("STRASSE"), false);
+expect("every sigma folds alike", utf8_fold("\u{3a3}\u{3c3}\u{3c2}"), "\u{3c3}\u{3c3}\u{3c3}");
+expect("the Kelvin sign folds to k", utf8_fold("\u{212a}"), "k");
+expect("Cherokee folds to its capitals", utf8_fold("\u{ab70}"), "\u{13a0}");
+
+// Slicing counts characters, by slice()'s rules
+expect("a slice of characters", utf8_slice("caf\u{e9} au lait", 0, 4), "caf\u{e9}");
+expect("slice() would cut the \u{e9} in half", slice("caf\u{e9} au lait", 0, 4), "caf\xc3");
+expect("to the end", utf8_slice("\u{1F600}ab\u{20ac}", 1), "ab\u{20ac}");
+expect("from the end", utf8_slice("\u{1F600}ab\u{20ac}", -2), "b\u{20ac}");
+expect("a negative length stops short of the end", utf8_slice("\u{f1}and\u{fa}", 1, -1), "and");
+expect("a length past the end stops there", utf8_slice("\u{e9}t\u{e9}", 1, 10), "t\u{e9}");
+expect("a start past the end is empty", utf8_slice("abc", 5), "");
+expect("a start before the beginning is the beginning", utf8_slice("\u{e9}t\u{e9}", -10, 2), "\u{e9}t");
+expect("nothing", utf8_slice("", 0), "");
+expect("null as the length is to the end", utf8_slice("\u{e9}t\u{e9}", 1, null), "t\u{e9}");
+
+// Text that isn't well formed is an error, naming where the first bad character starts
+throws("upper of a bad byte", () -> utf8_upper("ab\xff"),
+    "utf8_upper() expects well formed UTF-8, but byte 2 doesn't start a well formed character");
+throws("lower of a character cut short", () -> utf8_lower("\u{e9}\xe2\x82"),
+    "utf8_lower() expects well formed UTF-8, but byte 2 doesn't start a well formed character");
+throws("fold of a surrogate", () -> utf8_fold("\xed\xa0\x80"),
+    "utf8_fold() expects well formed UTF-8, but byte 0 doesn't start a well formed character");
+throws("slice of an overlong form", () -> utf8_slice("a\xc0\xaf", 0, 1),
+    "utf8_slice() expects well formed UTF-8, but byte 1 doesn't start a well formed character");
+
+// The types, as each builtin's other strings check them
+throws("upper takes a string", () -> utf8_upper(5), "utf8_upper() expects string, got int");
+throws("slice takes a string, not a list", () -> utf8_slice([1, 2], 0), "utf8_slice() expects string, got list");
+throws("slice's start is an int", () -> utf8_slice("abc", "1"), "utf8_slice() expects int, got string");
+throws("slice's length is an int or null", () -> utf8_slice("abc", 0, 1.5), "utf8_slice() expects int or null, got float");

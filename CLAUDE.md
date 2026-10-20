@@ -120,10 +120,11 @@ composer ci                         # what CI runs, cold: phpstan with no result
 - `vm/`: the VM in C. `gazvm.h` says which file does what: `value.c` and `ops.c` are what values
   mean (operators, truthiness, printing, keys, indexing, write paths), `builtins.c` the builtins
   and their arities (`builtin_info[]`), `load.c` reading and checking bytecode, `vm.c` running it
-  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()` and its master reading request heads, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes, `siphash.c` the hash behind every map.
+  and the CLI, `gc.c` the cycle collector, `net.c` sockets and TLS, `db.c` with `sqlite.c` and `pg.c` databases, `term.c` raw mode and keys, `workers.c` `workers()` and its master reading request heads, `watch.c` `gaz --watch`, `crypto.c` random bytes, hashes and password hashes, `siphash.c` the hash behind every map, `unicode.c` case mapping from `unicode_tables.h`.
 - `tools/`: the PHP scripts that work on the whole project rather than run as tests:
   `progress.php` and `snippets.php` record, `fuzz.php` fuzzes, `coverage.php` measures the C VM's
-  coverage, and `bench.php` times gaz against PHP and Python on the programs in `tools/bench/`.
+  coverage, `bench.php` times gaz against PHP and Python on the programs in `tools/bench/`, and
+  `unicode.php` writes `vm/unicode_tables.h` from the Unicode Character Database.
   What they build or save goes in `vm/build/` (gitignored).
 - `lib/`: the standard library in GazLang. `examples/`: sample programs that nothing tests
   (see "Programs are tests or examples"). `tests/programs/`: programs the tests do run.

@@ -59,20 +59,27 @@ Once upon a time
 
 ## Bytes and characters
 
-Strings are bytes. `len()` counts bytes, and `upper()` changes only ASCII letters. Three
-builtins read text as UTF-8 characters instead:
+Strings are bytes. `len()` and `slice()` count bytes, and `upper()` changes only ASCII letters.
+The `utf8_` builtins read text as UTF-8 characters instead:
 
 ```gaz
 echo [len("café"), utf8_length("café")];
 echo utf8_chars("héllo");
 echo utf8_valid("caf\xe9");
+echo utf8_slice("café au lait", 0, 4);
+echo [upper("crème"), utf8_upper("crème")];
 ```
 
 ```output
 [5, 4]
 ["h", "é", "l", "l", "o"]
 false
+café
+["CRèME", "CRÈME"]
 ```
+
+To compare text without case, fold both sides: `utf8_fold("Straße") == utf8_fold("STRASSE")` is
+true.
 
 Check text that comes from outside (a file, a socket) with `utf8_valid()` before treating it as
 text. What a web server decodes from a request is checked for you.

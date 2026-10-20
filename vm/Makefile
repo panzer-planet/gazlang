@@ -21,7 +21,7 @@ FLAGS = -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Wno-unused-parameter
 # to it rebuilds, as the flags are part of build/config
 VERSION := $(shell cat ../VERSION)
 FLAGS += -DGAZ_VERSION='"$(VERSION)"'
-SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c db.c term.c workers.c watch.c crypto.c siphash.c ipaddr.c
+SOURCES = value.c ops.c load.c vm.c builtins.c gc.c net.c db.c term.c workers.c watch.c crypto.c siphash.c ipaddr.c unicode.c
 LIBS = -lm -lpthread
 
 # OpenSSL: from pkg-config, else Homebrew's (keg-only, so not on the default paths), else the
@@ -97,7 +97,7 @@ ifneq ($(PG),0)
   endif
 endif
 
-HEADERS = gazvm.h
+HEADERS = gazvm.h unicode_tables.h
 
 # Profile-guided optimisation, on by default where the C compiler can do it (gcc always; clang
 # with llvm-profdata, which macOS has through xcrun) and plain -O2 where it can't, so a C

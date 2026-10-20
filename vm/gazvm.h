@@ -20,6 +20,7 @@
  *               request heads for http::serve()
  *   watch.c     gaz --watch: runs the program again whenever a file it is made of changes
  *   crypto.c    random bytes, SHA-256, HMAC and the password hashes, in our own C
+ *   unicode.c   case mapping of UTF-8 text, from unicode_tables.h, which tools/unicode.php writes
  *
  * Errors: a function that can fail returns bool, false meaning an error was raised. The
  * error itself is in `vm_error` (see raisef()), and the caller passes the false up until the
@@ -696,6 +697,10 @@ bool crypto_pbkdf2_sha256(Str *password, Str *salt, int64_t iterations, int64_t 
 bool crypto_scrypt(Str *password, Str *salt, int64_t cost, int64_t block_size, int64_t parallelism, int64_t length, Value *out);
 bool crypto_argon2id(Str *password, Str *salt, int64_t passes, int64_t memory, int64_t lanes, int64_t length,
                      Str *secret, Str *data, Value *out);
+
+/* unicode.c: case mapping of well formed UTF-8 */
+typedef enum { CASE_UPPER, CASE_LOWER, CASE_FOLD } CaseMap;
+Str *utf8_case(const Str *s, CaseMap map);
 
 /* term.c */
 bool term_raw(bool on);
