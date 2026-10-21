@@ -45,13 +45,29 @@ class Utf8CaseTest extends GazLangTestCase
             array_map(fn ($line) => mb_strtolower($line, 'UTF-8'), $lines),
             array_map(fn ($line) => mb_convert_case($line, MB_CASE_FOLD, 'UTF-8'), $lines),
         ];
-        // ICU has the full mappings too, though not the full folding
-        $upper = \Transliterator::create('Any-Upper');
-        $lower = \Transliterator::create('Any-Lower');
-        self::assertSame($oracle[0], array_map(fn ($line) => $upper->transliterate($line), $lines), 'mbstring and ICU disagree');
-        self::assertSame($oracle[1], array_map(fn ($line) => $lower->transliterate($line), $lines), 'mbstring and ICU disagree');
+        /*
+         * ICU has the full mappings too, though not the full folding. It checks mbstring only where it
+         * knows as much Unicode as the tables: a system ICU (Ubuntu's) can be versions behind, and
+         * then lacks mappings newer characters have
+         */
+        if (self::icuIsCurrent()) {
+            $upper = \Transliterator::create('Any-Upper');
+            $lower = \Transliterator::create('Any-Lower');
+            self::assertSame($oracle[0], array_map(fn ($line) => $upper->transliterate($line), $lines), 'mbstring and ICU disagree');
+            self::assertSame($oracle[1], array_map(fn ($line) => $lower->transliterate($line), $lines), 'mbstring and ICU disagree');
+        }
 
         return [$gaz, $oracle];
+    }
+
+    /**
+     * Whether ICU's Unicode is at least the version vm/unicode_tables.h was written from
+     */
+    private static function icuIsCurrent(): bool
+    {
+        preg_match('/UNICODE_VERSION "([\d.]+)"/', file_get_contents(__DIR__.'/../vm/unicode_tables.h'), $m);
+
+        return version_compare(implode('.', \IntlChar::getUnicodeVersion()), $m[1], '>=');
     }
 
     /**
