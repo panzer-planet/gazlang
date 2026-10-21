@@ -1,0 +1,124 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $e
+@ 3
+TRY CATCH_0
+@ 4
+PUSH "gone"
+NEW NotFound 1
+THROW
+@ 3
+END_TRY
+JMP ENDTRY_0
+LABEL CATCH_0
+CATCH_MATCH NotFound CATCHKIND_0_0_1
+JMP CATCHBODY_0_0
+LABEL CATCHKIND_0_0_1
+CATCH_MATCH Refused NEXTCATCH_0_0
+LABEL CATCHBODY_0_0
+STORE 0
+@ 7
+LOAD 0
+GET_PROPERTY message
+PRINT
+@ 3
+JMP ENDTRY_0
+LABEL NEXTCATCH_0_0
+CATCH_VALUE
+STORE 0
+@ 9
+PUSH "anything else"
+PRINT
+LABEL ENDTRY_0
+
+kind Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+field cause Error pub
+method _ Error pub
+method to_string Error pub
+locals $#argument_0 $#argument_1
+@ "<builtin>" 6
+PUSH null
+@ "<builtin>" 1
+SET_FIELD cause
+POP
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+fn Error._ 1 2
+locals $message $cause
+@ "<builtin>" 7
+ARGC
+PUSH 1
+GT
+NOT
+JZ PASSED_0
+PUSH null
+STORE 1
+LABEL PASSED_0
+@ "<builtin>" 8
+LOAD 0
+SET_FIELD message
+POP
+@ "<builtin>" 9
+LOAD 1
+SET_FIELD cause
+POP
+@ "<builtin>" 7
+PUSH null
+RET
+
+fn Error.to_string 0 0
+locals
+@ "<builtin>" 11
+PUSH ""
+LOAD_FIELD message
+CONCAT
+RET
+PUSH null
+RET
+
+kind NotFound extends Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+field cause Error pub
+method _ Error pub
+method to_string Error pub
+locals $#argument_0 $#argument_1
+@ "<builtin>" 6
+PUSH null
+@ 1
+SET_FIELD cause
+POP
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET
+
+kind Refused extends Error
+field message Error pub
+field file Error pub
+field line Error pub
+field trace Error pub
+field cause Error pub
+method _ Error pub
+method to_string Error pub
+locals $#argument_0 $#argument_1
+@ "<builtin>" 6
+PUSH null
+@ 2
+SET_FIELD cause
+POP
+CALL_CONSTRUCTOR Error
+POP
+LOAD_THIS
+RET

@@ -268,7 +268,7 @@ Compound
                     value: "caught by its qualified name"
       catches:
         0:
-          0: "problems::Problem"
+          0: ["problems::Problem"]
           1: Variable 11
             token: 11 VAR_IDENTIFIER $e
             value: "\$e"

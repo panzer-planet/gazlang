@@ -31,3 +31,8 @@ ok where it was thrown
 ok it prints as its message
 ok a thrown list is caught as it is
 ok unmatched errors carry on through finally
+ok the first kind named
+ok the second
+ok a child of one of them
+ok neither goes on to the next clause
+ok an error neither kind matches carries on

@@ -105,7 +105,7 @@ Compound
               value: 1
       catches:
         0:
-          0: null
+          0: []
           1: Variable 1
             token: 1 VAR_IDENTIFIER $e
             value: "\$e"
@@ -125,7 +125,7 @@ Compound
               value: 1
       catches:
         0:
-          0: null
+          0: []
           1: Variable 2
             token: 2 GLOBAL_VAR_IDENTIFIER @e
             value: "@e"
@@ -145,7 +145,7 @@ Compound
               value: 1
       catches:
         0:
-          0: "Error"
+          0: ["Error"]
           1: Variable 3
             token: 3 VAR_IDENTIFIER $e
             value: "\$e"
@@ -189,7 +189,7 @@ Compound
                     value: "id"
       catches:
         0:
-          0: "NotFound"
+          0: ["NotFound"]
           1: Variable 7
             token: 7 VAR_IDENTIFIER $e
             value: "\$e"
@@ -248,7 +248,7 @@ Compound
                     value: null
                     static_name: null
         1:
-          0: "Error"
+          0: ["Error"]
           1: Variable 9
             token: 9 VAR_IDENTIFIER $e
             value: "\$e"
@@ -265,7 +265,7 @@ Compound
                   value: null
                   static_name: null
         2:
-          0: null
+          0: []
           1: Variable 11
             token: 11 VAR_IDENTIFIER $e
             value: "\$e"
@@ -383,7 +383,7 @@ Compound
                           value: 1
                   catches:
                     0:
-                      0: null
+                      0: []
                       1: Variable 23
                         token: 23 VAR_IDENTIFIER $e
                         value: "\$e"
@@ -467,7 +467,7 @@ Compound
                         value: "\$outer"
                 catches:
                   0:
-                    0: null
+                    0: []
                     1: Variable 28
                       token: 28 VAR_IDENTIFIER $e
                       value: "\$e"
@@ -500,7 +500,7 @@ Compound
                     value: 2
       catches:
         0:
-          0: null
+          0: []
           1: Variable 29
             token: 29 VAR_IDENTIFIER $e
             value: "\$e"
@@ -515,7 +515,7 @@ Compound
                         value: 3
                 catches:
                   0:
-                    0: null
+                    0: []
                     1: Variable 29
                       token: 29 VAR_IDENTIFIER $e2
                       value: "\$e2"

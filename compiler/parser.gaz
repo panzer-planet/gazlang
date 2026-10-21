@@ -2094,11 +2094,11 @@ final kind Html {
         });
     }
 
-    // Parse a try statement (TRY block (CATCH LPAREN [IDENTIFIER] variable RPAREN block)* [FINALLY block]), with a catch or a finally or both
+    // Parse a try statement (TRY block (CATCH LPAREN [IDENTIFIER (BIT_OR IDENTIFIER)*] variable RPAREN block)* [FINALLY block]), with a catch or a finally or both
     //
-    // A catch naming a kind catches objects of that kind or its children; one without a
-    // kind catches anything, so it must be the last. That the names are kinds is checked
-    // once the whole program is read.
+    // A catch naming kinds catches objects of any of them or their children; one without a
+    // kind catches anything, so it must be the last. That the names are kinds, and that none
+    // is another or a child of another, is checked once the whole program is read.
     //
     // return, break and continue can't leave a finally block, so it never replaces a return
     // or swallows an error; a loop or lambda inside it can use them for itself.
@@ -2108,31 +2108,23 @@ final kind Html {
         $body = #block();
 
         $catches = [];
-        // Which of them name a kind, so the name can be resolved once the program is read
-        $named = [];
+        // The line of each kind each catch names, so the names can be resolved once the program is read
+        $lines = [];
         while (#current_token.type == "CATCH") {
-            if ($catches != [] && last($catches)[0] == null) {
+            if ($catches != [] && last($catches)[0] == []) {
                 #fail("A catch without a kind catches every error, so it must be the last");
             }
             #catches = true;
             #eat("CATCH");
             #eat("LEFT_PAREN");
-            $kind = null;
-            $kind_token = #current_token;
-            if (#current_token.type == "IDENTIFIER") {
-                $kind = #current_token.value;
-                #eat("IDENTIFIER");
-                $kind = #qualified_name($kind);
-            }
+            [$kinds, $kind_lines] = #catch_kinds();
             if (#current_token.type == "VAR_IDENTIFIER" && has_key(#shared, #current_token.value)) {
                 #fail("{#current_token.value} is shared, so it can't be a catch variable: assign it in the block");
             }
             $variable = #variable();
             #eat("RIGHT_PAREN");
-            $catches[] = [$kind, $variable, #block()];
-            if ($kind != null) {
-                $named[] = [len($catches) - 1, $kind_token.line];
-            }
+            $catches[] = [$kinds, $variable, #block()];
+            $lines[] = $kind_lines;
         }
 
         $finally = null;
@@ -2148,11 +2140,36 @@ final kind Html {
         }
 
         $node = #at(TryStatementAST($body, $catches, $finally), $start);
-        foreach ($named as [$index, $line]) {
-            #catch_types[] = [$node, $index, $line, #file, #scope];
+        foreach ($lines as $index => $kind_lines) {
+            foreach ($kind_lines as $position => $line) {
+                #catch_types[] = [$node, $index, $position, $line, #file, #scope];
+            }
         }
 
         return $node;
+    }
+
+    // The kinds a catch names before its variable, A | B | C, and the line of each; none for a
+    // catch that takes anything
+    fn catch_kinds() {
+        $kinds = [];
+        $lines = [];
+        if (#current_token.type != "IDENTIFIER") {
+            return [$kinds, $lines];
+        }
+        while (true) {
+            $lines[] = #current_token.line;
+            $name = #current_token.value;
+            #eat("IDENTIFIER");
+            $kinds[] = #qualified_name($name);
+            if (#current_token.type != "BIT_OR") {
+                return [$kinds, $lines];
+            }
+            #eat("BIT_OR");
+            if (#current_token.type != "IDENTIFIER") {
+                #fail("Expected a kind after | in a catch but found " .. #describe(#current_token));
+            }
+        }
     }
 
     // Parse a loop body, a block in which break and continue are allowed
@@ -3390,9 +3407,9 @@ final kind Html {
                 #check_visible($kind.interfaces[$i], $scope, $kind.file, $kind.line);
             }
         }
-        foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
-            $name = #resolve($node.catches[$index][0], $scope, $file, $line, "Undefined kind");
-            $node.catches[$index][0] = $name;
+        foreach (#catch_types as [$node, $index, $position, $line, $file, $scope]) {
+            $name = #resolve($node.catches[$index][0][$position], $scope, $file, $line, "Undefined kind");
+            $node.catches[$index][0][$position] = $name;
             #check_visible($name, $scope, $file, $line);
         }
         foreach (#type_uses as [$node, $scope]) {
@@ -3443,6 +3460,25 @@ final kind Html {
             has_key(#constants, $name) => "{$name} is a constant, not a kind",
             default => "Undefined kind: {$name}" .. #library_hint($name),
         };
+    }
+
+    /*
+     * A kind a catch names alongside others must catch something they don't: not the same kind
+     * again, nor a child of one of them, which the parent already catches
+     */
+    fn check_catch_adds($kinds, $position, $file, $line) {
+        $name = $kinds[$position];
+        foreach ($kinds as $other_position => $other) {
+            if ($other_position == $position) {
+                continue;
+            }
+            if ($other == $name && $other_position < $position) {
+                #fail_at("This catch names {$name} twice", $file, $line);
+            }
+            if ($other != $name && #kind_is_a($name, $other)) {
+                #fail_at("{$name} extends {$other}, which this catch names already, so it catches nothing more", $file, $line);
+            }
+        }
     }
 
     // What is wrong with a name written after implements
@@ -4254,11 +4290,14 @@ final kind Html {
             // with its static method, which a builtin kind's parse doesn't place, unlike top_level()
             $root.statements = [$html_kind, ...values($html_kind.static_methods), ...$root.statements];
         }
-        foreach (#catch_types as [$node, $index, $line, $file, $scope]) {
-            $name = $node.catches[$index][0];
+        foreach (#catch_types as [$node, $index, $position, $line, $file, $scope]) {
+            $name = $node.catches[$index][0][$position];
             if (!has_key(#kinds, $name)) {
                 #fail_at(#not_a_kind($name), $file, $line);
             }
+        }
+        foreach (#catch_types as [$node, $index, $position, $line, $file, $scope]) {
+            #check_catch_adds($node.catches[$index][0], $position, $file, $line);
         }
         #check_types();
         #check_claims();

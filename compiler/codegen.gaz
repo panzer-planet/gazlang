@@ -739,21 +739,17 @@ kind CodeGenerator {
             #emit("JMP", ["ENDTRY_{$n}"]);
 
             #emit("LABEL", ["CATCH_{$n}"]);
-            foreach ($node.catches as $i => [$kind, $variable, $body]) {
-                if ($kind == null) {
-                    #emit("CATCH_VALUE");
-                } else {
-                    #emit("CATCH_MATCH", [$kind, "NEXTCATCH_{$n}_{$i}"]);
-                }
+            foreach ($node.catches as $i => [$kinds, $variable, $body]) {
+                #catch_match($kinds, "{$n}_{$i}");
                 #emit_variable("STORE", $variable);
                 #visit($body);
-                if ($kind != null) {
+                if ($kinds != []) {
                     #emit("JMP", ["ENDTRY_{$n}"]);
                     #emit("LABEL", ["NEXTCATCH_{$n}_{$i}"]);
                 }
             }
             // No clause matched: the error carries on
-            if ($kind != null) {
+            if ($kinds != []) {
                 #emit("RETHROW");
             }
             #emit("LABEL", ["ENDTRY_{$n}"]);
@@ -772,6 +768,31 @@ kind CodeGenerator {
             #emit_variable("LOAD", $error);
             #emit("RETHROW");
             #emit("LABEL", ["ENDFINALLY_{$n}"]);
+        }
+    }
+
+    /*
+     * The test that starts a catch clause: CATCH_VALUE for one that takes any error, otherwise a
+     * CATCH_MATCH for each kind it names, each jumping to the next when the error isn't of its kind
+     * and the last to the next clause (NEXTCATCH_$clause); whichever matches goes on to the body
+     * (CATCHBODY_$clause) with what the catch sees on the stack
+     */
+    fn catch_match($kinds, $clause) {
+        if ($kinds == []) {
+            #emit("CATCH_VALUE");
+            return;
+        }
+        $last = len($kinds) - 1;
+        foreach ($kinds as $k => $kind) {
+            $miss = $k == $last ? "NEXTCATCH_{$clause}" : "CATCHKIND_{$clause}_" .. ($k + 1);
+            #emit("CATCH_MATCH", [$kind, $miss]);
+            if ($k < $last) {
+                #emit("JMP", ["CATCHBODY_{$clause}"]);
+                #emit("LABEL", ["CATCHKIND_{$clause}_" .. ($k + 1)]);
+            }
+        }
+        if ($last > 0) {
+            #emit("LABEL", ["CATCHBODY_{$clause}"]);
         }
     }
 

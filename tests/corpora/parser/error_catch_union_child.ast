@@ -1,0 +1,1 @@
+Error: Throttled extends Refused, which this catch names already, so it catches nothing more at tests/corpora/parser/error_catch_union_child.gaz:3

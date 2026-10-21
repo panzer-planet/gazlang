@@ -1,0 +1,1 @@
+Error: Expected a kind after | in a catch but found '$e' at tests/corpora/parser/error_catch_union_no_kind.gaz:1

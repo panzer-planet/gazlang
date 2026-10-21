@@ -1,0 +1,10 @@
+kind NotFound extends Error {}
+kind Refused extends Error {}
+try {
+    throw NotFound("gone");
+} catch (NotFound
+    | Refused $e) {
+    echo $e.message;
+} catch ($e) {
+    echo "anything else";
+}

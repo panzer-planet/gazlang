@@ -918,7 +918,9 @@ try {
   runs and are not.
 - **`Error` is a builtin kind** with `#message`, `#file`, `#line`, `#trace` and `#cause`. Programs
   extend it; `catch (Type $e)` matches a kind or a child kind, and an untyped `catch` must be
-  last.
+  last. **One clause can name several kinds**, `catch (NotFound | Refused $e)`, for errors handled
+  alike; naming a kind twice, or a kind and its parent, is an error, since the extra name would
+  catch nothing more.
 - **`throw $value` raises any value.** A string becomes an `Error`'s message; anything else is
   caught as it is. An `Error` keeps the line and trace of where it was first thrown, so `throw
   $e;` in a catch passes it on unchanged, and if nothing catches it again it is reported as its

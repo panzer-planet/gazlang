@@ -1258,6 +1258,12 @@ and methods a table in C.
   GazLang (`describe_causes()`); `tests/corpora/vm/uncaught_cause_*.gaz` print the log's version
   and then die, and `http_causes_test.gaz` requires the two to agree byte for byte.
 - An unmatched error carries on unchanged.
+- **`catch (A | B $e)` is the parser's and the code generator's only**: each catch holds a list of
+  kinds (empty for an untyped one), and the clause compiles to a `CATCH_MATCH` per kind, each
+  missing to the next and the last to the next clause (`catch_match()` in `codegen.gaz`), so the
+  VM and the bytecode learn nothing. A kind named twice, or alongside its parent, is refused once
+  the program is read (`check_catch_adds()`), the restrictive choice; a later clause that an
+  earlier one makes dead still isn't.
 - **`finally`**: a return's value is worked out first; an error in it replaces what was in
   flight; `return`, `break` and `continue` can't leave it. A `try` needs a catch or a finally.
 

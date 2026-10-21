@@ -1,0 +1,4 @@
+kind Refused extends Error {}
+kind Throttled extends Refused {}
+try {} catch (Throttled
+    | Refused $e) {}

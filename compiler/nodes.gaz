@@ -498,7 +498,7 @@ kind ParentMethodAST extends AST {
     }
 }
 
-// Each catch is [kind name or null, variable, block]
+// Each catch is [the kinds it names, none for any error; variable; block]
 kind TryStatementAST extends AST {
     pub #body;
     pub #catches;

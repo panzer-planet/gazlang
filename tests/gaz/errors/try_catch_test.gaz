@@ -197,3 +197,32 @@ try {
     $log[] = "outer caught {$e.message}";
 }
 expect("unmatched errors carry on through finally", $log, ["try", "finally", "outer caught plain"]);
+
+// One clause for several kinds, A | B: any of them, or their children, and nothing else
+kind Refused extends Error {}
+
+fn caught_by_either($value) {
+    try {
+        throw $value;
+    } catch (NotFound | Refused $e) {
+        return "either: " .. kind_name(kind_of($e));
+    } catch (Error $e) {
+        return "Error";
+    }
+}
+expect("the first kind named", caught_by_either(NotFound("k")), "either: NotFound");
+expect("the second", caught_by_either(Refused("no")), "either: Refused");
+expect("a child of one of them", caught_by_either(MissingFile("f")), "either: MissingFile");
+expect("neither goes on to the next clause", caught_by_either("text"), "Error");
+
+$log = [];
+try {
+    try {
+        throw "plain";
+    } catch (NotFound | Refused $e) {
+        $log[] = "not run";
+    }
+} catch (Error $e) {
+    $log[] = "outer caught {$e.message}";
+}
+expect("an error neither kind matches carries on", $log, ["outer caught plain"]);

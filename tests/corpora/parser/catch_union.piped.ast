@@ -1,0 +1,189 @@
+Compound
+  statements:
+@ "<builtin>"
+    0: KindDeclaration 1
+      name: "Error"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "cause" => "pub", "_" => "pub", "to_string" => "pub"}
+      fields:
+        message: null
+        file: null
+        line: null
+        trace: null
+        cause: Null 6
+          token: 6 NULL null
+          value: null
+      field_lines: {"message" => 2, "file" => 3, "line" => 4, "trace" => 5, "cause" => 6}
+      methods:
+        _: FunctionDeclaration 7
+          name: "_"
+          params: ["\$message", "\$cause"]
+          defaults:
+            0: null
+            1: Null 7
+              token: 7 NULL null
+              value: null
+          body: Compound
+            statements:
+              0: Statement 8
+                expr: Assign 8
+                  left: Property 8
+                    target: This 8
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 8 ASSIGN =
+                  right: Variable 8
+                    token: 8 VAR_IDENTIFIER $message
+                    value: "\$message"
+              1: Statement 9
+                expr: Assign 9
+                  left: Property 9
+                    target: This 9
+                    name: "cause"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 9 ASSIGN =
+                  right: Variable 9
+                    token: 9 VAR_IDENTIFIER $cause
+                    value: "\$cause"
+          arity: [1, 2]
+          kind: "Error"
+          abstract: false
+        to_string: FunctionDeclaration 11
+          name: "to_string"
+          params: []
+          defaults: []
+          body: Compound
+            statements:
+              0: ReturnStatement 11
+                expr: BinOp 11
+                  left: String 11
+                    token: 11 STRING_START ""
+                    value: ""
+                  token: 11 CONCAT ..
+                  op: 11 CONCAT ..
+                  right: Property 11
+                    target: This 11
+                    name: "message"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+          arity: 0
+          kind: "Error"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error", "cause" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"], ["cause", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "cause" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
+      hidden: []
+      hidden_fields: []
+@ null
+    1: KindDeclaration 1
+      name: "NotFound"
+      parent: "Error"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error", "cause" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"], ["cause", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "cause" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
+      hidden: []
+      hidden_fields: []
+    2: KindDeclaration 2
+      name: "Refused"
+      parent: "Error"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"message" => "Error", "file" => "Error", "line" => "Error", "trace" => "Error", "cause" => "Error"}
+      members: {"_" => "Error", "to_string" => "Error"}
+      abstract_methods: []
+      slots: [["message", "Error", "pub"], ["file", "Error", "pub"], ["line", "Error", "pub"], ["trace", "Error", "pub"], ["cause", "Error", "pub"]]
+      method_table: [["_", "Error", "pub", "Error"], ["to_string", "Error", "pub", "Error"]]
+      owner_vis: {"message" => "pub", "file" => "pub", "line" => "pub", "trace" => "pub", "cause" => "pub", "_" => "pub", "to_string" => "pub"}
+      declared_at: {"_" => "Error", "to_string" => "Error"}
+      hidden: []
+      hidden_fields: []
+    3: TryStatement 3
+      body: Compound
+        statements:
+          0: Statement 4
+            expr: Throw 4
+              expr: FunctionCall 4
+                name: "NotFound"
+                args:
+                  0: String 4
+                    token: 4 STRING "gone"
+                    value: "gone"
+      catches:
+        0:
+          0: ["NotFound", "Refused"]
+          1: Variable 6
+            token: 6 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 7
+                expr: Property 7
+                  target: Variable 7
+                    token: 7 VAR_IDENTIFIER $e
+                    value: "\$e"
+                  name: "message"
+                  field: false
+                  constant: false
+                  value: null
+                  static_name: null
+        1:
+          0: []
+          1: Variable 8
+            token: 8 VAR_IDENTIFIER $e
+            value: "\$e"
+          2: Compound
+            statements:
+              0: EchoStatement 9
+                expr: String 9
+                  token: 9 STRING "anything else"
+                  value: "anything else"
+      finally: null

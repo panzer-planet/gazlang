@@ -961,6 +961,7 @@ tests/corpora/bytecode/unreachable_code_is_not_checked.gzb
 tests/corpora/bytecode/values.gzb
 tests/corpora/codegen/assignments.gaz
 tests/corpora/codegen/braced_constant.gaz
+tests/corpora/codegen/catch_union.gaz
 tests/corpora/codegen/concat_assign_paths.gaz
 tests/corpora/codegen/enums.gaz
 tests/corpora/codegen/expressions.gaz
@@ -1007,6 +1008,7 @@ tests/corpora/parser/assignment.gaz
 tests/corpora/parser/braced_constant.gaz
 tests/corpora/parser/calls.gaz
 tests/corpora/parser/captures.gaz
+tests/corpora/parser/catch_union.gaz
 tests/corpora/parser/constant_edges.gaz
 tests/corpora/parser/constant_values.gaz
 tests/corpora/parser/constants.gaz
