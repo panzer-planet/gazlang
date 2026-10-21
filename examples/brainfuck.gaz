@@ -15,6 +15,23 @@ const HELLO = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++.
 // The squares from 0 to 10000, by Daniel B. Cristofani
 const SQUARES = "++++[>+++++<-]>[<+++++>-]+<+[>[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]+>>>+[[-]++++++>>>]<<<[[<++++++++<++>>-]+<.<[>----<-]<]<<[>>>>>[>>>[-]+++++++++<[>-<-]+++++++++>[-[<->-]+[<<<]]<[>+<-]>]<<-]<<-]";
 
+// What an instruction does: the program's characters, with runs folded and [-] as Zero
+enum Op {
+    Add;        // add n to the cell, wrapping at 256 (a run of - adds what wraps round to it)
+    Right;      // move n cells right
+    Left;       // move n cells left
+    Open;       // [: jump to n, the matching ], when the cell is 0
+    Close;      // ]: jump back to n, the matching [, unless the cell is 0
+    Output;
+    Input;
+    Zero;       // [-]: set the cell to 0
+}
+
+// An instruction keeps what it does; n is filled in later for an Open, once its ] is found
+kind Instruction {
+    fn _(pub readonly Op #op, pub int #n = 0);
+}
+
 // What the tape holds and where a program is, while it runs
 kind Machine {
     list #tape = [0];
@@ -27,40 +44,41 @@ kind Machine {
     pub fn run(list $code): string {
         $pc = 0;
         while ($pc < len($code)) {
-            [$op, $n] = $code[$pc];
-            match ($op) {
-                "+" => { #tape[#at] = (#tape[#at] + $n) & 255; }
-                ">" => {
+            $instruction = $code[$pc];
+            $n = $instruction.n;
+            match ($instruction.op) {
+                Op::Add => { #tape[#at] = (#tape[#at] + $n) & 255; }
+                Op::Right => {
                     #at += $n;
                     while (#at >= len(#tape)) {
                         #tape[] = 0;
                     }
                 }
-                "<" => {
+                Op::Left => {
                     #at -= $n;
                     if (#at < 0) {
                         throw "The pointer moved left of the tape at instruction {$pc}";
                     }
                 }
-                "[" => {
+                Op::Open => {
                     if (#tape[#at] == 0) {
                         $pc = $n;
                     }
                 }
-                "]" => {
+                Op::Close => {
                     if (#tape[#at] != 0) {
                         $pc = $n;
                     }
                 }
-                "." => { #output ..= chr(#tape[#at]); }
-                "," => {
+                Op::Output => { #output ..= chr(#tape[#at]); }
+                Op::Input => {
                     // End of input leaves the cell as it is
                     if (#read < len(#input)) {
                         #tape[#at] = ord(#input[#read]);
                         #read++;
                     }
                 }
-                "0" => { #tape[#at] = 0; }
+                Op::Zero => { #tape[#at] = 0; }
             }
             $pc++;
         }
@@ -68,8 +86,7 @@ kind Machine {
     }
 }
 
-// The program as [op, n] pairs: + with n to add (a run of - adds what wraps round to it), > and < with how
-// far to move, [ and ] with where the other one is, and [-] as "0", which sets the cell to 0
+// The program as a list of instructions, each [ paired with its ]
 fn compile(string $source): list {
     $code = [];
     $open = [];
@@ -81,32 +98,33 @@ fn compile(string $source): list {
                 // A run of one character
                 $run = span($source, $i, $x -> $x == $c);
                 $i += $run;
-                match ($c) {
-                    "+" => { $code[] = ["+", $run % 256]; }
-                    "-" => { $code[] = ["+", (256 - $run % 256) % 256]; }
-                    default => { $code[] = [$c, $run]; }
-                }
+                $code[] = match ($c) {
+                    "+" => Instruction(Op::Add, $run % 256),
+                    "-" => Instruction(Op::Add, (256 - $run % 256) % 256),
+                    ">" => Instruction(Op::Right, $run),
+                    "<" => Instruction(Op::Left, $run),
+                };
                 continue;
             }
             "[" => {
                 if (slice($source, $i, 3) == "[-]") {
-                    $code[] = ["0", 0];
+                    $code[] = Instruction(Op::Zero);
                     $i += 3;
                     continue;
                 }
                 $open[] = len($code);
-                $code[] = ["[", null];
+                $code[] = Instruction(Op::Open);
             }
             "]" => {
                 if (len($open) == 0) {
                     throw "Unmatched ] at character {$i}";
                 }
-                $start = last($open);
-                delete $open[len($open) - 1];
-                $code[$start][1] = len($code);
-                $code[] = ["]", $start];
+                [...$open, $start] = $open;
+                $code[$start].n = len($code);
+                $code[] = Instruction(Op::Close, $start);
             }
-            ".", "," => { $code[] = [$c, 1]; }
+            "." => { $code[] = Instruction(Op::Output); }
+            "," => { $code[] = Instruction(Op::Input); }
             default => {}           // anything else is a comment
         }
         $i++;

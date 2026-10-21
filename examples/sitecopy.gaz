@@ -12,8 +12,7 @@
  * pattern name that starts with one.
  *
  * What it shows: fs::glob(), file_info()'s modification times compared, make_dir() with its
- * parents and fs::copy() keeping the time. (The first example quotes its pattern oddly because a block comment
- * nests, and a slash right before a star would open another one.)
+ * parents and fs::copy() keeping the time.
  */
 import "std/cli.gaz";
 import "std/fs.gaz";

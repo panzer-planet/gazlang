@@ -59,8 +59,7 @@ kind Terrain {
     }
 
     // A cell's number, which serves as a key: y * width + x
-    pub fn id(list $point): int {
-        [$x, $y] = $point;
+    pub fn id([$x, $y]): int {
         return $y * #width + $x;
     }
 
@@ -127,8 +126,7 @@ kind Heap {
     // Take the pair with the smallest priority
     pub fn pop(): list {
         $top = #items[0];
-        $last = last(#items);
-        delete #items[len(#items) - 1];
+        [...#items, $last] = #items;
         if (len(#items) == 0) {
             return $top;
         }

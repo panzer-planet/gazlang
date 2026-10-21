@@ -35,9 +35,23 @@ fn greet(\$name) {
 ```
 ";
 
+// What kind of block a line belongs to
+enum Block {
+    Blank;
+    Fence;
+    Heading;
+    Bullets;
+    Numbered;
+    Quote;
+    Paragraph;
+}
+
 // What a character stands for in HTML
 fn escape(string $text): string {
-    return replace(replace(replace($text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;");
+    return $text
+        |> replace("&", "&amp;")
+        |> replace("<", "&lt;")
+        |> replace(">", "&gt;");
 }
 
 // Text with its inline markup turned into tags; the text between is escaped
@@ -80,27 +94,32 @@ fn inline_at(string $text, int $i): ?list {
     return null;
 }
 
-// What kind of block a line belongs to
-fn line_kind(string $line): string {
+fn line_kind(string $line): Block {
     return match {
-        trim($line) == "" => "blank",
-        starts_with($line, "```") => "fence",
-        starts_with($line, "#") => "heading",
-        starts_with($line, "- ") => "ul",
-        regex::search($line, '^[0-9]+\. ') => "ol",
-        starts_with($line, ">") => "quote",
-        default => "paragraph",
+        trim($line) == "" => Block::Blank,
+        starts_with($line, "```") => Block::Fence,
+        starts_with($line, "#") => Block::Heading,
+        starts_with($line, "- ") => Block::Bullets,
+        regex::search($line, '^[0-9]+\. ') => Block::Numbered,
+        starts_with($line, ">") => Block::Quote,
+        default => Block::Paragraph,
     };
 }
 
 // A line without the marker that made it a list item or a quote
-fn unmarked(string $line, string $kind): string {
+fn unmarked(string $line, Block $kind): string {
     return match ($kind) {
-        "ul" => slice($line, 2),
-        "ol" => slice($line, index_of($line, ". ") + 2),
-        "quote" => trim(slice($line, 1)),
+        Block::Bullets => slice($line, 2),
+        Block::Numbered => slice($line, index_of($line, ". ") + 2),
+        Block::Quote => trim(slice($line, 1)),
         default => $line,
     };
+}
+
+// A list's items, each with its inline markup, inside <ul> or <ol>
+fn list_html(string $tag, list $items): string {
+    $lines = map($items, $item -> "  <li>" .. inline($item) .. "</li>");
+    return "<{$tag}>\n" .. join($lines, "\n") .. "\n</{$tag}>";
 }
 
 fn to_html(string $markdown): string {
@@ -111,8 +130,8 @@ fn to_html(string $markdown): string {
         $line = $lines[$i];
         $kind = line_kind($line);
         match ($kind) {
-            "blank" => { $i++; }
-            "fence" => {
+            Block::Blank => { $i++; }
+            Block::Fence => {
                 // Everything up to the closing fence, as it is
                 $code = [];
                 $i++;
@@ -123,7 +142,7 @@ fn to_html(string $markdown): string {
                 $i++;
                 $html[] = "<pre><code>" .. join($code, "\n") .. "</code></pre>";
             }
-            "heading" => {
+            Block::Heading => {
                 $level = 0;
                 while ($level < len($line) && $line[$level] == "#") {
                     $level++;
@@ -140,8 +159,9 @@ fn to_html(string $markdown): string {
                     $i++;
                 }
                 $html[] = match ($kind) {
-                    "ul", "ol" => "<{$kind}>\n" .. join(map($run, $item -> "  <li>" .. inline($item) .. "</li>"), "\n") .. "\n</{$kind}>",
-                    "quote" => "<blockquote><p>" .. inline(join($run, " ")) .. "</p></blockquote>",
+                    Block::Bullets => list_html("ul", $run),
+                    Block::Numbered => list_html("ol", $run),
+                    Block::Quote => "<blockquote><p>" .. inline(join($run, " ")) .. "</p></blockquote>",
                     default => "<p>" .. inline(join($run, " ")) .. "</p>",
                 };
             }

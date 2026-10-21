@@ -11,11 +11,20 @@ const KEYWORDS = ["if", "else", "while", "return", "function"];
 // Two characters are tried before one, so "==" is never read as "=" twice
 const OPERATORS = ["==", "!=", "<=", ">=", "->", "..", "&&", "||", "+", "-", "*", "/", "%", "=", "<", ">", "!", "(", ")", "{", "}", "[", "]", ",", ";"];
 
-kind Token {
-    fn _(pub string #type, pub string #text, pub int #line);
+enum TokenType: string {
+    Number = "number";
+    Name = "name";
+    Keyword = "keyword";
+    String = "string";
+    Operator = "operator";
+}
+
+// A token never changes once it is read
+readonly kind Token {
+    fn _(pub TokenType #type, pub string #text, pub int #line);
 
     pub fn to_string(): string {
-        return "{#line}: {#type} {#text}";
+        return "{#line}: {#type.value} {#text}";
     }
 }
 
@@ -63,12 +72,13 @@ kind Scanner {
     }
 
     fn number(): Token {
-        return Token("number", #take(span(#source, #pos, $c -> is_digit($c) || $c == ".")), #line);
+        return Token(TokenType::Number, #take(span(#source, #pos, $c -> is_digit($c) || $c == ".")), #line);
     }
 
     fn word(): Token {
         $word = #take(span(#source, #pos, $c -> is_alnum($c) || $c == "_"));
-        return Token(in_array($word, KEYWORDS) ? "keyword" : "name", $word, #line);
+        $type = in_array($word, KEYWORDS) ? TokenType::Keyword : TokenType::Name;
+        return Token($type, $word, #line);
     }
 
     fn string(): Token {
@@ -78,7 +88,7 @@ kind Scanner {
         }
         $text = slice(#source, #pos, $end + 1 - #pos);
         #pos = $end + 1;
-        return Token("string", $text, #line);
+        return Token(TokenType::String, $text, #line);
     }
 
     fn operator(): Token {
@@ -88,7 +98,7 @@ kind Scanner {
             throw "line {#line}: unexpected character \"$op\"";
         }
         #pos += len($op);
-        return Token("operator", $op, #line);
+        return Token(TokenType::Operator, $op, #line);
     }
 }
 
@@ -119,7 +129,7 @@ echo "...";
 
 $counts = {};
 foreach ($tokens as $t) {
-    $counts[$t.type] ??= 0;
-    $counts[$t.type]++;
+    $counts[$t.type.value] ??= 0;
+    $counts[$t.type.value]++;
 }
 echo len($tokens) .. " tokens: $counts";

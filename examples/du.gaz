@@ -19,7 +19,7 @@ const NO_EXTENSION = "(none)";
 const EXTENSION_WIDTH = 12;
 const NUMBER_WIDTH = 10;
 
-kind SizedFile {
+readonly kind SizedFile {
     fn _(pub string #path, pub int #size);
 }
 
