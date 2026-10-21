@@ -80,14 +80,17 @@ class Utf8CaseTest extends GazLangTestCase
 
     public function test_every_character_maps_as_mbstring_and_icu_map_it()
     {
-        $characters = [];
-        for ($code = 0; $code <= 0x10FFFF; $code++) {
-            // Surrogates have no UTF-8, and a newline and a NUL are what separate the output
-            if (($code < 0xD800 || $code > 0xDFFF) && $code !== 0x0A && $code !== 0x00) {
-                $characters[] = mb_chr($code, 'UTF-8');
+        // A plane at a time, so the lists stay small under a CI runner's memory_limit
+        for ($plane = 0; $plane <= 0x10; $plane++) {
+            $characters = [];
+            for ($code = $plane << 16; $code <= ($plane << 16 | 0xFFFF); $code++) {
+                // Surrogates have no UTF-8, and a newline and a NUL are what separate the output
+                if (($code < 0xD800 || $code > 0xDFFF) && $code !== 0x0A && $code !== 0x00) {
+                    $characters[] = mb_chr($code, 'UTF-8');
+                }
             }
+            $this->assertMapsAsOracle($characters);
         }
-        $this->assertMapsAsOracle($characters);
     }
 
     public function test_text_maps_as_mbstring_and_icu_map_it_final_sigma_too()
