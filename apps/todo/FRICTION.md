@@ -202,8 +202,11 @@ have caught running out of call depth.
   error. Both wrappers are gone, and `http::csrf()` lost its own `try`. Checking the library for the
   same shape found `http::session()` decoding every cookie, so a stray `%` in any cookie on the
   domain made every request a 500; it now decodes only its own.
-- **Today**: parse twice (open: [#51](https://github.com/panzer-planet/gazlang/issues/51)).
-- **Options**: the middleware stores `$request["form"]` once.
+- **Parsing twice stays** (closed: [#51](https://github.com/panzer-planet/gazlang/issues/51)): a
+  four-field form decodes in about 8µs, under 1% of a request that touches the database, and a
+  `$request["form"]` stored by the middleware would be a second copy of the form beside
+  `http::form()`, stale after a middleware that rewrote the body and there only when `csrf()`
+  happened to decode. Reopen it if a profile ever shows decoding.
 
 ## 10. Smaller things
 
