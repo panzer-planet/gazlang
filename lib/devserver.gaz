@@ -35,6 +35,10 @@ pub fn main() {
     [$host, $port] = address($args["address"]);
     $listener = socket_listen($host, $port);
     $scheme = $options == {} ? "http" : "https";
+    if ($options != {}) {
+        // A bad certificate is said before the line that says the server is up, not after it
+        socket_tls_server($options["tls"]);
+    }
     echo "Listening on {$scheme}://{$args["address"]}\n";
     /*
      * Without this the line above sits in standard output's buffer until the accept loop below

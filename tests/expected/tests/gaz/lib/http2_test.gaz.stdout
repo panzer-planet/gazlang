@@ -15,6 +15,9 @@ ok one past it is not
 ok a string longer than the block
 ok an integer cut off
 ok an integer past 2^31
+ok an integer padded with zero bytes past 2^31's
+ok a header list past the limit given
+ok one within it
 ok Huffman padding of 8 bits or more
 ok Huffman padding of 0s
 ok EOS in a Huffman-coded string

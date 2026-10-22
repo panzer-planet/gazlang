@@ -701,7 +701,8 @@ static bool idle_spoke(Socket *idle, short revents) {
  * With $idle, a connection this worker keeps open itself (TLS: see above), it waits up to $seconds
  * for that one's next request too, and gives $idle back if it comes first (the master is told B,
  * and its answer is read by the next worker_accept()), false if $seconds pass first, or the
- * handed connection if the master has one first, which $idle then gives way to.
+ * handed connection if the master has one first, which $idle then gives way to. A B goes with the
+ * false too, since the caller then closes $idle and the master must stop counting it held.
  */
 bool worker_accept(Socket *listener, Map *map, Socket *idle, double seconds, Value *out) {
     if (listener->fd < 0) return raisef("worker_accept() on a closed socket");
@@ -789,6 +790,11 @@ bool worker_accept(Socket *listener, Map *map, Socket *idle, double seconds, Val
             return true;
         }
         if (idle && now() >= deadline) {
+            /* The caller closes $idle now, which the master counts as held (FLAG_HOLDS): say B, as
+               when its client spoke, so the next worker_accept() reads the answer and asks again
+               without FLAG_HOLDS, and the master stops counting a connection that is gone */
+            if (send_message(channel, MSG_BUSY, 0, 0, 0, NULL, 0, -1)) withdrawn = true;
+            asked = false;
             *out = v_bool(false);
             return true;
         }

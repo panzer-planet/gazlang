@@ -79,6 +79,9 @@ throws("one past it is not", refused("3fe21f"), http2::ConnectionError, "a table
 throws("a string longer than the block", refused("000561"), http2::ConnectionError, "a header block ends in the middle of a string");
 throws("an integer cut off", refused("ff"), http2::ConnectionError, "a header block ends in the middle of an integer");
 throws("an integer past 2^31", refused("1fffffffffff0f"), http2::ConnectionError, "an integer past 2^31 in a header block");
+throws("an integer padded with zero bytes past 2^31's", refused("ff" .. repeat("80", 11) .. "01"), http2::ConnectionError, "an integer past 2^31 in a header block");
+throws("a header list past the limit given", () -> http2::Decoder(4096, 100).decode(crypto::from_hex("4001610162" .. repeat("be", 3))), http2::ConnectionError, "a header list of more than 100 bytes");
+expect("one within it", len(http2::Decoder(4096, 102).decode(crypto::from_hex("4001610162" .. repeat("be", 2)))), 3);
 throws("Huffman padding of 8 bits or more", refused("00838c00ff"), http2::ConnectionError, "a Huffman-coded string ends in the middle of a code");
 throws("Huffman padding of 0s", refused("0081a0"), http2::ConnectionError, "a Huffman-coded string ends in the middle of a code");
 throws("EOS in a Huffman-coded string", refused("0084ffffffff"), http2::ConnectionError, "a Huffman-coded string holds EOS");

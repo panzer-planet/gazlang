@@ -293,6 +293,22 @@ class HttpTlsTest extends GazLangTestCase
         }
     }
 
+    public function test_a_tls_connection_closed_after_its_idle_timeout_no_longer_counts_toward_max_connections()
+    {
+        [$server, $port] = self::startServer(1, '"idle_timeout" => 0.3, "max_connections" => 1');
+        try {
+            $idle = self::connect($port);
+            $this->assertSame(200, self::ask($idle, '/idle')['status'] ?? null);
+            // Its idle time runs out and the worker closes it: the one connection allowed is free again
+            usleep(800000);
+            $started = microtime(true);
+            $this->assertSame(200, self::ask(self::connect($port), '/next')['status'] ?? null);
+            $this->assertLessThan(1, microtime(true) - $started);
+        } finally {
+            self::stop($server);
+        }
+    }
+
     public function test_a_renewed_certificate_is_used_from_the_next_connection()
     {
         $dir = self::ROOT.'/tests/.tmp/tls-'.getmypid();
@@ -310,6 +326,12 @@ class HttpTlsTest extends GazLangTestCase
             $this->assertSame('first', self::presented($port));
             $this->assertSame('first', self::presented($port));
             $this->assertCount(1, self::loggedLines($log, '/still using the certificate read before/'));
+            // A key gone for a moment, as some renewals do, is said once too, however many connect
+            rename("{$dir}/key.pem", "{$dir}/key.gone");
+            $this->assertSame('first', self::presented($port));
+            $this->assertSame('first', self::presented($port));
+            $this->assertCount(2, self::loggedLines($log, '/still using the certificate read before/'));
+            unlink("{$dir}/key.gone");
             // Renewed, by a rename into place as certbot's symbolic links do
             file_put_contents("{$dir}/key.next", $second['key']);
             file_put_contents("{$dir}/cert.next", $second['certificate']);
@@ -622,7 +644,7 @@ class HttpTlsTest extends GazLangTestCase
     public function test_http2_is_spoken_to_a_client_that_asks_for_it(int $workers)
     {
         $log = self::logFile();
-        [$server, $port] = self::startServer($workers, '', '$r -> ({"headers" => {"X-Method" => $r["method"]}, "body" => "{$r["scheme"]} {$r["path"]} {$r["query"]} {$r["headers"]["host"]} " .. len($r["body"])})', $log);
+        [$server, $port] = self::startServer($workers, '', '$r -> ({"headers" => {"X-Method" => $r["method"], "Keep-Alive" => "timeout=5", "Upgrade" => "websocket"}, "body" => "{$r["scheme"]} {$r["path"]} {$r["query"]} {$r["headers"]["host"]} " .. len($r["body"])})', $log);
         try {
             $socket = self::h2($port);
             $this->assertSame('h2', stream_get_meta_data($socket)['crypto']['alpn_protocol']);
@@ -635,6 +657,8 @@ class HttpTlsTest extends GazLangTestCase
             $this->assertSame('GET', $responses[1][1]['x-method'], 'a handler\'s header, its name lowercased');
             $this->assertSame((string) strlen($responses[1][2]), $responses[1][1]['content-length']);
             $this->assertArrayHasKey('date', $responses[1][1]);
+            $this->assertArrayNotHasKey('keep-alive', $responses[1][1], 'a header only HTTP/1.1 has is left out');
+            $this->assertArrayNotHasKey('upgrade', $responses[1][1]);
             // A body over several DATA frames
             $post = [[':method', 'POST'], [':scheme', 'https'], [':path', '/upload'], [':authority', 'localhost']];
             fwrite($socket, self::frame(self::HEADERS, self::END_HEADERS, 7, self::block($post))

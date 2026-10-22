@@ -20,78 +20,146 @@ pub const PREFACE = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
  * The frame types (RFC 9113 §6)
  */
 pub const DATA = 0;
-/** A header block's first part, which opens a stream */
+/**
+ * A header block's first part, which opens a stream
+ */
 pub const HEADERS = 1;
-/** A stream's priority, which the server reads and leaves alone */
+/**
+ * A stream's priority, which the server reads and leaves alone
+ */
 pub const PRIORITY = 2;
-/** A stream given up on, by either end */
+/**
+ * A stream given up on, by either end
+ */
 pub const RST_STREAM = 3;
-/** A connection's settings, and their acknowledgement */
+/**
+ * A connection's settings, and their acknowledgement
+ */
 pub const SETTINGS = 4;
-/** A server's promise of a response it pushes, which no client may send */
+/**
+ * A server's promise of a response it pushes, which no client may send
+ */
 pub const PUSH_PROMISE = 5;
-/** A ping, answered with the same eight bytes */
+/**
+ * A ping, answered with the same eight bytes
+ */
 pub const PING = 6;
-/** The end of a connection, with the last stream it saw and why */
+/**
+ * The end of a connection, with the last stream it saw and why
+ */
 pub const GOAWAY = 7;
-/** More room to send, on a stream or the whole connection */
+/**
+ * More room to send, on a stream or the whole connection
+ */
 pub const WINDOW_UPDATE = 8;
-/** The rest of a header block too long for one frame */
+/**
+ * The rest of a header block too long for one frame
+ */
 pub const CONTINUATION = 9;
 
-/** A frame's flag: the last frame its stream sends (DATA, HEADERS) */
+/**
+ * A frame's flag: the last frame its stream sends (DATA, HEADERS)
+ */
 pub const END_STREAM = 1;
-/** A frame's flag: an acknowledgement (SETTINGS, PING) */
+/**
+ * A frame's flag: an acknowledgement (SETTINGS, PING)
+ */
 pub const ACK = 1;
-/** A frame's flag: the header block is whole (HEADERS, CONTINUATION) */
+/**
+ * A frame's flag: the header block is whole (HEADERS, CONTINUATION)
+ */
 pub const END_HEADERS = 4;
-/** A frame's flag: padding follows the payload, its length first */
+/**
+ * A frame's flag: padding follows the payload, its length first
+ */
 pub const PADDED = 8;
-/** A frame's flag: a HEADERS frame carries a priority */
+/**
+ * A frame's flag: a HEADERS frame carries a priority
+ */
 pub const PRIORITY_FLAG = 32;
 
-/** An error code (RFC 9113 §7): none, for a GOAWAY that only says goodbye */
+/**
+ * An error code (RFC 9113 §7): none, for a GOAWAY that only says goodbye
+ */
 pub const NO_ERROR = 0;
-/** An error code: the peer broke the protocol */
+/**
+ * An error code: the peer broke the protocol
+ */
 pub const PROTOCOL_ERROR = 1;
-/** An error code: something went wrong here */
+/**
+ * An error code: something went wrong here
+ */
 pub const INTERNAL_ERROR = 2;
-/** An error code: flow control was broken */
+/**
+ * An error code: flow control was broken
+ */
 pub const FLOW_CONTROL_ERROR = 3;
-/** An error code: a frame on a stream that is closed */
+/**
+ * An error code: a frame on a stream that is closed
+ */
 pub const STREAM_CLOSED = 5;
-/** An error code: a frame of the wrong size */
+/**
+ * An error code: a frame of the wrong size
+ */
 pub const FRAME_SIZE_ERROR = 6;
-/** An error code: a stream the server won't take, which the client may send again */
+/**
+ * An error code: a stream the server won't take, which the client may send again
+ */
 pub const REFUSED_STREAM = 7;
-/** An error code: a stream no longer wanted */
+/**
+ * An error code: a stream no longer wanted
+ */
 pub const CANCEL = 8;
-/** An error code: a header block that can't be decoded */
+/**
+ * An error code: a header block that can't be decoded
+ */
 pub const COMPRESSION_ERROR = 9;
 
-/** A setting (RFC 9113 §6.5.2): the most a peer's header table may hold */
+/**
+ * A setting (RFC 9113 §6.5.2): the most a peer's header table may hold
+ */
 pub const HEADER_TABLE_SIZE = 1;
-/** A setting: whether the server may push */
+/**
+ * A setting: whether the server may push
+ */
 pub const ENABLE_PUSH = 2;
-/** A setting: how many streams may be open at once */
+/**
+ * A setting: how many streams may be open at once
+ */
 pub const MAX_CONCURRENT_STREAMS = 3;
-/** A setting: a new stream's room to send */
+/**
+ * A setting: a new stream's room to send
+ */
 pub const INITIAL_WINDOW_SIZE = 4;
-/** A setting: the largest frame payload the peer takes */
+/**
+ * A setting: the largest frame payload the peer takes
+ */
 pub const MAX_FRAME_SIZE = 5;
-/** A setting: the most a header list may be, decoded */
+/**
+ * A setting: the most a header list may be, decoded
+ */
 pub const MAX_HEADER_LIST_SIZE = 6;
 
-/** The room each end has to send at first, on a stream and on the connection */
+/**
+ * The room each end has to send at first, on a stream and on the connection
+ */
 pub const DEFAULT_WINDOW = 65535;
-/** The largest frame payload a peer takes until it says otherwise */
+/**
+ * The largest frame payload a peer takes until it says otherwise
+ */
 pub const DEFAULT_FRAME_SIZE = 16384;
-/** The most a window may grow to */
+/**
+ * The most a window may grow to
+ */
 pub const MAX_WINDOW = 2147483647;
 
 const FRAME_HEAD = 9;          // bytes of a frame's length, type, flags and stream
 const ENTRY_OVERHEAD = 32;     // RFC 7541 §4.1: what an entry costs beyond its name and value
-const DEFAULT_TABLE_SIZE = 4096;
+const INTEGER_SHIFT_MOST = 28; // an integer's last byte starts at bit 28, as 2^31 needs no more
+/**
+ * The header table's size until a SETTINGS says another (RFC 7541 §4.2)
+ */
+pub const DEFAULT_TABLE_SIZE = 4096;
 const STATIC_TABLE = [
     [":authority", ""], [":method", "GET"], [":method", "POST"], [":path", "/"], [":path", "/index.html"],
     [":scheme", "http"], [":scheme", "https"], [":status", "200"], [":status", "204"], [":status", "206"],
@@ -369,9 +437,11 @@ pub kind Decoder {
 
     /**
      * $limit is the most the table may hold: the HEADER_TABLE_SIZE this end said it takes, which
-     * is also its size until the peer's encoder says a smaller one
+     * is also its size until the peer's encoder says a smaller one. $list_most, when given, is the
+     * most a block's decoded fields may cost as RFC 9113 §6.5.2 counts them (MAX_HEADER_LIST_SIZE):
+     * past it is an error, so a small block of references to one big entry can't decode to megabytes
      */
-    fn _(#limit = DEFAULT_TABLE_SIZE) {
+    fn _(#limit = DEFAULT_TABLE_SIZE, #list_most = null) {
         #max_size = #limit;
     }
 
@@ -382,12 +452,14 @@ pub kind Decoder {
         $fields = [];
         $at = 0;
         $first = true;
+        $listed = 0;
         while ($at < len($block)) {
             $byte = ord($block[$at]);
             if ($byte >= 128) {
                 // An indexed field: 1xxxxxxx
                 [$index, $at] = integer($block, $at, 7);
-                $fields[] = #entry($index);
+                $field = #entry($index);
+                $fields[] = $field;
             } else if ($byte >= 64) {
                 // A literal to add to the table: 01xxxxxx
                 [$field, $at] = #literal($block, $at, 6);
@@ -411,6 +483,10 @@ pub kind Decoder {
                 $fields[] = $field;
             }
             $first = false;
+            $listed += len($field[0]) + len($field[1]) + ENTRY_OVERHEAD;
+            if (#list_most != null && $listed > #list_most) {
+                throw ConnectionError(COMPRESSION_ERROR, "a header list of more than " .. #list_most .. " bytes");
+            }
         }
         return $fields;
     }
@@ -463,7 +539,8 @@ pub kind Decoder {
 /*
  * An integer of RFC 7541 §5.1 from $at, in the byte's low $prefix bits and, when those are all
  * set, the bytes after it 7 bits at a time: [the integer, where it ends]. Past 2^31 is refused:
- * nothing in a header block is that big, and a peer could otherwise send bytes without end.
+ * nothing in a header block is that big, and a peer could otherwise send bytes without end. So
+ * are more bytes than 2^31 needs, which could otherwise add nothing but zeros past any shift.
  */
 fn integer($block, $at, $prefix) {
     $most = (1 << $prefix) - 1;
@@ -487,6 +564,9 @@ fn integer($block, $at, $prefix) {
             return [$n, $at];
         }
         $shift += 7;
+        if ($shift > INTEGER_SHIFT_MOST) {
+            throw ConnectionError(COMPRESSION_ERROR, "an integer past 2^31 in a header block");
+        }
     }
 }
 

@@ -275,13 +275,17 @@ typedef struct {
     struct stat certificate_seen, key_seen;
     struct stat certificate_failed, key_failed;
     bool failed;
+    bool failed_unseen;     /* the change that failed was a file gone (stat() failed), not one changed */
     SSL_CTX *ctx;
 } ServerTls;
 
 static ServerTls server_tls;
 
 /* The session ticket key every worker shares, so a client resumes its session with any of them
-   (net_before_workers()); drawn in the first process to need it otherwise */
+   (net_before_workers()); drawn in the first process to need it otherwise. ponytail: never rotated,
+   so one key protects every ticket for the server's life, and whoever later reads it can decrypt
+   the TLS 1.2 sessions resumed with them; a key rotated on a timer with the last one kept to
+   decrypt (SSL_CTX_set_tlsext_ticket_key_evp_cb), shared through the master, would lift that */
 static unsigned char ticket_keys[80];
 static bool ticket_keys_drawn;
 
@@ -421,7 +425,8 @@ static SSL_CTX *server_ctx(TlsOptions *o) {
         tls_options_free(o);
         return t->ctx;
     }
-    if (kept && t->failed && seen && same_file(&certificate, &t->certificate_failed) && same_file(&key, &t->key_failed)) {
+    bool failed_again = seen ? same_file(&certificate, &t->certificate_failed) && same_file(&key, &t->key_failed) : t->failed_unseen;
+    if (kept && t->failed && failed_again) {
         tls_options_free(o);
         return t->ctx;
     }
@@ -430,7 +435,8 @@ static SSL_CTX *server_ctx(TlsOptions *o) {
     if (!ctx && kept) {
         fprintf(stderr, "gaz: %s; still using the certificate read before\n", why.data);
         free(why.data);
-        t->failed = seen;
+        t->failed = true;
+        t->failed_unseen = !seen;
         if (seen) {
             t->certificate_failed = certificate;
             t->key_failed = key;

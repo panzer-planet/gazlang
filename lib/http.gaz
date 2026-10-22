@@ -1051,7 +1051,7 @@ kind H2Connection {
     // Serve the connection until it ends, $most requests at most; gives how many were answered
     pub fn serve($handler, $most, $accepted, IdleWait $wait) {
         #frames = http2::FrameReader(#socket);
-        #decoder = http2::Decoder();
+        #decoder = http2::Decoder(http2::DEFAULT_TABLE_SIZE, MAX_HEAD);
         try {
             $settings = {http2::MAX_CONCURRENT_STREAMS => H2_MOST_STREAMS, http2::MAX_HEADER_LIST_SIZE => MAX_HEAD};
             #send(http2::frame(http2::SETTINGS, 0, 0, http2::settings_payload($settings)));
@@ -1085,7 +1085,7 @@ kind H2Connection {
             if (#streams == {} && #block == null && !#frames.pending()) {
                 // A client that asks again at once keeps its worker without waiting for anything
                 if (socket_wait([#socket], HOT_GAP) == null && $wait.wait(#socket, #options["idle_timeout"]) != "client") {
-                    #go_away(http2::NO_ERROR);
+                    #leave();
                     return;
                 }
             }
@@ -1094,7 +1094,7 @@ kind H2Connection {
                 return;
             }
             if ($frame == false) {
-                #go_away(http2::NO_ERROR);
+                #leave();
                 return;
             }
             #take($frame);
@@ -1391,7 +1391,10 @@ kind H2Connection {
     fn write_response($id, $parts, $head) {
         $fields = [[":status", to_string($parts.status)]];
         foreach ($parts.headers as [$name, $value]) {
-            $fields[] = [lower($name), $value];
+            // What only HTTP/1.1 has would make the response malformed (RFC 9113 §8.2.2)
+            if (!in_array(lower($name), H2_CONNECTION_HEADERS)) {
+                $fields[] = [lower($name), $value];
+            }
         }
         if (!$parts.bodiless()) {
             $fields[] = ["content-length", to_string(len($parts.body))];
@@ -1457,6 +1460,18 @@ kind H2Connection {
             if ($frame.type == http2::GOAWAY) {
                 return;
             }
+        }
+    }
+
+    /*
+     * An idle connection given up (its time ran out, or a new client needs the worker): GOAWAY, and
+     * read on if the client is sending something within YIELD_GRACE, as an HTTP/1.1 connection
+     * gives way, so closing with its frame unread doesn't reset the connection under the GOAWAY
+     */
+    fn leave() {
+        #go_away(http2::NO_ERROR);
+        if (#frames.pending() || socket_wait([#socket], YIELD_GRACE) != null) {
+            #linger();
         }
     }
 
