@@ -1,4 +1,4 @@
-import "std/test.gaz" use expect;
+import "std/test.gaz" use expect, throws;
 import "std/http.gaz";
 
 fn request($method, $path, $query = "") {
@@ -91,3 +91,46 @@ expect("bad patterns", $failures, [
     "A route's pattern names :id twice: /a/:id/b/:id",
     "A route's pattern starts with /, got 5",
 ]);
+
+/* Groups: middleware for a set of routes, a prefix for their paths */
+
+// Middleware that marks the body it wraps, to show what ran and in which order
+fn marked($mark) {
+    return ($r, $next) -> {
+        $response = $next($r);
+
+        return {...$response, "body" => $mark .. "(" .. ($response["body"] ?? "") .. ")"};
+    };
+}
+
+$grouped = http::Router();
+$grouped.use(marked("app"));
+$grouped.get("/open", $r -> body("open"));
+$grouped.middleware(marked("login")).group($routes -> {
+    $routes.get("/home", $r -> body("home"));
+    $routes.post("/todos", $r -> body("made"));
+    $routes.middleware(marked("owner")).delete("/todos/:id", $r -> body("gone " .. $r["params"]["id"]));
+});
+$grouped.prefix("/admin").middleware(marked("admin")).group($admin -> {
+    $admin.get("/", $r -> body("dashboard"));
+    $admin.prefix("/users").get("/:id", $r -> body("user " .. $r["params"]["id"]));
+});
+$kept = $grouped.middleware(marked("kept"));
+$kept.get("/kept", $r -> body("kept"));
+$grouped.get("/home", $r -> body("never: the group's route was added first"));
+$serve = $grouped.handler();
+expect("a route outside the group has only the router's middleware", $serve(request("GET", "/open")), body("app(open)"));
+expect("one in it has the group's too, inside the router's", $serve(request("GET", "/home")), body("app(login(home))"));
+expect("for every method", $serve(request("POST", "/todos")), body("app(login(made))"));
+expect("a nested group's middleware runs inside the outer one's", $serve(request("DELETE", "/todos/4")), body("app(login(owner(gone 4)))"));
+expect("a prefix: / under it is the prefix itself", $serve(request("GET", "/admin")), body("app(admin(dashboard))"));
+expect("prefixes add up, with params after them", $serve(request("GET", "/admin/users/9")), body("app(admin(user 9))"));
+expect("a group kept in a variable", $serve(request("GET", "/kept")), body("app(kept(kept))"));
+expect("a group's routes match in the order added among the router's", $serve(request("GET", "/home")), body("app(login(home))"));
+expect("a path no route has gets no group's middleware", $serve(request("GET", "/admin/nope")), {"status" => 404, "headers" => {"Content-Type" => "text/plain"}, "body" => "app(Not Found\n)"});
+expect("nor does a 405", $serve(request("PUT", "/home"))["status"], 405);
+expect("nor a trailing slash's redirect", $serve(request("GET", "/admin/"))["status"], 308);
+throws("a prefix ending in /", () -> http::Router().prefix("/admin/"), "A group's prefix starts with / and doesn't end with one, got \"/admin/\"");
+throws("or not starting with one", () -> http::Router().prefix("admin"), "A group's prefix starts with / and doesn't end with one, got \"admin\"");
+throws("middleware that isn't a function", () -> http::Router().middleware("auth"), "A group's middleware is a function, not string");
+throws("a pattern in a group is checked as the router checks one", () -> http::Router().prefix("/a").get("users", $r -> null), "A route's pattern starts with /, got \"users\"");

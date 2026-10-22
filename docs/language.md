@@ -2649,6 +2649,25 @@ http::serve($listener, $app.handler());
   anything else a 404, or what `$app.not_found($handler)` gives.
 - Middleware, `($request, $next) -> response`, wraps everything, 404s included; the first added
   is the outermost, and it can answer without calling `$next`.
+- A group gives a set of routes middleware of their own, a prefix for their paths, or both.
+  `$app.middleware($m)` and `$app.prefix("/admin")` each give an `http::Group`, which has the same
+  `get` to `route` methods, and `middleware()` and `prefix()` again to nest, and whose
+  `group($routes)` calls `$routes` with it:
+
+  ```gaz
+  $app.middleware($require_login).group($routes -> {
+      $routes.get("/", $home);
+      $routes.post("/todos", $create);
+  });
+  $app.prefix("/admin").middleware($admin_only).group($admin -> {
+      $admin.get("/users", $users);              // /admin/users
+  });
+  ```
+
+  A group's middleware runs only once one of its routes matched, inside the router's own, the
+  outer group's first, so a 404 or a 405 never reaches it. Its routes go into the router in the
+  order they are added, among the router's own. `/` under a prefix is the prefix itself; a prefix
+  starts with `/` and doesn't end with one.
 
 **Static files**, with `http::serve_static($dir, $options = {})`: a handler, for `http::serve()` directly or as
 a `Router`'s `not_found()`, that answers from files under `$dir`.

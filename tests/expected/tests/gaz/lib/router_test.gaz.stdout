@@ -23,3 +23,18 @@ ok middleware runs in the order added, and back out
 ok middleware sees a 404 too
 ok middleware can answer itself
 ok bad patterns
+ok a route outside the group has only the router's middleware
+ok one in it has the group's too, inside the router's
+ok for every method
+ok a nested group's middleware runs inside the outer one's
+ok a prefix: / under it is the prefix itself
+ok prefixes add up, with params after them
+ok a group kept in a variable
+ok a group's routes match in the order added among the router's
+ok a path no route has gets no group's middleware
+ok nor does a 405
+ok nor a trailing slash's redirect
+ok a prefix ending in /
+ok or not starting with one
+ok middleware that isn't a function
+ok a pattern in a group is checked as the router checks one

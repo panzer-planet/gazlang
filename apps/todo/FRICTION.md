@@ -161,14 +161,16 @@ page. Every web app's tests will want this.
   400 a real server gives, and the test now sends `open%20`. `tests/support.gaz` keeps only a
   `browser()` that builds one for the app.
 
-## 7. Routes are wrapped one at a time  (open: [#49](https://github.com/panzer-planet/gazlang/issues/49))
+## 7. Routes are wrapped one at a time  (resolved: `Router.middleware()` and `group()`, [#49](https://github.com/panzer-planet/gazlang/issues/49))
 
-`authenticated($handlers.create)` is written on 6 of the 11 routes. `Router.use` applies to every
-route, so a group of routes with a requirement has no home.
+`authenticated($handlers.create)` was written on 6 of the 11 routes. `Router.use` applies to every
+route, so a group of routes with a requirement had no home.
 
-- **Today**: a wrapper function applied at each route.
-- **Options**: a second argument or a method on routes (`$app.get($path, $handler, [$middleware])`),
-  or `$app.group($middleware, $routes)`. The wrapper is five words, so this is the least urgent.
+- **Was**: a wrapper function applied at each route.
+- **Now**: `$app.middleware(authenticated).group($routes -> { ... })` holds the six, and
+  `authenticated` is ordinary `($request, $next)` middleware. A group's middleware runs only once one
+  of its routes matched, so a 404 never sends anyone to log in; `prefix()` gives a group's paths a
+  common start, which the app doesn't need.
 
 ## 8. Files are found from the working directory, and a program can't ask where it is  (resolved: `main_dir()`)
 

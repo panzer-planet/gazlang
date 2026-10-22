@@ -201,17 +201,19 @@ pub fn build_app(Config $config, $db, string $directory) {
     $app.use(http::csrf());
     $app.use(authentication($users));
 
-    $app.get("/", authenticated($handlers.home));
     $app.get("/register", $handlers.register_form);
     $app.post("/register", $handlers.register);
     $app.get("/login", $handlers.login_form);
     $app.post("/login", $handlers.login);
     $app.post("/logout", $handlers.logout);
-    $app.post("/todos", authenticated($handlers.create));
-    $app.get("/todos/:id/edit", authenticated($handlers.edit_form));
-    $app.post("/todos/:id", authenticated($handlers.update));
-    $app.post("/todos/:id/toggle", authenticated($handlers.toggle));
-    $app.post("/todos/:id/delete", authenticated($handlers.remove));
+    $app.middleware(authenticated).group($routes -> {
+        $routes.get("/", $handlers.home);
+        $routes.post("/todos", $handlers.create);
+        $routes.get("/todos/:id/edit", $handlers.edit_form);
+        $routes.post("/todos/:id", $handlers.update);
+        $routes.post("/todos/:id/toggle", $handlers.toggle);
+        $routes.post("/todos/:id/delete", $handlers.remove);
+    });
     $app.not_found(http::serve_static($directory .. "/public"));
 
     return $app;

@@ -18,7 +18,7 @@ fn authentication(Users $users) {
     };
 }
 
-// A handler only a logged in user reaches; anyone else is sent to log in
-fn authenticated($handler) {
-    return $request -> $request["user"] == null ? http::redirect("/login") : $handler($request);
+// For the routes only a logged in user reaches: anyone else is sent to log in
+fn authenticated($request, $next) {
+    return $request["user"] == null ? http::redirect("/login") : $next($request);
 }
