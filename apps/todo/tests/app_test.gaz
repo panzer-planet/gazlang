@@ -34,12 +34,13 @@ fn due_of($db, string $title): ?int {
 $visitor = browser($db, $config);
 $home = $visitor.get("/");
 expect("the home page sends a visitor to log in", [$home["status"], location_of($home)], [303, "/login"]);
-expect("a visitor is given a session cookie", $visitor.cookie("session") != null, true);
+expect("a redirect hands out no token, so it sets no cookie", $visitor.cookie("session"), null);
 $login_page = $visitor.get("/login");
+expect("the login page's form does, so the visitor is given a session cookie", $visitor.cookie("session") != null, true);
 expect("the login page", [$login_page["status"], contains(text_of($login_page), "<h1>Log in</h1>")], [200, true]);
 expect("pages are not cached", $login_page["headers"]["cache-control"], "no-store");
 expect("a content security policy", $login_page["headers"]["content-security-policy"], "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
-expect("the session cookie can't be read by scripts", contains($home["headers"]["set-cookie"], "HttpOnly"), true);
+expect("the session cookie can't be read by scripts", contains($login_page["headers"]["set-cookie"], "HttpOnly"), true);
 
 /* --- Registering --- */
 $browser = browser($db, $config);

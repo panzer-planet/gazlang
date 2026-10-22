@@ -3818,7 +3818,8 @@ fn header_key($headers, $name) {
 
 /**
  * Middleware that gives the handler $request["session"], the session from its signed cookie
- * with a CSRF token always in it, and $request["flash"], the message the last request left for
+ * with a CSRF token always in it (a new one is kept only if the response hands it out, in its
+ * body or a header, so a response without a form sets no cookie for a new visitor), and $request["flash"], the message the last request left for
  * this one (null if none), which is not in the session. A handler changes the session by adding
  * "session" to its response (http::with_session()); the middleware takes that key out again and
  * writes the cookie only if the session differs from what the cookie held, so a flash is shown
@@ -3847,13 +3848,39 @@ fn around_session($request, $next, $secret, $cookie_options) {
     if (type_of($kept) != "map") {
         throw "a response's \"session\" is a map, not " .. type_of($kept);
     }
+    // A token made for this request that the response didn't hand out can't be sent back, so a
+    // stylesheet, a 404 or a page without a form sets no cookie for it
+    if (!has_key($response, "session") && !has_key($stored, "csrf_token") && !hands_out($response, $kept["csrf_token"])) {
+        $kept = without_key($kept, "csrf_token");
+    }
     $response = without_key($response, "session");
-    // Against the cookie as it came, not $started: a new visitor's token is a change to keep
+    // Against the cookie as it came, not $started: a new visitor's token handed out is a change to keep
     if ($kept == $stored) {
         return $response;
     }
 
     return session_cookie($response, $kept, $secret, $cookie_options);
+}
+
+// Whether $text is in $response's body or one of its header values, as a form or a meta tag puts a token
+fn hands_out($response, $text) {
+    $body = $response["body"] ?? "";
+    if (is_html($body)) {
+        $body = to_string($body);
+    }
+    if (type_of($body) == "string" && contains($body, $text)) {
+        return true;
+    }
+    foreach ($response["headers"] ?? {} as $value) {
+        $values = type_of($value) == "list" ? $value : [$value];
+        foreach ($values as $one) {
+            if (type_of($one) == "string" && contains($one, $text)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 fn without_key($map, $key) {

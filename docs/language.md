@@ -2787,7 +2787,9 @@ $app.post("/todos", $request -> http::with_session(http::redirect("/"), http::fl
   can send a policy of its own. `$options` maps a header name to the value to send instead, or to
   `null` to send none. Names are matched ignoring case.
 - `http::sessions($secret, $options = {})` gives the handler `$request["session"]`, the session
-  from its signed cookie, always with a `"csrf_token"` in it, and `$request["flash"]`, the message
+  from its signed cookie, always with a `"csrf_token"` in it (a new visitor's is kept only if the
+  response hands it out, in its body or a header, so a stylesheet, a 404 or a page without a form
+  sets no cookie), and `$request["flash"]`, the message
   the last request left for this one, or `null`; the flash is not in `$request["session"]`. A
   handler changes the session by adding `"session" => $map` to its response, which the middleware
   takes out again before the response is written. The cookie is written only when the session

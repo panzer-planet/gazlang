@@ -23,6 +23,15 @@ fn handler($response = {"body" => "ok"}) {
     };
 }
 
+// A handler that remembers its request and hands its token out, as a page with a form does
+fn form_page() {
+    return $request -> {
+        Seen::request = $request;
+
+        return {"body" => "<input name=\"_csrf\" value=\"" .. $request["session"]["csrf_token"] .. "\">"};
+    };
+}
+
 fn request($method, $headers = {}, $body = "") {
     return {"method" => $method, "path" => "/", "query" => "", "headers" => {"host" => "app.example", ...$headers}, "body" => $body};
 }
@@ -44,11 +53,18 @@ fn sets_cookie($response) {
 
 $sessions = http::sessions(SECRET);
 
-/* A new visitor: a token in the session, and a cookie to keep it in */
-$first = $sessions(request("GET"), handler());
+/* A new visitor: a token in the session, and a cookie to keep it in once a page hands it out */
+$plain = $sessions(request("GET"), handler());
 expect("a new visitor's session has a CSRF token", type_of(Seen::request["session"]["csrf_token"]), "string");
 expect("and no flash", Seen::request["flash"], null);
-expect("a new visitor is given a cookie, so the token is kept", sets_cookie($first), true);
+expect("a response that doesn't hand the token out sets no cookie", sets_cookie($plain), false);
+expect("nor does a 404", sets_cookie($sessions(request("GET"), handler({"status" => 404, "body" => "Not found"}))), false);
+$in_header = $request -> ({"headers" => {"X-CSRF-Token" => $request["session"]["csrf_token"]}});
+expect("one in a header does", sets_cookie($sessions(request("GET"), $in_header)), true);
+$in_html = $request -> ({"body" => Html::escape($request["session"]["csrf_token"])});
+expect("as does one in an Html body", sets_cookie($sessions(request("GET"), $in_html)), true);
+$first = $sessions(request("GET"), form_page());
+expect("a new visitor given a form is given a cookie, so the token is kept", sets_cookie($first), true);
 $token = Seen::request["session"]["csrf_token"];
 $browser = cookie_from($first);
 expect("the cookie holds the session with its token", http::session({"headers" => $browser}, SECRET), {"csrf_token" => $token});
@@ -101,7 +117,7 @@ expect("a cookie signed with another secret is a fresh session", has_key(Seen::r
 
 /* Options */
 $secure = http::sessions(SECRET, {"secure" => true, "max_age" => 60, "same_site" => "Strict"});
-$set = $secure(request("GET"), handler())["headers"]["Set-Cookie"][0];
+$set = $secure(request("GET"), form_page())["headers"]["Set-Cookie"][0];
 expect("cookie options pass through", slice($set, index_of($set, ";")), "; Path=/; Max-Age=60; Secure; HttpOnly; SameSite=Strict");
 throws("a short secret", () -> http::sessions("too short"), "http::sessions() needs a secret of at least 32 bytes, not 9: a short one can be guessed, and every session forged with it");
 throws("an unknown option", () -> http::sessions(SECRET, {"secret" => 1}), "http::sessions() has no option \"secret\": only path, http_only, secure, same_site, max_age");

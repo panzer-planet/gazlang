@@ -254,12 +254,12 @@ have caught running out of call depth.
   open: the filter's `<input type="hidden" name="show" ...>` repeats in the same three forms, since a
   redirect after a POST has nothing else to go back to, and a page of 40 todos still carries 82
   tokens; a form that forgets the helper is still the template's mistake to make ([#57](https://github.com/panzer-planet/gazlang/issues/57)).
-- **Every first visit gets a session cookie, even for the stylesheet or a 404.** `http::sessions()`
-  creates the CSRF token as soon as a request has no cookie, and writes it back, so a visitor's
-  first response always carries a `Set-Cookie` (checked: `/style.css`, `/login` and a 404 all do), and
-  so does a bot's. A shared cache won't keep a response that sets a cookie. Options: make the token
-  lazy, made only when a handler asks for it (so `$request["session"]` is read-only until something
-  needs a token, and only then written); or leave sessions off the static routes ([#58](https://github.com/panzer-planet/gazlang/issues/58)).
+- **Every first visit gets a session cookie, even for the stylesheet or a 404** (resolved:
+  `http::sessions()` keeps a new visitor's token only if the response hands it out): the token was
+  made as soon as a request had no cookie, and written back, so `/style.css`, a 404 and a bot all got
+  a `Set-Cookie`, which a shared cache won't keep. A token is still in every `$request["session"]`,
+  so no handler changed, but one the response doesn't carry in its body or a header can't be sent
+  back, so it isn't written; `/login`, whose form carries it, still sets the cookie ([#58](https://github.com/panzer-planet/gazlang/issues/58)).
 - **An attribute can't be left out by a value**: `{{ }}` writes a value, so the selected filter link
   is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
   is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute

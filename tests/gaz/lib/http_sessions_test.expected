@@ -1,6 +1,10 @@
 ok a new visitor's session has a CSRF token
 ok and no flash
-ok a new visitor is given a cookie, so the token is kept
+ok a response that doesn't hand the token out sets no cookie
+ok nor does a 404
+ok one in a header does
+ok as does one in an Html body
+ok a new visitor given a form is given a cookie, so the token is kept
 ok the cookie holds the session with its token
 ok the cookie lasts two weeks, http only, same site
 ok a returning visitor keeps the token
