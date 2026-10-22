@@ -1,0 +1,7 @@
+ok a server without TLS is http
+ok tls is a map
+ok of certificate and key only
+ok a certificate is needed
+ok and a key
+ok the files are read when it starts
+ok and checked

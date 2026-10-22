@@ -1224,6 +1224,7 @@ tests/gaz/lib/http_serve_static_test.gaz
 tests/gaz/lib/http_session_test.gaz
 tests/gaz/lib/http_sessions_test.gaz
 tests/gaz/lib/http_test_client_test.gaz
+tests/gaz/lib/http_tls_options_test.gaz
 tests/gaz/lib/http_turns_test.gaz
 tests/gaz/lib/json_test.gaz
 tests/gaz/lib/lists_test.gaz
@@ -1269,6 +1270,7 @@ tests/gaz/site/pages_test.gaz
 tests/gaz/site/round_trip_test.gaz
 tests/gaz/site/verify_test.gaz
 tests/gaz/sockets/peer_test.gaz
+tests/gaz/sockets/tls_server_test.gaz
 tests/gaz/sockets/wait_test.gaz
 tests/gaz/strings/braced_constant_test.gaz
 tests/gaz/strings/interpolation_test.gaz

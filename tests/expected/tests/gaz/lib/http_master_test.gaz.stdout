@@ -10,6 +10,13 @@ ok a cap past what a channel holds
 ok no time at all
 ok a rule not a map
 ok a connection to accept on
+ok at_accept may be left out, or be 0 or 1
+ok but nothing else
+ok keeping a connection outside a worker is false too
+ok a connection to keep needs seconds to keep it for
+ok and seconds a connection
+ok seconds above 0
+ok a connection, not the listener
 ok a listener to release
 ok bytes not a string
 ok a count not an int

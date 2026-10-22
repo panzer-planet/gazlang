@@ -649,6 +649,11 @@ bool net_port(Socket *s, Value *out);
 bool net_peer(Socket *s, Value *out);
 #define SOCKET_WAIT_MAX 16   /* socket_wait()'s most sockets at once */
 bool net_wait(List *sockets, double seconds, Value *out);
+bool net_tls_server(Map *options, Value *out);
+bool net_tls_accept(Socket *s, Map *options, double seconds, Value *out);
+bool net_tls_protocol(Socket *s, Value *out);
+bool net_pending(Socket *s);               /* bytes TLS has decrypted already, which poll() can't see */
+void net_before_workers(void);             /* what TLS draws once for every worker: the session ticket key */
 bool net_read(Socket *s, double seconds, Value *out);
 bool net_write(Socket *s, Str *data);
 void net_close(Socket *s);
@@ -672,7 +677,7 @@ bool worker_retire(void);      /* worker_retire(): ask for a replacement and ser
 bool worker_deadline(int fd, double seconds, Str *answer, Str *line);
 /* worker_accept($listener, $rule) and worker_release($socket, $bytes, $served = 0): a worker's side of the
    master reading request heads (see workers.c) */
-bool worker_accept(Socket *listener, Map *rule, Value *out);
+bool worker_accept(Socket *listener, Map *rule, Socket *idle, double seconds, Value *out);
 bool worker_release(Socket *s, Value bytes, int64_t served, Value *out);
 
 /* ---- db.c, sqlite.c, pg.c ---------------------------------------------------------------- */

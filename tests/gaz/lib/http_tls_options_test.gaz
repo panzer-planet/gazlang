@@ -1,0 +1,31 @@
+/*
+ * http::serve()'s "tls" option, refused when the server starts rather than at its first
+ * connection; serving over TLS is HttpTlsTest's, which needs a client
+ */
+import "std/http.gaz";
+import "std/test.gaz" use expect, throws;
+
+$listener = socket_listen("127.0.0.1", 0);
+$handler = $r -> ({"body" => "ok"});
+
+// What serve() makes of its options, as the request's "scheme" says: a plain server's is http
+shared $seen = null;
+$client = socket_open("127.0.0.1", socket_port($listener));
+socket_write($client, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+http::handle(socket_accept($listener), $r -> {
+    $seen = $r["scheme"];
+    return {"body" => "ok"};
+}, {"access_log" => false});
+expect("a server without TLS is http", $seen, "http");
+socket_close($client);
+
+fn serving($listener, $handler, $tls) {
+    return () -> http::serve($listener, $handler, {"tls" => $tls});
+}
+
+throws("tls is a map", serving($listener, $handler, "cert.pem"), "http::serve() expects tls to be a map of certificate and key, got string");
+throws("of certificate and key only", serving($listener, $handler, {"certificate" => "a", "key" => "b", "chain" => "c"}), "http::serve()'s tls has no option \"chain\": only certificate, key");
+throws("a certificate is needed", serving($listener, $handler, {"key" => "tests/fixtures/tls/server.pem"}), "http::serve() expects tls's certificate to be a file's path, got null");
+throws("and a key", serving($listener, $handler, {"certificate" => "tests/fixtures/tls/cert.pem"}), "http::serve() expects tls's key to be a file's path, got null");
+throws("the files are read when it starts", serving($listener, $handler, {"certificate" => "tests/fixtures/tls/none.pem", "key" => "tests/fixtures/tls/server.pem"}), "Cannot read the certificate tests/fixtures/tls/none.pem: No such file or directory");
+throws("and checked", serving($listener, $handler, {"certificate" => "tests/fixtures/tls/cert.pem", "key" => "tests/fixtures/tls/cert.pem"}), "The private key tests/fixtures/tls/cert.pem holds no private key gaz can read");

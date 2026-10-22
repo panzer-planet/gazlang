@@ -559,8 +559,11 @@ const REASONS = {
 const SERVER_OPTIONS = {
     "timeout" => 10, "request_timeout" => 30, "max_body" => 1048576, "max_requests" => null,
     "idle_timeout" => 5, "requests_per_connection" => 100, "access_log" => true,
-    "handler_timeout" => 10, "header_timeout" => 10, "max_connections" => 1024,
+    "handler_timeout" => 10, "header_timeout" => 10, "max_connections" => 1024, "tls" => null,
 };
+const TLS_OPTIONS = {"certificate" => null, "key" => null};
+// What a client that spoke plain HTTP to a TLS port is told, before the connection closes
+const PLAIN_ON_TLS = "This port speaks HTTPS: ask for https:// rather than http://.";
 const LONGEST_HANDLER_TIMEOUT = 100000000;   // seconds, worker_deadline()'s own ceiling: three years
 const MAX_EMPTY_LINES = 4;  // skipped before a request line, as RFC 9112 asks; more is a 400
 const MOST_CONNECTIONS = 1000000;   // max_connections' ceiling, worker_accept()'s own
@@ -601,11 +604,12 @@ kind Refusal extends Error {
  * socket_listen() listener for ever, each request by calling $handler($request) with
  *
  *   {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => "",
- *    "remote_address" => "192.0.2.7"}
+ *    "remote_address" => "192.0.2.7", "scheme" => "http"}
  *
  * (header names lowercased, a repeated header's values joined with ", ", the path and query as they
  * came, not decoded; "remote_address" the connection's peer, or null if it is no longer known,
- * which behind a proxy is the proxy: see client_address()) and writing what it returns, a map of "status" (200 if left out), "headers"
+ * which behind a proxy is the proxy: see client_address(); "scheme" "https" with "tls", "http"
+ * without) and writing what it returns, a map of "status" (200 if left out), "headers"
  * and "body" (a string, "" if left out, or a template's Html, which is text/html unless a
  * Content-Type says otherwise). A header's value is a string, or a list of strings to write it as
  * that many lines (Set-Cookie, which RFC 6265 forbids joining with a comma). With workers() first,
@@ -655,12 +659,20 @@ kind Refusal extends Error {
  *   the master to start another. The deadline needs workers(): in a single process nobody would
  *   start another, so there is none. A stop or a hand-over still gives a worker only 10 seconds,
  *   so a longer handler_timeout can be cut short by one.
+ * - "tls" serves HTTPS: {"certificate" => ".../fullchain.pem", "key" => ".../privkey.pem"}, read
+ *   and checked when the server starts, and read again when either file changes, so a renewed
+ *   certificate is served from the next connection on. The request's "scheme" is then "https". A
+ *   client speaking plain HTTP to it is answered 400, saying to ask for https://. Under workers()
+ *   the master hands each TLS connection over as it is accepted, and a worker keeps a kept-open one
+ *   between requests, giving it up when a new client would otherwise wait (see
+ *   secure_connection()); past "handler_timeout" a TLS client hears the connection close, as a 503
+ *   can't be encrypted from the deadline's signal handler.
  * - It returns when its worker is asked to stop (SIGTERM, see workers()), once the request in hand
  *   is answered.
  * - In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy): a
  *   worker reads a request's body itself, so without one, each client sending a body slowly holds
  *   a worker for up to "request_timeout", and in a single process one slow client holds the
- *   server. TLS is the proxy's job too.
+ *   server; with "tls", so does a client slow to finish its handshake, for up to "header_timeout".
  * - ponytail: writing the response has only the per-write timeout.
  */
 pub fn serve($listener, $handler, $options = {}) {
@@ -675,6 +687,11 @@ pub fn serve($listener, $handler, $options = {}) {
     }
     // Null once the worker is asked to stop: the request in hand has been answered
     while ($taken != null) {
+        if ($options["tls"] != null) {
+            [$answered, $taken] = secure_connection($taken, $listener, $rule, $handler, $options, $lifetime.left());
+            $lifetime.answered($answered);
+            continue;
+        }
         $lifetime.answered(handed_request($taken, $handler, $options, $lifetime.left()));
         $taken = worker_accept($listener, $rule);
     }
@@ -693,10 +710,12 @@ fn master_rule($options) {
         "skip" => "\r\n",
         "skip_most" => MAX_EMPTY_LINES,
         "most" => MAX_HEAD,
-        "within" => $options["header_timeout"] ?? $options["request_timeout"],
+        "within" => head_limit($options),
         "idle" => $options["idle_timeout"],
         "max_connections" => $options["max_connections"],
         "timeout" => $options["timeout"],
+        // A TLS stream is the worker's to read: the master hands each connection over unread
+        "at_accept" => $options["tls"] == null ? 0 : 1,
     };
 }
 
@@ -813,6 +832,89 @@ fn handed_request($taken, $handler, $options, $left) {
     }
 }
 
+/*
+ * A TLS connection the master handed this worker as it was accepted (see master_rule()): the
+ * handshake and every request on it are this worker's, since a TLS session can't move to another
+ * process, so between requests it keeps the connection itself, while asking the master for another
+ * (worker_accept() with the idle socket): its own client's next request and a connection handed
+ * over are answered in the order they come, the idle one giving way to a new one, so an idle TLS
+ * client holds no worker anyone needs. Gives [how many requests were answered, the next connection
+ * worker_accept() gave (null once stopping)].
+ *
+ * Giving way races with a request the client sends at that moment, as an idle close always does
+ * (see another_request()), so the client has YIELD_GRACE to speak, and a request that comes is
+ * answered first with Connection: close; and a client that asks again within HOT_GAP of a response
+ * keeps its worker without the master hearing of it, since a busy client is the likeliest to be
+ * caught by a close. ponytail: under steady contention every new connection closes an
+ * idle one, so TLS clients make more handshakes than plain ones; parking the session in the worker
+ * while the master watches the connection, and handing it back to the same worker, would lift that.
+ */
+fn secure_connection($taken, $listener, $rule, $handler, $options, $left) {
+    [$socket, $bytes, $state, $served, $accepted] = $taken;
+    $most = $options["requests_per_connection"];
+    if ($left != null) {
+        $most = min($most, $left);
+    }
+    $answered = 0;
+    $next = null;
+    $stopped = false;
+    try {
+        $address = remote_address($socket);
+        $secure = handshake($socket, $options, $accepted, $address);
+        $reader = Reader($socket);
+        $last = false;
+        while ($secure) {
+            $last = $last || $answered + 1 == $most;
+            $line = RequestLine();
+            start_reading($reader, $options, $answered == 0 ? $accepted : null);
+            $answer = answer($reader, $socket, $handler, $address, $options, $last, $line);
+            if ($answer == null) {
+                break;
+            }
+            [$response, $keep] = $answer;
+            $answered++;
+            $sent = send_quietly($socket, $response);
+            log_answer($options, $line, $address, $response, $reader);
+            if (!$sent || !$keep || $next != null) {
+                break;
+            }
+            // The empty line some clients send after a body is not a request coming
+            $reader.drop_empty_lines(MAX_EMPTY_LINES);
+            // A client that asks again at once keeps its worker without the master hearing of it
+            if ($reader.pending() || socket_wait([$socket], HOT_GAP) != null) {
+                continue;
+            }
+            $waited = worker_accept($listener, $rule, $socket, $options["idle_timeout"]);
+            if ($waited == null) {
+                $stopped = true;
+                break;
+            }
+            if ($waited == false) {
+                break;
+            }
+            if (type_of($waited) == "list") {
+                // A new client: this one gives way, but answers a request on its way first
+                $next = $waited;
+                if (socket_wait([$socket], YIELD_GRACE) == null) {
+                    break;
+                }
+                $last = true;
+            }
+        }
+    } finally {
+        // Handed another, this connection is no longer the one the master knows this worker holds
+        if ($next == null) {
+            worker_release($socket, null, $served + $answered);
+        } else {
+            socket_close($socket);
+        }
+    }
+    if ($stopped) {
+        return [$answered, null];
+    }
+    return [$answered, $next ?? worker_accept($listener, $rule)];
+}
+
 /**
  * One connection: its requests read and answered, and the connection closed, whatever happens
  */
@@ -833,8 +935,11 @@ fn connection($socket, $turns, $handler, $options, $left) {
     $answered = 0;
     $accepted = monotonic_time();
     try {
-        $reader = Reader($socket);
         $address = remote_address($socket);
+        if ($options["tls"] != null && !handshake($socket, $options, $accepted, $address)) {
+            return 0;
+        }
+        $reader = Reader($socket);
         $keep = true;
         while ($keep) {
             if ($answered > 0 && !another_request($reader, $socket, $turns, $options)) {
@@ -842,7 +947,8 @@ fn connection($socket, $turns, $handler, $options, $left) {
             }
             $last = $answered + 1 == $most || $turns.hands_over($accepted);
             $line = RequestLine();
-            start_reading($reader, $options);
+            // A connection's first request has its time from the accept, a handshake's included
+            start_reading($reader, $options, $answered == 0 ? $accepted : null);
             $answer = answer($reader, $socket, $handler, $address, $options, $last, $line);
             if ($answer == null) {
                 break;
@@ -859,6 +965,36 @@ fn connection($socket, $turns, $handler, $options, $left) {
         socket_close($socket);
     }
     return $answered;
+}
+
+/*
+ * TLS on a connection, before its first request, within the head's time from $accepted (the
+ * handshake is part of what a client must send at once): whether there is a request to read. Not
+ * when the time ran out or the client gave up, refused the certificate or spoke something else,
+ * which nobody would read an answer to; nor when it spoke plain HTTP, which is told to ask for
+ * https:// (PLAIN_ON_TLS) and logged, since that is a mistake someone is looking at.
+ */
+fn handshake($socket, $options, $accepted, $address) {
+    $left = $accepted + head_limit($options) - monotonic_time();
+    try {
+        $secure = $left > 0 ? socket_tls_accept($socket, $options["tls"], $left) : null;
+    } catch (Error $e) {
+        return false;
+    }
+    if ($secure == false) {
+        $bytes = write_response(plain(400, PLAIN_ON_TLS), false)[0];
+        send_quietly($socket, $bytes);
+        if ($options["access_log"]) {
+            $line = access_line(RequestLine(), $address, $bytes, monotonic_time() - $accepted, LogClock::now());
+            print_error($line .. "\n");
+        }
+    }
+    return $secure == true;
+}
+
+// The time a head may take: header_timeout, or request_timeout when that is null
+fn head_limit($options) {
+    return $options["header_timeout"] ?? $options["request_timeout"];
 }
 
 // The access log's line for a request answered, if the log is on
@@ -1003,7 +1139,7 @@ kind Turns {
  */
 fn answer($reader, $socket, $handler, $address, $options, $last, $line = RequestLine()) {
     try {
-        $read = read_request($reader, $socket, $address, $options["max_body"], $line);
+        $read = read_request($reader, $socket, $address, $options["max_body"], $line, $options["scheme"]);
     } catch (Error $e) {
         // Refused, cut off, timed out or malformed: say so, unless nothing came at all
         if (!$reader.heard_anything()) {
@@ -1021,7 +1157,7 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
     $limit = $options["handler_timeout"];
     try {
         // In the try, so anything it raises is a 500 rather than the end of the worker
-        set_deadline($socket, $limit, $head, $line, $address, $options["access_log"]);
+        set_deadline($socket, $limit, $head, $line, $address, $options["access_log"], $options["tls"] != null);
         return write_response($handler($request), $head, $close);
     } catch (Undecodable $e) {
         // The client's own request, which a decoder refused: a 400, and nothing for the log
@@ -1038,14 +1174,14 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
 }
 
 /*
- * The request's deadlines, from now, for a connection this process accepted: when the connection
- * is taken for its first request, and when the next one's first byte is seen (or the response
+ * The request's deadlines, from now (or $from), for a connection this process accepted: from its
+ * accept for its first request, and from when the next one's first byte is seen (or the response
  * before it is written, if it was already read) for the rest, since the wait between requests is
  * idle_timeout's. The head has "header_timeout", the whole request "request_timeout". Under
  * workers() the master keeps the head's and the idle times, and handed_request() sets the rest.
  */
-fn start_reading($reader, $options) {
-    $now = monotonic_time();
+fn start_reading($reader, $options, $from = null) {
+    $now = $from ?? monotonic_time();
     $deadline = $now + $options["request_timeout"];
     $head_limit = $options["header_timeout"];
     $reader.start($head_limit == null ? $deadline : $now + $head_limit, $deadline);
@@ -1057,13 +1193,14 @@ fn start_reading($reader, $options) {
  * master starts another (worker_deadline()). Nothing has been written to the client by then, since
  * connection() sends the response once answer() returns, so the 503 is the whole of what it hears.
  * Outside workers() it does nothing, there being nobody to start another worker; so too for
- * http::TestClient, which has no socket.
+ * http::TestClient, which has no socket. Over TLS the client is written nothing (encrypting is no
+ * thing for a signal handler to do) and sees the connection close; the line says 503 all the same.
  */
-fn set_deadline($socket, $limit, $head, $line, $address, $logged) {
+fn set_deadline($socket, $limit, $head, $line, $address, $logged, $secure) {
     if ($socket == null || $limit == null) {
         return;
     }
-    [$answer, $tail] = TimedOut::parts($head, $limit);
+    [$answer, $tail] = TimedOut::parts($head, $limit, $secure);
     $log = "";
     if ($logged) {
         // access_line() but for the tail, which is the same for every request with this limit
@@ -1088,20 +1225,21 @@ kind TimedOut {
     static #limit = null;
     static #made = {};
 
-    // [the 503's bytes, the end of its access line with its line end]
-    pub static fn parts($head, $limit) {
+    // [the 503's bytes, the end of its access line with its line end]; over TLS ($secure) nothing is written, so the line says 0 bytes
+    pub static fn parts($head, $limit, $secure = false) {
         if ($limit != #limit) {
             #limit = $limit;
             #made = {};
         }
-        $key = $head ? "HEAD" : "other";
-        #made[$key] ??= TimedOut::make($head, $limit);
+        $key = ($head ? "HEAD" : "other") .. ($secure ? " secure" : "");
+        #made[$key] ??= TimedOut::make($head, $limit, $secure);
         return #made[$key];
     }
 
-    static fn make($head, $limit) {
+    static fn make($head, $limit, $secure) {
         $answer = refusal(503, $head, false);
-        return [$answer, access_tail($answer, $limit) .. "\n"];
+        $written = $secure ? status_line(503) .. "\r\n\r\n" : $answer;
+        return [$answer, access_tail($written, $limit) .. "\n"];
     }
 }
 
@@ -1141,7 +1279,32 @@ fn server_options($given) {
         $range = "above 0 seconds and at most " .. LONGEST_HANDLER_TIMEOUT;
         throw "http::serve() expects a handler_timeout $range, or null, got " .. quote($limit);
     }
+    $options["tls"] = tls_options($options["tls"]);
+    // Not an option: what the request's "scheme" says, worked out once
+    $options["scheme"] = $options["tls"] == null ? "http" : "https";
     return $options;
+}
+
+/*
+ * The "tls" option as socket_tls_accept() takes it, the files read and checked now (socket_tls_server()),
+ * so a mistake in them shows when the server starts rather than at its first connection
+ */
+fn tls_options($given) {
+    if ($given == null) {
+        return null;
+    }
+    if (type_of($given) != "map") {
+        throw "http::serve() expects tls to be a map of certificate and key, got " .. type_of($given);
+    }
+    $tls = with_defaults("http::serve()'s tls", $given, TLS_OPTIONS);
+    foreach (["certificate", "key"] as $name) {
+        if (type_of($tls[$name]) != "string") {
+            throw "http::serve() expects tls's $name to be a file's path, got " .. quote($tls[$name]);
+        }
+    }
+    $tls = {"certificate" => $tls["certificate"], "key" => $tls["key"], "protocols" => ["http/1.1"]};
+    socket_tls_server($tls);
+    return $tls;
 }
 
 /*
@@ -1283,9 +1446,9 @@ fn remote_address($socket) {
 /*
  * The request on a connection from $address and whether its client would keep the connection
  * open after it, or null if it closed before sending anything; its method and target go into
- * $request_line as soon as they are read
+ * $request_line as soon as they are read, and $scheme ("http" or "https") into the request
  */
-fn read_request($reader, $socket, $address, $max_body, $request_line) {
+fn read_request($reader, $socket, $address, $max_body, $request_line, $scheme = "http") {
     $reader.skip_empty_lines(MAX_EMPTY_LINES);
     $head = $reader.line("\r\n\r\n", MAX_HEAD);
     if ($head == null) {
@@ -1334,6 +1497,7 @@ fn read_request($reader, $socket, $address, $max_body, $request_line) {
         "headers" => $headers,
         "body" => "",
         "remote_address" => $address,
+        "scheme" => $scheme,
     };
     $chunked = has_key($headers, "transfer-encoding");
     $length = has_key($headers, "content-length") ? content_length($headers["content-length"]) : 0;
@@ -3073,7 +3237,7 @@ fn same_origin($request) {
 
 // A test client: requests answered as http::serve() answers them, with no socket
 
-const TEST_CLIENT_OPTIONS = {"host" => "example.test", "remote_address" => "192.0.2.1", "max_body" => 1048576};
+const TEST_CLIENT_OPTIONS = {"host" => "example.test", "remote_address" => "192.0.2.1", "max_body" => 1048576, "scheme" => "http"};
 
 /**
  * A browser for one site, answered by $handler as http::serve() would answer it, with no server
@@ -3097,8 +3261,9 @@ const TEST_CLIENT_OPTIONS = {"host" => "example.test", "remote_address" => "192.
  * - A redirect is followed only when asked, with follow().
  * - $options: "host", the Host header sent ("example.test", a name kept for examples),
  *   "remote_address", the address the requests come from ("192.0.2.1", kept for documentation;
- *   null for a client the system no longer knows), and "max_body", as http::serve() takes it, so
- *   an app is tested against its own limit.
+ *   null for a client the system no longer knows), "max_body", as http::serve() takes it, so
+ *   an app is tested against its own limit, and "scheme", what the request's "scheme" says
+ *   ("http", or "https" for a handler that behaves differently over TLS).
  */
 pub kind TestClient {
     #handler;
@@ -3114,6 +3279,12 @@ pub kind TestClient {
         #handler = $handler;
         #options = with_defaults("http::TestClient()", $options, TEST_CLIENT_OPTIONS);
         #server_options = server_options({"max_body" => #options["max_body"]});
+        $scheme = #options["scheme"];
+        if ($scheme != "http" && $scheme != "https") {
+            throw "http::TestClient() expects a scheme of \"http\" or \"https\", got " .. quote($scheme);
+        }
+        // As a server with "tls" says it, without the TLS: the client and handler share no socket
+        #server_options["scheme"] = $scheme;
     }
 
     /**

@@ -1,11 +1,14 @@
 /*
  * Sockets: socket_open(), socket_read(), socket_write() and socket_close(), plain TCP or TLS, and
- * socket_listen(), socket_accept() and socket_port() for a server, plain TCP only (TLS is a proxy's
- * job in front of it), and socket_wait() for whichever of several has something to read.
+ * socket_listen(), socket_accept() and socket_port() for a server, with socket_tls_server(),
+ * socket_tls_accept() and socket_tls_protocol() for TLS on a connection it accepted, and
+ * socket_wait() for whichever of several has something to read.
  *
- * TLS is OpenSSL's, built in unless make is given TLS=0 (GAZ_TLS says which). It checks the
- * server's certificate against the system's trusted ones (or the file SSL_CERT_FILE names) and
- * against the host name, and speaks TLS 1.2 or later.
+ * TLS is OpenSSL's, built in unless make is given TLS=0 (GAZ_TLS says which), TLS 1.2 or later
+ * both ways. As a client it checks the server's certificate against the system's trusted ones (or
+ * the file SSL_CERT_FILE names) and against the host name; as a server it shows the certificate
+ * and key files a program names, read again when either changes, so a renewed certificate is used
+ * from the next connection on without a restart.
  */
 #include "gazvm.h"
 
@@ -16,14 +19,17 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
 #ifdef GAZ_TLS
 #include <openssl/err.h>
+#include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
 #endif
@@ -162,6 +168,442 @@ static bool tls_start(Socket *s, const char *host) {
 }
 #endif
 
+/* ---- TLS as a server: socket_tls_server(), socket_tls_accept() and socket_tls_protocol() ---- */
+
+/* What socket_tls_server() and socket_tls_accept() are given: the certificate's file (the whole
+   chain, as certbot's fullchain.pem is), the key's, and the protocols offered by ALPN, most wanted
+   first, in ALPN's own form (a length byte before each) */
+typedef struct {
+    char *certificate, *key;
+    unsigned char alpn[256];
+    size_t alpn_len;
+} TlsOptions;
+
+#define ALPN_MOST 255   /* bytes of the protocols list, as ALPN's own length byte says */
+
+/* A copy of a C string, to keep */
+static char *copy_text(const char *text) {
+    size_t len = strlen(text) + 1;
+    char *copy = xmalloc(len);
+    memcpy(copy, text, len);
+    return copy;
+}
+
+static void tls_options_free(TlsOptions *o) {
+    free(o->certificate);
+    free(o->key);
+}
+
+static Value *option_field(Map *m, const char *name) {
+    Value key = v_str(str_cstr(name));
+    Value *v = map_find(m, key);
+    decref(key);
+    return v;
+}
+
+/* A path from the options: a string with no NUL in it, copied so it can be given to the system */
+static char *option_path(Map *m, const char *who, const char *name) {
+    Value *v = option_field(m, name);
+    if (!v) {
+        raisef("%s() expects the options to name a %s file", who, name);
+        return NULL;
+    }
+    if (v->type != T_STRING || v->s->len == 0 || memchr(v->s->data, '\0', v->s->len)) {
+        raisef("%s() expects the %s to be a file's path, got %s", who, name, type_name(*v));
+        return NULL;
+    }
+    return copy_text(v->s->data);
+}
+
+/* The options map as TlsOptions, every key checked: "certificate" and "key" are required,
+   "protocols" a list of the ALPN names to offer, most wanted first (none: no ALPN) */
+static bool read_tls_options(Map *m, const char *who, TlsOptions *o) {
+    *o = (TlsOptions){0};
+    static const char *const KEYS[] = {"certificate", "key", "protocols"};
+    for (size_t i = 0; map_next(m, &i); i++) {
+        Value key = m->entries[i].key;
+        bool known = false;
+        for (size_t k = 0; k < sizeof KEYS / sizeof KEYS[0] && key.type == T_STRING; k++) {
+            known = known || (key.s->len == strlen(KEYS[k]) && memcmp(key.s->data, KEYS[k], key.s->len) == 0);
+        }
+        if (!known) {
+            Buf name = {0};
+            if (key.type == T_STRING) quote(key.s, &name);
+            else append_string(key, &name);
+            raisef("%s() has no option %s: only certificate, key and protocols", who, name.data);
+            free(name.data);
+            return false;
+        }
+    }
+    o->certificate = option_path(m, who, "certificate");
+    o->key = o->certificate ? option_path(m, who, "key") : NULL;
+    if (!o->key) {
+        tls_options_free(o);
+        return false;
+    }
+    Value *protocols = option_field(m, "protocols");
+    if (!protocols) return true;
+    if (protocols->type != T_LIST) {
+        tls_options_free(o);
+        return raisef("%s() expects the protocols to be a list of names, got %s", who, type_name(*protocols));
+    }
+    for (size_t i = 0; i < protocols->l->len; i++) {
+        Value p = protocols->l->items[i];
+        if (p.type != T_STRING || p.s->len == 0 || p.s->len > 255 || o->alpn_len + 1 + p.s->len > ALPN_MOST) {
+            tls_options_free(o);
+            return raisef("%s() expects the protocols to be names of 1 to 255 bytes, %d in all", who, ALPN_MOST);
+        }
+        o->alpn[o->alpn_len++] = (unsigned char)p.s->len;
+        memcpy(o->alpn + o->alpn_len, p.s->data, p.s->len);
+        o->alpn_len += p.s->len;
+    }
+    return true;
+}
+
+#ifdef GAZ_TLS
+/*
+ * The server's context, made by the first socket_tls_server() or socket_tls_accept() and kept: its
+ * files' identity when it was made (device, inode, size and time, so a renewed file is seen, and so
+ * is one swapped in by a rename or a symbolic link moved, which is how certbot renews), and the
+ * identity of a change that failed to make one, said once on standard error, the last good
+ * context being kept meanwhile (a certificate half written when a connection came). ponytail: one
+ * set of files: a program that alternated two would make a context at each change; a short table
+ * would lift that.
+ */
+typedef struct {
+    TlsOptions options;
+    struct stat certificate_seen, key_seen;
+    struct stat certificate_failed, key_failed;
+    bool failed;
+    SSL_CTX *ctx;
+} ServerTls;
+
+static ServerTls server_tls;
+
+/* The session ticket key every worker shares, so a client resumes its session with any of them
+   (net_before_workers()); drawn in the first process to need it otherwise */
+static unsigned char ticket_keys[80];
+static bool ticket_keys_drawn;
+
+static void draw_ticket_keys(void) {
+    if (ticket_keys_drawn) return;
+    Value bytes;
+    if (crypto_random_bytes(sizeof ticket_keys, &bytes)) {
+        memcpy(ticket_keys, bytes.s->data, sizeof ticket_keys);
+        decref(bytes);
+        ticket_keys_drawn = true;
+    }
+}
+
+static bool same_file(const struct stat *a, const struct stat *b) {
+    return a->st_dev == b->st_dev && a->st_ino == b->st_ino && a->st_size == b->st_size && a->st_mtime == b->st_mtime;
+}
+
+/* No passphrase: an encrypted key is refused, rather than OpenSSL asking for one on the terminal */
+static int no_passphrase(char *buf, int size, int rwflag, void *u) {
+    (void)buf; (void)size; (void)rwflag; (void)u;
+    return 0;
+}
+
+/* The ALPN protocol to speak: the first of the server's (in the context's ex data) the client
+   offers. One the client offers none of goes on without ALPN, which a client that asked only for
+   protocols the server lacks gives up on itself. */
+static int alpn_index = -1;
+
+static int choose_protocol(SSL *ssl, const unsigned char **out, unsigned char *outlen,
+                           const unsigned char *in, unsigned int inlen, void *arg) {
+    (void)arg;
+    TlsOptions *o = SSL_CTX_get_ex_data(SSL_get_SSL_CTX(ssl), alpn_index);
+    unsigned char *chosen;
+    if (!o || SSL_select_next_proto(&chosen, outlen, o->alpn, (unsigned int)o->alpn_len, in, inlen) != OPENSSL_NPN_NEGOTIATED) {
+        return SSL_TLSEXT_ERR_NOACK;
+    }
+    *out = chosen;
+    return SSL_TLSEXT_ERR_OK;
+}
+
+/* Freeing a context frees the protocols copy its ALPN choice reads */
+static void free_alpn(void *parent, void *ptr, CRYPTO_EX_DATA *ad, int idx, long argl, void *argp) {
+    (void)parent; (void)ad; (void)idx; (void)argl; (void)argp;
+    if (ptr) {
+        tls_options_free(ptr);
+        free(ptr);
+    }
+}
+
+/* Whether a file holds an encrypted key: PEM says so on its first lines */
+static bool encrypted_key(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return false;
+    char line[256];
+    bool encrypted = false;
+    for (int n = 0; n < 4 && fgets(line, sizeof line, f); n++) {
+        encrypted = encrypted || strstr(line, "ENCRYPTED") != NULL;
+    }
+    fclose(f);
+    return encrypted;
+}
+
+/*
+ * A server context for o, or NULL with why in *why. Each failure is said in gaz's own words, not
+ * OpenSSL's, whose reasons differ between its versions.
+ */
+static SSL_CTX *make_server_ctx(const TlsOptions *o, Buf *why) {
+    if (access(o->certificate, R_OK) != 0) {
+        buf_addf(why, "Cannot read the certificate %s: %s", o->certificate, strerror(errno));
+        return NULL;
+    }
+    if (access(o->key, R_OK) != 0) {
+        buf_addf(why, "Cannot read the private key %s: %s", o->key, strerror(errno));
+        return NULL;
+    }
+    ERR_clear_error();
+    SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
+    if (!ctx) {
+        buf_adds(why, "TLS error: OpenSSL could not start");
+        return NULL;
+    }
+    SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+    SSL_CTX_set_options(ctx, SSL_OP_NO_RENEGOTIATION | SSL_OP_CIPHER_SERVER_PREFERENCE);
+    SSL_CTX_set_default_passwd_cb(ctx, no_passphrase);
+    if (SSL_CTX_use_certificate_chain_file(ctx, o->certificate) != 1) {
+        buf_addf(why, "The certificate %s holds no certificate gaz can read", o->certificate);
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+    FILE *f = fopen(o->key, "r");
+    EVP_PKEY *key = f ? PEM_read_PrivateKey(f, NULL, no_passphrase, NULL) : NULL;
+    if (f) fclose(f);
+    if (!key) {
+        if (encrypted_key(o->key)) buf_addf(why, "The private key %s is encrypted: gaz takes an unencrypted key", o->key);
+        else buf_addf(why, "The private key %s holds no private key gaz can read", o->key);
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+    bool used = SSL_CTX_use_PrivateKey(ctx, key) == 1 && SSL_CTX_check_private_key(ctx) == 1;
+    EVP_PKEY_free(key);
+    if (!used) {
+        buf_addf(why, "The certificate %s and the private key %s don't match", o->certificate, o->key);
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+    draw_ticket_keys();
+    if (ticket_keys_drawn) SSL_CTX_set_tlsext_ticket_keys(ctx, ticket_keys, sizeof ticket_keys);
+    if (o->alpn_len > 0) {
+        if (alpn_index < 0) alpn_index = SSL_CTX_get_ex_new_index(0, NULL, NULL, NULL, free_alpn);
+        TlsOptions *copy = xmalloc(sizeof *copy);
+        *copy = *o;
+        copy->certificate = copy_text(o->certificate);
+        copy->key = copy_text(o->key);
+        SSL_CTX_set_ex_data(ctx, alpn_index, copy);
+        SSL_CTX_set_alpn_select_cb(ctx, choose_protocol, NULL);
+    }
+    ERR_clear_error();
+    return ctx;
+}
+
+static bool same_options(const TlsOptions *a, const TlsOptions *b) {
+    return strcmp(a->certificate, b->certificate) == 0 && strcmp(a->key, b->key) == 0
+        && a->alpn_len == b->alpn_len && memcmp(a->alpn, b->alpn, a->alpn_len) == 0;
+}
+
+/*
+ * The context for o (which this takes over): the one kept, made again if a file changed since; a
+ * change that can't be made into one keeps the last good one, said once on standard error. NULL,
+ * with the reason raised, when there is no good one to keep.
+ */
+static SSL_CTX *server_ctx(TlsOptions *o) {
+    struct stat certificate, key;
+    bool seen = stat(o->certificate, &certificate) == 0 && stat(o->key, &key) == 0;
+    ServerTls *t = &server_tls;
+    bool kept = t->ctx && same_options(&t->options, o);
+    if (kept && seen && same_file(&certificate, &t->certificate_seen) && same_file(&key, &t->key_seen)) {
+        tls_options_free(o);
+        return t->ctx;
+    }
+    if (kept && t->failed && seen && same_file(&certificate, &t->certificate_failed) && same_file(&key, &t->key_failed)) {
+        tls_options_free(o);
+        return t->ctx;
+    }
+    Buf why = {0};
+    SSL_CTX *ctx = make_server_ctx(o, &why);
+    if (!ctx && kept) {
+        fprintf(stderr, "gaz: %s; still using the certificate read before\n", why.data);
+        free(why.data);
+        t->failed = seen;
+        if (seen) {
+            t->certificate_failed = certificate;
+            t->key_failed = key;
+        }
+        tls_options_free(o);
+        return t->ctx;
+    }
+    if (!ctx) {
+        raisef("%s", why.data);
+        free(why.data);
+        tls_options_free(o);
+        return NULL;
+    }
+    /* A connection made with the old context keeps it: SSL_new() took a reference */
+    if (t->ctx) SSL_CTX_free(t->ctx);
+    tls_options_free(&t->options);
+    *t = (ServerTls){.options = *o, .ctx = ctx};
+    if (seen) {
+        t->certificate_seen = certificate;
+        t->key_seen = key;
+    }
+    return ctx;
+}
+
+/* Why a server's handshake failed, in gaz's words where they matter to someone looking: the client
+   refusing the certificate is the commonest first-run trouble (a self-signed one) */
+static const char *handshake_failure(SSL *ssl, int ret) {
+    int e = SSL_get_error(ssl, ret);
+    unsigned long code = ERR_peek_last_error();
+    int reason = ERR_GET_REASON(code);
+    if (reason == SSL_R_TLSV1_ALERT_UNKNOWN_CA || reason == SSL_R_SSLV3_ALERT_BAD_CERTIFICATE
+        || reason == SSL_R_SSLV3_ALERT_CERTIFICATE_UNKNOWN || reason == SSL_R_SSLV3_ALERT_CERTIFICATE_EXPIRED) {
+        return "the client refused the certificate";
+    }
+#ifdef SSL_R_UNEXPECTED_EOF_WHILE_READING
+    /* OpenSSL 3 names a hang-up; 1.1 left it a system error with nothing in errno */
+    if (reason == SSL_R_UNEXPECTED_EOF_WHILE_READING) return "the connection closed during the handshake";
+#endif
+    if (code == 0 && (e == SSL_ERROR_SYSCALL || e == SSL_ERROR_ZERO_RETURN)) return "the connection closed during the handshake";
+    if (code == 0) return errno ? strerror(errno) : "the connection closed during the handshake";
+    return ERR_reason_error_string(code) ? ERR_reason_error_string(code) : "unknown error";
+}
+
+static int ms_until(double deadline);
+
+/* SSL_accept() within ms, the descriptor non-blocking for this call alone (as tls_read_within()
+   reads): 1 done, 0 out of time, -1 failed (*ret and errno say why) */
+static int tls_accept_within(Socket *s, SSL *ssl, int ms, int *ret) {
+    double deadline = monotonic_seconds() + ms / 1000.0;
+    int flags = fcntl(s->fd, F_GETFL);
+    fcntl(s->fd, F_SETFL, flags | O_NONBLOCK);
+    int result;
+    for (;;) {
+        ERR_clear_error();
+        errno = 0;
+        *ret = SSL_accept(ssl);
+        if (*ret == 1) {
+            result = 1;
+            break;
+        }
+        int e = SSL_get_error(ssl, *ret);
+        if (e != SSL_ERROR_WANT_READ && e != SSL_ERROR_WANT_WRITE) {
+            result = -1;
+            break;
+        }
+        int left = ms_until(deadline);
+        struct pollfd p = {.fd = s->fd, .events = e == SSL_ERROR_WANT_READ ? POLLIN : POLLOUT};
+        /* An interrupted poll() goes round again: SSL_accept() asks once more, and poll() waits for what is left */
+        if (left == 0 || poll(&p, 1, left) == 0) {
+            result = 0;
+            break;
+        }
+    }
+    int saved = errno;
+    fcntl(s->fd, F_SETFL, flags);
+    errno = saved;
+    return result;
+}
+#endif
+
+/* Before workers(): the session ticket key drawn once, so every worker has the same one */
+void net_before_workers(void) {
+#ifdef GAZ_TLS
+    draw_ticket_keys();
+#endif
+}
+
+/* socket_tls_server($options): the certificate and key read and checked now, so a mistake in them
+   shows when a server starts rather than at its first connection; socket_tls_accept() then uses
+   what was read, until the files change */
+bool net_tls_server(Map *options, Value *out) {
+    TlsOptions o;
+    if (!read_tls_options(options, "socket_tls_server", &o)) return false;
+#ifdef GAZ_TLS
+    if (!server_ctx(&o)) return false;
+    *out = v_null();
+    return true;
+#else
+    tls_options_free(&o);
+    (void)out;
+    return raisef("TLS is not built in: this gaz was built with make TLS=0");
+#endif
+}
+
+/*
+ * socket_tls_accept($socket, $options, $seconds): TLS on a connection socket_accept() (or
+ * worker_accept()) gave, the server's side of the handshake, which has $seconds. True once it
+ * speaks TLS; null if the time ran out; false if the client spoke plain HTTP to it, which leaves
+ * the socket plain and open for an answer saying so. Anything else (the client gave up, refused
+ * the certificate, or spoke neither) is an error.
+ */
+bool net_tls_accept(Socket *s, Map *options, double seconds, Value *out) {
+    if (s->fd < 0) return raisef("socket_tls_accept() on a closed socket");
+    if (s->listening) return raisef("socket_tls_accept() on a listening socket: socket_accept() a connection");
+    if (s->owner != vm_process) return refuse_inherited("socket_tls_accept", "socket");
+    if (s->tls) return raisef("socket_tls_accept() on a connection that already speaks TLS");
+    TlsOptions o;
+    if (!read_tls_options(options, "socket_tls_accept", &o)) return false;
+#ifdef GAZ_TLS
+    SSL_CTX *ctx = server_ctx(&o);
+    if (!ctx) return false;
+    SSL *ssl = SSL_new(ctx);
+    if (!ssl) return raisef("TLS error: OpenSSL could not start");
+    SSL_set_fd(ssl, s->fd);
+    sigpipe_ignore();
+    int ret;
+    int done = tls_accept_within(s, ssl, to_ms(seconds), &ret);
+    sigpipe_restore();
+    if (done == 1) {
+        s->tls = ssl;
+        *out = v_bool(true);
+        return true;
+    }
+    if (done == 0) {
+        SSL_free(ssl);
+        *out = v_null();
+        return true;
+    }
+    if (ERR_GET_REASON(ERR_peek_last_error()) == SSL_R_HTTP_REQUEST) {
+        SSL_free(ssl);
+        ERR_clear_error();
+        *out = v_bool(false);
+        return true;
+    }
+    bool ok = raisef("TLS error: %s", handshake_failure(ssl, ret));
+    SSL_free(ssl);
+    ERR_clear_error();
+    return ok;
+#else
+    tls_options_free(&o);
+    (void)seconds;
+    (void)out;
+    return raisef("TLS is not built in: this gaz was built with make TLS=0");
+#endif
+}
+
+/* socket_tls_protocol($socket): the protocol ALPN chose on a connection socket_tls_accept() made
+   speak TLS ("h2", "http/1.1"), or null when the client offered none the server has, or none at all */
+bool net_tls_protocol(Socket *s, Value *out) {
+    if (s->fd < 0) return raisef("socket_tls_protocol() on a closed socket");
+    if (s->owner != vm_process) return refuse_inherited("socket_tls_protocol", "socket");
+    if (!s->tls) return raisef("socket_tls_protocol() on a connection that doesn't speak TLS");
+#ifdef GAZ_TLS
+    const unsigned char *name;
+    unsigned int len;
+    SSL_get0_alpn_selected(s->tls, &name, &len);
+    *out = len == 0 ? v_null() : v_str(str_new((const char *)name, len));
+#else
+    *out = v_null();
+#endif
+    return true;
+}
+
 static Socket *socket_new(int fd, bool listening, int ms) {
     Socket *s = xmalloc(sizeof *s);
     counted++;
@@ -294,7 +736,7 @@ double monotonic_seconds(void) {
 }
 
 /* Whether a socket has bytes OpenSSL has already decrypted, which poll() can't see */
-static bool tls_pending(Socket *s) {
+bool net_pending(Socket *s) {
 #ifdef GAZ_TLS
     if (s->tls) return SSL_pending(s->tls) > 0;
 #else
@@ -337,7 +779,7 @@ bool net_wait(List *sockets, double seconds, Value *out) {
         }
         bool any_pending = false;
         for (size_t i = 0; i < n; i++) {
-            pending[i] = tls_pending(sockets->items[i].sock);
+            pending[i] = net_pending(sockets->items[i].sock);
             any_pending = any_pending || pending[i];
         }
         double left = deadline - monotonic_seconds();

@@ -1,0 +1,64 @@
+/*
+ * socket_tls_server(), socket_tls_accept() and socket_tls_protocol(): what they refuse, and the
+ * handshakes one process can see both ends of (a client that speaks plain HTTP, says nothing, or
+ * hangs up); a real TLS client is HttpTlsTest's, since a handshake needs both ends at once
+ */
+import "std/test.gaz" use expect, throws;
+
+const CERTIFICATE = "tests/fixtures/tls/cert.pem";
+const KEY = "tests/fixtures/tls/server.pem";
+const TLS = {"certificate" => CERTIFICATE, "key" => KEY};
+
+expect("a certificate and its key are read and checked", socket_tls_server(TLS), null);
+expect("with the protocols ALPN offers", socket_tls_server({...TLS, "protocols" => ["h2", "http/1.1"]}), null);
+
+throws("a key is needed", () -> socket_tls_server({"certificate" => CERTIFICATE}), "socket_tls_server() expects the options to name a key file");
+throws("and a certificate", () -> socket_tls_server({"key" => KEY}), "socket_tls_server() expects the options to name a certificate file");
+throws("a path is a string", () -> socket_tls_server({"certificate" => 5, "key" => KEY}), "socket_tls_server() expects the certificate to be a file's path, got int");
+throws("an unknown option is refused", () -> socket_tls_server({...TLS, "client_ca" => "ca.pem"}), "socket_tls_server() has no option \"client_ca\": only certificate, key and protocols");
+throws("a file that isn't there", () -> socket_tls_server({"certificate" => "tests/fixtures/tls/none.pem", "key" => KEY}), "Cannot read the certificate tests/fixtures/tls/none.pem: No such file or directory");
+throws("a key that isn't there", () -> socket_tls_server({"certificate" => CERTIFICATE, "key" => "tests/fixtures/tls/none.pem"}), "Cannot read the private key tests/fixtures/tls/none.pem: No such file or directory");
+throws("a file with no certificate in it", () -> socket_tls_server({"certificate" => "tests/fixtures/tls/../../gaz/sockets/tls_server_test.gaz", "key" => KEY}), "The certificate tests/fixtures/tls/../../gaz/sockets/tls_server_test.gaz holds no certificate gaz can read");
+throws("a certificate given as the key", () -> socket_tls_server({"certificate" => CERTIFICATE, "key" => CERTIFICATE}), "The private key tests/fixtures/tls/cert.pem holds no private key gaz can read");
+throws("protocols are a list", () -> socket_tls_server({...TLS, "protocols" => "h2"}), "socket_tls_server() expects the protocols to be a list of names, got string");
+throws("of names", () -> socket_tls_server({...TLS, "protocols" => [""]}), "socket_tls_server() expects the protocols to be names of 1 to 255 bytes, 255 in all");
+throws("options are a map", () -> socket_tls_server([CERTIFICATE, KEY]), "socket_tls_server() expects map, got list");
+
+$listener = socket_listen("127.0.0.1", 0);
+$port = socket_port($listener);
+
+// A connection, its client's end and this server's
+fn connection($listener, $port) {
+    $client = socket_open("127.0.0.1", $port);
+    return [$client, socket_accept($listener)];
+}
+
+[$client, $served] = connection($listener, $port);
+socket_write($client, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
+expect("a client that speaks plain HTTP gets false", socket_tls_accept($served, TLS, 2), false);
+socket_write($served, "plain");
+expect("and the connection is left plain and open for an answer", socket_read($client), "plain");
+throws("one that isn't TLS has no protocol", () -> socket_tls_protocol($served), "socket_tls_protocol() on a connection that doesn't speak TLS");
+socket_close($client);
+socket_close($served);
+
+[$client, $served] = connection($listener, $port);
+$started = monotonic_time();
+expect("a client that says nothing gets null once the time runs out", socket_tls_accept($served, TLS, 0.2), null);
+expect("which it waits for, and no longer", [monotonic_time() - $started >= 0.2, monotonic_time() - $started < 2], [true, true]);
+socket_close($client);
+socket_close($served);
+
+[$client, $served] = connection($listener, $port);
+socket_close($client);
+throws("a client that hangs up is an error", () -> socket_tls_accept($served, TLS, 2), "TLS error: the connection closed during the handshake");
+socket_close($served);
+
+[$client, $served] = connection($listener, $port);
+throws("the seconds are above 0", () -> socket_tls_accept($served, TLS, 0), "socket_tls_accept() expects a timeout above 0 seconds");
+throws("the options are checked as socket_tls_server() checks them", () -> socket_tls_accept($served, {"certificate" => CERTIFICATE}, 1), "socket_tls_accept() expects the options to name a key file");
+throws("a listener has no handshake", () -> socket_tls_accept($listener, TLS, 1), "socket_tls_accept() on a listening socket: socket_accept() a connection");
+socket_close($served);
+throws("nor a closed connection", () -> socket_tls_accept($served, TLS, 1), "socket_tls_accept() on a closed socket");
+throws("nor a closed one's protocol", () -> socket_tls_protocol($served), "socket_tls_protocol() on a closed socket");
+socket_close($client);

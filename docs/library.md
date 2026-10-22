@@ -171,7 +171,19 @@ own](http.md).
   `tests/gaz/workers/handed_test.gaz`. `worker_deadline()` is the handler's deadline's (see [HTTP](http.md#the-handlers-deadline)):
   a SIGALRM timer whose handler writes what it was given and ends the worker, a no-op giving `false`
   outside a worker, since a single process has nobody to start another; it still checks its socket
-  (open, a connection, plain TCP, this process's) and seconds there. `HttpTest` trusts `tests/fixtures/tls/` through
+  (open, a connection, this process's) and seconds there, and writes a TLS connection nothing
+  (`SSL_write()` isn't async-signal-safe). **Server-side TLS** (`socket_tls_server()`,
+  `socket_tls_accept()`, `socket_tls_protocol()`, see [HTTP](http.md#tls)) is OpenSSL's in `net.c`
+  too: one context, made from the files when first asked and again when they change (device,
+  inode, size and time, so a renewal by a moved symbolic link is seen), TLS 1.2 or later, no
+  renegotiation, ALPN from the options' `"protocols"` (the server's order wins, and a client
+  offering none of them goes on without ALPN), a session ticket key drawn before `workers()`. The
+  handshake is non-blocking for its own call with `poll()` for what is left of `$seconds`, as
+  `tls_read_within()` reads, so a stall ends at the deadline; a client speaking plain HTTP
+  (`SSL_R_HTTP_REQUEST`) gives `false` with the connection left plain, and the errors are in gaz's
+  words where someone looking needs them (`the client refused the certificate`, `the connection
+  closed during the handshake`, OpenSSL 3's `unexpected eof` included), since OpenSSL's differ
+  between versions. Each needs a TLS build; `make TLS=0` makes all three the usual error. `HttpTest` trusts `tests/fixtures/tls/` through
   `SSL_CERT_FILE`; an IP is checked as an address, with no SNI. SIGPIPE is ignored around each
   call and put back after, as curl does: per socket only macOS can turn it off, and ignoring it for
   good would change what a program writing to a closed pipe does. OpenSSL reports a socket timeout

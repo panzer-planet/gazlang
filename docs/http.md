@@ -232,10 +232,8 @@ for the same reason.
 - **The master's own descriptors stay its own**: a worker forked later closes every one it
   inherits (the channels, the table's connections, the master's copy of the listener) in
   `pool_free()`, or a connection the master closed would stay open in it.
-- **TLS listeners (#5)**: when `http::serve()` terminates TLS, a TLS listener's connections are
-  to be dispatched at accept, unread, the worker handshaking and reading its head under its own
-  `header_timeout`; slow-client protection for TLS is then the reverse proxy's (or a later kTLS on
-  Linux). Not built, as server-side TLS isn't.
+- **TLS connections are handed over at accept, unread** (see [TLS](#tls) below): the master can't
+  read a TLS stream, and a session can't move to another process.
 - **A single process is unchanged**: `worker_accept()` gives false outside a worker, as
   `worker_retire()` does, and `serve()` branches once on it: `gaz -S`, `http::handle()`,
   `http::TestClient` and `serve()` without `workers()` accept their own connections and keep the
@@ -251,6 +249,70 @@ for the same reason.
   sanitizers with the slow clients, refused heads, pipelining and random bytes, which a planted
   overflow fails), `tests/gaz/workers/handed_test.gaz` (a worker's side without `http::serve()`)
   and `tests/gaz/lib/http_master_test.gaz` (both builtins outside a worker, and what they refuse).
+
+### TLS
+
+**`http::serve()`'s `"tls"` ends TLS in the worker**, OpenSSL's, in `net.c`
+(`socket_tls_server()`, `socket_tls_accept()`, `socket_tls_protocol()`). Not in the master: it
+could never pass a descriptor again, would relay every byte of every request and response, and is
+one process, near a core already at 40000 plain requests a second. Not kTLS, which would let the
+master read plaintext heads from a descriptor carrying the session: Linux only (and only with a
+libssl built for it), while two of CI's three platforms are macOS; it is the Linux upgrade path.
+
+- **The master hands a TLS connection over at its accept** (the rule's `"at_accept"`): a `C` with
+  no bytes, its first byte's time the accept's, so the worker's handshake and head have
+  `header_timeout` from the accept, as a plain head has in the master. So a client slow to finish
+  its handshake holds a worker for up to `header_timeout`, which plain HTTP's master spares; under
+  load, as for slow bodies, that is a buffering proxy's to absorb.
+- **Between requests the worker keeps the connection**, since its session can't go back to the
+  master: after a response it gives its client `HOT_GAP` to ask again (a busy client keeps its
+  worker without the master hearing of it), then waits on the connection and its channel together
+  (`worker_accept($listener, $rule, $idle, $seconds)`), having told the master it waits, with
+  `FLAG_HOLDS` on its `W`. Its own client's next request, or a connection the master hands it, is
+  answered first; on a new connection the idle client gives way, with `YIELD_GRACE` to speak first
+  (a request that comes is answered with `Connection: close`), as an idle close does in a single
+  process. **The master hands a new connection to a free worker before one keeping a client**, and
+  of those to the one whose client has waited longest, the least likely to be about to speak.
+- **A worker whose client speaks first withdraws** (`B`): the master counted it waiting, and may
+  have handed it a connection meanwhile. It answers a `B` with `N` if it hadn't, and otherwise the
+  connection it handed over is the answer, which the worker's next `worker_accept()` takes; nothing
+  else is sent until the answer is read (a `worker_release()` doesn't ask again while one is
+  outstanding), so the master still sends a worker only what it asked for, one message at a time.
+- **The handshake's refusals are quiet**: a client that gives up, says nothing until the head's
+  time is up, refuses the certificate or speaks neither TLS nor HTTP gets nothing and no log line,
+  as a quiet plain connection gets none; one that speaks plain HTTP (OpenSSL's `SSL_R_HTTP_REQUEST`,
+  which leaves the connection plain) is answered 400 saying to ask for `https://`, and logged with
+  `- -` for the method and target, which the handshake's reading took.
+- **The files are read when the server starts** (`server_options()` calls `socket_tls_server()`),
+  so a missing file, a key that is encrypted or doesn't match is the program's error at once, in
+  gaz's words, not OpenSSL's, whose reasons differ between versions. **A renewed certificate is
+  read again** at the next handshake: each `socket_tls_accept()` compares both files' device, inode,
+  size and time with the context's, which a certbot renewal (a symbolic link moved) changes; one
+  that can't be read (half written) keeps the last good context, said once on standard error.
+  `ponytail:` one set of files is kept; a program alternating two would make a context at each change.
+- **A session ticket key drawn once before `workers()`** (`net_before_workers()`), so a client
+  resumes its session with whichever worker it reaches; rotated only by a restart.
+- **The handler deadline over TLS writes nothing**: `SSL_write()` isn't async-signal-safe, so
+  `worker_deadline()` takes a TLS socket and gives its client the connection's close; the access
+  line still says 503, with 0 bytes.
+- `$request["scheme"]` is `"https"`; `Secure` cookies and `Strict-Transport-Security` stay the
+  program's to ask for (`http::sessions($secret, {"secure" => true})`,
+  `http::security_headers({"Strict-Transport-Security" => "max-age=31536000"})`), since `serve()`
+  can't know whether a proxy in front of a plain one ends TLS.
+- Measured with wrk on a trivial handler, four workers, keep-alive: four connections, 35700
+  requests a second (a hot TLS connection never goes back to the master, so it beats plain HTTP's
+  34500); sixteen, 21600; sixty-four, 16200, with no socket errors and a 99th percentile under
+  0.4ms. Before the hot-client and give-way graces, sixteen connections measured thousands of read
+  errors: every response let a waiting connection close a busy one as its next request was sent.
+  `ponytail:` under steady contention every new connection closes an idle one, so TLS clients make
+  more handshakes than plain ones; parking the session in the worker while the master watches the
+  bare descriptor, and handing it back to the same worker, would lift that.
+- Tested by `tests/gaz/sockets/tls_server_test.gaz` (the builtins' refusals, and the handshakes one
+  process sees both ends of), `tests/gaz/lib/http_tls_options_test.gaz` (the option's refusals) and
+  `HttpTlsTest`, over PHP's TLS streams and curl, in one process and under workers: keep-alive, the
+  plain-HTTP 400, a stalled handshake, idle clients giving way to a new one and a free worker taken
+  first, a renewed certificate and a half-written one, the deadline, a stop while idle, and a
+  pooled run under the sanitizers; each was broken on purpose and caught.
 
 ### Requests and connections
 
@@ -345,7 +407,8 @@ for the same reason.
   over at the end of its head, and the body is the worker's to read. `ponytail:` the master
   buffering bodies up to `max_body` would lift that (a buffering proxy covers it today).
 - **In production, run behind a reverse proxy that buffers whole requests** all the same (nginx's
-  default `proxy_request_buffering`, Caddy): it covers slow bodies, and TLS is the proxy's job.
+  default `proxy_request_buffering`, Caddy): it covers slow bodies, and slow TLS handshakes, which
+  hold a worker when `serve()` ends TLS itself.
   A single process (`gaz -S`, `serve()` without `workers()`) reads its own requests, so there a
   client trickling its headers holds it for up to `header_timeout`, one trickling a body for up to
   `request_timeout`; one that sent part of a request is answered 408 (400 if it was quiet past the

@@ -1,0 +1,24 @@
+ok a certificate and its key are read and checked
+ok with the protocols ALPN offers
+ok a key is needed
+ok and a certificate
+ok a path is a string
+ok an unknown option is refused
+ok a file that isn't there
+ok a key that isn't there
+ok a file with no certificate in it
+ok a certificate given as the key
+ok protocols are a list
+ok of names
+ok options are a map
+ok a client that speaks plain HTTP gets false
+ok and the connection is left plain and open for an answer
+ok one that isn't TLS has no protocol
+ok a client that says nothing gets null once the time runs out
+ok which it waits for, and no longer
+ok a client that hangs up is an error
+ok the seconds are above 0
+ok the options are checked as socket_tls_server() checks them
+ok a listener has no handshake
+ok nor a closed connection
+ok nor a closed one's protocol

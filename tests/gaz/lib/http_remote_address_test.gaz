@@ -16,6 +16,7 @@ http::handle($served, $request -> {
 }, {"access_log" => false});
 
 expect("the handler is given the client's address", $seen["remote_address"], "127.0.0.1");
-expect("it is the last key, after the ones that were always there", keys($seen), ["method", "path", "query", "headers", "body", "remote_address"]);
+expect("it comes after the ones that were always there", keys($seen), ["method", "path", "query", "headers", "body", "remote_address", "scheme"]);
+expect("and a server without TLS says http", $seen["scheme"], "http");
 expect("the rest of the request is as before", [$seen["method"], $seen["path"], $seen["headers"]], ["GET", "/who", {"host" => "example.test", "connection" => "close"}]);
 expect("and the client got its answer", contains(socket_read($client), "200 OK"), true);

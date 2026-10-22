@@ -73,10 +73,11 @@ const BuiltinInfo builtin_info[] = {
     {"chmod", 2, 2}, {"symlink", 2, 2}, {"readlink", 1, 1}, {"file_sync", 1, 1}, {"sync_dir", 1, 1},
     {"file_truncate", 2, 2}, {"set_mtime", 2, 2}, {"chdir", 1, 1},
     {"worker_retire", 0, 0}, {"worker_deadline", 2, 4},
-    {"worker_accept", 2, 2}, {"worker_release", 2, 3},
+    {"worker_accept", 2, 4}, {"worker_release", 2, 3},
     {"db_error", 1, 1},
     {"main_dir", 0, 0},
     {"utf8_upper", 1, 1}, {"utf8_lower", 1, 1}, {"utf8_fold", 1, 1}, {"utf8_slice", 2, 3},
+    {"socket_tls_server", 1, 1}, {"socket_tls_accept", 2, 3}, {"socket_tls_protocol", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -112,6 +113,7 @@ enum {
     B_DB_ERROR,
     B_MAIN_DIR,
     B_UTF8_UPPER, B_UTF8_LOWER, B_UTF8_FOLD, B_UTF8_SLICE,
+    B_SOCKET_TLS_SERVER, B_SOCKET_TLS_ACCEPT, B_SOCKET_TLS_PROTOCOL,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -2106,6 +2108,20 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_SOCKET_PEER:
         if (!want(index, a, M(T_SOCKET))) return false;
         return net_peer(a.sock, out);
+    case B_SOCKET_TLS_SERVER:
+        /* socket_tls_server($options): see net.c */
+        if (!want(index, a, M(T_MAP))) return false;
+        return net_tls_server(a.m, out);
+    case B_SOCKET_TLS_ACCEPT: {
+        /* socket_tls_accept($socket, $options, $seconds = the socket's own timeout): see net.c */
+        if (!want(index, a, M(T_SOCKET)) || !want(index, b, M(T_MAP)) || (argc > 2 && !want(index, c, INT | M(T_FLOAT)))) return false;
+        double seconds = argc < 3 ? a.sock->timeout_ms / 1000.0 : c.type == T_INT ? (double)c.i : c.f;
+        if (!(seconds > 0)) return raisef("socket_tls_accept() expects a timeout above 0 seconds");
+        return net_tls_accept(a.sock, b.m, seconds, out);
+    }
+    case B_SOCKET_TLS_PROTOCOL:
+        if (!want(index, a, M(T_SOCKET))) return false;
+        return net_tls_protocol(a.sock, out);
     case B_SOCKET_WAIT: {
         if (!want(index, a, M(T_LIST)) || !want(index, b, INT | M(T_FLOAT))) return false;
         double seconds = b.type == T_INT ? (double)b.i : b.f;
@@ -2432,16 +2448,26 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         Socket *s = a.sock;
         if (s->fd < 0) return raisef("worker_deadline() on a closed socket");
         if (s->listening) return raisef("worker_deadline() on a listening socket: socket_accept() a connection");
-        if (s->tls) return raisef("worker_deadline() on a TLS connection, which it can't write to");
         if (s->owner != vm_process) return refuse_inherited("worker_deadline", "socket");
+        /* A TLS connection gets no answer: encrypting one isn't a thing a signal handler may do
+           (SSL_write() isn't async-signal-safe), so its client sees the connection close */
+        if (s->tls) answer = NULL;
         *out = v_bool(worker_deadline(s->fd, seconds, answer, line));
         return true;
     }
-    case B_WORKER_ACCEPT:
-        /* worker_accept($listener, $rule): see workers.c. Checked in a single process too, where
-           it gives false, so a mistake shows before the program meets workers() */
-        if (!want(index, a, M(T_SOCKET)) || !want(index, b, M(T_MAP))) return false;
-        return worker_accept(a.sock, b.m, out);
+    case B_WORKER_ACCEPT: {
+        /* worker_accept($listener, $rule, $idle = null, $seconds = null): see workers.c. Checked in
+           a single process too, where it gives false, so a mistake shows before the program meets
+           workers() */
+        Value idle = argc > 2 ? c : v_null(), seconds = argc > 3 ? args[3] : v_null();
+        if (!want(index, a, M(T_SOCKET)) || !want(index, b, M(T_MAP)) || !want(index, idle, M(T_SOCKET) | M(T_NULL))
+            || !want(index, seconds, INT | M(T_FLOAT) | M(T_NULL))) return false;
+        if ((idle.type == T_NULL) != (seconds.type == T_NULL)) {
+            return raisef("worker_accept() expects a connection to keep and seconds to keep it for, or neither");
+        }
+        double wait = seconds.type == T_INT ? (double)seconds.i : seconds.type == T_FLOAT ? seconds.f : 0;
+        return worker_accept(a.sock, b.m, idle.type == T_SOCKET ? idle.sock : NULL, wait, out);
+    }
     case B_WORKER_RELEASE:
         /* worker_release($socket, $bytes, $served = 0): see workers.c */
         if (!want(index, a, M(T_SOCKET)) || !want(index, b, STRING | M(T_NULL)) || (argc > 2 && !want(index, c, INT))) return false;

@@ -59,4 +59,7 @@ ok a relative query is read against the last request
 ok a relative path
 ok this site's origin alone
 ok an option it doesn't have
+ok a request's scheme is http
+ok or https, for a handler that behaves differently over TLS
+ok and nothing else
 http::serve: GET /broken: the handler raised 42

@@ -293,10 +293,24 @@ bool worker_deadline(int fd, double seconds, Str *answer, Str *line) {
  *                         and the count of requests served on it, but not its descriptor, since
  *                         the master still holds its own copy; with FLAG_WAITS, as it always
  *                         has (a W folded in, saving a message each way)
+ *                      B  it no longer waits for one: the TLS connection it kept open (a W with
+ *                         FLAG_HOLDS said it was keeping one) spoke first
  *   master -> worker   C  a complete head          L  over the cap, with no end within it
  *                      T  the deadline passed      E  closed, or failed, in the middle of a head
  *                      with the count of requests served on it, for requests_per_connection,
  *                      which the worker keeps, as it answers pipelined requests itself
+ *                      N  the answer to a B when the master hadn't handed it a connection yet;
+ *                         when it had, that connection is the answer, so a B always has one
+ *
+ * A TLS connection can't come back to the master between requests: its session is the worker's,
+ * which did the handshake, and the master can't read a TLS stream. So under a rule with
+ * "at_accept" the master hands each connection over as soon as it is accepted, unread (the worker
+ * handshakes and reads its head itself, under the head's time from the accept), and a worker keeps
+ * its kept-open TLS connection while it asks for another (worker_accept() with $idle): whichever
+ * comes first, its own client's next request or a connection the master hands it, is answered,
+ * the other giving way. When its client comes first the worker says B, and the master, which
+ * counted it waiting, answers N, or with the connection it handed over meanwhile, which the worker
+ * takes next. So the master still sends a worker only what it asked for, one message at a time.
  *
  * The master keeps its copy of a connection it handed over until that worker's next message shows
  * the descriptor arrived (Channel.sent; worker_release() asks at once when it closes one, so the
@@ -326,9 +340,12 @@ bool worker_deadline(int fd, double seconds, Str *answer, Str *line) {
 #define AT_TIME 6
 #define AT_SERVED 14
 #define FLAG_WAITS 1                  /* on an I: and the worker waits for another connection, as a W would say */
+#define FLAG_HOLDS 2                  /* on a W: and it still holds a connection it keeps open itself (TLS) */
 #define MSG_REGISTER 'R'
 #define MSG_WANT 'W'
 #define MSG_IDLE 'I'
+#define MSG_BUSY 'B'                  /* it no longer waits: the connection it held spoke first */
+#define MSG_NOTHING 'N'               /* master -> worker, the answer to a B when nothing was handed */
 #define HAND_COMPLETE 'C'
 #define HAND_TOO_LARGE 'L'
 #define HAND_TIMED_OUT 'T'
@@ -359,6 +376,7 @@ typedef struct {
     double idle;                  /* seconds a kept-open connection may wait for its next request */
     double timeout;               /* seconds each read and write on a connection may wait, set at accept */
     int64_t max_connections;      /* open at once, in the master's table or held by workers */
+    int64_t at_accept;            /* 1: hand each connection over at its accept, unread (TLS) */
     int listener_number;          /* the listener's descriptor in the worker (see close_front()) */
 } Rule;
 
@@ -368,7 +386,8 @@ static bool rule_sound(const Rule *r) {
     return r->ready_len >= 1 && r->ready_len <= RULE_TEXT_MOST && r->skip_len >= 1 && r->skip_len <= RULE_TEXT_MOST
         && r->skip_most >= 0 && r->skip_most <= MOST_SKIPS && r->most >= 1 && r->most <= MOST_CAP
         && r->within > 0 && r->idle > 0 && r->timeout > 0
-        && r->max_connections >= 1 && r->max_connections <= MOST_CONNECTIONS;
+        && r->max_connections >= 1 && r->max_connections <= MOST_CONNECTIONS
+        && (r->at_accept == 0 || r->at_accept == 1);
 }
 
 /* The bytes that settle a head either way, whatever is skipped before it: the master reads no more,
@@ -517,9 +536,11 @@ static Rule registered_rule;
 static int held = -1;
 /* The master counts this worker as waiting for a connection: it said so (W, or an I that waits) */
 static bool asked;
+/* It said B, and the master's answer (N, or a connection) hasn't been read yet */
+static bool withdrawn;
 
 static const char *const RULE_KEYS[] = {
-    "ready", "skip", "skip_most", "most", "within", "idle", "max_connections", "timeout",
+    "ready", "skip", "skip_most", "most", "within", "idle", "max_connections", "timeout", "at_accept",
 };
 #define NRULE_KEYS (int)(sizeof RULE_KEYS / sizeof RULE_KEYS[0])
 
@@ -563,6 +584,14 @@ static bool rule_seconds(Map *rule, const char *name, double *to) {
     return true;
 }
 
+/* Whether the rule has a key, for one it may leave out (at_accept, 0 when it does) */
+static bool option_given(Map *rule, const char *name) {
+    Value key = v_str(str_cstr(name));
+    bool given = map_find(rule, key) != NULL;
+    decref(key);
+    return given;
+}
+
 /* worker_accept()'s map as a Rule, every key checked */
 static bool read_rule(Map *map, Rule *rule) {
     for (size_t i = 0; map_next(map, &i); i++) {
@@ -587,7 +616,8 @@ static bool read_rule(Map *map, Rule *rule) {
         && rule_seconds(map, "within", &rule->within)
         && rule_seconds(map, "idle", &rule->idle)
         && rule_int(map, "max_connections", 1, MOST_CONNECTIONS, &rule->max_connections)
-        && rule_seconds(map, "timeout", &rule->timeout);
+        && rule_seconds(map, "timeout", &rule->timeout)
+        && (!option_given(map, "at_accept") || rule_int(map, "at_accept", 0, 1, &rule->at_accept));
 }
 
 static const char *hand_name(char type) {
@@ -601,8 +631,10 @@ static const char *hand_name(char type) {
 }
 
 /* The message the master sent, which a poll() said has come: [socket, bytes, state, served,
-   first byte's time], or null if the master has gone. One read, when the message fits TAKE_FIRST. */
-static bool take_handed(Value *out) {
+   first byte's time], or null if the master has gone; *nothing set, and out untouched, for an N
+   answering this worker's B. One read, when the message fits TAKE_FIRST. */
+static bool take_handed(Value *out, bool *nothing) {
+    *nothing = false;
     int fds[MOST_FDS_A_READ], nfds = 0;
     size_t size = HEADER_SIZE + TAKE_FIRST;
     char *message = xmalloc(size);
@@ -615,7 +647,14 @@ static bool take_handed(Value *out) {
         /* Never past this message: the master sends a worker one message per request for one */
         if ((size_t)got < whole && receive_at_least(channel, message + got, whole - (size_t)got, whole - (size_t)got, fds, &nfds) < 0) got = -1;
     }
+    if (got >= 0 && message[0] == MSG_NOTHING && nfds == 0 && withdrawn) {
+        withdrawn = false;
+        free(message);
+        *nothing = true;
+        return true;
+    }
     const char *state = got >= 0 ? hand_name(message[0]) : NULL;
+    withdrawn = false;
     if (!state || nfds != 1) {
         for (int k = 0; k < nfds; k++) close(fds[k]);
         /* Whatever it was answered this worker's asking, so the next worker_accept() asks again */
@@ -645,18 +684,36 @@ static bool take_handed(Value *out) {
     return true;
 }
 
+/* Whether a connection this worker keeps open has something to read: in the descriptor, or
+   decrypted already by TLS, which poll() can't see */
+static bool idle_spoke(Socket *idle, short revents) {
+    return net_pending(idle) || (revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL));
+}
+
 /*
- * worker_accept($listener, $rule): the next connection the master hands this worker, as
- * [$socket, $bytes, $state, $served, $first_byte_at], or null once the worker is asked to stop (or
- * the master has gone); false outside a worker, where nobody reads heads for it. The first call
- * gives the master the rule and the listener. A message already sent is taken even after a stop,
- * since the master hands a connection only to a worker that asked, and it is the request in hand.
+ * worker_accept($listener, $rule, $idle = null, $seconds = null): the next connection the master
+ * hands this worker, as [$socket, $bytes, $state, $served, $first_byte_at], or null once the
+ * worker is asked to stop (or the master has gone); false outside a worker, where nobody reads
+ * heads for it. The first call gives the master the rule and the listener. A message already sent
+ * is taken even after a stop, since the master hands a connection only to a worker that asked,
+ * and it is the request in hand.
+ *
+ * With $idle, a connection this worker keeps open itself (TLS: see above), it waits up to $seconds
+ * for that one's next request too, and gives $idle back if it comes first (the master is told B,
+ * and its answer is read by the next worker_accept()), false if $seconds pass first, or the
+ * handed connection if the master has one first, which $idle then gives way to.
  */
-bool worker_accept(Socket *listener, Map *map, Value *out) {
+bool worker_accept(Socket *listener, Map *map, Socket *idle, double seconds, Value *out) {
     if (listener->fd < 0) return raisef("worker_accept() on a closed socket");
     if (!listener->listening) return raisef("worker_accept() expects a listening socket, got a connection");
     Rule rule = {0};
     if (!read_rule(map, &rule)) return false;
+    if (idle) {
+        if (idle->fd < 0) return raisef("worker_accept() expects an open connection to keep, got a closed one");
+        if (idle->listening) return raisef("worker_accept() expects a connection to keep, got a listening socket");
+        if (idle->owner != vm_process) return refuse_inherited("worker_accept", "socket");
+        if (!(seconds > 0)) return raisef("worker_accept() expects seconds above 0 to keep a connection for");
+    }
     if (!vm_worker) {
         *out = v_bool(false);
         return true;
@@ -677,22 +734,62 @@ bool worker_accept(Socket *listener, Map *map, Value *out) {
         listener_to_drop = listener->fd;
         if (stopping && null_fd >= 0) dup2(null_fd, listener->fd);
     }
+    /* A B said last time has its answer to read before anything else: N, or a connection */
+    while (withdrawn) {
+        struct pollfd p = {.fd = channel, .events = POLLIN};
+        bool stop = workers_stopping();
+        int ready = poll(&p, 1, stop ? 0 : 1000);
+        if (ready < 0 && errno != EINTR) return raisef("worker_accept() failed: %s", strerror(errno));
+        if (ready > 0) {
+            bool nothing;
+            if (!take_handed(out, &nothing)) return false;
+            if (!nothing) return true;
+        } else if (stop) {
+            *out = v_null();
+            return true;
+        }
+    }
     if (!stopping && !asked) {
-        if (!send_message(channel, MSG_WANT, 0, 0, 0, NULL, 0, -1)) {
+        if (!send_message(channel, MSG_WANT, idle ? FLAG_HOLDS : 0, 0, 0, NULL, 0, -1)) {
             *out = v_null();
             return true;
         }
         asked = true;
     }
+    double deadline = now() + seconds;
     for (;;) {
         /* A second at a time, so a stop that comes just before the wait is still seen */
-        struct pollfd p = {.fd = channel, .events = POLLIN};
+        struct pollfd p[2] = {{.fd = channel, .events = POLLIN}, {.fd = idle ? idle->fd : -1, .events = POLLIN}};
         bool stop = workers_stopping();
-        int ready = poll(&p, 1, stop ? 0 : 1000);
+        int ms = 1000;
+        if (idle) {
+            double left = deadline - now();
+            ms = left <= 0 ? 0 : left >= 1 ? 1000 : (int)(left * 1000) + 1;
+            if (net_pending(idle)) ms = 0;
+        }
+        int ready = poll(p, idle ? 2 : 1, stop ? 0 : ms);
         if (ready < 0 && errno != EINTR) return raisef("worker_accept() failed: %s", strerror(errno));
-        if (ready > 0) return take_handed(out);
+        if (ready > 0 && p[0].revents) {
+            bool nothing;
+            if (!take_handed(out, &nothing)) return false;
+            if (!nothing) return true;
+            /* An N with no B said can't come: the master answers only a B */
+            return raisef("worker_accept(): the master sent what it never sends");
+        }
         if (stop) {
             *out = v_null();
+            return true;
+        }
+        if (idle && idle_spoke(idle, ready > 0 ? p[1].revents : 0)) {
+            /* The master counts this worker waiting: say it isn't, and read the answer next time */
+            if (send_message(channel, MSG_BUSY, 0, 0, 0, NULL, 0, -1)) withdrawn = true;
+            asked = false;
+            incref(v_socket(idle));
+            *out = v_socket(idle);
+            return true;
+        }
+        if (idle && now() >= deadline) {
+            *out = v_bool(false);
             return true;
         }
     }
@@ -728,9 +825,12 @@ bool worker_release(Socket *s, Value bytes, int64_t served, Value *out) {
        still holds its own copy of the connection it handed this worker (Channel.sent) */
     if (bytes.type == T_STRING && !stopping) {
         asked = send_message(channel, MSG_IDLE, FLAG_WAITS, 0, (uint32_t)served, bytes.s->data, bytes.s->len, -1);
-    } else if (!stopping) {
+    } else if (!stopping && !asked && !withdrawn) {
         /* Asking now tells the master this worker has the connection, so it lets go of its copy
-           (Channel.sent) and the client sees the end now, not at the worker's next request */
+           (Channel.sent) and the client sees the end now, not at the worker's next request. Not
+           when it asked already (a TLS connection kept open: worker_accept() with $idle), or said
+           B and has its answer to read, or the master would count one ask twice and could hand it
+           two connections; the next worker_accept() asks. */
         asked = send_message(channel, MSG_WANT, 0, 0, 0, NULL, 0, -1);
     }
     net_close(s);
@@ -1089,6 +1189,13 @@ static void wants(Pool *pool, Channel *ch) {
 static bool take_message(Pool *pool, int i, const char *header, const char *payload, size_t len) {
     Channel *ch = &pool->channels[i];
     char type = header[0];
+    /* A B can cross a connection on its way to the worker, which is then the answer: Channel.sent
+       is left alone, the worker not having said it arrived */
+    if (type == MSG_BUSY) {
+        if (!ch->wants) return true;
+        ch->wants = false;
+        return send_message(ch->fd, MSG_NOTHING, 0, 0, 0, NULL, 0, -1);
+    }
     /* Any message from the worker shows the connection handed to it arrived, so the master's copy
        is no longer needed to keep it open: an I gives that connection back, and the master's copy
        is the one that goes into the table; anything else closes it */
@@ -1105,6 +1212,8 @@ static bool take_message(Pool *pool, int i, const char *header, const char *payl
     if (handed >= 0) close(handed);
     if (type == MSG_WANT) {
         wants(pool, ch);
+        /* It keeps a TLS connection open while it waits, which counts toward max_connections */
+        if (header[AT_FLAGS] & FLAG_HOLDS) ch->holding = true;
         return true;
     }
     int fd = type == MSG_REGISTER ? take_fd(ch) : -1;
@@ -1149,23 +1258,28 @@ static void read_channel(Pool *pool, int i) {
 
 /*
  * The worker to hand the next connection: of those waiting for one, the one that asked last (its
- * memory likeliest still in the processor's caches, and the others' left to sleep); a retiring one
- * only when no other waits, since it serves on only until its replacement is ready, and never one
- * asked to stop. -1 when none waits.
+ * memory likeliest still in the processor's caches, and the others' left to sleep); one keeping a
+ * TLS connection open (holding while it waits) only when no other waits, since that client then
+ * gives way, and of those the one that asked first, whose client has been idle longest; a retiring one only when no other waits, since it serves on only until its replacement
+ * is ready, and never one asked to stop. -1 when none waits.
  */
 static int pick_worker(Pool *pool) {
     int best = -1;
-    bool best_leaving = false;
+    int best_rank = 0;
     for (int i = 0; i < 2 * pool->count; i++) {
         Channel *ch = &pool->channels[i];
         if (ch->fd < 0 || !ch->wants) continue;
         if (i >= pool->count && pool->relieved[i - pool->count]) continue;
         bool leaving = i >= pool->count || pool->slots[i].retiring;
-        bool better = best < 0 || (best_leaving && !leaving)
-                   || (best_leaving == leaving && ch->asked > pool->channels[best].asked);
+        /* Lower is better: a free worker, then one whose idle client would give way, then a leaver */
+        int rank = (leaving ? 2 : 0) + (ch->holding ? 1 : 0);
+        /* Among free workers the latest asker; among those keeping a client, the one whose client has
+           waited longest, the least likely to be about to speak */
+        bool later = ch->asked > (best < 0 ? 0 : pool->channels[best].asked);
+        bool better = best < 0 || rank < best_rank || (rank == best_rank && (rank % 2 == 1 ? !later : later));
         if (better) {
             best = i;
-            best_leaving = leaving;
+            best_rank = rank;
         }
     }
     return best;
@@ -1238,6 +1352,13 @@ static void accept_some(Pool *pool) {
         /* Its timeouts are the socket's, so they go with it to every worker, set once here */
         net_prepare(fd, pool->rule.timeout);
         conn_add(pool, fd, NULL, 0, false, 0);
+        if (pool->rule.at_accept) {
+            /* TLS: the worker reads it (see above), its head's time running from now */
+            int k = 0;
+            while (pool->conns[k].fd != fd) k++;
+            pool->conns[k].first_byte_at = pool->now;
+            queue_up(pool, k, HAND_COMPLETE);
+        }
     }
 }
 
@@ -1426,6 +1547,8 @@ bool start_workers(int64_t count, Value *out) {
        one, so a server without a database doesn't load libpq at all. */
     if (program->opens_databases) pg_load_before_fork();
 #endif
+    /* So a TLS session one worker began can be resumed with any of them */
+    net_before_workers();
 
     struct sigaction stop = {.sa_handler = on_stop};
     sigemptyset(&stop.sa_mask);

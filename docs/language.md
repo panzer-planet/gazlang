@@ -1628,6 +1628,9 @@ it.
 | `socket_port($socket)` | The port this end of the socket has |
 | `socket_peer($socket)` | Who is at the other end of a connection: `{"address" => "192.0.2.7", "port" => 54321}` |
 | `socket_wait($sockets, $seconds)` | The index of the first socket in the list with something to read, or `null` |
+| `socket_tls_server($options)` | Reads and checks a server's certificate and key |
+| `socket_tls_accept($socket, $options, $seconds)` | The server's side of a TLS handshake on an accepted connection |
+| `socket_tls_protocol($socket)` | The protocol a TLS connection's client and server agreed on (ALPN), or `null` |
 
 A socket is a connection over TCP, or TLS for `$tls = true`:
 
@@ -1669,8 +1672,28 @@ A server listens and accepts:
   0 to only look), and `null` at once in a worker that has been asked to stop (see `workers()`), so
   a worker holding a quiet connection open still stops in about a second.
 
-A listener only accepts: reading or writing one is an error. No TLS on this side; put a proxy
-(Caddy, nginx) in front for https.
+A listener only accepts: reading or writing one is an error. A connection it accepted speaks TLS
+once the server's side of the handshake is done:
+
+- `socket_tls_server($options)` — reads the certificate and key `$options` names and checks they
+  belong together, so a mistake shows when a server starts rather than at its first connection:
+  `{"certificate" => "/etc/letsencrypt/live/example.com/fullchain.pem", "key" =>
+  "/etc/letsencrypt/live/example.com/privkey.pem"}`, the certificate file holding the whole chain,
+  the key unencrypted; `"protocols"`, a list of the names ALPN offers (`["h2", "http/1.1"]`), most
+  wanted first, may be given too. Gives `null`. The files are read again when either changes, so a
+  renewed certificate is used from the next connection on, without a restart; one that can't be read
+  while it is being written keeps the last good one, saying so once on standard error.
+- `socket_tls_accept($socket, $options, $seconds)` — the server's side of the handshake on a
+  connection `socket_accept()` gave, with the same `$options`, which may take `$seconds` (the
+  socket's own timeout when left out). `true` once the connection speaks TLS; `null` if the time ran
+  out; `false` if the client spoke plain HTTP to it (`http://` for `https://`), which leaves the
+  connection plain and open for an answer saying so. A client that gives up, refuses the
+  certificate (a self-signed one it doesn't trust: `TLS error: the client refused the certificate`)
+  or speaks neither is an error.
+- `socket_tls_protocol($socket)` — the protocol ALPN agreed on a connection `socket_tls_accept()`
+  made speak TLS, such as `"h2"`, or `null` when the client offered none the server has, or none.
+
+`http::serve()`'s `"tls"` option does all of this for a web server.
 
 A socket is a handle: copies share the connection, `==` is identity, and it prints as `socket`
 (`socket (listening)`, `socket (closed)`). Failing to find the host or connect, a certificate that doesn't check out,
@@ -1780,10 +1803,11 @@ master reports `gaz: worker N timed out on a request; starting another` and star
 it again sets it afresh, and 0 or `null` seconds clears it. What the worker was doing is never
 finished, and what it printed and hadn't flushed is lost. Outside a worker it does nothing and gives
 `false`, as it does with a `null` socket: in a single process nobody would start another, so the
-deadline needs `workers()`. The socket must be an open, plain connection of this process's (not a
-listener, not TLS), checked in a single process too.
+deadline needs `workers()`. The socket must be an open connection of this process's (not a
+listener), checked in a single process too. A TLS connection is written nothing (encrypting isn't a
+thing the timer's signal handler may do), so its client sees the connection close.
 
-`worker_accept($listener, $rule)` and `worker_release($socket, $bytes, $served)` are how `http::serve()`
+`worker_accept($listener, $rule, $idle, $seconds)` and `worker_release($socket, $bytes, $served)` are how `http::serve()`
 keeps slow clients off its workers: the master accepts every connection on the listener itself,
 reads each one's request head in one process for all of them, and hands a worker the connection,
 with every byte it read, only once the head is whole, so a client sending slowly or a kept-open
@@ -1795,8 +1819,16 @@ bytes (at most 65536, so what passes between the processes fits their buffers) a
 seconds (from the connection's accept, or from its first byte after an idle wait); a connection
 given back may wait `idle` seconds for its next request; at most `max_connections` are open at
 once (fewer if the open file limit leaves less room); and `timeout` bounds each read and write on
-a connection. The first call gives the master the rule and the listener, every call waits for a
-connection, and every key is required. `$state` says why it was handed over: `"complete"`, a whole
+a connection. With `"at_accept" => 1` in the rule (it may be left out, and is then 0) the master
+hands each connection over as soon as it is accepted, unread, as `"complete"` with no bytes: a TLS
+stream is for the worker to read, since only the worker that does the handshake has its session.
+The first call gives the master the rule and the listener, every call waits for a
+connection, and every key but `"at_accept"` is required. With `$idle`, a connection the worker
+keeps open itself between requests (TLS, which can't go back to the master), and `$seconds`, it
+waits up to that long for that connection's next request as well: it gives `$idle` back if its
+client speaks first, `false` if `$seconds` pass, or the connection the master handed it, which
+`$idle` gives way to; the master hands one to a worker keeping a connection only when no other
+waits, and then to the one whose client has waited longest. `$state` says why it was handed over: `"complete"`, a whole
 head; `"too_large"`, `most` bytes with no end; `"timed_out"`, `within` passed after something came;
 `"closed"`, the client closed in the middle of one. A connection that sent nothing is closed by the
 master and never handed over. `$served` is how many requests the connection has had answered,
@@ -2329,7 +2361,7 @@ header names lowercased and a repeated header's values joined with `", "`.
 
 ```gaz
 {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => "",
- "remote_address" => "192.0.2.7"}
+ "remote_address" => "192.0.2.7", "scheme" => "https"}
 ```
 
 and writing the map it returns: `"status"` (200 if left out), `"headers"` and `"body"` (a string,
@@ -2339,7 +2371,9 @@ as in a response; the path and query are as the client sent them, not decoded.
 `"remote_address"` is the client's address as `socket_peer()` writes it (or `null` if the client has
 already gone and the system no longer knows). Behind a proxy it is the proxy's: the client's is in the
 `X-Forwarded-For` header the proxy adds, and whether to believe that header is the program's
-decision, since a client can send one of its own.
+decision, since a client can send one of its own. `"scheme"` is `"https"` for a server with `"tls"`,
+`"http"` otherwise (behind a proxy that ends TLS, the proxy's `X-Forwarded-Proto` says what the
+client used).
 
 `http::client_address($request, $trusted_proxies = [])` gives the client's address, or `null` when
 `"remote_address"` is. With no `$trusted_proxies` it is `"remote_address"` itself and
@@ -2454,7 +2488,18 @@ the caller, or it is an open redirect; one with a line break or a NUL byte is an
 - In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy): under
   `workers()` a client sending its headers slowly holds no worker, but one sending its body slowly
   holds one for up to `request_timeout`, and as many such clients as there are workers hold them
-  all that long; in a single process one slow client holds the server. TLS is the proxy's job too.
+  all that long; in a single process one slow client holds the server.
+- `"tls"` serves HTTPS: `{"certificate" => ".../fullchain.pem", "key" => ".../privkey.pem"}`, read
+  and checked when the server starts (see `socket_tls_server()`) and read again when they change, so
+  a renewed certificate is served from the next connection on. A client that speaks plain HTTP to
+  it is answered 400, saying to ask for `https://`. Under `workers()` the master hands each
+  connection to a worker as it is accepted, and the worker does the handshake under
+  `"header_timeout"`; between requests it keeps the connection itself, while it waits for another,
+  so an idle TLS client holds no worker another client needs: it gives way, closed as after an
+  idle wait, when no worker is free. A client still doing its handshake holds a worker, so slow
+  clients are a proxy's to absorb there, as slow bodies are. Past `"handler_timeout"` a TLS client
+  is written nothing and sees the connection close. For a site's `Strict-Transport-Security` and
+  `Secure` cookies, see `http::security_headers()` and `http::sessions()`.
 - `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
 
 **Dates and times**, with `std/date.gaz`:
@@ -2805,8 +2850,8 @@ expect("and the next page knows who it is", $client.session($secret)["user_id"],
 - A redirect is answered as it is; `$client.follow($response)` fetches where it points with a GET,
   a relative `Location` read against the last request's target. One on another site is an error.
 - `$options`: `"host"`, the `Host` sent (`"example.test"`), `"remote_address"` (`"192.0.2.1"`,
-  `null` for a client the system no longer knows), and `"max_body"`, `http::serve()`'s, so an app
-  is tested against its own limit.
+  `null` for a client the system no longer knows), `"max_body"`, `http::serve()`'s, so an app
+  is tested against its own limit, and `"scheme"`, the request's (`"http"`, or `"https"`).
 
 `term.gaz` is the terminal, on `term_raw`, `term_read`, `term_size` and `term_is_tty` (see the
 builtins). Drawing functions *return* the escape sequence, so `print(...)` draws and results

@@ -37,6 +37,13 @@ throws("a cap past what a channel holds", () -> worker_accept($listener, rule_wi
 throws("no time at all", () -> worker_accept($listener, rule_with("within", 0)), "worker_accept() expects the rule's \"within\" to be seconds above 0");
 throws("a rule not a map", () -> worker_accept($listener, []), "worker_accept() expects map, got list");
 throws("a connection to accept on", () -> worker_accept($served, RULE), "worker_accept() expects a listening socket, got a connection");
+expect("at_accept may be left out, or be 0 or 1", [worker_accept($listener, rule_with("at_accept", 1)), worker_accept($listener, rule_with("at_accept", 0))], [false, false]);
+throws("but nothing else", () -> worker_accept($listener, rule_with("at_accept", 2)), "worker_accept() expects the rule's \"at_accept\" to be an int from 0 to 1");
+expect("keeping a connection outside a worker is false too", worker_accept($listener, RULE, $served, 5), false);
+throws("a connection to keep needs seconds to keep it for", () -> worker_accept($listener, RULE, $served), "worker_accept() expects a connection to keep and seconds to keep it for, or neither");
+throws("and seconds a connection", () -> worker_accept($listener, RULE, null, 5), "worker_accept() expects a connection to keep and seconds to keep it for, or neither");
+throws("seconds above 0", () -> worker_accept($listener, RULE, $served, 0), "worker_accept() expects seconds above 0 to keep a connection for");
+throws("a connection, not the listener", () -> worker_accept($listener, RULE, $listener, 5), "worker_accept() expects a connection to keep, got a listening socket");
 throws("a listener to release", () -> worker_release($listener, ""), "worker_release() on a listening socket: it takes the connection worker_accept() gave");
 throws("bytes not a string", () -> worker_release($served, 1), "worker_release() expects string or null, got int");
 throws("a count not an int", () -> worker_release($served, "", "1"), "worker_release() expects int, got string");
