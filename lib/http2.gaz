@@ -1,0 +1,672 @@
+/**
+ * HTTP/2's frames and header compression (RFC 9113 and RFC 7541), for `http::serve()`, which
+ * speaks HTTP/2 to a client that asks for it when it serves TLS. A program needs none of it to
+ * serve HTTP/2: this is the protocol's own arithmetic, kept apart from the server so it can be
+ * read and tested alone.
+ *
+ * A frame is `http2::Frame`, read by `http2::FrameReader` and written by `http2::frame()`; header
+ * blocks are decoded by an `http2::Decoder` (one for each connection, as its table is the
+ * connection's) and encoded by `http2::encode()`. What a peer gets wrong is an
+ * `http2::ConnectionError` with the code to send in a GOAWAY.
+ */
+namespace http2;
+
+/**
+ * What a client sends first on an HTTP/2 connection, before its SETTINGS
+ */
+pub const PREFACE = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+
+/**
+ * The frame types (RFC 9113 §6)
+ */
+pub const DATA = 0;
+/** A header block's first part, which opens a stream */
+pub const HEADERS = 1;
+/** A stream's priority, which the server reads and leaves alone */
+pub const PRIORITY = 2;
+/** A stream given up on, by either end */
+pub const RST_STREAM = 3;
+/** A connection's settings, and their acknowledgement */
+pub const SETTINGS = 4;
+/** A server's promise of a response it pushes, which no client may send */
+pub const PUSH_PROMISE = 5;
+/** A ping, answered with the same eight bytes */
+pub const PING = 6;
+/** The end of a connection, with the last stream it saw and why */
+pub const GOAWAY = 7;
+/** More room to send, on a stream or the whole connection */
+pub const WINDOW_UPDATE = 8;
+/** The rest of a header block too long for one frame */
+pub const CONTINUATION = 9;
+
+/** A frame's flag: the last frame its stream sends (DATA, HEADERS) */
+pub const END_STREAM = 1;
+/** A frame's flag: an acknowledgement (SETTINGS, PING) */
+pub const ACK = 1;
+/** A frame's flag: the header block is whole (HEADERS, CONTINUATION) */
+pub const END_HEADERS = 4;
+/** A frame's flag: padding follows the payload, its length first */
+pub const PADDED = 8;
+/** A frame's flag: a HEADERS frame carries a priority */
+pub const PRIORITY_FLAG = 32;
+
+/** An error code (RFC 9113 §7): none, for a GOAWAY that only says goodbye */
+pub const NO_ERROR = 0;
+/** An error code: the peer broke the protocol */
+pub const PROTOCOL_ERROR = 1;
+/** An error code: something went wrong here */
+pub const INTERNAL_ERROR = 2;
+/** An error code: flow control was broken */
+pub const FLOW_CONTROL_ERROR = 3;
+/** An error code: a frame on a stream that is closed */
+pub const STREAM_CLOSED = 5;
+/** An error code: a frame of the wrong size */
+pub const FRAME_SIZE_ERROR = 6;
+/** An error code: a stream the server won't take, which the client may send again */
+pub const REFUSED_STREAM = 7;
+/** An error code: a stream no longer wanted */
+pub const CANCEL = 8;
+/** An error code: a header block that can't be decoded */
+pub const COMPRESSION_ERROR = 9;
+
+/** A setting (RFC 9113 §6.5.2): the most a peer's header table may hold */
+pub const HEADER_TABLE_SIZE = 1;
+/** A setting: whether the server may push */
+pub const ENABLE_PUSH = 2;
+/** A setting: how many streams may be open at once */
+pub const MAX_CONCURRENT_STREAMS = 3;
+/** A setting: a new stream's room to send */
+pub const INITIAL_WINDOW_SIZE = 4;
+/** A setting: the largest frame payload the peer takes */
+pub const MAX_FRAME_SIZE = 5;
+/** A setting: the most a header list may be, decoded */
+pub const MAX_HEADER_LIST_SIZE = 6;
+
+/** The room each end has to send at first, on a stream and on the connection */
+pub const DEFAULT_WINDOW = 65535;
+/** The largest frame payload a peer takes until it says otherwise */
+pub const DEFAULT_FRAME_SIZE = 16384;
+/** The most a window may grow to */
+pub const MAX_WINDOW = 2147483647;
+
+const FRAME_HEAD = 9;          // bytes of a frame's length, type, flags and stream
+const ENTRY_OVERHEAD = 32;     // RFC 7541 §4.1: what an entry costs beyond its name and value
+const DEFAULT_TABLE_SIZE = 4096;
+const STATIC_TABLE = [
+    [":authority", ""], [":method", "GET"], [":method", "POST"], [":path", "/"], [":path", "/index.html"],
+    [":scheme", "http"], [":scheme", "https"], [":status", "200"], [":status", "204"], [":status", "206"],
+    [":status", "304"], [":status", "400"], [":status", "404"], [":status", "500"], ["accept-charset", ""],
+    ["accept-encoding", "gzip, deflate"], ["accept-language", ""], ["accept-ranges", ""], ["accept", ""],
+    ["access-control-allow-origin", ""], ["age", ""], ["allow", ""], ["authorization", ""],
+    ["cache-control", ""], ["content-disposition", ""], ["content-encoding", ""], ["content-language", ""],
+    ["content-length", ""], ["content-location", ""], ["content-range", ""], ["content-type", ""],
+    ["cookie", ""], ["date", ""], ["etag", ""], ["expect", ""], ["expires", ""], ["from", ""], ["host", ""],
+    ["if-match", ""], ["if-modified-since", ""], ["if-none-match", ""], ["if-range", ""],
+    ["if-unmodified-since", ""], ["last-modified", ""], ["link", ""], ["location", ""], ["max-forwards", ""],
+    ["proxy-authenticate", ""], ["proxy-authorization", ""], ["range", ""], ["referer", ""], ["refresh", ""],
+    ["retry-after", ""], ["server", ""], ["set-cookie", ""], ["strict-transport-security", ""],
+    ["transfer-encoding", ""], ["user-agent", ""], ["vary", ""], ["via", ""], ["www-authenticate", ""],
+];
+// RFC 7541 Appendix B: each byte's code and its length in bits, then EOS (256), which no string may hold
+const HUFFMAN = [
+    [0x1ff8, 13], [0x7fffd8, 23], [0xfffffe2, 28], [0xfffffe3, 28], [0xfffffe4, 28], [0xfffffe5, 28],
+    [0xfffffe6, 28], [0xfffffe7, 28], [0xfffffe8, 28], [0xffffea, 24], [0x3ffffffc, 30], [0xfffffe9, 28],
+    [0xfffffea, 28], [0x3ffffffd, 30], [0xfffffeb, 28], [0xfffffec, 28], [0xfffffed, 28], [0xfffffee, 28],
+    [0xfffffef, 28], [0xffffff0, 28], [0xffffff1, 28], [0xffffff2, 28], [0x3ffffffe, 30], [0xffffff3, 28],
+    [0xffffff4, 28], [0xffffff5, 28], [0xffffff6, 28], [0xffffff7, 28], [0xffffff8, 28], [0xffffff9, 28],
+    [0xffffffa, 28], [0xffffffb, 28], [0x14, 6], [0x3f8, 10], [0x3f9, 10], [0xffa, 12],
+    [0x1ff9, 13], [0x15, 6], [0xf8, 8], [0x7fa, 11], [0x3fa, 10], [0x3fb, 10],
+    [0xf9, 8], [0x7fb, 11], [0xfa, 8], [0x16, 6], [0x17, 6], [0x18, 6],
+    [0x0, 5], [0x1, 5], [0x2, 5], [0x19, 6], [0x1a, 6], [0x1b, 6],
+    [0x1c, 6], [0x1d, 6], [0x1e, 6], [0x1f, 6], [0x5c, 7], [0xfb, 8],
+    [0x7ffc, 15], [0x20, 6], [0xffb, 12], [0x3fc, 10], [0x1ffa, 13], [0x21, 6],
+    [0x5d, 7], [0x5e, 7], [0x5f, 7], [0x60, 7], [0x61, 7], [0x62, 7],
+    [0x63, 7], [0x64, 7], [0x65, 7], [0x66, 7], [0x67, 7], [0x68, 7],
+    [0x69, 7], [0x6a, 7], [0x6b, 7], [0x6c, 7], [0x6d, 7], [0x6e, 7],
+    [0x6f, 7], [0x70, 7], [0x71, 7], [0x72, 7], [0xfc, 8], [0x73, 7],
+    [0xfd, 8], [0x1ffb, 13], [0x7fff0, 19], [0x1ffc, 13], [0x3ffc, 14], [0x22, 6],
+    [0x7ffd, 15], [0x3, 5], [0x23, 6], [0x4, 5], [0x24, 6], [0x5, 5],
+    [0x25, 6], [0x26, 6], [0x27, 6], [0x6, 5], [0x74, 7], [0x75, 7],
+    [0x28, 6], [0x29, 6], [0x2a, 6], [0x7, 5], [0x2b, 6], [0x76, 7],
+    [0x2c, 6], [0x8, 5], [0x9, 5], [0x2d, 6], [0x77, 7], [0x78, 7],
+    [0x79, 7], [0x7a, 7], [0x7b, 7], [0x7ffe, 15], [0x7fc, 11], [0x3ffd, 14],
+    [0x1ffd, 13], [0xffffffc, 28], [0xfffe6, 20], [0x3fffd2, 22], [0xfffe7, 20], [0xfffe8, 20],
+    [0x3fffd3, 22], [0x3fffd4, 22], [0x3fffd5, 22], [0x7fffd9, 23], [0x3fffd6, 22], [0x7fffda, 23],
+    [0x7fffdb, 23], [0x7fffdc, 23], [0x7fffdd, 23], [0x7fffde, 23], [0xffffeb, 24], [0x7fffdf, 23],
+    [0xffffec, 24], [0xffffed, 24], [0x3fffd7, 22], [0x7fffe0, 23], [0xffffee, 24], [0x7fffe1, 23],
+    [0x7fffe2, 23], [0x7fffe3, 23], [0x7fffe4, 23], [0x1fffdc, 21], [0x3fffd8, 22], [0x7fffe5, 23],
+    [0x3fffd9, 22], [0x7fffe6, 23], [0x7fffe7, 23], [0xffffef, 24], [0x3fffda, 22], [0x1fffdd, 21],
+    [0xfffe9, 20], [0x3fffdb, 22], [0x3fffdc, 22], [0x7fffe8, 23], [0x7fffe9, 23], [0x1fffde, 21],
+    [0x7fffea, 23], [0x3fffdd, 22], [0x3fffde, 22], [0xfffff0, 24], [0x1fffdf, 21], [0x3fffdf, 22],
+    [0x7fffeb, 23], [0x7fffec, 23], [0x1fffe0, 21], [0x1fffe1, 21], [0x3fffe0, 22], [0x1fffe2, 21],
+    [0x7fffed, 23], [0x3fffe1, 22], [0x7fffee, 23], [0x7fffef, 23], [0xfffea, 20], [0x3fffe2, 22],
+    [0x3fffe3, 22], [0x3fffe4, 22], [0x7ffff0, 23], [0x3fffe5, 22], [0x3fffe6, 22], [0x7ffff1, 23],
+    [0x3ffffe0, 26], [0x3ffffe1, 26], [0xfffeb, 20], [0x7fff1, 19], [0x3fffe7, 22], [0x7ffff2, 23],
+    [0x3fffe8, 22], [0x1ffffec, 25], [0x3ffffe2, 26], [0x3ffffe3, 26], [0x3ffffe4, 26], [0x7ffffde, 27],
+    [0x7ffffdf, 27], [0x3ffffe5, 26], [0xfffff1, 24], [0x1ffffed, 25], [0x7fff2, 19], [0x1fffe3, 21],
+    [0x3ffffe6, 26], [0x7ffffe0, 27], [0x7ffffe1, 27], [0x3ffffe7, 26], [0x7ffffe2, 27], [0xfffff2, 24],
+    [0x1fffe4, 21], [0x1fffe5, 21], [0x3ffffe8, 26], [0x3ffffe9, 26], [0xffffffd, 28], [0x7ffffe3, 27],
+    [0x7ffffe4, 27], [0x7ffffe5, 27], [0xfffec, 20], [0xfffff3, 24], [0xfffed, 20], [0x1fffe6, 21],
+    [0x3fffe9, 22], [0x1fffe7, 21], [0x1fffe8, 21], [0x7ffff3, 23], [0x3fffea, 22], [0x3fffeb, 22],
+    [0x1ffffee, 25], [0x1ffffef, 25], [0xfffff4, 24], [0xfffff5, 24], [0x3ffffea, 26], [0x7ffff4, 23],
+    [0x3ffffeb, 26], [0x7ffffe6, 27], [0x3ffffec, 26], [0x3ffffed, 26], [0x7ffffe7, 27], [0x7ffffe8, 27],
+    [0x7ffffe9, 27], [0x7ffffea, 27], [0x7ffffeb, 27], [0xffffffe, 28], [0x7ffffec, 27], [0x7ffffed, 27],
+    [0x7ffffee, 27], [0x7ffffef, 27], [0x7fffff0, 27], [0x3ffffee, 26], [0x3fffffff, 30],
+];
+
+/**
+ * What a peer did wrong, as HTTP/2 names it: the code a GOAWAY says (`#code`, PROTOCOL_ERROR and
+ * the rest), and why, for a log
+ */
+pub kind ConnectionError extends Error {
+    /**
+     * An error to end a connection with: the code its GOAWAY says, and the message
+     */
+    fn _(pub int #code, string $message) {
+        ##_($message);
+    }
+}
+
+/**
+ * A frame: its type (DATA, HEADERS, ...), flags, stream (0 for the connection) and payload
+ */
+pub kind Frame {
+    /**
+     * A frame of $type, with $flags, on $stream (0 for the connection), carrying $payload
+     */
+    fn _(pub int #type, pub int #flags, pub int #stream, pub string #payload);
+
+    /**
+     * Whether a flag (END_STREAM, END_HEADERS, ...) is set
+     */
+    pub fn has(int $flag): bool {
+        return (#flags & $flag) != 0;
+    }
+}
+
+/**
+ * A frame's bytes: its head (the payload's length, the type, the flags and the stream) and its payload
+ */
+pub fn frame(int $type, int $flags, int $stream, string $payload = ""): string {
+    return u24(len($payload)) .. chr($type) .. chr($flags) .. u32($stream) .. $payload;
+}
+
+/**
+ * $n as four bytes, most significant first, as HTTP/2 writes a stream, a window or a setting's value
+ */
+pub fn u32(int $n): string {
+    return chr(($n >> 24) & 255) .. chr(($n >> 16) & 255) .. chr(($n >> 8) & 255) .. chr($n & 255);
+}
+
+/**
+ * The number in four bytes of $bytes from $at, most significant first
+ */
+pub fn read_u32(string $bytes, int $at = 0): int {
+    return (ord($bytes[$at]) << 24) | (ord($bytes[$at + 1]) << 16) | (ord($bytes[$at + 2]) << 8) | ord($bytes[$at + 3]);
+}
+
+fn u24($n) {
+    return chr(($n >> 16) & 255) .. chr(($n >> 8) & 255) .. chr($n & 255);
+}
+
+/**
+ * A SETTINGS frame's payload: each setting (HEADER_TABLE_SIZE, ...) and its value, as a map of
+ * them read back by `settings()`
+ */
+pub fn settings_payload(map $settings): string {
+    $payload = "";
+    foreach ($settings as $id => $value) {
+        $payload ..= chr(($id >> 8) & 255) .. chr($id & 255) .. u32($value);
+    }
+    return $payload;
+}
+
+/**
+ * A SETTINGS frame's payload as a list of [setting, value], in the order sent, as a later one of
+ * a setting overrides an earlier one
+ */
+pub fn settings(string $payload): list {
+    if (len($payload) % 6 != 0) {
+        throw ConnectionError(FRAME_SIZE_ERROR, "a SETTINGS frame of " .. len($payload) .. " bytes, not a multiple of 6");
+    }
+    $found = [];
+    for ($at = 0; $at < len($payload); $at += 6) {
+        $found[] = [(ord($payload[$at]) << 8) | ord($payload[$at + 1]), read_u32($payload, $at + 2)];
+    }
+    return $found;
+}
+
+/**
+ * Reads frames from a socket: whole ones, each at most `$most` bytes of payload (the
+ * MAX_FRAME_SIZE this end said it takes); anything longer is a FRAME_SIZE_ERROR
+ */
+pub kind FrameReader {
+    /**
+     * Frames read from $socket, each at most $most bytes of payload; $data is what was read of
+     * the connection already, which comes first
+     */
+    fn _(#socket, #most = DEFAULT_FRAME_SIZE, #data = "");
+
+    /**
+     * Whether a whole frame has been read already, so next() gives it without reading
+     */
+    pub fn buffered(): bool {
+        if (len(#data) < FRAME_HEAD) {
+            return false;
+        }
+        return len(#data) >= FRAME_HEAD + #length();
+    }
+
+    /**
+     * Whether part of a frame, or anything at all, has been read but not given yet
+     */
+    pub fn pending(): bool {
+        return #data != "";
+    }
+
+    /**
+     * The next frame, read within $seconds (the socket's own timeout when null): null if the
+     * connection ends between frames, false if $seconds passed first; a connection that ends in
+     * the middle of one is a PROTOCOL_ERROR
+     */
+    pub fn next($seconds = null) {
+        $deadline = $seconds == null ? null : monotonic_time() + $seconds;
+        while (!#buffered()) {
+            if (len(#data) >= FRAME_HEAD && #length() > #most) {
+                throw ConnectionError(FRAME_SIZE_ERROR, "a frame of " .. #length() .. " bytes, past the " .. #most .. " this end takes");
+            }
+            $left = $deadline == null ? null : $deadline - monotonic_time();
+            if ($left != null && $left <= 0) {
+                return false;
+            }
+            $chunk = #read($left);
+            if ($chunk == null) {
+                return false;
+            }
+            if ($chunk == "") {
+                if (#data == "") {
+                    return null;
+                }
+                throw ConnectionError(PROTOCOL_ERROR, "the connection closed in the middle of a frame");
+            }
+            #data ..= $chunk;
+        }
+        $length = #length();
+        if ($length > #most) {
+            throw ConnectionError(FRAME_SIZE_ERROR, "a frame of $length bytes, past the " .. #most .. " this end takes");
+        }
+        $head = slice(#data, 0, FRAME_HEAD);
+        $payload = slice(#data, FRAME_HEAD, $length);
+        #data = slice(#data, FRAME_HEAD + $length);
+        // The stream's top bit is reserved, and ignored
+        return Frame(ord($head[3]), ord($head[4]), read_u32($head, 5) & MAX_WINDOW, $payload);
+    }
+
+    /**
+     * Exactly $n bytes, within $seconds: the client's preface comes before any frame. Null if the
+     * connection ends first, false if the time runs out.
+     */
+    pub fn bytes(int $n, $seconds) {
+        $deadline = monotonic_time() + $seconds;
+        while (len(#data) < $n) {
+            $left = $deadline - monotonic_time();
+            $chunk = $left > 0 ? #read($left) : null;
+            if ($chunk == null) {
+                return false;
+            }
+            if ($chunk == "") {
+                return null;
+            }
+            #data ..= $chunk;
+        }
+        $taken = slice(#data, 0, $n);
+        #data = slice(#data, $n);
+        return $taken;
+    }
+
+    fn length() {
+        return (ord(#data[0]) << 16) | (ord(#data[1]) << 8) | ord(#data[2]);
+    }
+
+    /*
+     * What has arrived, within $seconds (the socket's own timeout when null): null if they pass,
+     * "" at the end. A read that fails (a reset, TLS ended without its goodbye) is an end too:
+     * nothing more can come on the connection either way.
+     */
+    fn read($seconds) {
+        try {
+            return $seconds == null ? socket_read(#socket) : socket_read(#socket, $seconds);
+        } catch (Error $e) {
+            return "";
+        }
+    }
+}
+
+/**
+ * A frame's payload without its padding (a PADDED DATA or HEADERS frame: its length first, then
+ * that many bytes at the end), or a PROTOCOL_ERROR when the padding is longer than the frame
+ */
+pub fn unpadded(Frame $frame): string {
+    if (!$frame.has(PADDED)) {
+        return $frame.payload;
+    }
+    $payload = $frame.payload;
+    if ($payload == "" || ord($payload[0]) >= len($payload)) {
+        throw ConnectionError(PROTOCOL_ERROR, "a frame's padding is longer than the frame");
+    }
+    return slice($payload, 1, len($payload) - 1 - ord($payload[0]));
+}
+
+/**
+ * Decodes the header blocks of one connection (RFC 7541): its dynamic table is the connection's,
+ * filled by one block and read by the next, so a block is decoded in the order it was sent.
+ * What can't be decoded is a COMPRESSION_ERROR, which ends the connection.
+ */
+pub kind Decoder {
+    #table = [];      // the dynamic table, newest first: [name, value]
+    #size = 0;        // what its entries cost, as RFC 7541 §4.1 counts it
+    #max_size = DEFAULT_TABLE_SIZE;
+
+    /**
+     * $limit is the most the table may hold: the HEADER_TABLE_SIZE this end said it takes, which
+     * is also its size until the peer's encoder says a smaller one
+     */
+    fn _(#limit = DEFAULT_TABLE_SIZE) {
+        #max_size = #limit;
+    }
+
+    /**
+     * A header block as a list of [name, value], in order
+     */
+    pub fn decode(string $block): list {
+        $fields = [];
+        $at = 0;
+        $first = true;
+        while ($at < len($block)) {
+            $byte = ord($block[$at]);
+            if ($byte >= 128) {
+                // An indexed field: 1xxxxxxx
+                [$index, $at] = integer($block, $at, 7);
+                $fields[] = #entry($index);
+            } else if ($byte >= 64) {
+                // A literal to add to the table: 01xxxxxx
+                [$field, $at] = #literal($block, $at, 6);
+                $fields[] = $field;
+                #add($field);
+            } else if ($byte >= 32) {
+                // A table size update: 001xxxxx, only before the first field
+                [$size, $at] = integer($block, $at, 5);
+                if (!$first) {
+                    throw ConnectionError(COMPRESSION_ERROR, "a table size update after a header field");
+                }
+                if ($size > #limit) {
+                    throw ConnectionError(COMPRESSION_ERROR, "a table size of $size, past the " .. #limit .. " allowed");
+                }
+                #max_size = $size;
+                #evict($size);
+                continue;
+            } else {
+                // A literal not to add, 0000xxxx, or never to add, 0001xxxx: the same here
+                [$field, $at] = #literal($block, $at, 4);
+                $fields[] = $field;
+            }
+            $first = false;
+        }
+        return $fields;
+    }
+
+    fn entry($index) {
+        if ($index == 0) {
+            throw ConnectionError(COMPRESSION_ERROR, "a header field indexed 0");
+        }
+        if ($index <= len(STATIC_TABLE)) {
+            return STATIC_TABLE[$index - 1];
+        }
+        $dynamic = $index - len(STATIC_TABLE) - 1;
+        if ($dynamic >= len(#table)) {
+            throw ConnectionError(COMPRESSION_ERROR, "a header field indexed $index, past the table");
+        }
+        return #table[$dynamic];
+    }
+
+    // A literal field from $at, its name indexed in a $prefix-bit integer (0 for a name that follows): [[name, value], where it ends]
+    fn literal($block, $at, $prefix) {
+        [$index, $at] = integer($block, $at, $prefix);
+        if ($index == 0) {
+            [$name, $at] = text($block, $at);
+        } else {
+            $name = #entry($index)[0];
+        }
+        [$value, $at] = text($block, $at);
+        return [[$name, $value], $at];
+    }
+
+    fn add($field) {
+        $cost = len($field[0]) + len($field[1]) + ENTRY_OVERHEAD;
+        // One bigger than the table empties it, and is not added (RFC 7541 §4.4)
+        #evict(max(#max_size - $cost, 0));
+        if ($cost <= #max_size) {
+            #table = [$field, ...#table];
+            #size += $cost;
+        }
+    }
+
+    // Oldest entries out until what is left costs at most $room
+    fn evict($room) {
+        while (#size > $room) {
+            [...#table, $oldest] = #table;
+            #size -= len($oldest[0]) + len($oldest[1]) + ENTRY_OVERHEAD;
+        }
+    }
+}
+
+/*
+ * An integer of RFC 7541 §5.1 from $at, in the byte's low $prefix bits and, when those are all
+ * set, the bytes after it 7 bits at a time: [the integer, where it ends]. Past 2^31 is refused:
+ * nothing in a header block is that big, and a peer could otherwise send bytes without end.
+ */
+fn integer($block, $at, $prefix) {
+    $most = (1 << $prefix) - 1;
+    $n = ord($block[$at]) & $most;
+    $at++;
+    if ($n < $most) {
+        return [$n, $at];
+    }
+    $shift = 0;
+    while (true) {
+        if ($at >= len($block)) {
+            throw ConnectionError(COMPRESSION_ERROR, "a header block ends in the middle of an integer");
+        }
+        $byte = ord($block[$at]);
+        $at++;
+        $n += ($byte & 127) << $shift;
+        if ($n > MAX_WINDOW) {
+            throw ConnectionError(COMPRESSION_ERROR, "an integer past 2^31 in a header block");
+        }
+        if ($byte < 128) {
+            return [$n, $at];
+        }
+        $shift += 7;
+    }
+}
+
+// A string of RFC 7541 §5.2 from $at, Huffman-coded or as it is: [the string, where it ends]
+fn text($block, $at) {
+    if ($at >= len($block)) {
+        throw ConnectionError(COMPRESSION_ERROR, "a header block ends before a string");
+    }
+    $coded = ord($block[$at]) >= 128;
+    [$length, $at] = integer($block, $at, 7);
+    if ($at + $length > len($block)) {
+        throw ConnectionError(COMPRESSION_ERROR, "a header block ends in the middle of a string");
+    }
+    $bytes = slice($block, $at, $length);
+    return [$coded ? Huffman::decode($bytes) : $bytes, $at + $length];
+}
+
+/**
+ * A header list as a block: each [name, value] as a literal not added to a table, its name by the
+ * static table's index where it has one, nothing Huffman-coded. So the peer's table is never used,
+ * and no setting of its can make a block wrong. A `:status` the static table has whole is its index.
+ */
+pub fn encode(list $fields): string {
+    $block = "";
+    foreach ($fields as [$name, $value]) {
+        $whole = StaticTable::whole_index($name, $value);
+        if ($whole != null) {
+            $block ..= encoded_integer($whole, 7, 128);
+            continue;
+        }
+        $index = StaticTable::name_index($name);
+        if ($index == null) {
+            $block ..= chr(0) .. encoded_text($name);
+        } else {
+            $block ..= encoded_integer($index, 4, 0);
+        }
+        $block ..= encoded_text($value);
+    }
+    return $block;
+}
+
+/**
+ * $n as an integer of RFC 7541 §5.1 in a byte's low $prefix bits, the byte's high bits being $high
+ */
+pub fn encoded_integer(int $n, int $prefix, int $high = 0): string {
+    $most = (1 << $prefix) - 1;
+    if ($n < $most) {
+        return chr($high | $n);
+    }
+    $bytes = chr($high | $most);
+    $n -= $most;
+    while ($n >= 128) {
+        $bytes ..= chr(($n & 127) | 128);
+        $n = $n >> 7;
+    }
+    return $bytes .. chr($n);
+}
+
+fn encoded_text($text) {
+    return encoded_integer(len($text), 7) .. $text;
+}
+
+/*
+ * RFC 7541's Huffman code decoded a nibble at a time: a table of
+ * what four bits do from each place in the code's tree (where they lead, the bytes they finish,
+ * whether they reach EOS, which no string may hold), made once from HUFFMAN when first needed.
+ * A place is an internal node of the tree; a string may end only at the root or in fewer than 8
+ * bits of 1s, a prefix of EOS (RFC 7541 §5.2).
+ */
+kind Huffman {
+    static #steps = null;       // [node * 16 + nibble] => [next node, bytes finished, EOS reached]
+    static #ends = null;        // [node] => whether a string may end there
+
+    pub static fn decode($bytes) {
+        if (Huffman::steps == null) {
+            Huffman::build();
+        }
+        $node = 0;
+        $out = [];
+        foreach (split($bytes, "") as $c) {
+            $byte = ord($c);
+            foreach ([$byte >> 4, $byte & 15] as $nibble) {
+                [$node, $finished, $eos] = Huffman::steps[$node * 16 + $nibble];
+                if ($eos) {
+                    throw ConnectionError(COMPRESSION_ERROR, "a Huffman-coded string holds EOS");
+                }
+                if ($finished != "") {
+                    $out[] = $finished;
+                }
+            }
+        }
+        if (!Huffman::ends[$node]) {
+            throw ConnectionError(COMPRESSION_ERROR, "a Huffman-coded string ends in the middle of a code");
+        }
+        return join($out, "");
+    }
+
+    // The tree, then each node's four-bit steps
+    static fn build() {
+        // A node is [child for 0, child for 1]: an int is another node, a string a byte, "EOS" EOS
+        $nodes = [[null, null]];
+        $depths = [0];
+        $ones = [true];
+        foreach (HUFFMAN as $symbol => [$code, $length]) {
+            $node = 0;
+            for ($bit = $length - 1; $bit >= 0; $bit--) {
+                $b = ($code >> $bit) & 1;
+                if ($bit == 0) {
+                    $nodes[$node][$b] = $symbol == 256 ? "EOS" : chr($symbol);
+                    continue;
+                }
+                if ($nodes[$node][$b] == null) {
+                    $nodes[] = [null, null];
+                    $depths[] = $depths[$node] + 1;
+                    $ones[] = $ones[$node] && $b == 1;
+                    $nodes[$node][$b] = len($nodes) - 1;
+                }
+                $node = $nodes[$node][$b];
+            }
+        }
+        $steps = [];
+        foreach ($nodes as $start => $children) {
+            for ($nibble = 0; $nibble < 16; $nibble++) {
+                $steps[] = Huffman::step($nodes, $start, $nibble);
+            }
+        }
+        $ends = [];
+        foreach ($nodes as $node => $children) {
+            $ends[] = $node == 0 || ($ones[$node] && $depths[$node] < 8);
+        }
+        Huffman::steps = $steps;
+        Huffman::ends = $ends;
+    }
+
+    static fn step($nodes, $node, $nibble) {
+        $finished = "";
+        for ($bit = 3; $bit >= 0; $bit--) {
+            $next = $nodes[$node][($nibble >> $bit) & 1];
+            if ($next == "EOS") {
+                return [0, $finished, true];
+            }
+            if (type_of($next) == "string") {
+                $finished ..= $next;
+                $node = 0;
+            } else {
+                $node = $next;
+            }
+        }
+        return [$node, $finished, false];
+    }
+}
+
+// RFC 7541's static table by name, for the encoder: made once from STATIC_TABLE when first needed
+kind StaticTable {
+    static #names = null;       // a field's name => its first index
+    static #wholes = null;      // "name\0value" => its index, for a field the table has whole
+
+    pub static fn name_index($name) {
+        StaticTable::index_tables();
+        return StaticTable::names[$name] ?? null;
+    }
+
+    pub static fn whole_index($name, $value) {
+        StaticTable::index_tables();
+        return StaticTable::wholes[$name .. "\0" .. $value] ?? null;
+    }
+
+    static fn index_tables() {
+        if (StaticTable::names != null) {
+            return;
+        }
+        $names = {};
+        $wholes = {};
+        foreach (STATIC_TABLE as $i => [$name, $value]) {
+            $names[$name] ??= $i + 1;
+            if ($value != "") {
+                $wholes[$name .. "\0" .. $value] = $i + 1;
+            }
+        }
+        StaticTable::names = $names;
+        StaticTable::wholes = $wholes;
+    }
+}

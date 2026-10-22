@@ -314,6 +314,60 @@ libssl built for it), while two of CI's three platforms are macOS; it is the Lin
   first, a renewed certificate and a half-written one, the deadline, a stop while idle, and a
   pooled run under the sanitizers; each was broken on purpose and caught.
 
+### HTTP/2
+
+**A client that asks for HTTP/2 over TLS gets it** (ALPN's `h2`, which `"tls"` offers unless its
+`"http2"` is false): browsers speak HTTP/2 only over TLS, so there is no h2c, and a server behind a
+proxy has the proxy speak it. The frames and HPACK are `std/http2.gaz`'s; the connection is
+`H2Connection` in `http.gaz`, where it shares the request map, `handler_answer()` (the handler, its
+deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler can't tell them apart.
+
+- **A connection is one worker's, its streams answered one at a time**, in the order their
+  requests are whole: splitting them across workers would need a demultiplexer in the master,
+  which can't read TLS. So one client's slow request delays its other streams, which a pool of
+  connections (a browser's six for HTTP/1.1) would not; 100 streams may be open at once
+  (`SETTINGS_MAX_CONCURRENT_STREAMS`), a stream past it refused, which a client sends again.
+- **Between requests it waits as TLS keep-alive does** (`IdleWait`: `PoolWait` asks the master for
+  another connection with this one kept, `AloneWait` watches the listener as `another_request()`
+  does), and gives way with a GOAWAY naming the last stream it took, which HTTP/1.1 can't say: the
+  client sends whatever it hadn't sent yet on a new connection, so giving way races with nothing.
+  `"requests_per_connection"` streams answered are a GOAWAY too.
+- **A GOAWAY on a busy connection lingers** (`H2_LINGER`, a second): what the client sent meanwhile
+  is read and dropped until it closes, since closing with bytes unread resets the connection, and a
+  client loses responses it hadn't read yet. Measured: without it a Go client of sixteen streams
+  on four connections saw a reset in every few hundred requests at each GOAWAY; with it, none.
+- **Flow control**: everything a client sends is given back at once (a WINDOW_UPDATE on the
+  connection and the stream for each DATA frame), a body past `"max_body"` is answered 413 when its
+  stream ends, the rest dropped (given back all the same); a response is written as the client's
+  windows allow, the client's frames read while it waits.
+- **What RFC 9113 says to refuse is refused as it says**: a malformed request (an uppercase name,
+  a pseudo-header after a header, unknown, twice or missing, a header only HTTP/1.1 has, TE other
+  than `trailers`, a Content-Length the body doesn't keep) is RST_STREAM PROTOCOL_ERROR; a broken
+  protocol (a frame on a stream not open, a header block interrupted or past `MAX_HEAD`, a bad
+  setting, a window past 2^31 - 1, a PUSH_PROMISE) a GOAWAY with its code. PRIORITY is read and
+  left alone; a server never pushes.
+- **What a handler answers is written as HTTP/2 writes it**: names lowercased, `content-length`
+  and `date` added, a Connection header dropped (HTTP/2 has none), the block split into
+  CONTINUATION frames past the client's frame size.
+- **A failed read is the connection's end** (`FrameReader.read()`): a client gone without TLS's
+  goodbye is no error of the server's, and in a single process an error there would have ended it.
+- Measured with a Go HTTP/2 client (`x/net/http2`) on a trivial handler, four workers: 15800
+  requests a second on four connections one stream at a time, 17600 with four streams on each,
+  16800 with four on each of sixteen, no request failing; HTTP/1.1 over TLS is about twice that,
+  the difference being HPACK and framing in GazLang. Checked by h2spec (145 checks of RFC 9113 and
+  RFC 7541) while it was written: all 145 pass under `workers()`; in one process four time out,
+  each opening a second connection while its first sits quiet before its preface, which one
+  process waits out (`header_timeout`), as it does a slow HTTP/1.1 client.
+- `ponytail:` a stream's body has no deadline but each frame's read `"timeout"`, so a client
+  trickling one holds the worker; a response is written whole once its handler returns; no
+  server push, no stream priorities.
+- Tested by `HttpTlsTest`, with a raw client in the test (so frames no library sends are sent):
+  streams at once, a body in frames, the access log, curl over HTTP/2, flow control holding a
+  response at a window of 10 bytes, PING, a malformed request reset while the next is served, GOAWAY
+  after `requests_per_connection`, an idle connection's GOAWAY for a new client, `"http2" =>
+  false`, and HTTP/2 under the sanitizers; flow control and PING were each broken on purpose and
+  caught. `tests/gaz/lib/http2_test.gaz` tests the frames and HPACK.
+
 ### Requests and connections
 
 - `http::serve`'s refusals: both `Content-Length` and `Transfer-Encoding` are refused as the way

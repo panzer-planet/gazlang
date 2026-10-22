@@ -1,4 +1,4 @@
 Error: http::serve() expects an access_log of true or false, got "off"
-  http::server_options at <std>/http.gaz:1274
-  http::serve at <std>/http.gaz:679
+  http::server_options at <std>/http.gaz:1912
+  http::serve at <std>/http.gaz:680
   top level on line 1

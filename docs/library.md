@@ -506,6 +506,15 @@ behind them:
   for the compiler's templates), the rest private, so the lexer's insides can change without
   breaking a program. Its tokens are checked by the lexer corpus (`SelfHostedLexerTest`), its
   API by `tests/gaz/lib/syntax_test.gaz`.
+- `http2.gaz`: **HTTP/2's arithmetic apart from the server** (see [HTTP](http.md#http2)): frames, and
+  HPACK's decoder (a connection's dynamic table, evicted as RFC 7541 §4 says; the Huffman code
+  decoded four bits at a time through a table made once from RFC 7541's codes, generated from Go's
+  copy of them; strings ending only at a code's end or in under 8 bits of 1s; integers past 2^31
+  refused) and an encoder that uses no table (literals, a name the static table has by its index),
+  so no setting of the peer's can make a block it writes wrong. Tested by
+  `tests/gaz/lib/http2_test.gaz` on RFC 7541's Appendix C, which exercises the table and the
+  Huffman code (a wrong code, or an entry's cost without its 32 bytes, fails it), and while it was
+  written by thousands of random blocks against Go's own encoder and decoder both ways.
 - `highlight.gaz`: **on `syntax.gaz`, never a lexer of its own**, so a colour can't disagree with
   the language, and every piece is cut from the source by `Lexer.span()` rather than written back
   from a token, so joining the pieces gives the source byte for byte

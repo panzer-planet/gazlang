@@ -13,3 +13,14 @@ throws("a NUL byte", () -> http::redirect("/x\0y"), "http::redirect() can't send
 throws("a status that isn't a redirect", () -> http::redirect("/x", 200), "http::redirect() expects a status of 301, 302, 303, 307, 308, got 200");
 $to = 5;
 throws("a location that isn't a string", () -> http::redirect($to), "http::redirect() expects \$to to be string, got int");
+
+// http::https_redirect(): a plain server's every request sent on to the HTTPS one
+$client = http::TestClient(http::https_redirect("example.com"));
+$moved = $client.get("/account/settings?tab=2");
+expect("to the same path and query on https", [$moved["status"], $moved["headers"]["location"]], [308, "https://example.com/account/settings?tab=2"]);
+expect("a path with no query gets no ?", $client.get("/")["headers"]["location"], "https://example.com/");
+expect("a 308, so a POST stays a POST", $client.post("/login", {"name" => "ada"})["status"], 308);
+expect("the host is the program's, whatever Host the client sends", $client.get("/x", {"Host" => "evil.example"})["headers"]["location"], "https://example.com/x");
+expect("a port goes with it", http::TestClient(http::https_redirect("example.com:8443")).get("/a")["headers"]["location"], "https://example.com:8443/a");
+throws("a host, not a URL", () -> http::https_redirect("https://example.com"), "http::https_redirect() expects a host, as example.com or example.com:8443, got \"https://example.com\"");
+throws("nor nothing", () -> http::https_redirect(""), "http::https_redirect() expects a host, as example.com or example.com:8443, got \"\"");

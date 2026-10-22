@@ -1970,7 +1970,8 @@ static const char *HELP =
     "                 the end. The keys are words, as term::name() writes them: j enter escape\n"
     "                 ctrl+c page_up f5, \"text to type\", and 'wait 1.5' to let that many seconds\n"
     "                 pass (the clock moves only then). gaz --tty app.gaz <<< \"2 j snap enter\"\n"
-    "  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)\n";
+    "  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] [--cert FILE --key FILE]\n"
+    "                 (see std/devserver.gaz)\n";
 
 /* gaz -S host:port [args...]: std/devserver.gaz's own front door, so a zero-config static file
    server needs no dynamic import (there is none: import takes a string literal, resolved at

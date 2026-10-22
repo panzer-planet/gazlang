@@ -2,7 +2,12 @@
  * A zero-config static file server, what `gaz -S` runs (see vm.c's DEVSERVER_SOURCE): serves a
  * directory over HTTP with no program to write.
  *
- *   gaz -S localhost:8000 [--docroot DIR]
+ *   gaz -S localhost:8000 [--docroot DIR] [--cert FILE --key FILE]
+ *
+ * With a certificate and its key it serves HTTPS (and HTTP/2 to a browser that asks): `mkcert
+ * localhost` makes a pair a browser trusts on this machine, or
+ * `openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout key.pem -out cert.pem -subj /CN=localhost -days 30`
+ * one it warns about.
  *
  * There is no router script argument: `import` takes a string
  * literal, resolved at parse time, so a document naming a file to run at the command line isn't
@@ -23,10 +28,14 @@ pub fn main() {
     $cli = cli::Command("gaz -S", "Serve static files from a directory over HTTP");
     $cli.argument("address", "Where to listen, as host:port");
     $cli.option("docroot", "d", "The directory to serve", cwd());
+    $cli.option("cert", "c", "A certificate to serve HTTPS with (its key in --key)", null);
+    $cli.option("key", "k", "The certificate's private key", null);
     $args = $cli.parse(args());
+    $options = server_options($args["cert"], $args["key"]);
     [$host, $port] = address($args["address"]);
     $listener = socket_listen($host, $port);
-    echo "Listening on http://{$args["address"]}\n";
+    $scheme = $options == {} ? "http" : "https";
+    echo "Listening on {$scheme}://{$args["address"]}\n";
     /*
      * Without this the line above sits in standard output's buffer until the accept loop below
      * ends, since nothing else here writes enough to fill it or flushes it for us; a single
@@ -34,7 +43,19 @@ pub fn main() {
      * SIGTERM drain, which a preview server has no need of.
      */
     flush_output();
-    http::serve($listener, http::serve_static($args["docroot"]));
+    http::serve($listener, http::serve_static($args["docroot"]), $options);
+}
+
+// http::serve()'s options: TLS with both files, plain HTTP with neither
+fn server_options($certificate, $key) {
+    if (($certificate == null) != ($key == null)) {
+        throw "--cert and --key go together: give both for HTTPS, or neither for HTTP";
+    }
+    if ($certificate == null) {
+        return {};
+    }
+
+    return {"tls" => {"certificate" => $certificate, "key" => $key}};
 }
 
 // ponytail: no [::1]:port brackets, a dev server binds to plain hostnames and IPv4

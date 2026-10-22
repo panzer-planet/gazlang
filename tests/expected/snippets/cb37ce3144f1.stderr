@@ -1,6 +1,6 @@
 Error: HTTP error: bad header name: "X-A: b\r\nX-B"
-  http::check_token at <std>/http.gaz:531
-  http::checked_header at <std>/http.gaz:102
-  http::request at <std>/http.gaz:61
-  http::get at <std>/http.gaz:37
+  http::check_token at <std>/http.gaz:532
+  http::checked_header at <std>/http.gaz:103
+  http::request at <std>/http.gaz:62
+  http::get at <std>/http.gaz:38
   top level on line 1

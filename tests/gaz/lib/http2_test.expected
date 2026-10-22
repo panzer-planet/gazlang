@@ -1,0 +1,40 @@
+ok C.3: requests, the table carried between them
+ok C.4: the same requests Huffman-coded
+ok C.5: responses through a table of 256 bytes, evicting as it fills
+ok after them the table holds the three entries RFC 7541 says
+ok and no fourth: the others were evicted
+ok C.6: the same responses Huffman-coded
+ok a literal added to the table
+ok is index 62
+ok until a table size update of 0 empties it
+ok index 0
+ok an index past both tables
+ok a table size update after a field
+ok a table size update to the limit is allowed
+ok one past it is not
+ok a string longer than the block
+ok an integer cut off
+ok an integer past 2^31
+ok Huffman padding of 8 bits or more
+ok Huffman padding of 0s
+ok EOS in a Huffman-coded string
+ok each says COMPRESSION_ERROR
+ok what encode() writes, a decoder reads back as it was
+ok a :status the static table has whole is one byte
+ok a name the static table has is its index
+ok an integer past its prefix goes on 7 bits at a time
+ok a frame is its length, type, flags, stream and payload
+ok a stream's number in four bytes
+ok settings are written and read back in order
+ok a settings payload of a length not a multiple of 6
+ok a PADDED frame without its padding
+ok padding longer than the frame
+ok the preface comes first, read as bytes
+ok then the frames: a SETTINGS
+ok and the PING with it, read without waiting
+ok its payload whole
+ok half a frame is not a frame
+ok until the rest comes
+ok a frame past the size this end takes
+ok an end between frames is null
+ok an end in the middle of one is a PROTOCOL_ERROR

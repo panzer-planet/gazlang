@@ -24,4 +24,5 @@ Options:
                  the end. The keys are words, as term::name() writes them: j enter escape
                  ctrl+c page_up f5, "text to type", and 'wait 1.5' to let that many seconds
                  pass (the clock moves only then). gaz --tty app.gaz <<< "2 j snap enter"
-  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] (see std/devserver.gaz)
+  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] [--cert FILE --key FILE]
+                 (see std/devserver.gaz)

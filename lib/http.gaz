@@ -25,6 +25,7 @@ import "std/chars.gaz" use is_alnum, is_digit, is_hex_digit;
 import "std/date.gaz";
 import "std/crypto.gaz";
 import "std/json.gaz";
+import "std/http2.gaz";
 import "std/text.gaz" use quote;
 
 const MAX_REDIRECTS = 20;
@@ -561,7 +562,7 @@ const SERVER_OPTIONS = {
     "idle_timeout" => 5, "requests_per_connection" => 100, "access_log" => true,
     "handler_timeout" => 10, "header_timeout" => 10, "max_connections" => 1024, "tls" => null,
 };
-const TLS_OPTIONS = {"certificate" => null, "key" => null};
+const TLS_OPTIONS = {"certificate" => null, "key" => null, "http2" => true};
 // What a client that spoke plain HTTP to a TLS port is told, before the connection closes
 const PLAIN_ON_TLS = "This port speaks HTTPS: ask for https:// rather than http://.";
 const LONGEST_HANDLER_TIMEOUT = 100000000;   // seconds, worker_deadline()'s own ceiling: three years
@@ -861,6 +862,13 @@ fn secure_connection($taken, $listener, $rule, $handler, $options, $left) {
     try {
         $address = remote_address($socket);
         $secure = handshake($socket, $options, $accepted, $address);
+        if ($secure && socket_tls_protocol($socket) == "h2") {
+            $wait = PoolWait($listener, $rule);
+            $answered = H2Connection($socket, $options, $address).serve($handler, $most, $accepted, $wait);
+            $next = $wait.next;
+            $stopped = $wait.stopped;
+            $secure = false;
+        }
         $reader = Reader($socket);
         $last = false;
         while ($secure) {
@@ -915,6 +923,619 @@ fn secure_connection($taken, $listener, $rule, $handler, $options, $left) {
     return [$answered, $next ?? worker_accept($listener, $rule)];
 }
 
+/*
+ * How a connection waits for its client's next request when it keeps the connection itself (an
+ * HTTP/2 one, which can't go back to the master): what ended the wait, "client" (it spoke),
+ * "quiet" (its time ran out), "stop" (the worker is asked to stop) or "yield" (a new client needs
+ * this worker, so the connection gives way)
+ */
+interface IdleWait {
+    fn wait($socket, $seconds): string;
+}
+
+/*
+ * A single process's wait, as another_request() waits for HTTP/1.1: on the connection and the
+ * listener together, a new client given way to once the connection's client has had a grace to
+ * speak and the new one is still waiting (no listener for http::handle())
+ */
+kind AloneWait implements IdleWait {
+    fn _(#listener);
+
+    pub fn wait($socket, $seconds): string {
+        $deadline = monotonic_time() + $seconds;
+        $watched = #listener == null ? [$socket] : [$socket, #listener];
+        while (true) {
+            $left = $deadline - monotonic_time();
+            if ($left <= 0) {
+                return "quiet";
+            }
+            $ready = socket_wait($watched, $left);
+            if ($ready == null) {
+                return monotonic_time() >= $deadline ? "quiet" : "stop";
+            }
+            if ($ready == OWN_CLIENT) {
+                return "client";
+            }
+            if (socket_wait([$socket], YIELD_GRACE * (1 + rand_float())) != null) {
+                return "client";
+            }
+            if (socket_wait([#listener], 0) != null) {
+                return "yield";
+            }
+        }
+    }
+}
+
+// A worker's wait, worker_accept() with the connection it keeps: one handed over meanwhile is the worker's next
+kind PoolWait implements IdleWait {
+    pub #next = null;
+    pub #stopped = false;
+
+    fn _(#listener, #rule);
+
+    pub fn wait($socket, $seconds): string {
+        $waited = worker_accept(#listener, #rule, $socket, $seconds);
+        if ($waited == null) {
+            #stopped = true;
+            return "stop";
+        }
+        if ($waited == false) {
+            return "quiet";
+        }
+        if (type_of($waited) == "list") {
+            #next = $waited;
+            return "yield";
+        }
+        return "client";
+    }
+}
+
+const H2_MOST_STREAMS = 100;   // a client's streams open at once (SETTINGS_MAX_CONCURRENT_STREAMS)
+const H2_LINGER = 1;           // seconds a busy connection is read, and what comes dropped, after its last GOAWAY
+// Headers HTTP/2 has no place for, which make a request malformed (RFC 9113 §8.2.2)
+const H2_CONNECTION_HEADERS = ["connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade"];
+const H2_PSEUDO_HEADERS = [":method", ":scheme", ":path", ":authority"];
+
+// The connection went away while a frame was being written: nothing more can be said on it
+kind H2Gone extends Error {}
+
+// A request coming on a stream: its header block once whole, its body as it comes
+kind H2Stream {
+    pub #fields = null;     // the decoded header block: [name, value] in order
+    pub #parts = [];        // the body as it came
+    pub #size = 0;
+    pub #ended = false;     // the client sent END_STREAM: the request is whole
+    pub #too_large = false; // past "max_body": answered 413 once whole, the rest dropped
+
+    fn _(pub #id, pub #window, pub #opened);
+}
+
+/*
+ * HTTP/2 on a TLS connection whose client asked for it (ALPN's "h2"), the frames and header
+ * compression being std/http2.gaz's. A connection is one worker's, as an HTTP/1.1 one is: its
+ * streams are answered one at a time, in the order their requests are whole, so a handler sees
+ * the same request map and its response is checked the same way (response_parts()), and a slow
+ * handler delays its client's other streams (splitting them across workers would need a demuxer
+ * in the master, which can't read TLS). Every frame the protocol has is read; PRIORITY and
+ * unknown types are left alone, as RFC 9113 lets them be; a server never pushes.
+ *
+ * - Flow control: what the client sends is given back at once (WINDOW_UPDATE on the stream and
+ *   the connection for each DATA frame), and a body past "max_body" is answered 413 once its stream
+ *   ends, the rest dropped; a response waits for the client's windows, reading its frames meanwhile.
+ * - Between requests the connection waits as an IdleWait says, and on anything but its client's
+ *   next frame it says GOAWAY with the last stream it took, so a client sends what it hadn't sent
+ *   yet on a new connection. "requests_per_connection" streams answered are a GOAWAY too.
+ * - A request HTTP/2 calls malformed (an uppercase name, a pseudo-header out of place, a header
+ *   only HTTP/1.1 has, a Content-Length the body doesn't keep) is RST_STREAM PROTOCOL_ERROR, and a
+ *   broken protocol (a frame on a stream not open, a bad header block, ...) is a GOAWAY with its code.
+ *
+ * ponytail: a stream's body has no deadline but each frame's read "timeout", so a client trickling
+ * one holds the worker; a response is written whole once the handler returns.
+ */
+kind H2Connection {
+    #frames = null;
+    #decoder = null;
+    #streams = {};                              // id => H2Stream, those not yet answered
+    #ready = [];                                // ids whose request is whole, in the order they ended
+    #last_id = 0;                               // the highest stream the client opened
+    #window = http2::DEFAULT_WINDOW;            // room to send on the connection
+    #new_window = http2::DEFAULT_WINDOW;        // a new stream's room, as the client's settings say
+    #frame_size = http2::DEFAULT_FRAME_SIZE;    // the largest frame the client takes
+    #block = null;                              // a header block in parts: [stream, flags, fragments]
+    #going_away = false;                        // GOAWAY said: no new streams
+    #client_gone = false;                       // the client said GOAWAY
+    #answered = 0;
+
+    fn _(#socket, #options, #address);
+
+    // Serve the connection until it ends, $most requests at most; gives how many were answered
+    pub fn serve($handler, $most, $accepted, IdleWait $wait) {
+        #frames = http2::FrameReader(#socket);
+        #decoder = http2::Decoder();
+        try {
+            $settings = {http2::MAX_CONCURRENT_STREAMS => H2_MOST_STREAMS, http2::MAX_HEADER_LIST_SIZE => MAX_HEAD};
+            #send(http2::frame(http2::SETTINGS, 0, 0, http2::settings_payload($settings)));
+            $left = max($accepted + head_limit(#options) - monotonic_time(), 0.001);
+            $preface = #frames.bytes(len(http2::PREFACE), $left);
+            if ($preface != http2::PREFACE) {
+                if (type_of($preface) == "string") {
+                    #go_away(http2::PROTOCOL_ERROR);
+                }
+                return 0;
+            }
+            #run($handler, $most, $wait);
+        } catch (http2::ConnectionError $e) {
+            #go_away($e.code);
+        } catch (H2Gone $e) {
+            return #answered;
+        }
+        return #answered;
+    }
+
+    fn run($handler, $most, $wait) {
+        while (true) {
+            if (#ready != []) {
+                #answer_next($handler, $most);
+                continue;
+            }
+            if ((#going_away || #client_gone) && #streams == {}) {
+                #linger();
+                return;
+            }
+            if (#streams == {} && #block == null && !#frames.pending()) {
+                // A client that asks again at once keeps its worker without waiting for anything
+                if (socket_wait([#socket], HOT_GAP) == null && $wait.wait(#socket, #options["idle_timeout"]) != "client") {
+                    #go_away(http2::NO_ERROR);
+                    return;
+                }
+            }
+            $frame = #frames.next(#options["timeout"]);
+            if ($frame == null) {
+                return;
+            }
+            if ($frame == false) {
+                #go_away(http2::NO_ERROR);
+                return;
+            }
+            #take($frame);
+        }
+    }
+
+    // A frame the client sent, whatever its type
+    fn take(http2::Frame $frame) {
+        if (#block != null && ($frame.type != http2::CONTINUATION || $frame.stream != #block[0])) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a header block's CONTINUATION was interrupted");
+        }
+        match ($frame.type) {
+            http2::DATA => { #data($frame); }
+            http2::HEADERS => { #headers($frame); }
+            http2::CONTINUATION => { #continuation($frame); }
+            http2::PRIORITY => { #priority($frame); }
+            http2::RST_STREAM => { #reset($frame); }
+            http2::SETTINGS => { #settings($frame); }
+            http2::PING => { #ping($frame); }
+            http2::GOAWAY => { #client_going($frame); }
+            http2::WINDOW_UPDATE => { #window_update($frame); }
+            http2::PUSH_PROMISE => { throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a client sent PUSH_PROMISE"); }
+            default => {}
+        }
+    }
+
+    fn data($frame) {
+        $id = $frame.stream;
+        if ($id == 0 || $id > #last_id) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "DATA on a stream not opened");
+        }
+        $length = len($frame.payload);
+        $stream = #streams[$id] ?? null;
+        // Everything a client sends is room it gets back, whatever becomes of it
+        if ($length > 0) {
+            #send(http2::frame(http2::WINDOW_UPDATE, 0, 0, http2::u32($length)));
+        }
+        if ($stream == null || $stream.ended) {
+            #send(http2::frame(http2::RST_STREAM, 0, $id, http2::u32(http2::STREAM_CLOSED)));
+            return;
+        }
+        $data = http2::unpadded($frame);
+        $stream.size += len($data);
+        if ($stream.size > #options["max_body"]) {
+            $stream.too_large = true;
+            $stream.parts = [];
+        } else {
+            $stream.parts[] = $data;
+        }
+        if ($frame.has(http2::END_STREAM)) {
+            #ended($stream);
+        } else if ($length > 0) {
+            #send(http2::frame(http2::WINDOW_UPDATE, 0, $id, http2::u32($length)));
+        }
+    }
+
+    fn headers($frame) {
+        $id = $frame.stream;
+        $payload = http2::unpadded($frame);
+        if ($frame.has(http2::PRIORITY_FLAG)) {
+            if (len($payload) < 5) {
+                throw http2::ConnectionError(http2::FRAME_SIZE_ERROR, "a HEADERS frame too short for its priority");
+            }
+            if ((http2::read_u32($payload) & http2::MAX_WINDOW) == $id) {
+                throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a stream that depends on itself");
+            }
+            $payload = slice($payload, 5);
+        }
+        if ($id == 0 || $id % 2 == 0) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "HEADERS on stream $id, which a client can't open");
+        }
+        #block = [$id, $frame.flags, [$payload]];
+        if ($frame.has(http2::END_HEADERS)) {
+            #block_whole();
+        }
+    }
+
+    fn continuation($frame) {
+        if (#block == null) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a CONTINUATION with no header block to continue");
+        }
+        #block[2][] = $frame.payload;
+        if (sum(map(#block[2], len)) > MAX_HEAD) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a header block of more than " .. MAX_HEAD .. " bytes");
+        }
+        if ($frame.has(http2::END_HEADERS)) {
+            #block_whole();
+        }
+    }
+
+    // A header block is whole: a new stream's request head, or a stream's trailers
+    fn block_whole() {
+        [$id, $flags, $fragments] = #block;
+        #block = null;
+        // Decoded whatever becomes of the stream: the decoder's table must follow every block
+        $fields = #decoder.decode(join($fragments, ""));
+        $ends = ($flags & http2::END_STREAM) != 0;
+        if ($id <= #last_id) {
+            $stream = #streams[$id] ?? null;
+            if ($stream == null || $stream.ended) {
+                throw http2::ConnectionError(http2::STREAM_CLOSED, "HEADERS on stream $id, which is closed");
+            }
+            // Trailers: read and left alone, and they end the request
+            if (!$ends) {
+                throw http2::ConnectionError(http2::PROTOCOL_ERROR, "trailers on stream $id that don't end it");
+            }
+            #ended($stream);
+            return;
+        }
+        #last_id = $id;
+        if (#going_away || len(#streams) >= H2_MOST_STREAMS) {
+            #send(http2::frame(http2::RST_STREAM, 0, $id, http2::u32(http2::REFUSED_STREAM)));
+            return;
+        }
+        $stream = H2Stream($id, #new_window, monotonic_time());
+        $stream.fields = $fields;
+        #streams[$id] = $stream;
+        if ($ends) {
+            #ended($stream);
+        }
+    }
+
+    fn ended($stream) {
+        $stream.ended = true;
+        #ready[] = $stream.id;
+    }
+
+    fn priority($frame) {
+        if ($frame.stream == 0) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "PRIORITY on stream 0");
+        }
+        if (len($frame.payload) != 5) {
+            #send(http2::frame(http2::RST_STREAM, 0, $frame.stream, http2::u32(http2::FRAME_SIZE_ERROR)));
+        } else if ((http2::read_u32($frame.payload) & http2::MAX_WINDOW) == $frame.stream) {
+            // A stream that depends on itself (RFC 9113 §5.3.1)
+            #send(http2::frame(http2::RST_STREAM, 0, $frame.stream, http2::u32(http2::PROTOCOL_ERROR)));
+            #forget($frame.stream);
+        }
+    }
+
+    fn reset($frame) {
+        $id = $frame.stream;
+        if ($id == 0 || $id > #last_id) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "RST_STREAM on a stream not opened");
+        }
+        if (len($frame.payload) != 4) {
+            throw http2::ConnectionError(http2::FRAME_SIZE_ERROR, "an RST_STREAM of " .. len($frame.payload) .. " bytes");
+        }
+        // Given up on: never answered, or no more of its answer written
+        #forget($id);
+    }
+
+    fn forget($id) {
+        if (has_key(#streams, $id)) {
+            delete #streams[$id];
+        }
+        #ready = filter(#ready, $ready -> $ready != $id);
+    }
+
+    fn settings($frame) {
+        if ($frame.stream != 0) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "SETTINGS on a stream");
+        }
+        if ($frame.has(http2::ACK)) {
+            if ($frame.payload != "") {
+                throw http2::ConnectionError(http2::FRAME_SIZE_ERROR, "a SETTINGS acknowledgement with a payload");
+            }
+            return;
+        }
+        foreach (http2::settings($frame.payload) as [$setting, $value]) {
+            #setting($setting, $value);
+        }
+        #send(http2::frame(http2::SETTINGS, http2::ACK, 0));
+    }
+
+    fn setting($setting, $value) {
+        match ($setting) {
+            http2::ENABLE_PUSH => {
+                if ($value > 1) {
+                    throw http2::ConnectionError(http2::PROTOCOL_ERROR, "ENABLE_PUSH of $value");
+                }
+            }
+            http2::INITIAL_WINDOW_SIZE => {
+                if ($value > http2::MAX_WINDOW) {
+                    throw http2::ConnectionError(http2::FLOW_CONTROL_ERROR, "an INITIAL_WINDOW_SIZE of $value");
+                }
+                // Every open stream's room moves by the change (RFC 9113 §6.9.2)
+                foreach (#streams as $stream) {
+                    $stream.window += $value - #new_window;
+                    if ($stream.window > http2::MAX_WINDOW) {
+                        throw http2::ConnectionError(http2::FLOW_CONTROL_ERROR, "a stream's window past 2^31 - 1");
+                    }
+                }
+                #new_window = $value;
+            }
+            http2::MAX_FRAME_SIZE => {
+                if ($value < http2::DEFAULT_FRAME_SIZE || $value > 16777215) {
+                    throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a MAX_FRAME_SIZE of $value");
+                }
+                #frame_size = $value;
+            }
+            // HEADER_TABLE_SIZE: http2::encode() uses no table; the rest only inform
+            default => {}
+        }
+    }
+
+    fn ping($frame) {
+        if ($frame.stream != 0) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "PING on a stream");
+        }
+        if (len($frame.payload) != 8) {
+            throw http2::ConnectionError(http2::FRAME_SIZE_ERROR, "a PING of " .. len($frame.payload) .. " bytes");
+        }
+        if (!$frame.has(http2::ACK)) {
+            #send(http2::frame(http2::PING, http2::ACK, 0, $frame.payload));
+        }
+    }
+
+    // The client is going: the streams it opened are answered, and no more are coming
+    fn client_going($frame) {
+        if ($frame.stream != 0) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "GOAWAY on a stream");
+        }
+        #client_gone = true;
+    }
+
+    fn window_update($frame) {
+        if (len($frame.payload) != 4) {
+            throw http2::ConnectionError(http2::FRAME_SIZE_ERROR, "a WINDOW_UPDATE of " .. len($frame.payload) .. " bytes");
+        }
+        $increment = http2::read_u32($frame.payload) & http2::MAX_WINDOW;
+        $id = $frame.stream;
+        if ($id == 0) {
+            if ($increment == 0) {
+                throw http2::ConnectionError(http2::PROTOCOL_ERROR, "a WINDOW_UPDATE of 0");
+            }
+            #window += $increment;
+            if (#window > http2::MAX_WINDOW) {
+                throw http2::ConnectionError(http2::FLOW_CONTROL_ERROR, "the connection's window past 2^31 - 1");
+            }
+            return;
+        }
+        if ($id > #last_id) {
+            throw http2::ConnectionError(http2::PROTOCOL_ERROR, "WINDOW_UPDATE on a stream not opened");
+        }
+        $stream = #streams[$id] ?? null;
+        if ($stream == null) {
+            return;
+        }
+        $stream.window += $increment;
+        if ($increment == 0 || $stream.window > http2::MAX_WINDOW) {
+            $code = $increment == 0 ? http2::PROTOCOL_ERROR : http2::FLOW_CONTROL_ERROR;
+            #send(http2::frame(http2::RST_STREAM, 0, $id, http2::u32($code)));
+            #forget($id);
+        }
+    }
+
+    // The oldest whole request answered, and its stream closed
+    fn answer_next($handler, $most) {
+        [$id, ...#ready] = #ready;
+        $stream = #streams[$id] ?? null;
+        if ($stream == null) {
+            return;
+        }
+        $line = RequestLine();
+        $request = h2_request($stream, #options, #address, $line);
+        if ($request == null) {
+            #forget($id);
+            #send(http2::frame(http2::RST_STREAM, 0, $id, http2::u32(http2::PROTOCOL_ERROR)));
+            return;
+        }
+        $head = $request["method"] == "HEAD";
+        if ($stream.too_large) {
+            $parts = response_parts(refusal_response(413));
+        } else {
+            $render = $response -> response_parts($response);
+            $refuse = $status -> response_parts(refusal_response($status));
+            $parts = handler_answer($request, $handler, #socket, #address, #options, $line, $render, $refuse);
+        }
+        #answered++;
+        #write_response($id, $parts, $head);
+        #forget($id);
+        if (#options["access_log"]) {
+            $body = $head ? 0 : len($parts.body);
+            $tail = logged_result($parts.status, $body, monotonic_time() - $stream.opened);
+            print_error(LogClock::now() .. " " .. (#address ?? "-") .. " " .. $line.logged() .. $tail .. "\n");
+        }
+        if (#answered >= $most && !#going_away) {
+            #go_away(http2::NO_ERROR);
+        }
+    }
+
+    // A response's HEADERS (and CONTINUATION past a frame), then its body in DATA frames as the client's windows allow
+    fn write_response($id, $parts, $head) {
+        $fields = [[":status", to_string($parts.status)]];
+        foreach ($parts.headers as [$name, $value]) {
+            $fields[] = [lower($name), $value];
+        }
+        if (!$parts.bodiless()) {
+            $fields[] = ["content-length", to_string(len($parts.body))];
+        }
+        $fields[] = ["date", http_date(time())];
+        $block = http2::encode($fields);
+        $body = $head ? "" : $parts.body;
+        $rest = slice($block, #frame_size);
+        $flags = ($rest == "" ? http2::END_HEADERS : 0) | ($body == "" ? http2::END_STREAM : 0);
+        $frames = http2::frame(http2::HEADERS, $flags, $id, slice($block, 0, #frame_size));
+        while ($rest != "") {
+            $piece = slice($rest, 0, #frame_size);
+            $rest = slice($rest, #frame_size);
+            $frames ..= http2::frame(http2::CONTINUATION, $rest == "" ? http2::END_HEADERS : 0, $id, $piece);
+        }
+        #send($frames);
+        $at = 0;
+        while ($at < len($body)) {
+            $stream = #streams[$id] ?? null;
+            if ($stream == null) {
+                // Reset by the client while its answer was being written
+                return;
+            }
+            $room = min([#window, $stream.window, #frame_size]);
+            if ($room <= 0) {
+                #wait_for_room();
+                continue;
+            }
+            $piece = slice($body, $at, $room);
+            $at += len($piece);
+            #window -= len($piece);
+            $stream.window -= len($piece);
+            #send(http2::frame(http2::DATA, $at == len($body) ? http2::END_STREAM : 0, $id, $piece));
+        }
+    }
+
+    // Out of room to send: the client's frames read until a WINDOW_UPDATE (or anything else) comes
+    fn wait_for_room() {
+        $frame = #frames.next(#options["timeout"]);
+        if ($frame == null || $frame == false) {
+            throw H2Gone("the client stopped reading while a response was written");
+        }
+        #take($frame);
+    }
+
+    /*
+     * After a GOAWAY on a connection still in use, what the client sent meanwhile is read and
+     * dropped until it closes, or H2_LINGER passes: closing with bytes unread would reset the
+     * connection, and the client could lose responses it hadn't read yet. Its streams past the
+     * GOAWAY's last one it sends again on a new connection, as RFC 9113 §6.8 says.
+     */
+    fn linger() {
+        $until = monotonic_time() + H2_LINGER;
+        while (#client_gone == false) {
+            $left = $until - monotonic_time();
+            if ($left <= 0) {
+                return;
+            }
+            $frame = #frames.next($left);
+            if ($frame == null || $frame == false) {
+                return;
+            }
+            if ($frame.type == http2::GOAWAY) {
+                return;
+            }
+        }
+    }
+
+    fn go_away($code) {
+        #going_away = true;
+        try {
+            #send(http2::frame(http2::GOAWAY, 0, 0, http2::u32(#last_id) .. http2::u32($code)));
+        } catch (H2Gone $e) {
+            // Gone already: nobody to say goodbye to
+        }
+    }
+
+    fn send($bytes) {
+        if (!send_quietly(#socket, $bytes)) {
+            throw H2Gone("the client went away");
+        }
+    }
+}
+
+/*
+ * A stream's request as http::serve() gives one to a handler, from its header block and body, or
+ * null when HTTP/2 calls it malformed (RFC 9113 §8.1.1): an uppercase name, a pseudo-header after
+ * a header or unknown or twice or missing, a header only HTTP/1.1 has, TE other than "trailers",
+ * a Content-Length the body doesn't keep. The method and target go into $line for the access log.
+ */
+fn h2_request($stream, $options, $address, $line) {
+    $pseudo = {};
+    $headers = {};
+    foreach ($stream.fields as [$name, $value]) {
+        if ($name == "" || $name != lower($name) || has_control($value, true)) {
+            return null;
+        }
+        if (starts_with($name, ":")) {
+            if ($headers != {} || has_key($pseudo, $name) || !in_array($name, H2_PSEUDO_HEADERS)) {
+                return null;
+            }
+            $pseudo[$name] = $value;
+            continue;
+        }
+        if (!is_token($name) || in_array($name, H2_CONNECTION_HEADERS) || ($name == "te" && $value != "trailers")) {
+            return null;
+        }
+        // Cookies may come as many fields, joined as HTTP/1.1 would send them (RFC 9113 §8.2.3)
+        $separator = $name == "cookie" ? "; " : ", ";
+        $headers[$name] = has_key($headers, $name) ? $headers[$name] .. $separator .. $value : $value;
+    }
+    foreach ([":method", ":scheme", ":path"] as $required) {
+        if (!has_key($pseudo, $required)) {
+            return null;
+        }
+    }
+    $method = $pseudo[":method"];
+    $target = $pseudo[":path"];
+    $line.method = $method;
+    $line.target = $target;
+    if (!is_token($method) || !(starts_with($target, "/") || $target == "*" && $method == "OPTIONS") || has_control($target)) {
+        return null;
+    }
+    if (has_key($pseudo, ":authority")) {
+        $headers["host"] ??= $pseudo[":authority"];
+    }
+    $body = join($stream.parts, "");
+    if (has_key($headers, "content-length") && !$stream.too_large) {
+        if (!all_digits($headers["content-length"]) || to_int($headers["content-length"], -1) != len($body)) {
+            return null;
+        }
+    }
+    $query = index_of($target, "?");
+    return {
+        "method" => $method,
+        "path" => $query == null ? $target : slice($target, 0, $query),
+        "query" => $query == null ? "" : slice($target, $query + 1),
+        "headers" => $headers,
+        "body" => $body,
+        "remote_address" => $address,
+        "scheme" => $options["scheme"],
+    };
+}
+
 /**
  * One connection: its requests read and answered, and the connection closed, whatever happens
  */
@@ -938,6 +1559,10 @@ fn connection($socket, $turns, $handler, $options, $left) {
         $address = remote_address($socket);
         if ($options["tls"] != null && !handshake($socket, $options, $accepted, $address)) {
             return 0;
+        }
+        if ($options["tls"] != null && socket_tls_protocol($socket) == "h2") {
+            $wait = AloneWait($turns.listener);
+            return H2Connection($socket, $options, $address).serve($handler, $most, $accepted, $wait);
         }
         $reader = Reader($socket);
         $keep = true;
@@ -1154,14 +1779,27 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
     [$request, $persistent] = $read;
     $close = $last || !$persistent;
     $head = $request["method"] == "HEAD";
+    $render = $response -> write_response($response, $head, $close);
+    $refuse = $status -> [refusal($status, $head), false];
+    return handler_answer($request, $handler, $socket, $address, $options, $line, $render, $refuse);
+}
+
+/*
+ * The handler's answer to $request, rendered by $render (HTTP/1.1's bytes, or HTTP/2's frames),
+ * or $refuse's rendering of a 400 (a decoder refused what the client sent: nothing is logged) or
+ * a 500 (the handler raised, or answered what can't be rendered: logged on standard error). The
+ * handler's deadline covers the call and the rendering, which may run a template's to_string().
+ */
+fn handler_answer($request, $handler, $socket, $address, $options, $line, $render, $refuse) {
+    $head = $request["method"] == "HEAD";
     $limit = $options["handler_timeout"];
     try {
         // In the try, so anything it raises is a 500 rather than the end of the worker
         set_deadline($socket, $limit, $head, $line, $address, $options["access_log"], $options["tls"] != null);
-        return write_response($handler($request), $head, $close);
+        return $render($handler($request));
     } catch (Undecodable $e) {
         // The client's own request, which a decoder refused: a 400, and nothing for the log
-        return [refusal(400, $head), false];
+        return $refuse(400);
     } catch (Error $e) {
         print_error(error_prefix($request) .. describe_error($e) .. "\n");
     } catch ($e) {
@@ -1170,7 +1808,7 @@ fn answer($reader, $socket, $handler, $address, $options, $last, $line = Request
         // Whatever happened, so no timer is left to end the worker in its next request's wait
         clear_deadline($socket, $limit);
     }
-    return [refusal(500, $head), false];
+    return $refuse(500);
 }
 
 /*
@@ -1302,7 +1940,12 @@ fn tls_options($given) {
             throw "http::serve() expects tls's $name to be a file's path, got " .. quote($tls[$name]);
         }
     }
-    $tls = {"certificate" => $tls["certificate"], "key" => $tls["key"], "protocols" => ["http/1.1"]};
+    if (type_of($tls["http2"]) != "bool") {
+        throw "http::serve() expects tls's http2 to be true or false, got " .. quote($tls["http2"]);
+    }
+    // ALPN: HTTP/2 to a client that asks for it, the server's choice winning
+    $protocols = $tls["http2"] ? ["h2", "http/1.1"] : ["http/1.1"];
+    $tls = {"certificate" => $tls["certificate"], "key" => $tls["key"], "protocols" => $protocols};
     socket_tls_server($tls);
     return $tls;
 }
@@ -1380,6 +2023,11 @@ fn access_line($line, $address, $bytes, $seconds, $time) {
 fn access_tail($bytes, $seconds) {
     $status = slice($bytes, len("HTTP/1.1 "), 3);
     $body = len($bytes) - index_of($bytes, "\r\n\r\n") - 4;
+    return logged_result($status, $body, $seconds);
+}
+
+// The end of an access line: the status, the body's bytes and the time taken
+fn logged_result($status, $body, $seconds) {
     $milliseconds = milliseconds_text($seconds);
 
     return " $status $body {$milliseconds}ms";
@@ -1566,6 +2214,30 @@ fn has_control($text, $spaces = false) {
  * says Connection: close, which this is the one place to write.
  */
 fn write_response($response, $head, $close = true, $dated = true) {
+    $parts = response_parts($response);
+    $close = $close || $parts.close;
+    $lines = map($parts.headers, [$name, $value] -> "$name: $value");
+    if (!$parts.bodiless()) {
+        $lines[] = "Content-Length: " .. len($parts.body);
+    }
+    $first = [status_line($parts.status)];
+    if ($dated) {
+        $first[] = "Date: " .. http_date(time());
+    }
+    if ($close) {
+        $first[] = "Connection: close";
+    }
+    $bytes = join([...$first, ...$lines], "\r\n") .. "\r\n\r\n" .. ($head ? "" : $parts.body);
+    return [$bytes, !$close];
+}
+
+/*
+ * A handler's response, checked, in the parts either protocol writes: its status, its headers as
+ * [name, value] lines (a list value gives a line for each), its body (an Html's text), and whether
+ * the handler asked to close the connection. Content-Length, Transfer-Encoding and Date are the
+ * server's to write, and Connection only "close".
+ */
+fn response_parts($response) {
     if (type_of($response) != "map") {
         throw "the handler returned " .. type_of($response) .. ", not a map of status, headers and body";
     }
@@ -1590,11 +2262,11 @@ fn write_response($response, $head, $close = true, $dated = true) {
     if (type_of($body) != "string") {
         throw "a response's body must be a string or Html, got " .. type_of($body);
     }
-    $bodiless = $status == 204 || $status == 304;
-    if ($bodiless && $body != "") {
+    if (($status == 204 || $status == 304) && $body != "") {
         throw "a $status response has no body";
     }
     $lines = [];
+    $close = false;
     foreach ($headers as $name => $value) {
         check_token("header name", $name);
         if (lower($name) == "connection") {
@@ -1613,21 +2285,20 @@ fn write_response($response, $head, $close = true, $dated = true) {
             if (contains($one, "\r") || contains($one, "\n") || contains($one, "\0")) {
                 throw "HTTP error: header $name has a line break or NUL byte in its value";
             }
-            $lines[] = "$name: $one";
+            $lines[] = [$name, $one];
         }
     }
-    if (!$bodiless) {
-        $lines[] = "Content-Length: " .. len($body);
+    return ResponseParts($status, $lines, $body, $close);
+}
+
+// A response checked by response_parts()
+kind ResponseParts {
+    fn _(pub #status, pub #headers, pub #body, pub #close);
+
+    // A 204 or a 304, which have no body and so no Content-Length
+    pub fn bodiless() {
+        return #status == 204 || #status == 304;
     }
-    $first = [status_line($status)];
-    if ($dated) {
-        $first[] = "Date: " .. http_date(time());
-    }
-    if ($close) {
-        $first[] = "Connection: close";
-    }
-    $bytes = join([...$first, ...$lines], "\r\n") .. "\r\n\r\n" .. ($head ? "" : $body);
-    return [$bytes, !$close];
 }
 
 // A handler's own Connection header may only ask for the connection to close
@@ -1659,9 +2330,13 @@ fn with_html_type($headers) {
  * $dated false leaves out the Date header
  */
 fn refusal($status, $head = false, $dated = true) {
+    return write_response(refusal_response($status), $head, true, $dated)[0];
+}
+
+// The response the server refuses with: the status and its reason as plain text
+fn refusal_response($status) {
     $text = (REASONS[$status] ?? "Error") .. "\n";
-    $response = {"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text};
-    return write_response($response, $head, true, $dated)[0];
+    return {"status" => $status, "headers" => {"Content-Type" => "text/plain"}, "body" => $text};
 }
 
 fn status_line($status) {
@@ -1780,6 +2455,24 @@ pub fn redirect(string $to, int $status = 303): map {
     }
 
     return {"status" => $status, "headers" => {"Location" => $to}, "body" => ""};
+}
+
+/**
+ * A handler that sends every request on to the same path on `https://$host`, for a plain server
+ * on port 80 beside an HTTPS one: a 308, so a POST stays a POST, and a browser remembers it.
+ * The host is the program's, never the request's Host header, which a client writes, so the
+ * redirect can't be pointed at another site.
+ *
+ *     http::serve(socket_listen("0.0.0.0", 80), http::https_redirect("example.com"));
+ */
+pub fn https_redirect(string $host): function {
+    if ($host == "" || has_control($host) || contains($host, "/") || contains($host, "?") || contains($host, "#") || contains($host, "@")) {
+        throw "http::https_redirect() expects a host, as example.com or example.com:8443, got " .. quote($host);
+    }
+    return $request -> {
+        $query = $request["query"] == "" ? "" : "?" .. $request["query"];
+        return {"status" => 308, "headers" => {"Location" => "https://" .. $host .. $request["path"] .. $query}};
+    };
 }
 
 /**

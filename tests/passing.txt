@@ -15,6 +15,7 @@ lib/format.gaz
 lib/fs.gaz
 lib/highlight.gaz
 lib/http.gaz
+lib/http2.gaz
 lib/json.gaz
 lib/lists.gaz
 lib/random.gaz
@@ -1210,6 +1211,7 @@ tests/gaz/lib/format_test.gaz
 tests/gaz/lib/fs_test.gaz
 tests/gaz/lib/functional_test.gaz
 tests/gaz/lib/highlight_test.gaz
+tests/gaz/lib/http2_test.gaz
 tests/gaz/lib/http_causes_test.gaz
 tests/gaz/lib/http_client_address_test.gaz
 tests/gaz/lib/http_connection_test.gaz

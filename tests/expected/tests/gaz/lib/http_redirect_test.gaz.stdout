@@ -8,3 +8,10 @@ ok a bare line feed too
 ok a NUL byte
 ok a status that isn't a redirect
 ok a location that isn't a string
+ok to the same path and query on https
+ok a path with no query gets no ?
+ok a 308, so a POST stays a POST
+ok the host is the program's, whatever Host the client sends
+ok a port goes with it
+ok a host, not a URL
+ok nor nothing

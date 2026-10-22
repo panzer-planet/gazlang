@@ -1,0 +1,136 @@
+/*
+ * std/http2.gaz: HPACK against RFC 7541's own examples (Appendix C, which exercise the dynamic
+ * table, its eviction and the Huffman code), what a decoder refuses, the encoder read back by the
+ * decoder, and frames read and written. The server that uses it is HttpTlsTest's, and the decoder
+ * and encoder were also checked against Go's on thousands of random blocks while being written.
+ */
+import "std/crypto.gaz";
+import "std/http2.gaz";
+import "std/test.gaz" use expect, throws;
+
+// The blocks of one connection, decoded in order by one decoder of a table of $size
+fn decoded($blocks, $size = 4096) {
+    $decoder = http2::Decoder($size);
+    return map($blocks, $hex -> $decoder.decode(crypto::from_hex($hex)));
+}
+
+const REQUESTS = [
+    [[":method", "GET"], [":scheme", "http"], [":path", "/"], [":authority", "www.example.com"]],
+    [[":method", "GET"], [":scheme", "http"], [":path", "/"], [":authority", "www.example.com"], ["cache-control", "no-cache"]],
+    [[":method", "GET"], [":scheme", "https"], [":path", "/index.html"], [":authority", "www.example.com"], ["custom-key", "custom-value"]],
+];
+const RESPONSES = [
+    [[":status", "302"], ["cache-control", "private"], ["date", "Mon, 21 Oct 2013 20:13:21 GMT"], ["location", "https://www.example.com"]],
+    [[":status", "307"], ["cache-control", "private"], ["date", "Mon, 21 Oct 2013 20:13:21 GMT"], ["location", "https://www.example.com"]],
+    [[":status", "200"], ["cache-control", "private"], ["date", "Mon, 21 Oct 2013 20:13:22 GMT"], ["location", "https://www.example.com"],
+     ["content-encoding", "gzip"], ["set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"]],
+];
+
+expect("C.3: requests, the table carried between them", decoded([
+    "828684410f7777772e6578616d706c652e636f6d",
+    "828684be58086e6f2d6361636865",
+    "828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565",
+]), REQUESTS);
+expect("C.4: the same requests Huffman-coded", decoded([
+    "828684418cf1e3c2e5f23a6ba0ab90f4ff",
+    "828684be5886a8eb10649cbf",
+    "828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf",
+]), REQUESTS);
+expect("C.5: responses through a table of 256 bytes, evicting as it fills", decoded([
+    "4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d",
+    "4803333037c1c0bf",
+    "88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31",
+], 256), RESPONSES);
+$evicting = http2::Decoder(256);
+foreach (["4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d",
+          "4803333037c1c0bf",
+          "88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"] as $hex) {
+    $evicting.decode(crypto::from_hex($hex));
+}
+expect("after them the table holds the three entries RFC 7541 says", $evicting.decode(crypto::from_hex("bebfc0"))[0], ["set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"]);
+throws("and no fourth: the others were evicted", () -> $evicting.decode(crypto::from_hex("c1")), http2::ConnectionError, "a header field indexed 65, past the table");
+expect("C.6: the same responses Huffman-coded", decoded([
+    "488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3",
+    "4883640effc1c0bf",
+    "88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007",
+], 256), RESPONSES);
+$table = http2::Decoder();
+expect("a literal added to the table", $table.decode(crypto::from_hex("4001610162")), [["a", "b"]]);
+expect("is index 62", $table.decode(crypto::from_hex("be")), [["a", "b"]]);
+throws("until a table size update of 0 empties it", () -> $table.decode(crypto::from_hex("20be")), http2::ConnectionError, "a header field indexed 62, past the table");
+
+// What a decoder refuses, each a COMPRESSION_ERROR
+fn refused($hex) {
+    return () -> http2::Decoder().decode(crypto::from_hex($hex));
+}
+fn code_of($thunk) {
+    try {
+        $thunk();
+    } catch (http2::ConnectionError $e) {
+        return $e.code;
+    }
+    return null;
+}
+throws("index 0", refused("80"), http2::ConnectionError, "a header field indexed 0");
+throws("an index past both tables", refused("be"), http2::ConnectionError, "a header field indexed 62, past the table");
+throws("a table size update after a field", refused("8220"), http2::ConnectionError, "a table size update after a header field");
+expect("a table size update to the limit is allowed", http2::Decoder().decode(crypto::from_hex("3fe11f")), []);
+throws("one past it is not", refused("3fe21f"), http2::ConnectionError, "a table size of 4097, past the 4096 allowed");
+throws("a string longer than the block", refused("000561"), http2::ConnectionError, "a header block ends in the middle of a string");
+throws("an integer cut off", refused("ff"), http2::ConnectionError, "a header block ends in the middle of an integer");
+throws("an integer past 2^31", refused("1fffffffffff0f"), http2::ConnectionError, "an integer past 2^31 in a header block");
+throws("Huffman padding of 8 bits or more", refused("00838c00ff"), http2::ConnectionError, "a Huffman-coded string ends in the middle of a code");
+throws("Huffman padding of 0s", refused("0081a0"), http2::ConnectionError, "a Huffman-coded string ends in the middle of a code");
+throws("EOS in a Huffman-coded string", refused("0084ffffffff"), http2::ConnectionError, "a Huffman-coded string holds EOS");
+expect("each says COMPRESSION_ERROR", code_of(refused("80")), http2::COMPRESSION_ERROR);
+
+// The encoder, read back by the decoder
+$fields = [
+    [":status", "200"], [":status", "418"], ["content-type", "text/html; charset=utf-8"],
+    ["x-a-header-of-its-own", repeat("v", 300)], ["set-cookie", "a=1"], ["set-cookie", "b=2"], ["", ""],
+];
+expect("what encode() writes, a decoder reads back as it was", http2::Decoder().decode(http2::encode($fields)), $fields);
+expect("a :status the static table has whole is one byte", crypto::hex(http2::encode([[":status", "200"]])), "88");
+expect("a name the static table has is its index", crypto::hex(http2::encode([["content-type", "x"]])), "0f1001" .. "78");
+expect("an integer past its prefix goes on 7 bits at a time", [crypto::hex(http2::encoded_integer(1337, 5)), crypto::hex(http2::encoded_integer(10, 5))], ["1f9a0a", "0a"]);
+
+// Frames
+expect("a frame is its length, type, flags, stream and payload", crypto::hex(http2::frame(http2::PING, http2::ACK, 0, "12345678")), "000008060100000000" .. crypto::hex("12345678"));
+expect("a stream's number in four bytes", crypto::hex(http2::frame(http2::RST_STREAM, 0, 0x7fffffff, http2::u32(8))), "000004030" .. "07fffffff00000008");
+expect("settings are written and read back in order", http2::settings(http2::settings_payload({http2::MAX_FRAME_SIZE => 16384, http2::INITIAL_WINDOW_SIZE => 1})), [[5, 16384], [4, 1]]);
+throws("a settings payload of a length not a multiple of 6", () -> http2::settings("12345"), http2::ConnectionError, "a SETTINGS frame of 5 bytes, not a multiple of 6");
+expect("a PADDED frame without its padding", http2::unpadded(http2::Frame(http2::DATA, http2::PADDED, 1, "\x03abc..." )), "abc");
+throws("padding longer than the frame", () -> http2::unpadded(http2::Frame(http2::DATA, http2::PADDED, 1, "\x05abc")), http2::ConnectionError, "a frame's padding is longer than the frame");
+
+// Read off a connection: two frames arriving as one write, then one in pieces, then the end
+$listener = socket_listen("127.0.0.1", 0);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$served = socket_accept($listener);
+$reader = http2::FrameReader($served);
+socket_write($client, http2::PREFACE .. http2::frame(http2::SETTINGS, 0, 0) .. http2::frame(http2::PING, 0, 0, "abcdefgh"));
+expect("the preface comes first, read as bytes", $reader.bytes(len(http2::PREFACE), 2), http2::PREFACE);
+$frame = $reader.next(2);
+expect("then the frames: a SETTINGS", [$frame.type, $frame.flags, $frame.stream, $frame.payload], [http2::SETTINGS, 0, 0, ""]);
+expect("and the PING with it, read without waiting", $reader.buffered(), true);
+expect("its payload whole", $reader.next(2).payload, "abcdefgh");
+$halves = http2::frame(http2::DATA, http2::END_STREAM, 3, "body");
+socket_write($client, slice($halves, 0, 5));
+expect("half a frame is not a frame", [$reader.next(0.1), $reader.pending()], [false, true]);
+socket_write($client, slice($halves, 5));
+$frame = $reader.next(2);
+expect("until the rest comes", [$frame.type, $frame.has(http2::END_STREAM), $frame.stream, $frame.payload], [http2::DATA, true, 3, "body"]);
+socket_write($client, "\x00\x40\x01" .. "\x00\x00" .. "\x00\x00\x00\x01");
+throws("a frame past the size this end takes", () -> $reader.next(2), http2::ConnectionError, "a frame of 16385 bytes, past the 16384 this end takes");
+socket_close($client);
+socket_close($served);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$served = socket_accept($listener);
+$reader = http2::FrameReader($served);
+socket_close($client);
+expect("an end between frames is null", $reader.next(2), null);
+$client = socket_open("127.0.0.1", socket_port($listener));
+$served = socket_accept($listener);
+$reader = http2::FrameReader($served);
+socket_write($client, "\x00\x00\x04");
+socket_close($client);
+throws("an end in the middle of one is a PROTOCOL_ERROR", () -> $reader.next(2), http2::ConnectionError, "the connection closed in the middle of a frame");

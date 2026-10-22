@@ -1,5 +1,5 @@
 Error: HTTP error: header X has a line break or NUL byte in its value
-  http::checked_header at <std>/http.gaz:105
-  http::request at <std>/http.gaz:61
-  http::get at <std>/http.gaz:37
+  http::checked_header at <std>/http.gaz:106
+  http::request at <std>/http.gaz:62
+  http::get at <std>/http.gaz:38
   top level on line 1

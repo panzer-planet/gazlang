@@ -124,4 +124,48 @@ class DevServerTest extends GazLangTestCase
         $this->assertSame(404, self::get('/%2e%2e%2fread_me.txt')['status']);
         $this->assertSame(404, self::get('/sub/..%2f..%2fread_me.txt')['status']);
     }
+
+    public function test_a_certificate_and_its_key_serve_https()
+    {
+        $free = stream_socket_server('tcp://127.0.0.1:0');
+        $address = (string) stream_socket_get_name($free, false);
+        $port = (int) substr($address, strrpos($address, ':') + 1);
+        fclose($free);
+        $server = proc_open(
+            [self::binary(), '-S', '127.0.0.1:'.$port, '--docroot', self::ROOT.'/tests/fixtures/static_site',
+                '--cert', 'tests/fixtures/tls/cert.pem', '--key', 'tests/fixtures/tls/server.pem'],
+            [['file', '/dev/null', 'r'], ['pipe', 'w'], ['file', '/dev/null', 'w']],
+            $pipes,
+            self::ROOT
+        );
+        $this->assertNotFalse($server);
+        try {
+            $this->assertSame("Listening on https://127.0.0.1:{$port}", trim((string) fgets($pipes[1])));
+            $context = stream_context_create(['ssl' => ['cafile' => self::ROOT.'/tests/fixtures/tls/cert.pem', 'peer_name' => 'localhost']]);
+            $socket = stream_socket_client("tls://127.0.0.1:{$port}", $errno, $error, 5, STREAM_CLIENT_CONNECT, $context);
+            $this->assertNotFalse($socket, $error);
+            fwrite($socket, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+            $response = self::response((string) stream_get_contents($socket));
+            $this->assertSame([200, "<h1>home</h1>\n"], [$response['status'], $response['body']]);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    public function test_a_certificate_without_its_key_is_refused()
+    {
+        $output = self::succeedOrNot([self::binary(), '-S', '127.0.0.1:1', '--cert', 'tests/fixtures/tls/cert.pem']);
+        $this->assertStringContainsString('Error: --cert and --key go together: give both for HTTPS, or neither for HTTP', $output);
+    }
+
+    /** @param list<string> $command */
+    private static function succeedOrNot(array $command): string
+    {
+        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $output = (string) stream_get_contents($pipes[1]).(string) stream_get_contents($pipes[2]);
+        proc_close($process);
+
+        return $output;
+    }
 }

@@ -24,7 +24,8 @@ fn serving($listener, $handler, $tls) {
 }
 
 throws("tls is a map", serving($listener, $handler, "cert.pem"), "http::serve() expects tls to be a map of certificate and key, got string");
-throws("of certificate and key only", serving($listener, $handler, {"certificate" => "a", "key" => "b", "chain" => "c"}), "http::serve()'s tls has no option \"chain\": only certificate, key");
+throws("of certificate, key and http2 only", serving($listener, $handler, {"certificate" => "a", "key" => "b", "chain" => "c"}), "http::serve()'s tls has no option \"chain\": only certificate, key, http2");
+throws("http2 is true or false", serving($listener, $handler, {"certificate" => "tests/fixtures/tls/cert.pem", "key" => "tests/fixtures/tls/server.pem", "http2" => "yes"}), "http::serve() expects tls's http2 to be true or false, got \"yes\"");
 throws("a certificate is needed", serving($listener, $handler, {"key" => "tests/fixtures/tls/server.pem"}), "http::serve() expects tls's certificate to be a file's path, got null");
 throws("and a key", serving($listener, $handler, {"certificate" => "tests/fixtures/tls/cert.pem"}), "http::serve() expects tls's key to be a file's path, got null");
 throws("the files are read when it starts", serving($listener, $handler, {"certificate" => "tests/fixtures/tls/none.pem", "key" => "tests/fixtures/tls/server.pem"}), "Cannot read the certificate tests/fixtures/tls/none.pem: No such file or directory");

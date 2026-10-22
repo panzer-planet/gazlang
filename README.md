@@ -260,8 +260,8 @@ What it is not, today: there are no threads inside a worker (Puma's other half) 
 (Node's), so the pool's size is how many requests run at once, and the pool is a fixed size
 rather than growing under load (FPM's `pm = dynamic`). A connection is kept open for the client's
 next request (HTTP/1.1's keep-alive), up to 5 seconds idle, waiting in the master rather than in
-a worker. HTTPS is one option, `{"tls" => {"certificate" => ..., "key" => ...}}`, and a renewed
-certificate is picked up without a restart; in production put nginx or Caddy in front all the same,
+a worker. HTTPS is one option, `{"tls" => {"certificate" => ..., "key" => ...}}`, with HTTP/2 for
+the browsers that ask, and a renewed certificate is picked up without a restart; in production put nginx or Caddy in front all the same,
 as you would in front of FPM, since a proxy covers slow clients: the master hands a request over once its headers are in, so a client that trickles its
 body holds a worker until the request's 30 second deadline, and a proxy that buffers whole
 requests before passing them on keeps a handful of slow uploads from using up the pool. If the
