@@ -2,9 +2,10 @@
  * The PostgreSQL driver for db.c, on libpq. The URL is given to libpq whole, so it takes
  * everything libpq's connection strings do: postgres://user:password@host:port/database?sslmode=...
  *
- * Values: int2, int4 and int8 are ints, float4 and float8 floats, bool a bool, NULL null, and
- * everything else (numeric, text, timestamps, json, bytea's \x hex...) is the text Postgres prints
- * it as. Going in, null, int, float, string and bool are sent as text, which the server reads as
+ * Values: int2, int4 and int8 are ints, float4 and float8 floats, bool a bool, timestamptz a time
+ * (an int, seconds since 1970 began in UTC, as time() gives them), NULL null, and everything else
+ * (numeric, text, timestamp without a zone, date, json, bytea's \x hex...) is the text Postgres
+ * prints it as. Going in, null, int, float, string and bool are sent as text, which the server reads as
  * whatever type the query wants there; anything else is an error. Placeholders are Postgres's
  * ($1, $2...).
  *
@@ -25,7 +26,8 @@
 #include <unistd.h>
 
 /* Type numbers from pg_type.dat, which are fixed for good */
-enum { OID_BOOL = 16, OID_INT8 = 20, OID_INT2 = 21, OID_INT4 = 23, OID_FLOAT4 = 700, OID_FLOAT8 = 701 };
+enum { OID_BOOL = 16, OID_INT8 = 20, OID_INT2 = 21, OID_INT4 = 23, OID_FLOAT4 = 700, OID_FLOAT8 = 701,
+       OID_TIMESTAMPTZ = 1184 };
 
 /* ---- Loading libpq ---------------------------------------------------------------------- */
 
@@ -249,6 +251,88 @@ static bool param_text(size_t i, Value v, const char **text, char **owned) {
     }
 }
 
+/* ---- Reading a timestamptz -------------------------------------------------------------- */
+
+/* The day number of a date in the proleptic Gregorian calendar, day 0 being 1 January 1970, as
+   date::days() counts. Howard Hinnant's days_from_civil: years are counted from March, so a leap
+   day is the last day of its year, and in eras of 400 years, which all have 146097 days. */
+static int64_t days_from_civil(int64_t y, int64_t m, int64_t d) {
+    y -= m <= 2;
+    int64_t era = (y >= 0 ? y : y - 399) / 400;
+    int64_t year_of_era = y - era * 400;
+    int64_t day_of_year = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+    int64_t day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    return era * 146097 + day_of_era - 719468;
+}
+
+/* Read exactly `count` digits at *p as a number, moving *p past them */
+static bool read_digits(const char **p, const char *end, int count, int64_t *out) {
+    *out = 0;
+    for (int i = 0; i < count; i++, (*p)++) {
+        if (*p == end || **p < '0' || **p > '9') return false;
+        *out = *out * 10 + (**p - '0');
+    }
+    return true;
+}
+
+/* Whether *p is at `c`, moving past it if so */
+static bool skip(const char **p, const char *end, char c) {
+    if (*p == end || **p != c) return false;
+    (*p)++;
+    return true;
+}
+
+/*
+ * A timestamptz as the time it is, read from the text the server writes with DateStyle ISO (what
+ * initdb gives every database), step by step so it is the same everywhere:
+ *
+ *   YYYY-MM-DD HH:MM:SS[.ffffff]+HH[:MM[:SS]][ BC]
+ *
+ * The year has four to six digits (the last is 294276), the offset is the session's TimeZone at
+ * that time, ahead of UTC with + and behind it with -, and a fraction of a second is dropped, as
+ * date::parse() drops it, so a time before 1970 rounds down too. 1 BC is year 0, as date.gaz
+ * counts. The offset only says how the clocks read, so the time is the same whatever TimeZone is.
+ * Another DateStyle writes zone abbreviations, which don't say the offset, so it is refused, and
+ * so are infinity and -infinity, which no number of seconds is.
+ */
+static bool read_timestamptz(const char *text, size_t len, int64_t *out) {
+    if (!strcmp(text, "infinity") || !strcmp(text, "-infinity")) {
+        return raisef("postgres: cannot read %s as a time, which is always a number of seconds", text);
+    }
+    const char *p = text, *end = text + len;
+    int64_t year = 0, month, day, hour, minute, second, offset_hours, offset_minutes = 0, offset_seconds = 0;
+    int year_digits = 0;
+    while (p < end && *p >= '0' && *p <= '9' && year_digits < 7) {
+        year = year * 10 + (*p++ - '0');
+        year_digits++;
+    }
+    bool ok = year_digits >= 4 && year_digits <= 6 && skip(&p, end, '-') && read_digits(&p, end, 2, &month) &&
+              skip(&p, end, '-') && read_digits(&p, end, 2, &day) && skip(&p, end, ' ') &&
+              read_digits(&p, end, 2, &hour) && skip(&p, end, ':') && read_digits(&p, end, 2, &minute) &&
+              skip(&p, end, ':') && read_digits(&p, end, 2, &second);
+    if (ok && skip(&p, end, '.')) {
+        while (p < end && *p >= '0' && *p <= '9') p++;
+    }
+    int sign = 0;
+    if (ok && skip(&p, end, '+')) sign = 1;
+    else if (ok && skip(&p, end, '-')) sign = -1;
+    ok = sign != 0 && read_digits(&p, end, 2, &offset_hours);
+    if (ok && skip(&p, end, ':')) {
+        ok = read_digits(&p, end, 2, &offset_minutes);
+        if (ok && skip(&p, end, ':')) ok = read_digits(&p, end, 2, &offset_seconds);
+    }
+    if (ok && skip(&p, end, ' ')) {
+        ok = skip(&p, end, 'B') && skip(&p, end, 'C');
+        year = 1 - year;
+    }
+    if (!ok || p != end) {
+        return raisef("postgres: cannot read %s as a timestamptz: gaz reads only what DateStyle ISO writes", text);
+    }
+    int64_t offset = sign * (offset_hours * 3600 + offset_minutes * 60 + offset_seconds);
+    *out = days_from_civil(year, month, day) * 86400 + hour * 3600 + minute * 60 + second - offset;
+    return true;
+}
+
 static bool cell(PGresult *res, int row, int col, Value *out) {
     if (pq.PQgetisnull(res, row, col)) {
         *out = v_null();
@@ -272,6 +356,12 @@ static bool cell(PGresult *res, int row, int col, Value *out) {
         /* NaN and Infinity aren't numbers GazLang has: parse_number refuses them */
         if (!parse_number(text, len, &f)) return raisef("postgres: cannot read %s as a float, which is always finite", text);
         *out = f.type == T_INT ? v_float((double)f.i) : f;
+        return true;
+    }
+    case OID_TIMESTAMPTZ: {
+        int64_t time;
+        if (!read_timestamptz(text, len, &time)) return false;
+        *out = v_int(time);
         return true;
     }
     default:

@@ -231,10 +231,11 @@ have caught running out of call depth.
   (`date::iso($moment.days) .. "T" .. $moment.short_clock()`, with the seconds when there are some);
   a `Moment.reading()` writer would be the pair to `parse_reading()` if a second form wants one
   ([#53](https://github.com/panzer-planet/gazlang/issues/53)).
-- **Timestamps go in and out of PostgreSQL by hand**: the driver has no time type, so a due time is
-  written as `to_timestamp({$due_at})` and read as `floor(extract(epoch from due_at))::bigint`, where
-  `created_at` is read as text and parsed. Either works; a column the driver turned into an int (or
-  a `Moment`) would remove the casts ([#54](https://github.com/panzer-planet/gazlang/issues/54)).
+- **Timestamps went in and out of PostgreSQL by hand** (resolved: a timestamptz is a time): the
+  driver had no time type, so a due time was read as `floor(extract(epoch from due_at))::bigint` and
+  `created_at` as text parsed with `date::parse()`. The driver now gives a timestamptz as an int,
+  seconds since 1970, so the columns are named plainly. Going in stays `to_timestamp({$due_at})`,
+  which says in the SQL what the int is ([#54](https://github.com/panzer-planet/gazlang/issues/54)).
 - **A page that depends on the time was tested around the clock, not with it** (resolved: a clock in
   `Config`): the list read `time()` once per request and passed it to the template, so overdue
   marking was tested by rendering the template with a fixed time, and through the router only with

@@ -8,7 +8,7 @@ namespace todo;
 import "std/db.gaz";
 
 kind User {
-    fn _(pub int #id, pub string #email, pub string #password_hash, pub string #created_at);
+    fn _(pub int #id, pub string #email, pub string #password_hash, pub int #created_at);
 
     pub static fn from_row(map $row): User {
         return User($row["id"], $row["email"], $row["password_hash"], $row["created_at"]);
@@ -19,7 +19,7 @@ kind Users {
     fn _(#db);
 
     fn columns() {
-        return db::raw("id, email, password_hash, created_at::text as created_at");
+        return db::raw("id, email, password_hash, created_at");
     }
 
     pub fn find(int $id): ?User {

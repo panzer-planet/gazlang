@@ -25,9 +25,9 @@ fn register($browser, $email, $password) {
     return $browser.post("/register", {"_csrf" => http::form_token($form), "email" => $email, "password" => $password, "confirmation" => $password});
 }
 
-// When the todo called $title is due, as PostgreSQL counts seconds since 1970
+// When the todo called $title is due, a time, or null
 fn due_of($db, string $title): ?int {
-    return $db.value(db::sql"select floor(extract(epoch from due_at))::bigint from todos where title = {$title}");
+    return $db.value(db::sql"select due_at from todos where title = {$title}");
 }
 
 /* --- Anyone arriving is sent to log in, and every page carries a fresh CSRF token and the security headers --- */
@@ -71,8 +71,8 @@ $list = text_of($browser.get("/"));
 expect("a todo is shown escaped", [contains($list, "&lt;script&gt;alert(1)&lt;/script&gt; write the app"), contains($list, "<script>alert(1)")], [true, false]);
 expect("the add is acknowledged", contains($list, "Added."), true);
 /*
- * When it was added, from the text PostgreSQL gives, shown two hours ahead of UTC: the same as
- * PostgreSQL's own count of seconds says
+ * When it was added, as the driver reads the timestamptz, shown two hours ahead of UTC: the same
+ * as PostgreSQL's own count of seconds says
  */
 $added_at = $db.value(db::sql"select floor(extract(epoch from created_at))::bigint from todos where title like '%write the app'");
 $shown = date::fixed(TEST_OFFSET).at($added_at);
