@@ -71,13 +71,17 @@ jobs:
           echo 'GAZLANG_TEST_PG=postgres://runner:runner@localhost/postgres' >> "$GITHUB_ENV"
       - name: Run a program
         run: bin/gaz tests/programs/functions.gaz
-      # The sanitized VM (CVMTest, the fuzzer) runs 24 processes at once by default, which the
-      # x86 runner takes in its stride and the arm64 one doesn't: measured on ubuntu-24.04-arm,
-      # 48 heavy sanitized runs at 24 a time crawl past every time limit while 4 a time, and the
-      # fuzzer at 4 jobs, run as fast as on x86. A single sanitized process starts as fast there.
-      - name: Fewer sanitized processes at once on arm64
+      # The sanitized VM (CVMTest, the fuzzer) is slow on arm64 in two ways, each measured on
+      # ubuntu-24.04-arm with a throwaway workflow: 24 processes at once (the default) crawl past
+      # every time limit where 4 at a time run as on x86; and AddressSanitizer's stack-use-after-
+      # return detection makes one compile of a compiler-sized program take 30 to 100 seconds
+      # (x86: under 3; arm64 with UBSan alone: under 3), and 10 to 30 with it off. So arm64 runs
+      # 4 at a time without that check, which x86 still makes on every push.
+      - name: Fewer sanitized processes at once on arm64, without ASan's fake stack
         if: runner.os == 'Linux' && runner.arch == 'ARM64'
-        run: echo 'GAZLANG_JOBS=4' >> "$GITHUB_ENV"
+        run: |
+          echo 'GAZLANG_JOBS=4' >> "$GITHUB_ENV"
+          echo 'ASAN_OPTIONS=detect_stack_use_after_return=0' >> "$GITHUB_ENV"
       - name: Rebuild the compiler with gaz
         run: make -C vm compiler && git diff --exit-code compiler/gazlang.gzb
       # The GazLang tests under gaz's own runner, before PHP is installed: it needs none. On

@@ -425,8 +425,10 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   needs only a C compiler), then with them, and rebuilds its compiler before PHP is even
   installed, then the suite, in two jobs per platform (`pest --parallel --shard=N/2`, each building
   gaz for itself), with `gaz test` and the minute of fuzzing on each Linux second half only. The
-  arm64 runner sets `GAZLANG_JOBS=4`: its sanitized processes crawl 24 at a time (measured: the
-  fuzzer and the heavy `CVMTest` entries time out) and run as fast as x86's 4 at a time.
+  arm64 runner sets `GAZLANG_JOBS=4` and `ASAN_OPTIONS=detect_stack_use_after_return=0`, both
+  measured there: its sanitized processes crawl 24 at a time, and ASan's fake stack makes one
+  compile of a compiler-sized program take 30 to 100 seconds (x86: under 3; 10 to 30 with it
+  off), so that check is x86's.
   phpstan and pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
   cold there (no result cache) at a 1G limit, as `composer ci` does locally, since a warm local cache can hide a table that needs a gigabyte. LeakSanitizer runs in the sanitized build on
   Linux only: Apple's clang has none, and Homebrew's LLVM gave only system-library noise.
