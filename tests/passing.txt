@@ -1155,6 +1155,7 @@ tests/corpora/vm/uncaught_cause_cycle.gaz
 tests/corpora/vm/uncaught_cause_values.gaz
 tests/corpora/vm/uncaught_object.gaz
 tests/corpora/vm/uncaught_value.gaz
+tests/corpora/vm/utf8_width.gaz
 tests/corpora/vm/visibility.gaz
 tests/corpora/vm/write_through_call.gaz
 tests/fixtures/bytecode/example.gaz
@@ -1279,6 +1280,7 @@ tests/gaz/strings/interpolation_test.gaz
 tests/gaz/strings/tagged_test.gaz
 tests/gaz/strings/utf8_case_test.gaz
 tests/gaz/strings/utf8_test.gaz
+tests/gaz/strings/utf8_width_test.gaz
 tests/gaz/templates/html_concat_test.gaz
 tests/gaz/templates/namespaced_test.gaz
 tests/gaz/templates/templates_test.gaz

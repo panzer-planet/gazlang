@@ -709,6 +709,16 @@ Names are ASCII.
   - The library's tags (`db::sql`, `web::html`) are each in its namespace, never a global name;
     `lib/` can use a tag only through a `bin/gaz` whose built-in compiler knows them, since the
     library is compiled by it.
+- **`utf8_width` is GazLang's own rule, never `wcwidth()`**, whose answer is the platform's and
+  the locale's: 0 columns for a nonspacing or enclosing mark, a format character (a zero-width
+  joiner or space, a soft hyphen) or a Hangul vowel or trailing jamo, 2 for East Asian Wide or
+  Fullwidth, 1 for anything else, a control, a tab and a byte that isn't well formed included (the
+  one `utf8_` builtin after `utf8_valid` that takes bad text rather than refusing it, being asked
+  of text about to be drawn). `column_width()` in `vm/unicode.c`, over tables `tools/unicode.php` writes from
+  `UnicodeData.txt`, `HangulSyllableType.txt` and `EastAsianWidth.txt` of the pinned Unicode, next
+  to the case tables. A regional indicator is 1, so a flag's pair is 2; they are the only emoji
+  with default emoji presentation that aren't Wide already, so `emoji-data.txt` isn't read. The
+  rule is written out in `docs/library.md`.
 
 ## Lists and maps
 

@@ -636,6 +636,8 @@ extern char **command_argv;     /* the whole command line main() was given, whic
 extern char *main_directory;    /* the main file's directory, symlinks resolved, or NULL: main_dir() */
 int builtin_find(const char *name, size_t len);
 bool call_builtin(int index, Value *args, int argc, Value *out);
+/* How many bytes the well formed UTF-8 character at text[at] takes, or 0 when none starts there */
+size_t utf8_character(const unsigned char *text, size_t len, size_t at);
 static inline bool arity_fits(int lo, int hi, int argc) { return argc >= lo && argc <= hi; }
 bool raise_arity(const char *what, int lo, int hi, int argc);
 Func *builtin_value(int index);
@@ -712,9 +714,10 @@ bool crypto_scrypt(Str *password, Str *salt, int64_t cost, int64_t block_size, i
 bool crypto_argon2id(Str *password, Str *salt, int64_t passes, int64_t memory, int64_t lanes, int64_t length,
                      Str *secret, Str *data, Value *out);
 
-/* unicode.c: case mapping of well formed UTF-8 */
+/* unicode.c: case mapping of well formed UTF-8, and the terminal width of any text */
 typedef enum { CASE_UPPER, CASE_LOWER, CASE_FOLD } CaseMap;
 Str *utf8_case(const Str *s, CaseMap map);
+int64_t utf8_width(const Str *s);
 
 /* term.c */
 bool term_raw(bool on);

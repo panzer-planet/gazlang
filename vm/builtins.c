@@ -79,6 +79,7 @@ const BuiltinInfo builtin_info[] = {
     {"main_dir", 0, 0},
     {"utf8_upper", 1, 1}, {"utf8_lower", 1, 1}, {"utf8_fold", 1, 1}, {"utf8_slice", 2, 3},
     {"socket_tls_server", 1, 1}, {"socket_tls_accept", 2, 3}, {"socket_tls_protocol", 1, 1},
+    {"utf8_width", 1, 1},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -115,6 +116,7 @@ enum {
     B_MAIN_DIR,
     B_UTF8_UPPER, B_UTF8_LOWER, B_UTF8_FOLD, B_UTF8_SLICE,
     B_SOCKET_TLS_SERVER, B_SOCKET_TLS_ACCEPT, B_SOCKET_TLS_PROTOCOL,
+    B_UTF8_WIDTH,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -388,9 +390,10 @@ static const char *find(const char *hay, size_t hay_len, const char *needle, siz
  *   F0 90..BF   not F0 80..8F, overlong again
  *   F4 80..8F   not F4 90..BF, which would be above U+10FFFF
  * C0 and C1 could only start an overlong two-byte form and F5 to FF something above U+10FFFF, so
- * they never lead. utf8_valid(), utf8_length() and utf8_chars() all read text through this.
+ * they never lead. utf8_valid(), utf8_length() and utf8_chars() all read text through this, and
+ * so does utf8_width() in unicode.c.
  */
-static size_t utf8_character(const unsigned char *text, size_t len, size_t at) {
+size_t utf8_character(const unsigned char *text, size_t len, size_t at) {
     unsigned char lead = text[at];
     size_t followers;
     unsigned char lowest = 0x80;
@@ -2283,6 +2286,10 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return true;
     case B_UTF8_SLICE:
         return utf8_slice(args, argc, out);
+    case B_UTF8_WIDTH:
+        if (!want(index, a, STRING)) return false;
+        *out = v_int(utf8_width(a.s));
+        return true;
     case B_FILE_CLOSE:
         if (!want(index, a, M(T_FILE))) return false;
         *out = v_null();

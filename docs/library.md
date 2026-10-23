@@ -29,6 +29,35 @@ own](http.md).
   against `mb_substr`; the oracles map a line at a time, since mbstring given a whole text
   converts it in pieces and can miss what follows a sigma at the end of one. Title case waits for
   a program that wants it.
+- **Width by columns**: `utf8_width`, the columns a terminal draws text in, for the terminal
+  toolkit (`term::width()` counted characters, so CJK and emoji were two columns off and a
+  combining mark one). **GazLang's own rule, never `wcwidth()`**, whose answer is the platform's and
+  the locale's: a code point is 0 when it is a nonspacing or enclosing mark (`UnicodeData.txt`'s
+  Mn and Me), a format character (Cf: the zero-width joiner and space, the soft hyphen, the byte
+  order mark, the bidi controls) or a Hangul vowel or trailing consonant
+  (`HangulSyllableType.txt`'s V and T, which join the leading consonant before them, as every
+  `wcwidth` since Kuhn's counts them); 2 when `EastAsianWidth.txt` says W or F; and 1 otherwise,
+  which takes in a control character (C0, DEL, C1) and a tab (the toolkit expands tabs and refuses
+  control bytes itself), the ambiguous-width characters (as outside an East Asian locale), private
+  use and unassigned code points (the file's own W for the unassigned parts of the CJK planes). A
+  mark wins over wide, for the seven combining marks that are both (U+3099, the voiced sound mark).
+  Emoji with default emoji presentation are every one Wide already except the 26 regional
+  indicators, which are 1 each so that a flag, a pair of them, is 2; so `emoji-data.txt` isn't read,
+  and the rule needs no emoji property. **Not refused**: a byte that isn't well formed counts 1 and
+  reading goes on at the next byte, the one `utf8_` builtin after `utf8_valid` that takes bad text,
+  since it is asked of text being drawn and a terminal draws something for every byte. The tables
+  (`zero_width_ranges`, `wide_ranges`) come out of the same `php tools/unicode.php` run as the case
+  tables, so they are one Unicode version; `column_width()` in `unicode.c` is two binary searches,
+  and everything below U+00AD (the soft hyphen, the first zero-width code point) is 1 without one. A
+  call on a one-character string costs what `utf8_length` does (a million calls on a plain build:
+  about 26ns each for ASCII and 32ns for a wide character, where `len` costs 25ns, so the call is
+  most of it), so the toolkit asks per cell and no per-character builtin
+  is needed. `tests/Utf8WidthTest.php` checks every code point against Python's `unicodedata` (its
+  categories and East Asian widths, its names for the jamo), which shares no code with the tables,
+  wherever its Unicode knows the code point. `ponytail:` sequences aren't read: a text-presentation
+  character followed by U+FE0F (`❤️`) counts 1 where many terminals draw 2, and a family joined by
+  zero-width joiners counts each picture where some terminals draw one; terminals disagree among
+  themselves there, so no rule can match them all.
 - Lists and maps: `map`, `filter`, `reduce` and `sort` call back through `call_value()` in `vm.c`,
   checked as a call written in the program is, after every type is checked. A comparator-less
   `sort` is `binary_op(OP_CMP)`; `sort` is a defined merge sort (`merge_sort()` in `builtins.c`)

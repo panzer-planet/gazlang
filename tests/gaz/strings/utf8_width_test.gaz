@@ -1,0 +1,71 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * utf8_width(): how many columns a terminal draws text in, by GazLang's own rule from the Unicode
+ * tables and never the platform's wcwidth(): two for a wide character, none for a mark or a format
+ * character, one for anything else, a control, a tab and a bad byte included.
+ * tests/Utf8WidthTest.php checks every code point against Python's Unicode data; this says what
+ * each rule means.
+ */
+
+// One column each, as utf8_length() counts
+expect("empty", utf8_width(""), 0);
+expect("ASCII", utf8_width("hello"), 5);
+expect("accented letters", utf8_width("caf\u{e9} cr\u{e8}me"), 10);
+expect("Greek, Cyrillic and Arabic letters", utf8_width("\u{3b1}\u{436}\u{627}"), 3);
+expect("ambiguous width counts one, as outside East Asia", utf8_width("\u{b1}\u{2190}\u{2460}"), 3);
+expect("a private use character", utf8_width("\u{E000}"), 1);
+expect("NUL and other control characters count one", utf8_width("\0\x01\x1f"), 3);
+expect("DEL counts one", utf8_width("\x7f"), 1);
+expect("C1 controls count one", utf8_width("\u{85}\u{9f}"), 2);
+expect("a tab counts one: a terminal's tab stops are its own", utf8_width("a\tb"), 3);
+expect("a newline counts one", utf8_width("a\nb"), 3);
+
+// Two columns: East Asian Wide and Fullwidth
+expect("CJK ideographs", utf8_width("\u{4e2d}\u{6587}"), 4);
+expect("Hangul syllables", utf8_width("\u{d55c}\u{ae00}"), 4);
+expect("hiragana and katakana", utf8_width("\u{3042}\u{30a2}"), 4);
+expect("fullwidth forms", utf8_width("\u{ff26}\u{ff55}\u{ff4c}\u{ff4c}"), 8);
+expect("a fullwidth space", utf8_width("\u{3000}"), 2);
+expect("an emoji drawn as a picture by default", utf8_width("\u{1F600}"), 2);
+expect("a watch and an hourglass, emoji among the symbols", utf8_width("\u{231a}\u{231b}"), 4);
+expect("a heart with text presentation by default counts one", utf8_width("\u{2764}"), 1);
+expect("a character past the basic plane", utf8_width("\u{20000}"), 2);
+expect("CJK among ASCII", utf8_width("name: \u{540d}\u{524d}!"), 11);
+
+// No columns: marks and format characters, which join or steer what is around them
+expect("e and a combining acute", utf8_width("e\u{301}"), 1);
+expect("a combining mark alone", utf8_width("\u{301}"), 0);
+expect("several marks on one base", utf8_width("a\u{300}\u{301}\u{302}"), 1);
+expect("an enclosing mark", utf8_width("a\u{20dd}"), 1);
+expect("a spacing combining mark takes its column", utf8_width("\u{915}\u{93e}"), 2);
+expect("the zero-width joiner", utf8_width("\u{200d}"), 0);
+expect("a family: each picture, joined by zero-width joiners", utf8_width("\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"), 6);
+expect("the zero-width space and non-joiner", utf8_width("a\u{200b}b\u{200c}c"), 3);
+expect("a soft hyphen", utf8_width("co\u{ad}operate"), 9);
+expect("a byte order mark", utf8_width("\u{feff}hi"), 2);
+expect("a variation selector", utf8_width("\u{2764}\u{fe0f}"), 1);
+expect("bidi controls", utf8_width("\u{2066}abc\u{2069}"), 3);
+expect("a combining mark that is also wide counts none", utf8_width("\u{304b}\u{3099}"), 2);
+
+// Hangul written as jamo: the vowel and trailing consonant join the leading consonant
+expect("a leading consonant alone", utf8_width("\u{1100}"), 2);
+expect("lead, vowel and trail make one syllable", utf8_width("\u{1100}\u{1161}\u{11a8}"), 2);
+expect("a vowel or trailing consonant alone", utf8_width("\u{1161}\u{11a8}"), 0);
+expect("the later jamo blocks", utf8_width("\u{a960}\u{d7b0}\u{d7cb}"), 2);
+
+// Regional indicators: one each, so a flag, a pair of them, is two
+expect("a flag", utf8_width("\u{1F1FF}\u{1F1E6}"), 2);
+expect("a regional indicator alone", utf8_width("\u{1F1E6}"), 1);
+
+// A byte that isn't well formed UTF-8 counts one, and reading goes on at the next byte
+expect("a bad byte", utf8_width("\xff"), 1);
+expect("a bad byte among text", utf8_width("caf\xe9"), 4);
+expect("a character cut short, each byte one", utf8_width("\xe4\xb8"), 2);
+expect("a stray continuation byte before a wide character", utf8_width("\x80\u{4e2d}"), 3);
+throws("utf8_length refuses what utf8_width counts", () -> utf8_length("caf\xe9"), "utf8_length() expects well formed UTF-8, but byte 3 doesn't start a well formed character");
+
+// Only text
+throws("an int", () -> utf8_width(42), "utf8_width() expects string, got int");
+throws("a list", () -> utf8_width(["a"]), "utf8_width() expects string, got list");
+throws("null", () -> utf8_width(null), "utf8_width() expects string, got null");

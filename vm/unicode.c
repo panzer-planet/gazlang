@@ -1,10 +1,11 @@
 /*
- * Unicode case mapping for utf8_upper(), utf8_lower() and utf8_fold(): the full mappings of the
- * Unicode Character Database that hold in every language, from tables tools/unicode.php writes
- * (unicode_tables.h), never the C library's, whose answer depends on the locale. Full means a
- * character can become more than one: ß uppercases to SS and folds to ss, İ lowercases to i and
- * a combining dot. The one rule that looks at the text around a character is the final sigma:
- * a capital sigma that ends a word lowercases to ς, anywhere else to σ.
+ * Unicode case mapping for utf8_upper(), utf8_lower() and utf8_fold(), and the terminal width
+ * of text for utf8_width(): from tables tools/unicode.php writes out of the Unicode Character
+ * Database (unicode_tables.h), never the C library's, whose answers (towupper(), wcwidth())
+ * depend on the locale and the platform. The case mappings are the full ones that hold in every
+ * language, so a character can become more than one: ß uppercases to SS and folds to ss, İ
+ * lowercases to i and a combining dot. The one rule that looks at the text around a character
+ * is the final sigma: a capital sigma that ends a word lowercases to ς, anywhere else to σ.
  */
 
 #include "gazvm.h"
@@ -152,4 +153,42 @@ Str *utf8_case(const Str *s, CaseMap map) {
         for (size_t i = 0; i < 3 && mapping->to[i] != 0; i++) encode(&b, mapping->to[i]);
     }
     return buf_to_str(&b);
+}
+
+/*
+ * How many terminal columns one code point takes, GazLang's rule: none for a nonspacing or
+ * enclosing mark, a format character (a zero-width joiner or space, a soft hyphen, a byte order
+ * mark) or a Hangul vowel or trailing consonant, which join the character before them; two for
+ * what East_Asian_Width calls wide or fullwidth, CJK and the emoji drawn as pictures by default
+ * (zero wins, for the seven combining marks that are also wide); one for everything else,
+ * control characters and unassigned code points included. The regional indicators that make a
+ * flag are one each, so a flag is two. Every code point below U+00AD is one, so ASCII, which is
+ * most text, never reaches a table.
+ */
+static int column_width(uint32_t code) {
+    if (code < 0xAD) return 1;
+    if (in_ranges(zero_width_ranges, COUNT(zero_width_ranges), code)) return 0;
+    if (in_ranges(wide_ranges, COUNT(wide_ranges), code)) return 2;
+    return 1;
+}
+
+/*
+ * The columns a string takes on a terminal, each character by column_width(); a byte that doesn't
+ * start a well formed character counts one by itself, and reading goes on at the next byte, since
+ * a width is asked of text being drawn, which a terminal draws byte by byte when it isn't UTF-8
+ */
+int64_t utf8_width(const Str *s) {
+    const unsigned char *text = (const unsigned char *)s->data;
+    int64_t columns = 0;
+    size_t at = 0;
+    while (at < s->len) {
+        size_t size = utf8_character(text, s->len, at);
+        if (size == 0) {
+            columns++;
+            at++;
+            continue;
+        }
+        columns += column_width(decode(text, &at));
+    }
+    return columns;
 }
