@@ -655,9 +655,61 @@ bool net_open(Str *host, int64_t port, bool tls, double timeout, Value *out) {
     return true;
 }
 
+/* Whether a bound address is the one asked for: the same family and address, and the same port
+   unless the port asked for is 0, which is any */
+static bool same_address(const struct sockaddr_storage *bound, const struct sockaddr *asked, int64_t port) {
+    if (bound->ss_family != asked->sa_family) return false;
+    if (bound->ss_family == AF_INET) {
+        const struct sockaddr_in *a = (const struct sockaddr_in *)bound, *b = (const struct sockaddr_in *)asked;
+        return memcmp(&a->sin_addr, &b->sin_addr, sizeof a->sin_addr) == 0 && (port == 0 || a->sin_port == b->sin_port);
+    }
+    if (bound->ss_family == AF_INET6) {
+        const struct sockaddr_in6 *a = (const struct sockaddr_in6 *)bound, *b = (const struct sockaddr_in6 *)asked;
+        return memcmp(&a->sin6_addr, &b->sin6_addr, sizeof a->sin6_addr) == 0 && (port == 0 || a->sin6_port == b->sin6_port);
+    }
+    return false;
+}
+
+/*
+ * The listener handed down (LISTEN_FDS: a reloading master's, or systemd's socket activation) as
+ * the one socket_listen() asked for, when it is on the host's address and the port (0: any). One
+ * on another address is an error naming both, since a changed address or port is a restart, not a
+ * reload, and quietly listening on a second one would leave the first answered by nobody.
+ */
+static bool adopt_listener(int fd, Str *host, int64_t port, struct addrinfo *found, Value *out) {
+    int type = 0;
+    socklen_t type_len = sizeof type;
+    struct sockaddr_storage bound, peer;
+    socklen_t bound_len = sizeof bound, peer_len = sizeof peer;
+    bool listening = getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &type_len) == 0 && type == SOCK_STREAM
+        && getsockname(fd, (struct sockaddr *)&bound, &bound_len) == 0
+        && getpeername(fd, (struct sockaddr *)&peer, &peer_len) != 0 && errno == ENOTCONN;
+    if (!listening) {
+        freeaddrinfo(found);
+        close(fd);
+        return raisef("socket_listen(): descriptor 3, handed down by LISTEN_FDS, isn't a listening socket");
+    }
+    bool same = false;
+    for (struct addrinfo *ai = found; ai && !same; ai = ai->ai_next) same = same_address(&bound, ai->ai_addr, port);
+    freeaddrinfo(found);
+    if (!same) {
+        char address[NI_MAXHOST], service[NI_MAXSERV];
+        if (getnameinfo((struct sockaddr *)&bound, bound_len, address, sizeof address, service, sizeof service, NI_NUMERICHOST | NI_NUMERICSERV) != 0) {
+            snprintf(address, sizeof address, "?");
+            snprintf(service, sizeof service, "?");
+        }
+        close(fd);
+        return raisef("socket_listen(): the listener handed down by LISTEN_FDS is on %s port %s, not %s port %lld",
+                      address, service, host->data, (long long)port);
+    }
+    *out = v_socket(socket_new(fd, true, 0));
+    return true;
+}
+
 /* socket_listen($host, $port, $backlog): a listener on the first of the host's addresses that
    binds, port 0 being one the system picks (socket_port() says which). SO_REUSEADDR, so a server
-   restarted at once can have its port back while the old connections time out. */
+   restarted at once can have its port back while the old connections time out. The first call
+   takes the listener handed down instead, when there is one (adopt_listener()). */
 bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
     if (host->len == 0 || memchr(host->data, '\0', host->len)) return raisef("socket_listen() expects a host name or address");
     if (port < 0 || port > 65535) return raisef("socket_listen() expects a port from 0 to 65535, got %lld", (long long)port);
@@ -667,6 +719,8 @@ bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
     struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_PASSIVE}, *found;
     int gai = getaddrinfo(host->data, service, &hints, &found);
     if (gai != 0) return raisef("Cannot find host %s: %s", host->data, gai_strerror(gai));
+    int inherited = take_inherited_listener();
+    if (inherited >= 0) return adopt_listener(inherited, host, port, found, out);
     int fd = -1, err = 0;
     for (struct addrinfo *ai = found; ai && fd < 0; ai = ai->ai_next) {
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);

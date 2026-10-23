@@ -632,6 +632,7 @@ extern char *piped_input;       /* standard input main() read, which read_stdin(
 extern size_t piped_input_len;
 extern char **program_argv;
 extern char *program_exe;       /* argv[0] as main() was given it, for program_path() */
+extern char **command_argv;     /* the whole command line main() was given, which a reload runs again */
 extern char *main_directory;    /* the main file's directory, symlinks resolved, or NULL: main_dir() */
 int builtin_find(const char *name, size_t len);
 bool call_builtin(int index, Value *args, int argc, Value *out);
@@ -668,6 +669,10 @@ extern int vm_process;   /* which process this is, for a handle's owner: 0 until
 bool refuse_inherited(const char *builtin, const char *type);   /* the error for using another process's handle */
 void abandon_fd(int fd);       /* point fd at /dev/null, so what is written to it on closing goes nowhere */
 bool start_workers(int64_t count, Value *out);
+/* At the start: the listener (LISTEN_FDS) and hand-off (GAZ_RELOAD_FD) a reloading master handed
+   down, taken from the environment so nothing the program starts inherits them */
+void inherit_descriptors(void);
+int take_inherited_listener(void);   /* the listener handed down, once, or -1 */
 bool workers_stopping(void);   /* a worker has been asked to stop, or its master has gone: socket_accept() gives null */
 void worker_accepted(void);    /* a worker has taken a connection, so it did start */
 void worker_listening(void);   /* a worker waits for connections, so it can take over from one retiring */

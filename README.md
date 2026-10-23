@@ -244,6 +244,9 @@ answering one request at a time.
   another, so the pool stays four wide. On SIGTERM it stops them all
   gracefully: each finishes the request it's in, and one still running after 10 seconds is
   killed. Ctrl-C ends them at once.
+- **New code without a refused connection.** On SIGUSR2 the master starts the program again
+  beside the pool and hands it the port; once the new workers are ready, the old ones finish what
+  they're doing and leave. If the new code can't start, the old pool serves on and says why.
 - **A handler can't run forever.** One still going after 10 seconds (`"handler_timeout"`) gets the
   client a 503, its worker ends, and the master starts a fresh one and says why, so a slow query or
   a stuck loop costs one request, not a worker for good. Every request answered, refusals

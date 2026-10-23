@@ -104,6 +104,39 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   kept-open connections go with it; a request in hand is finished and its connection closed, as
   after a stop, bounded by `handler_timeout` rather than `STOP_GRACE`, there being no master left to
   kill it. Tested by the two `master_killed` tests in `HttpServerTest`.
+- **Reloading** (`workers.c`, "Reloading"): SIGUSR2 to a master whose workers serve through it
+  `posix_spawnp()`s the same command line (`command_argv`) with the listener as descriptor 3 and
+  `LISTEN_FDS=1`, systemd's socket-activation convention, so a socket unit's listener is taken the
+  same way, and one end of a socket pair, the hand-off, as descriptor 4 and `GAZ_RELOAD_FD=4`.
+  `inherit_descriptors()` takes both from the environment at the start of `main()` (close-on-exec,
+  the variables unset), so nothing the program starts inherits them; the first `socket_listen()`
+  takes the listener if it is on the address asked for, and `workers()` takes the hand-off. The
+  rules it keeps:
+  - **Nothing changes until the new program is ready**: its master writes one byte on the hand-off
+    once a worker registers (`take_rule()`), from which point it accepts from the shared listener.
+    Only then does the old master stop listening (`drop_listener()`), so a start that fails (the
+    hand-off ends, or the child is reaped, first) leaves the old pool exactly as it was, and its end
+    is logged as a worker's is. A second SIGUSR2 while one is starting ends that one and starts
+    another, the way out of a start that hangs; there is no timeout.
+  - **No connection is closed by a reload**: the old master sends every connection in its table to
+    the new one (`MSG_HANDOFF`, a message on the channel format with the bytes read, when its head
+    began on the shared monotonic clock, the requests served and the descriptor), and every
+    kept-open one a worker gives back afterwards (`conn_add()` forwards while draining). It asks
+    each worker to stop once it waits for a connection (`drain_idle_workers()`), starts none again,
+    and exits 0 once they have all ended, or kills the rest after `STOP_GRACE`.
+  - **A child, not an exec in place**: only that keeps the old pool serving through a slow start and
+    after a failed one. So the pid changes (nginx's and unicorn's shape); under a supervisor that
+    watches the pid, a systemd socket unit and a restart keep connections waiting in the backlog
+    instead. A stop signal sent while the new one starts ends it too.
+  - **SIGHUP stays a stop**, so a server in a terminal still ends with it and `nohup` keeps
+    meaning what it does; a worker ignores SIGUSR2 (`worker_recycle()` puts the default back to
+    raise its own, and `run()` gives a program it starts the default), so `pkill -USR2 gaz` reaches
+    only masters. A stop signal ignored at the start stays ignored in the new program.
+  - `ponytail:` ready is a worker reaching `worker_accept()`, so a new pool that dies in its first
+    second after that leaves nobody listening; TLS connections a worker keeps open and the session
+    ticket key don't move, so those clients handshake again; a program whose workers accept for
+    themselves (`socket_accept()`) can't be reloaded, the reload refused with a line saying so.
+    Tested by `HttpReloadTest`.
 - **The program runs on its own thread** (see [the C VM](vm.md#how-a-program-runs)), so a fork is that thread alone, with
   no `main()` to end the process: `run()` in `vm.c` exits a worker itself. And a signal to the
   master may land on `main()`'s thread, which is why the master waits at most 50ms at a time

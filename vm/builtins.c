@@ -34,6 +34,7 @@ char *piped_input;
 size_t piped_input_len;
 char **program_argv;
 char *program_exe;   /* argv[0] as main() was given it: program_path() */
+char **command_argv;
 char *main_directory;   /* set once by main() before the program runs: main_dir() */
 
 /* In the order builtins() gives them */
@@ -908,12 +909,14 @@ static bool run_process(List *args, Str *input, Map *option_map, Value *out) {
     for (size_t i = 0; i < args->len; i++) argv[i] = args->items[i].s->data;
     argv[args->len] = NULL;
     /* SIGPIPE at its default in the program, whatever gaz does with it (a worker ignores it, and an
-       ignored signal stays ignored through exec), so `yes | head` in it ends as anywhere else */
+       ignored signal stays ignored through exec), so `yes | head` in it ends as anywhere else; and
+       SIGUSR2, which a worker ignores too (see workers.c) */
     posix_spawnattr_t attr;
     posix_spawnattr_init(&attr);
     sigset_t pipe_default;
     sigemptyset(&pipe_default);
     sigaddset(&pipe_default, SIGPIPE);
+    sigaddset(&pipe_default, SIGUSR2);
     posix_spawnattr_setsigdefault(&attr, &pipe_default);
     posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
     /* An inheriting program writes after what this one has printed so far, and gets the terminal
@@ -2413,11 +2416,13 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
     case B_WORKER_RECYCLE:
         /* A worker retiring itself on purpose (http::serve's max_requests): flush what's buffered,
            since a signal-terminated process doesn't run stdio's own atexit flush, then raise SIGUSR2
-           on itself. No handler is installed, so the default disposition (terminate) applies, and
+           on itself, with its default disposition (terminate) put back first, since a worker ignores one
+           sent from outside (that is the master's reload, see workers.c), and
            workers.c's master tells this apart from a crash and restarts it without logging a failure.
            A reserved exit code was rejected: exit($code) already lets a program pick any code 0-255,
            so an unrelated exit() somewhere could collide with one; a signal can't. */
         flush_output();
+        signal(SIGUSR2, SIG_DFL);
         raise(SIGUSR2);
         *out = v_null();
         return true;

@@ -2042,6 +2042,8 @@ static char *directory_of(const char *file) {
    before any of that: see run_gaz_test(). */
 int main(int argc, char **argv) {
     program_exe = argv[0];   /* never mutated below; program_path() gives it back exactly */
+    command_argv = argv;
+    inherit_descriptors();
     if (argc > 1 && strcmp(argv[1], "test") == 0) {
         return run_gaz_test(argc - 2, argv + 2);
     }

@@ -513,8 +513,8 @@ A new open item is filed as an issue with a topic and a kind label, never added 
     an unsanitized `gaz -c`), not a regex following import lines.
 - **Before changing `lib/http.gaz` or `vm/workers.c`, read `docs/http.md`**: the HTTP client and
   server (prefork `workers()` processes, the master reading request heads and handing workers
-  whole ones, keep-alive and the single process's idle yield, the worker hand-over, decoding,
-  routing, sessions, middleware) and the rules each keeps, such as refusing
+  whole ones, keep-alive and the single process's idle yield, the worker hand-over, reloading on
+  SIGUSR2, decoding, routing, sessions, middleware) and the rules each keeps, such as refusing
   both `Content-Length` and `Transfer-Encoding`, and a handle made before `workers()` being
   abandoned, never closed, by the processes that inherit it.
 - **Modules and namespaces** are resolved by the parser: functions and kinds carry `::` in
