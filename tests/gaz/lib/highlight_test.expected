@@ -17,8 +17,34 @@ ok an unterminated string
 ok a character the lexer refuses
 ok an unterminated comment
 ok a bad escape
+ok a bad interpolated index
+ok a string left open inside its interpolation
+ok a file with an unclosed string half-way
+ok which round trips
+ok only the text from the mistake on is TEXT
+ok a mistake on the first token is all plain
 ok CRLF
 ok CRLF round trips
+ok a block comment across three lines is three pieces
+ok a multi-line string the same
+ok a string's interpolation on a later line
+ok whitespace with line breaks
+ok a line comment ends before its line break
+ok CRLF is a line end too
+ok the other languages' pieces have lines
+ok so does plain text
+ok no piece of any language holds a line break inside it
+ok the lines of a program
+ok the last line without a line break is a line, and with one no extra line
+ok an empty source has no lines, a line break one empty line
+ok a block comment's lines
+ok a line's pieces carry its number
+ok the lines of a file being typed are plain below the mistake
+ok joining a line's pieces gives the line
+ok a block comment across lines is one span
+ok a multi-line string is one span
+ok two members are still two spans
+ok a string's line break before its interpolation
 ok HTML is an Html, so nothing escapes it again
 ok HTML is escaped
 ok plain text is escaped

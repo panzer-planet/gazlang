@@ -449,8 +449,13 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   can show code as the site does), so a colour can't disagree with the language, and every
   piece is cut from the source rather than printed from a token, so whitespace, comments and
   escapes come out as written: `round_trip_test.gaz` requires the pieces, and the HTML read
-  back, to give every docs block and every file of `lib/` and `examples/` byte for byte. Source
-  the lexer refuses is shown plain, not fatal. A fence names its language (`gaz`, `gzb`,
+  back, to give every docs block and every file of `lib/` and `examples/` byte for byte, each
+  also with a mistake planted half-way. Source the lexer refuses is pieced up to the token it
+  refused and plain from there, not fatal (the tokens before it read with the `LexError` caught,
+  as `docblocks.gaz` reads them), so a file being typed keeps its colours above the cursor; no
+  piece spans a line (each carries its `line`, one that would is cut at each newline, and
+  `render()` keeps the cut pieces one `<span>`), and `highlight::lines()` gives each line's
+  pieces for an editor. A fence names its language (`gaz`, `gzb`,
   `gazml`, `bash`); a plain fence right after code is shown as its output. No JavaScript, fonts or
   anything fetched from elsewhere.
   **Every page is checked before anything is written** (`site/verify.gaz`): internal links and

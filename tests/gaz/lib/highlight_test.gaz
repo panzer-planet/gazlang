@@ -14,6 +14,38 @@ fn round_trips(string $language, string $source): bool {
     return join(map(highlight::pieces($language, $source), $piece -> $piece.text), "") == $source;
 }
 
+// Every piece as "line:class:text"
+fn lined(string $language, string $source): list {
+    return map(highlight::pieces($language, $source), $piece -> "{$piece.line}:{$piece.class}:{$piece.text}");
+}
+
+// The pieces as "line:class:text", whitespace left out, and a piece of TEXT_TYPE as "line:TEXT:text"
+fn typed(string $language, string $source): list {
+    $pieces = filter(highlight::pieces($language, $source), $piece -> trim($piece.text) != "");
+
+    return map($pieces, $piece -> {
+        $label = $piece.type == highlight::TEXT_TYPE ? "TEXT" : $piece.class;
+
+        return "{$piece.line}:{$label}:{$piece.text}";
+    });
+}
+
+// The text of every piece with a line break anywhere but at its end
+fn spanning(string $language, string $source): list {
+    $pieces = filter(highlight::pieces($language, $source), $piece -> contains($piece.text, "\n") && !ends_with($piece.text, "\n"));
+
+    return map($pieces, $piece -> $piece.text);
+}
+
+// lines() as lists of "class:text", whitespace left out
+fn by_line(string $language, string $source): list {
+    return map(highlight::lines($language, $source), $line -> shown_pieces($line));
+}
+
+fn shown_pieces(list $pieces): list {
+    return map(filter($pieces, $piece -> trim($piece.text) != ""), $piece -> "{$piece.class}:{$piece.text}");
+}
+
 // Every class a token can be given
 expect("keywords, literals, numbers and operators", shown("gaz", "if (true) { return 1 + 2.5; } else { null; }"),
     ["kw:if", ":(", "lit:true", ":)", ":{", "kw:return", "num:1", "op:+", "num:2.5", ":;", ":}", "kw:else", ":{", "lit:null", ":;", ":}"]);
@@ -42,15 +74,60 @@ expect("a tag is a call, a keyword before a string still a keyword", shown("gaz"
     ["kw:echo", "str:\"a\"", "fn:tag", "str:\"b {", "var:\$c", "str:}\"", ":q", "op:::", "fn:Sql", "str:\"d\"", ":;"]);
 expect("a string in an interpolation", shown("gaz", "\"a {\$m[\"k\"]} b\""), ["str:\"a {", "var:\$m", ":[", "str:\"k\"", ":]", "str:} b\""]);
 
-// What the lexer refuses is shown plain, whole
-expect("an unterminated string", shown("gaz", "echo \"open"), [":echo \"open"]);
-expect("a character the lexer refuses", shown("gaz", "1 ` 2"), [":1 ` 2"]);
-expect("an unterminated comment", shown("gaz", "1 /* 2"), [":1 /* 2"]);
+// What the lexer refuses: the tokens before it as read, and plain text from the refused token on
+expect("an unterminated string", shown("gaz", "echo \"open"), ["kw:echo", ":\"open"]);
+expect("a character the lexer refuses", shown("gaz", "1 ` 2"), ["num:1", ":` 2"]);
+expect("an unterminated comment", shown("gaz", "1 /* 2"), ["num:1", ": /* 2"]);
 expect("a bad escape", round_trips("gaz", "\"\\q\""), true);
+expect("a bad interpolated index", shown("gaz", "\"a \$b[c d]\""), ["str:\"a ", ":\$b[c d]\""]);
+expect("a string left open inside its interpolation", shown("gaz", "\"a {\$b"), ["str:\"a {", "var:\$b"]);
+
+// A file being typed keeps its colours above the mistake, and the text below is plain, line by line
+const TYPED = "fn f() {\n    return \"ok\"; // fine\n}\n\$x = \"open\n/* not */ fn g() {}\n";
+expect("a file with an unclosed string half-way", typed("gaz", TYPED), [
+    "1:kw:fn", "1:fn:f", "1::(", "1::)", "1::{", "2:kw:return", "2:str:\"ok\"", "2::;", "2:com:// fine", "3::}",
+    "4:var:\$x", "4:op:=", "4:TEXT:\"open\n", "5:TEXT:/* not */ fn g() {}\n",
+]);
+expect("which round trips", round_trips("gaz", TYPED), true);
+expect("only the text from the mistake on is TEXT", map(filter(highlight::gaz(TYPED), $p -> $p.type == highlight::TEXT_TYPE), $p -> $p.line), [4, 5]);
+expect("a mistake on the first token is all plain", typed("gaz", "\"open\nmore\n"), ["1:TEXT:\"open\n", "2:TEXT:more\n"]);
 
 // CRLF line ends are kept
 expect("CRLF", shown("gaz", "1;\r\n// c\r\n2;\r\n"), ["num:1", ":;", "com:// c\r", "num:2", ":;"]);
 expect("CRLF round trips", round_trips("gaz", "fn f() {\r\n    return \"a\r\nb\";\r\n}\r\n"), true);
+
+// No piece spans a line: one that would is cut at each newline, each with the line it is on
+expect("a block comment across three lines is three pieces", lined("gaz", "/* a\n * b\n */ 1"),
+    ["1:com:/* a\n", "2:com: * b\n", "3:com: */", "3:: ", "3:num:1"]);
+expect("a multi-line string the same", lined("gaz", "\$s = \"a\nb\nc\";"),
+    ["1:var:\$s", "1:: ", "1:op:=", "1:: ", "1:str:\"a\n", "2:str:b\n", "3:str:c\"", "3::;"]);
+expect("a string's interpolation on a later line", lined("gaz", "\"a\n{\$b}\""), ["1:str:\"a\n", "2:str:{", "2:var:\$b", "2:str:}\""]);
+expect("whitespace with line breaks", lined("gaz", "1;\n\n    2;"),
+    ["1:num:1", "1::;", "1::\n", "2::\n", "3::    ", "3:num:2", "3::;"]);
+expect("a line comment ends before its line break", lined("gaz", "// a\n1"), ["1:com:// a", "1::\n", "2:num:1"]);
+expect("CRLF is a line end too", lined("gaz", "/* a\r\n */"), ["1:com:/* a\r\n", "2:com: */"]);
+expect("the other languages' pieces have lines", lined("gzb", "top\n  RET\n"), ["1:ty:top", "1::\n", "2::  ", "2:kw:RET", "2::\n"]);
+expect("so does plain text", lined("text", "a\nb"), ["1::a\n", "2::b"]);
+expect("no piece of any language holds a line break inside it", filter(map([
+    ["gaz", "/* a\nb */ \"c\nd\" \$e\n\n  // f\n"], ["gzb", "top\n  PUSH \"a\nb\"\n"], ["gazml", "@if (\$a)\n<p>{{ \$a }}</p>\n@endif\n"],
+    ["bash", "make # a\nmake\n"], ["text", "a\nb\n"],
+], ([$language, $source]) -> spanning($language, $source)), $spanning -> $spanning != []), []);
+
+// lines(): a line's pieces without its line break, one list per line, an empty line an empty list
+expect("the lines of a program", by_line("gaz", "fn f() {\n\n    return 1; // one\n}"),
+    [["kw:fn", "fn:f", ":(", ":)", ":{"], [], ["kw:return", "num:1", ":;", "com:// one"], [":}"]]);
+expect("the last line without a line break is a line, and with one no extra line", [len(highlight::lines("gaz", "a\nb")), len(highlight::lines("gaz", "a\nb\n"))], [2, 2]);
+expect("an empty source has no lines, a line break one empty line", [highlight::lines("gaz", ""), highlight::lines("gaz", "\n")], [[], [[]]]);
+expect("a block comment's lines", by_line("gaz", "/* a\n */ 1"), [["com:/* a"], ["com: */", "num:1"]]);
+expect("a line's pieces carry its number", map(highlight::lines("gaz", "1\n\n3")[2], $p -> $p.line), [3]);
+expect("the lines of a file being typed are plain below the mistake", by_line("gaz", "1;\n\"open\n2;"), [["num:1", ":;"], [":\"open"], [":2;"]]);
+expect("joining a line's pieces gives the line", join(map(highlight::lines("gaz", "\$a = \"b\n  c\";")[1], $p -> $p.text), ""), "  c\";");
+
+// HTML: every piece escaped, a class a span, and the pieces a newline cut from one run one span
+expect("a block comment across lines is one span", highlight::to_html("gaz", "/* a\n */ 1").text, "<span class=\"com\">/* a\n */</span> <span class=\"num\">1</span>");
+expect("a multi-line string is one span", highlight::to_html("gaz", "\"a\nb\"").text, "<span class=\"str\">&quot;a\nb&quot;</span>");
+expect("two members are still two spans", highlight::to_html("gaz", "#a.b").text, "<span class=\"mem\">#a</span><span class=\"mem\">.b</span>");
+expect("a string's line break before its interpolation", highlight::to_html("gaz", "\"a\n\$b\"").text, "<span class=\"str\">&quot;a\n</span><span class=\"var\">\$b</span><span class=\"str\">&quot;</span>");
 
 // HTML: every piece escaped, a class a span
 expect("HTML is an Html, so nothing escapes it again", kind_of(highlight::to_html("gaz", "1")) == Html, true);

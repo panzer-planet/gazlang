@@ -1,15 +1,22 @@
 /**
  * Syntax highlighting, as the GazLang website shows code: source text as a list of `Piece`s,
- * each a run of the text with the class it is shown in, and the pieces as HTML.
+ * each a run of the text with the class it is shown in and the line it is on, and the pieces as
+ * HTML.
  *
  *     $pieces = highlight::gaz("echo 1;");       // [Piece("kw", "echo"), Piece("", " "), ...]
+ *     $lines = highlight::lines("gaz", $source); // the pieces of each line, for an editor
  *     echo highlight::to_html("gaz", $source);   // <span class="kw">echo</span> ...
  *
  * GazLang is split by the compiler's own lexer (`std/syntax.gaz`), so a colour can never
  * disagree with the language. The lexer drops whitespace and comments and decodes strings, so
  * the text of every piece is cut from the source by where the lexer says each token lies, never
  * written back from a token: joining the pieces' text gives the source, byte for byte. Source
- * the lexer refuses is one plain piece, so a broken example is shown, not fatal.
+ * the lexer refuses is pieced up to the token it refused and plain from there, so a broken
+ * example is shown, not fatal, and a file being typed keeps its colours above the mistake.
+ *
+ * No piece spans a line: one that would (a block comment, a string with a line break in it) is
+ * cut at each newline into pieces of its kind, the newline ending the piece it is in, so an
+ * editor draws a line from the pieces whose `line` it is, which `lines()` gathers.
  *
  * Bytecode, templates and shell commands have small highlighters of their own, line by line.
  *
@@ -48,7 +55,7 @@ pub const SPACE_TYPE = "SPACE";
 pub const COMMENT_TYPE = "COMMENT";
 /**
  * A piece's type for anything that isn't GazLang read by the lexer: other languages, and source
- * the lexer refused
+ * from the token the lexer refused on
  */
 pub const TEXT_TYPE = "TEXT";
 
@@ -79,21 +86,67 @@ const BYTECODE_HEADERS = [
 const BYTECODE_KEYWORDS = ["in", "extends", "implements", "pub", "kin", "final", "readonly", "local", "captured"];
 
 /**
- * A run of source text and how it is shown
+ * A run of source text, on one line, and how it is shown
  */
 pub kind Piece {
     /**
-     * $class is the class it is shown in (`""` for plain text), $text the source itself, and
-     * $type the lexer's token type for a token of GazLang, or `SPACE_TYPE`, `COMMENT_TYPE` or
+     * $class is the class it is shown in (`""` for plain text), $text the source itself, $type
+     * the lexer's token type for a token of GazLang, or `SPACE_TYPE`, `COMMENT_TYPE` or
      * `TEXT_TYPE`, so a reader of the pieces can tell a token from what the lexer skipped, and
-     * source the lexer refused from source it read
+     * source the lexer refused from source it read, and $line the line of the source it starts
+     * on, from 1. A piece never spans a line: its text holds a newline only as its last byte,
+     * where one ends the piece
      */
-    fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE);
+    fn _(pub string #class, pub string #text, pub string #type = TEXT_TYPE, pub int #line = 1);
+}
+
+/*
+ * Gathers pieces in order, giving each the line it starts on and cutting one that would span
+ * lines at each newline, so no piece holds a newline except as its last byte; a piece with no
+ * text is left out
+ */
+kind Pieces {
+    pub #pieces = [];
+    #line = 1;
+
+    pub fn add(string $class, string $text, string $type) {
+        $end = index_of($text, "\n");
+        // Most pieces are on one line, so they are kept as they are, not cut from themselves
+        if ($end == null) {
+            if ($text != "") {
+                #pieces[] = Piece($class, $text, $type, #line);
+            }
+            return;
+        }
+        $start = 0;
+        while ($end != null) {
+            #pieces[] = Piece($class, slice($text, $start, $end + 1 - $start), $type, #line);
+            #line++;
+            $start = $end + 1;
+            $end = index_of($text, "\n", $start);
+        }
+        #add($class, slice($text, $start), $type);
+    }
+}
+
+// Pieces made without lines, line by line, given theirs and cut at each newline
+fn lined(list $pieces): list {
+    $lined = Pieces();
+    foreach ($pieces as $piece) {
+        $lined.add($piece.class, $piece.text, $piece.type);
+    }
+
+    return $lined.pieces;
+}
+
+// Text in no language the highlighter knows: plain, a piece per line
+fn plain(string $source): list {
+    return lined([Piece(PLAIN, $source)]);
 }
 
 /**
  * The pieces of $source in a language named as a Markdown fence names it: `gaz`, `gzb`
- * (bytecode), `gazml` (a template) or `bash`; any other is one plain piece
+ * (bytecode), `gazml` (a template) or `bash`; any other is plain
  */
 pub fn pieces(string $language, string $source): list {
     return match ($language) {
@@ -101,8 +154,42 @@ pub fn pieces(string $language, string $source): list {
         "gzb" => bytecode($source),
         "gazml" => template($source),
         "bash", "sh", "shell" => shell($source),
-        default => [Piece(PLAIN, $source)],
+        default => plain($source),
     };
+}
+
+/**
+ * The pieces of $source in $language (as `pieces()` names it), a list for each line: what an
+ * editor draws a line from. A line's pieces hold its text without the line break that ends it,
+ * so an empty line is an empty list; a line break ends a line, and text after the last one is a
+ * line too, so `"a\nb"` and `"a\nb\n"` both have two lines, and an empty source has none
+ */
+pub fn lines(string $language, string $source): list {
+    return by_line(pieces($language, $source));
+}
+
+// Pieces gathered by their line, each line's last piece without the newline that ended it
+fn by_line(list $pieces): list {
+    $lines = [];
+    $line = [];
+    foreach ($pieces as $piece) {
+        if (!ends_with($piece.text, "\n")) {
+            $line[] = $piece;
+            continue;
+        }
+        // The newline ends the line, and is the last byte of exactly one piece
+        $text = slice($piece.text, 0, len($piece.text) - 1);
+        if ($text != "") {
+            $line[] = Piece($piece.class, $text, $piece.type, $piece.line);
+        }
+        $lines[] = $line;
+        $line = [];
+    }
+    if (len($line) > 0) {
+        $lines[] = $line;
+    }
+
+    return $lines;
 }
 
 /**
@@ -113,46 +200,70 @@ pub fn to_html(string $language, string $source): Html {
 }
 
 /**
- * Pieces as HTML: a piece with a class is a `<span>` of that class, and all the text is escaped
+ * Pieces as HTML: a piece with a class is a `<span>` of that class, and all the text is escaped.
+ * The pieces a newline cut from one run (a block comment across lines) are one `<span>`, as the
+ * run would be
  */
 pub fn render(list $pieces): Html {
     $html = "";
-    foreach ($pieces as $piece) {
+    $open = false;
+    foreach ($pieces as $i => $piece) {
         $text = Html::escape($piece.text);
         if ($piece.class == PLAIN) {
             $html ..= $text;
-        } else {
-            $html ..= "<span class=\"{$piece.class}\">{$text}</span>";
+            continue;
+        }
+        if (!$open) {
+            $html ..= "<span class=\"{$piece.class}\">";
+        }
+        $html ..= $text;
+        $open = continues($piece, $pieces[$i + 1] ?? null);
+        if (!$open) {
+            $html ..= "</span>";
         }
     }
 
     return Html($html);
 }
 
-/**
- * GazLang source, split by the compiler's lexer; one plain piece if the lexer refuses it
- */
-pub fn gaz(string $source): list {
-    try {
-        return gaz_tokens($source);
-    } catch (LexError $e) {
-        return [Piece(PLAIN, $source)];
+// Whether $next was cut from one run with $piece: the same kind, after the newline that ended it
+fn continues(Piece $piece, ?Piece $next): bool {
+    if ($next == null || !ends_with($piece.text, "\n")) {
+        return false;
     }
+
+    return $next.class == $piece.class && $next.type == $piece.type;
 }
 
-fn gaz_tokens(string $source): list {
+/**
+ * GazLang source, split by the compiler's lexer. Source the lexer refuses is pieced up to the
+ * token it refused, exactly as the lexer read it, and from that token on is plain text
+ * (`TEXT_TYPE`), a piece per line: a file being typed keeps its colours above the mistake, and
+ * nothing after it is guessed at.
+ *
+ * ponytail: whole-file, about 50 ms for the compiler's parser.gaz, so an editor on a big file
+ * can't call it at every keystroke; it wants incremental highlighting, lexing again from the
+ * start of the token the edited line is in, which waits for the editor to show its shape.
+ */
+pub fn gaz(string $source): list {
     $lexer = Lexer($source);
     $tokens = [];
     $spans = [];
-    $type = null;
-    while ($type != "EOF") {
-        $token = $lexer.get_next_token();
-        $tokens[] = $token;
-        $spans[] = $lexer.span();
-        $type = $token.type;
+    // Where the lexer stopped: the end of the text, or the start of the token it refused
+    $cut = len($source);
+    try {
+        $type = null;
+        while ($type != "EOF") {
+            $token = $lexer.get_next_token();
+            $tokens[] = $token;
+            $spans[] = $lexer.span();
+            $type = $token.type;
+        }
+    } catch (LexError $e) {
+        $cut = $lexer.span()[0];
     }
 
-    $pieces = [];
+    $pieces = Pieces();
     $end = 0;
     foreach ($tokens as $i => $token) {
         [$start, $stop] = $spans[$i];
@@ -160,19 +271,16 @@ fn gaz_tokens(string $source): list {
         if ($start == $stop) {
             continue;
         }
-        foreach (between(slice($source, $end, $start - $end)) as $piece) {
-            $pieces[] = $piece;
-        }
+        between($pieces, slice($source, $end, $start - $end));
         $next = $tokens[$i + 1] ?? null;
-        $pieces[] = Piece(token_class($token, $next), slice($source, $start, $stop - $start), $token.type);
+        $pieces.add(token_class($token, $next), slice($source, $start, $stop - $start), $token.type);
         $end = $stop;
     }
-    // What is left after the last token: whitespace and comments
-    foreach (between(slice($source, $end)) as $piece) {
-        $pieces[] = $piece;
-    }
+    // What is left after the last token: whitespace and comments, then what the lexer refused
+    between($pieces, slice($source, $end, $cut - $end));
+    $pieces.add(PLAIN, slice($source, $cut), TEXT_TYPE);
 
-    return $pieces;
+    return $pieces.pieces;
 }
 
 // How a token is shown, by its type, and for a name by what it looks like and what follows it
@@ -216,11 +324,10 @@ fn is_keyword($token): bool {
 }
 
 /*
- * The text between two tokens, which the lexer skipped: whitespace, line and block comments,
- * and a #! line at the start of a script
+ * The text between two tokens, which the lexer skipped, added to $pieces: whitespace, line and
+ * block comments, and a #! line at the start of a script
  */
-fn between(string $text): list {
-    $pieces = [];
+fn between(Pieces $pieces, string $text) {
     $i = 0;
     $length = len($text);
     while ($i < $length) {
@@ -231,14 +338,12 @@ fn between(string $text): list {
         };
         if ($end == null) {
             $end = whitespace_end($text, $i);
-            $pieces[] = Piece(PLAIN, slice($text, $i, $end - $i), SPACE_TYPE);
+            $pieces.add(PLAIN, slice($text, $i, $end - $i), SPACE_TYPE);
         } else {
-            $pieces[] = Piece(COMMENT, slice($text, $i, $end - $i), COMMENT_TYPE);
+            $pieces.add(COMMENT, slice($text, $i, $end - $i), COMMENT_TYPE);
         }
         $i = $end;
     }
-
-    return $pieces;
 }
 
 // Where the line $i is on ends, before its line break
@@ -262,7 +367,7 @@ fn whitespace_end(string $text, int $i): int {
 }
 
 // Text split into lines that keep their line breaks, so joining them gives the text again
-fn lines(string $text): list {
+fn split_lines(string $text): list {
     $lines = split($text, "\n");
     $last = len($lines) - 1;
     foreach ($lines as $i => $line) {
@@ -301,7 +406,7 @@ fn first_word(string $line): list {
  */
 pub fn bytecode(string $source): list {
     $pieces = [];
-    foreach (lines($source) as $line) {
+    foreach (split_lines($source) as $line) {
         [$indent, $rest] = indented($line);
         if ($indent != "") {
             $pieces[] = Piece(PLAIN, $indent);
@@ -311,7 +416,7 @@ pub fn bytecode(string $source): list {
         }
     }
 
-    return $pieces;
+    return lined($pieces);
 }
 
 fn bytecode_line(string $line): list {
@@ -385,7 +490,7 @@ fn operand_class(string $word): string {
  */
 pub fn template(string $source): list {
     $pieces = [];
-    foreach (lines($source) as $line) {
+    foreach (split_lines($source) as $line) {
         [$indent, $rest] = indented($line);
         [$word, $after] = first_word($rest);
         $line_pieces = template_text($line);
@@ -397,7 +502,7 @@ pub fn template(string $source): list {
         }
     }
 
-    return filter($pieces, $piece -> $piece.text != "");
+    return lined($pieces);
 }
 
 // HTML text with {{ }}, {!! !!} and {{-- --}} in it; @{{ is text
@@ -428,7 +533,7 @@ fn template_text(string $line): list {
     }
     $pieces[] = Piece(PLAIN, slice($line, $text_start));
 
-    return filter($pieces, $piece -> $piece.text != "");
+    return $pieces;
 }
 
 // The [opening, closing] marks of what starts at $i, or null
@@ -451,7 +556,7 @@ fn template_mark(string $line, int $i): ?list {
  */
 pub fn shell(string $source): list {
     $pieces = [];
-    foreach (lines($source) as $line) {
+    foreach (split_lines($source) as $line) {
         $hash = shell_comment_start($line);
         if ($hash == null) {
             $pieces[] = Piece(PLAIN, $line);
@@ -463,7 +568,7 @@ pub fn shell(string $source): list {
         $pieces[] = Piece(PLAIN, slice($line, $end));
     }
 
-    return filter($pieces, $piece -> $piece.text != "");
+    return lined($pieces);
 }
 
 // Where a line's comment starts, or null; a # inside quotes is text

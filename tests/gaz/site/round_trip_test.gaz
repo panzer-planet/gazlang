@@ -2,7 +2,8 @@
  * The highlighter's promise: joining the pieces' text gives the source byte for byte, and the
  * HTML, its tags dropped and escapes read back, gives it too. Checked on every code block of the
  * README and docs/, and on every file of lib/ and examples/, which must also all lex (a file
- * shown plain would pass the round trip while highlighting nothing).
+ * shown plain from a mistake on would pass the round trip while highlighting less than it
+ * should), and on each of those with a mistake planted half-way, which a file being typed is.
  */
 import "site/markdown.gaz";
 import "std/highlight.gaz";
@@ -27,11 +28,21 @@ fn problem(string $language, string $source): string {
     return "";
 }
 
-// Whether the lexer read it, rather than the highlighter showing it plain
+// Whether the lexer read it all, rather than refusing a token and the highlighter showing the
+// rest plain
 fn lexed(string $source): bool {
-    $pieces = highlight::gaz($source);
+    return !refused($source);
+}
 
-    return len($pieces) > 1 || $pieces[0].type != highlight::TEXT_TYPE;
+fn refused(string $source): bool {
+    return len(filter(highlight::gaz($source), $piece -> $piece.type == highlight::TEXT_TYPE)) > 0;
+}
+
+// $source with a line the lexer refuses planted half-way, as a file being typed has
+fn broken(string $source): string {
+    $middle = index_of($source, "\n", to_int(len($source) / 2)) ?? len($source);
+
+    return slice($source, 0, $middle) .. "\n\"open\n" .. slice($source, $middle);
 }
 
 // A document's fenced blocks as [language, code, line of the fence]
@@ -75,6 +86,7 @@ foreach (DOCUMENTS as $document) {
 foreach (DIRECTORIES as $directory) {
     $files = filter(list_dir($directory), $file -> ends_with($file, ".gaz"));
     $failed = [];
+    $broken_refused = 0;
     foreach ($files as $file) {
         $source = read_file("{$directory}/{$file}");
         $problem = problem("gaz", $source);
@@ -85,7 +97,15 @@ foreach (DIRECTORIES as $directory) {
         if (problem("gaz", replace($source, "\n", "\r\n")) != "") {
             $failed[] = "{$file} with CRLF";
         }
+        // And with a mistake planted half-way, which a file being typed is
+        if (problem("gaz", broken($source)) != "") {
+            $failed[] = "{$file} broken half-way";
+        }
+        if (refused(broken($source))) {
+            $broken_refused++;
+        }
     }
     expect("{$directory}/ has files", len($files) > 0, true);
-    expect("every file of {$directory}/ lexes and round trips", $failed, []);
+    expect("every file of {$directory}/ lexes and round trips, broken half-way too", $failed, []);
+    expect("a mistake planted half-way in a file of {$directory}/ is refused by the lexer", $broken_refused > 0, true);
 }
