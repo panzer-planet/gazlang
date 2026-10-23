@@ -361,12 +361,44 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   restores it in an `atexit` handler and in signal handlers that then end the program as the signal
   would have, so its exit status is still the signal's. Always `TCSANOW`: `TCSADRAIN` waits for the
   terminal to take the output, which never ends once the terminal is gone. Raw mode turns off
-  `ISIG`, so a program in a loop that never reads can't be interrupted from the keyboard. Resize is
-  polled, not signalled, so nothing runs asynchronously. `tests/fixtures/pty_run.py` runs a program
+  `ISIG`, so a program in a loop that never reads can't be interrupted from the keyboard.
+  `tests/fixtures/pty_run.py` runs a program
   on a pty, since raw mode can't be seen from a pipe; `TermTest` skips those tests without python3.
   Its two limits (`PTY_START`, to enter raw mode, 60s; `PTY_DEADLINE`, to end, 30s) only guard
   against a hang and end with the program, so a loaded machine can't trip them; a test of a program
   meant to hang gives a short deadline.
+  - **The window changing is the one signal a program hears of** (`SIGWINCH`): its handler writes
+    a byte to a pipe of the VM's own (the self-pipe shape), which `term_read()` polls beside
+    standard input, so a program waiting for a key with no timeout wakes at once; it gives `null`,
+    and `term_resized()` says it was the window, `true` once for each change. The two take the
+    same byte, so a change is seen once whichever asks first, and `term_read()` never wakes for one
+    `term_resized()` already answered. **`term_read()` gives `null`, not a new kind of value**,
+    since every caller of it reads bytes or a timeout, and a third answer would be one more thing
+    each had to know; a builtin that is never called costs nothing. The pipe and the handler are
+    made the first time raw mode goes on or `term_resized()` is asked, so a program that never does
+    either leaves `SIGWINCH` ignored, as it is by default; the handler has `SA_RESTART` so no other
+    call is cut short (`poll()` returns `EINTR` whatever the flag says, and every wait in the VM
+    loops on it). `term::Input.read()` asks `term_resized()` only after a `null`, which can't be
+    spurious: with no timeout `term_read()` gives `null` only for a resize, so `tui::interact()`'s
+    tick is never called for one, and the key is `{"key" => "resize"}` for `interact()` to fit its
+    screen to. Under `gaz --tty` the script's `resize COLSxROWS` is `term_resize()`, which only
+    the pretend terminal takes (a real one is its user's to resize), and the key `resize`;
+    `term_resized()` is false there, so a resize reaches a program one way on each terminal.
+  - **`term_suspend()` stops the program as Ctrl-Z would have** (raw mode makes Ctrl-Z the byte
+    26, so the program decides): the terminal is put back, `SIGTSTP` set to its default and
+    unblocked, and `kill(0, SIGTSTP)` sent to the whole process group, since the job the shell is
+    waiting on is the group, and a program stopped alone in a pipeline would leave the shell
+    waiting for the rest (what the terminal's own Ctrl-Z does). When the shell continues it the
+    call returns with raw mode on again, if it was, so the program has only to draw again. A
+    `SIGTSTP` from outside (`kill -TSTP`) runs the same steps from its handler, which `term_raw()`
+    installs with the ending signals' and takes away with them; everything in it is
+    async-signal-safe. Without a terminal on standard input it is an error, there being no shell
+    to go back to; under `gaz --tty` it returns at once; under `gaz --watch` the supervisor, which
+    is no shell, says so and ends the program (`watch.c`); a group the shell has given up on
+    discards the stop, so the program comes straight back. The fixture's `PTY_SUSPEND` waits for
+    the stop as a parent in the same session (`WUNTRACED`), notes the modes while stopped, and
+    continues it; `PTY_RESIZE` resizes the pty and sends `SIGWINCH` as a terminal would. What
+    they can't do is a shell's job control itself (`fg`), so that is tried by hand.
   `ponytail:` `run()` hands a child whose output it collects the terminal as raw mode left it,
   which only a child opening `/dev/tty` meets; an inheriting one gets it as it was before (see
   [Processes and sockets](#processes-and-sockets)).

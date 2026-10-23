@@ -5,12 +5,15 @@ namespace GazLang\Tests;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * The terminal builtins (vm/term.c): term_raw(), term_read(), term_size() and term_is_tty()
+ * The terminal builtins (vm/term.c): term_raw(), term_read(), term_size(), term_is_tty(),
+ * term_resized() and term_suspend()
  *
  * Without a terminal they are recorded like any snippet, and term_read() is fed through a file.
  * Raw mode can only be seen on a terminal, which PHP can't make, so tests/fixtures/pty_run.py
  * runs a program on a pty and says what the terminal's modes were before, during and after; those
- * tests are skipped where there is no python3 to do it.
+ * tests are skipped where there is no python3 to do it. The same fixture resizes the pty
+ * (PTY_RESIZE, with the SIGWINCH a terminal sends) and continues a program that stopped itself
+ * (PTY_SUSPEND, saying what the modes were while it was stopped and once it went on).
  */
 class TermTest extends GazLangTestCase
 {
@@ -48,7 +51,15 @@ class TermTest extends GazLangTestCase
             'read wants a number' => ['term_read("x")', 'term_read() expects int or float or null, got string'],
             'read waits no less than nothing' => ['term_read(-1)', 'term_read() expects a timeout of 0 seconds or more'],
             'a stream is 0, 1 or 2' => ['term_is_tty(3)', 'term_is_tty() expects 0, 1 or 2, got 3'],
+            'resize wants ints' => ['term_resize("a", 1)', 'term_resize() expects int, got string'],
+            'resize wants ints for rows too' => ['term_resize(1, 2.5)', 'term_resize() expects int, got float'],
         ];
+    }
+
+    public function test_without_a_terminal_the_window_never_changes()
+    {
+        // (CliTest's tty_builtins.gaz records what term_resize() and term_suspend() say there)
+        $this->assertSame("false\nfalse\n", $this->executeCode('echo term_resized(); echo term_resized();'));
     }
 
     public function test_term_read_gives_the_bytes_as_they_arrived_and_an_empty_string_at_the_end()
@@ -127,6 +138,55 @@ class TermTest extends GazLangTestCase
 
         // The first read waited 0.1s for nothing (the keys come later, after the start-up wait)
         $this->assertSame("null\r\n[\"\\e[A\"]\r\n", $ran['out']);
+    }
+
+    public function test_term_read_wakes_when_the_window_changes_and_term_resized_says_so_once()
+    {
+        // The program waits for a key with no timeout; the window changes before one is typed, so
+        // the read gives null at once, and the key typed after it is the next read's
+        $program = 'term_raw(true); echo to_string([term_read()]); echo term_resized(); echo term_size();'
+            .' echo term_resized(); echo to_string([term_read()]); term_raw(false);';
+        $ran = $this->onTerminal($program, '71', null, null, ['PTY_RESIZE' => '50x12']);
+
+        $this->assertSame("[null]\r\ntrue\r\n{\"cols\" => 50, \"rows\" => 12}\r\nfalse\r\n[\"q\"]\r\n", $ran['out']);
+        $this->assertSame(0, $ran['code']);
+    }
+
+    public function test_input_gives_the_key_resize_before_what_is_typed_after_it()
+    {
+        $program = 'import "std/term.gaz"; term_raw(true); $input = term::Input();'
+            .' echo term::name($input.read()); echo term::name($input.read()); term_raw(false);';
+        $ran = $this->onTerminal($program, '71', null, null, ['PTY_RESIZE' => '50x12']);
+
+        $this->assertSame("resize\r\nq\r\n", $ran['out']);
+        $this->assertSame(0, $ran['code']);
+    }
+
+    public function test_term_suspend_stops_the_program_with_the_terminal_put_back_and_goes_on_in_raw_mode()
+    {
+        $program = 'term_raw(true); echo to_string([term_read()]); term_suspend(); echo "back";'
+            .' echo to_string([term_read()]); term_raw(false);';
+        $ran = $this->onTerminal($program, '71', null, null, ['PTY_SUSPEND' => '1']);
+
+        $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['during']);
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['stopped'], "the terminal is the shell's while the program is stopped");
+        $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['resumed'], 'raw mode is on again once the shell continues it');
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
+        // the second key is typed only once it has been continued
+        $this->assertSame("[\"q\"]\r\nback\r\n[\"q\"]\r\n", $ran['out']);
+        $this->assertSame(0, $ran['code']);
+    }
+
+    public function test_a_stop_from_outside_puts_the_terminal_back_too_and_the_read_goes_on_after_it()
+    {
+        $program = 'term_raw(true); echo to_string([term_read()]); echo to_string([term_read()]); term_raw(false);';
+        $ran = $this->onTerminal($program, '71', 'TSTP', null, ['PTY_SUSPEND' => '1']);
+
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['stopped']);
+        $this->assertSame(['echo' => false, 'icanon' => false, 'isig' => false], $ran['resumed']);
+        $this->assertSame(['echo' => true, 'icanon' => true, 'isig' => true], $ran['after']);
+        $this->assertSame("[\"q\"]\r\n[\"q\"]\r\n", $ran['out']);
+        $this->assertSame(0, $ran['code']);
     }
 
     public function test_input_reads_keys_from_a_pipe_and_says_when_it_ends()

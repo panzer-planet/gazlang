@@ -317,6 +317,41 @@ class StdlibTest extends GazLangTestCase
         $this->executeCode('throw "Undefined variable: \$x in " .. 3; echo "unreachable";');
     }
 
+    /**
+     * Standard output is fully buffered, so a line printed before a wait that doesn't flush
+     * (read_stdin() here; read_line() and term_read() flush for themselves) sits in the buffer
+     * until the program ends, unless flush_output() is called: the test reads the line from the
+     * pipe before it gives the program the input that lets it end, and the same program without
+     * the flush gives it nothing to read
+     */
+    public function test_flush_output_puts_a_line_on_the_pipe_before_the_program_waits_for_its_input()
+    {
+        $this->assertSame("ready\n", $this->firstLineWhileWaiting('print("ready\n"); flush_output(); print("got " .. read_stdin());'));
+        $this->assertNull($this->firstLineWhileWaiting('print("ready\n"); print("got " .. read_stdin());'));
+    }
+
+    /**
+     * The first line a program prints while it waits for standard input (null when none comes in
+     * half a second), after which the input is ended and the program with it
+     */
+    private function firstLineWhileWaiting(string $code): ?string
+    {
+        $process = proc_open([self::binary(), '-e', $code], [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
+        $this->assertNotFalse($process);
+        $read = [$pipes[1]];
+        $write = $except = [];
+        $line = stream_select($read, $write, $except, 0, 500000) === 1 ? fgets($pipes[1]) : null;
+        fwrite($pipes[0], "the input\n");
+        fclose($pipes[0]);
+        $rest = stream_get_contents($pipes[1]);
+        $this->assertSame('', stream_get_contents($pipes[2]));
+        $this->assertSame(0, proc_close($process));
+        // whether or not the line was read early, the program printed both
+        $this->assertSame("ready\ngot the input\n", ($line === null || $line === false ? '' : $line).$rest);
+
+        return $line === false ? null : $line;
+    }
+
     public function test_builtins_is_the_runtimes_table()
     {
         $this->assertEquals(

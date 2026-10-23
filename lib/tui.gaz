@@ -1085,6 +1085,10 @@ pub fn interact($draw, $handle, $input = null, $tick = null, $interval = 0.25) {
                 show($screen, $input);
                 continue;
             }
+            if ($key["key"] == "resize") {
+                // the window changed: the top of the loop fits the screen to it and draws it again
+                continue;
+            }
             if ($key["key"] == "eof") {
                 if (term_is_virtual()) {
                     show($screen, $input, "the keys ran out");

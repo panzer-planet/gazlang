@@ -281,9 +281,10 @@ abstract class GazLangTestCase extends TestCase
      * @param  list<string>  $args  The program's own arguments
      * @param  float  $wait  Seconds to let it run after the keys, for one that moves by itself
      * @param  string|null  $hold  "HEX:EVERY:SECONDS": type those bytes every EVERY seconds for SECONDS, as a held key does
-     * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
+     * @param  array<string, string>  $env  More for pty_run.py: PTY_RESIZE ("COLSxROWS", made so before the keys, with SIGWINCH) or PTY_SUSPEND (wait for the program to stop itself, continue it, type the keys again)
+     * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, stopped: array<string, bool>|null, resumed: array<string, bool>|null, code: int|string, out: string}
      */
-    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = [], float $wait = 0.3, ?string $hold = null, ?float $deadline = null): array
+    protected function fileOnTerminal(string $file, string $keysHex = '', ?string $signal = null, array $args = [], float $wait = 0.3, ?string $hold = null, ?float $deadline = null, array $env = []): array
     {
         $python = trim((string) shell_exec('command -v python3 2>/dev/null'));
         if ($python === '') {
@@ -291,29 +292,30 @@ abstract class GazLangTestCase extends TestCase
         }
         self::binary();
         $command = [$python, 'tests/fixtures/pty_run.py', $file, $keysHex, $signal ?? '', ...$args];
-        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT, [...getenv(), 'PTY_WAIT' => (string) $wait, ...($hold === null ? [] : ['PTY_HOLD' => $hold]), ...($deadline === null ? [] : ['PTY_DEADLINE' => (string) $deadline])]);
+        $process = proc_open($command, [['file', '/dev/null', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT, [...getenv(), 'PTY_WAIT' => (string) $wait, ...($hold === null ? [] : ['PTY_HOLD' => $hold]), ...($deadline === null ? [] : ['PTY_DEADLINE' => (string) $deadline]), ...$env]);
         $this->assertNotFalse($process);
         $json = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);
         proc_close($process);
         $this->assertNotSame('', (string) $json, "pty_run.py printed nothing: {$error}");
 
-        /** @var array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string} */
+        /** @var array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, stopped: array<string, bool>|null, resumed: array<string, bool>|null, code: int|string, out: string} */
         return json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
     }
 
     /**
      * Run GazLang code on a pty (see fileOnTerminal())
      *
-     * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, code: int|string, out: string}
+     * @param  array<string, string>  $env  More for pty_run.py (see fileOnTerminal())
+     * @return array{before: array<string, bool>, during: array<string, bool>, after: array<string, bool>, stopped: array<string, bool>|null, resumed: array<string, bool>|null, code: int|string, out: string}
      */
-    protected function onTerminal(string $source, string $keysHex = '', ?string $signal = null, ?float $deadline = null): array
+    protected function onTerminal(string $source, string $keysHex = '', ?string $signal = null, ?float $deadline = null, array $env = []): array
     {
         $made = tempnam(sys_get_temp_dir(), 'gazterm');
         $file = $made.'.gaz';
         file_put_contents($file, $source);
         try {
-            return $this->fileOnTerminal($file, $keysHex, $signal, [], 0.3, null, $deadline);
+            return $this->fileOnTerminal($file, $keysHex, $signal, [], 0.3, null, $deadline, $env);
         } finally {
             // tempnam() made the first, and only names the second
             unlink($made);

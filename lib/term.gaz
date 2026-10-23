@@ -1014,7 +1014,10 @@ pub kind Input {
 
     /**
      * The next key, waiting up to $timeout seconds for one (null: as long as it takes). null when
-     * the time runs out. When the input ends, {"key" => "eof"}, again on every call after.
+     * the time runs out. When the input ends, {"key" => "eof"}, again on every call after. When
+     * the window changes size, {"key" => "resize"}, at once, before any key typed after it
+     * (term_read() wakes for it; under gaz --tty the script's `resize COLSxROWS` is one): draw
+     * again to term_size().
      */
     pub fn read($timeout = null) {
         if (term_is_virtual()) {
@@ -1026,6 +1029,10 @@ pub kind Input {
             }
             $chunk = term_read(#wait_for($timeout));
             if ($chunk == null) {
+                if (term_resized()) {
+                    // the window changed, which woke the read; a sequence cut short waits again next time
+                    return make_key("resize");
+                }
                 if (#rest == "" || unfinished_paste(#rest)) {
                     // the time ran out; a paste still arriving is kept for the next call
                     return null;
@@ -1097,9 +1104,9 @@ const MOUSE_ACTIONS = ["press", "release", "drag", "move", "scroll_up", "scroll_
 const MOUSE_WORDS = 4;      // what follows `mouse`: the button, the action, the column and the row
 const SPACES = " \t\r\n";
 
-/* One step of a script: a key to press, time to let pass, or a screen to show */
+/* One step of a script: a key to press, time to let pass, a screen to show, or a new size */
 kind Step {
-    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0);
+    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0, pub #size = null);
 }
 
 /*
@@ -1113,7 +1120,9 @@ kind Step {
  * release, drag, move, scroll_up or scroll_down, then the column and row from 1.
  * `wait SECONDS` lets that much time pass on the clock gaz --tty keeps, which moves only then, so
  * a program run by a beat (a clock, a live match) does the same every time; `snap` shows the
- * screen. A mistake stops the program before it runs a step, naming the word.
+ * screen; `resize COLSxROWS` makes the terminal that big from then on, as dragging the window
+ * would, and is the key "resize". A mistake stops the program before it runs a step, naming the
+ * word.
  */
 kind Script {
     #steps = [];
@@ -1141,6 +1150,13 @@ kind Script {
                 $i = $script.paste($words, $i);
             } else if ($word == "mouse") {
                 $i = $script.mouse($words, $i);
+            } else if ($word == "resize") {
+                $size = $i + 1 < len($words) && !$words[$i + 1][1] ? size_named($words[$i + 1][0]) : null;
+                if ($size == null) {
+                    refuse("'resize' needs a size after it, as COLSxROWS with each 1 to 1000 (resize 80x24)");
+                }
+                $i++;
+                $script.add(Step("resize", "resize " .. $words[$i][0], null, 0, $size));
             } else {
                 $script.add(Step("press", $word, key_named($word)));
             }
@@ -1191,7 +1207,8 @@ kind Script {
 
     /*
      * The next key, letting the script's waits pass as Input.read() would wait. A snap is the key
-     * "snap" when $snaps says so, and passed over when not.
+     * "snap" when $snaps says so, and passed over when not. A resize makes the terminal its size
+     * (term_resize()) and is the key "resize", as a window changing is on a real terminal.
      */
     pub fn read($timeout, $snaps) {
         while (#at < len(#steps)) {
@@ -1199,6 +1216,11 @@ kind Script {
             if ($step.action == "press") {
                 #next($step);
                 return $step.key;
+            }
+            if ($step.action == "resize") {
+                term_resize($step.size[0], $step.size[1]);
+                #next($step);
+                return make_key("resize");
             }
             if ($step.action == "snap") {
                 #at++;
@@ -1334,6 +1356,20 @@ fn mouse_named($button, $action, $col, $row) {
         return null;
     }
     return make_mouse($name, $action, $col, $row, in_array("ctrl", $held), in_array("alt", $held), in_array("shift", $held));
+}
+
+// The size a script's word names, as --tty takes one (COLSxROWS, each 1 to 1000): [cols, rows], or null
+fn size_named($word) {
+    $parts = split($word, "x");
+    if (len($parts) != 2) {
+        return null;
+    }
+    $cols = to_int($parts[0], null);
+    $rows = to_int($parts[1], null);
+    if ($cols == null || $rows == null || $cols < 1 || $cols > 1000 || $rows < 1 || $rows > 1000) {
+        return null;
+    }
+    return [$cols, $rows];
 }
 
 fn unknown_word($word) {

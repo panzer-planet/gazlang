@@ -60,7 +60,8 @@ with `-c`, `--tokens` or `--ast`.
   would**; one it was started ignoring stays ignored (so `sh -c '... &'` background jobs, which
   ignore SIGINT, need SIGTERM), as in `workers()`. Ctrl-C reaches only the supervisor, since the
   child's group isn't the terminal's. `ponytail:` so the program can't read the terminal or turn
-  on raw mode (SIGTTIN, SIGTTOU); the supervisor says so and ends it rather than leave it stopped.
+  on raw mode (SIGTTIN, SIGTTOU), or stop for its shell (`term_suspend()`, SIGTSTP, when the
+  supervisor is no shell); the supervisor says so and ends it rather than leave it stopped.
   Handing the child's group the terminal (`tcsetpgrp`) would lift that, with Ctrl-C then the
   program's. `WatchTest` edits files under a running supervisor.
 
@@ -86,7 +87,9 @@ shell calls are its session and a sequence showing a bug is already a test case.
 - **The script's words are `term::name()`'s** (`j`, `enter`, `ctrl+c`, `page_up`), one
   vocabulary; `"text"` types characters; `paste "text"` is one paste key and `mouse left press
   10 5` one mouse report, since neither is bytes a word could type; `wait N` moves the clock;
-  `snap` prints the screen. A snap reaches `interact()` as the key `"snap"` through `Input.read_or_snap()`, never through
+  `snap` prints the screen; `resize COLSxROWS` makes the pretend terminal that size
+  (`term_resize()`, which only it takes) and is the key `resize`, as a window changing is on a
+  real terminal (see `docs/library.md`). A snap reaches `interact()` as the key `"snap"` through `Input.read_or_snap()`, never through
   `read()`, which passes it over, since only `interact()` has a screen to show; a snap that
   follows a `wait` inside one read is why it can't be peeked for before reading instead.
   An unknown word is the user's mistake, not the program's: one line and exit 2, no trace.
