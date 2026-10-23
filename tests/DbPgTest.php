@@ -60,9 +60,16 @@ class DbPgTest extends GazLangTestCase
     public function test_a_worker_refused_a_connection_gets_an_error_rather_than_abort()
     {
         $url = 'postgres://gaz@127.0.0.1:1/gaz';
+        $started = hrtime(true);
         [$probe] = self::gazlang(['-e', "try { db_open(\"{$url}\"); } catch (Error \$e) { echo \$e.message; }"]);
+        $seconds = (hrtime(true) - $started) / 1e9;
         if (! str_contains($probe, 'cannot connect')) {
             self::markTestSkipped("PostgreSQL can't be tried: {$probe}");
+        }
+        // A refusal is immediate; a loopback that drops instead (WSL2's mirrored networking) times
+        // out, which three workers would do in turn, past the limit, and is not what is tested
+        if ($seconds > 2) {
+            self::markTestSkipped(sprintf('127.0.0.1:1 drops rather than refuses: the probe took %.1f seconds', $seconds));
         }
 
         [$out, $err, $code] = self::workers('refused', $url);
