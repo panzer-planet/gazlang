@@ -38,10 +38,12 @@ expect("a screen starts blank", $s.lines(), ["      ", "      ", "      "]);
 expect("size", [$s.cols, $s.rows], [6, 3]);
 $s.put(2, 1, "abc");
 expect("put", $s.lines()[0], " abc  ");
-expect("put: a cell is a character and a style", $s.cell(2, 1), ["a", ""]);
+expect("put: a cell is a character, its width and a style", [$s.cell(2, 1).character, $s.cell(2, 1).width, $s.cell(2, 1).style.spec], ["a", 1, ""]);
+expect("put: a cell's style is a term::Style", $s.cell(2, 1).style, term::Style::of(""));
 $s.put(5, 2, "wxyz", "bold");
 expect("put clips on the right", $s.lines()[1], "    wx");
-expect("put keeps the style", $s.cell(6, 2), ["x", "bold"]);
+expect("put keeps the style", [$s.cell(6, 2).character, $s.cell(6, 2).style.spec], ["x", "bold"]);
+expect("put: a cell is a value", $s.cell(6, 2), tui::Cell("x", 1, term::Style::of("bold")));
 $s.put(-1, 3, "abcd");
 expect("put clips on the left", $s.lines()[2], "cd    ");
 $s.put(1, 0, "no");
@@ -51,16 +53,81 @@ $s.put(1, 1, "é→x");
 expect("put is a character to a cell", $s.lines()[0], "é→xc  ");
 $s.fill(2, 2, 2, 2, "#", "dim");
 expect("fill", $s.lines(), ["é→xc  ", " ## wx", "c##   "]);
-expect("fill: the style", $s.cell(2, 3), ["#", "dim"]);
+expect("fill: the style", [$s.cell(2, 3).character, $s.cell(2, 3).style.spec], ["#", "dim"]);
 $s.fill(1, 1, 0, 3);
 $s.fill(1, 1, -2, 3);
 expect("fill of no width does nothing", $s.lines()[0], "é→xc  ");
 $s.clear();
 expect("clear", $s.lines(), ["      ", "      ", "      "]);
-expect("clear: the cells are blank again", $s.cell(2, 2), [" ", ""]);
+expect("clear: the cells are blank again", $s.cell(2, 2), tui::Cell::blank());
 $s.put(1, 1, "keep");
 $s.resize(3, 2);
 expect("resize: blank at the new size", [$s.cols, $s.rows, $s.lines()], [3, 2, ["   ", "   "]]);
+
+$s.put(1, 1, "x", term::Style::of("bold"));
+expect("put: a term::Style as the style", $s.cell(1, 1).style.spec, "bold");
+
+/* ---- Cells are placed by columns: a wide character takes two, a combining mark none ---- */
+$w = tui::Screen(8, 2);
+$w.put(1, 1, "a中b");
+expect("put: a wide character takes two cells, and what follows is two along", $w.lines()[0], "a中b    ");
+expect("put: its own cell, then a continuation holding nothing", [$w.cell(2, 1).character, $w.cell(2, 1).width, $w.cell(2, 1).is_wide(), $w.cell(3, 1).character, $w.cell(3, 1).width, $w.cell(3, 1).is_continuation(), $w.cell(4, 1).character], ["中", 2, true, "", 0, true, "b"]);
+expect("put: the continuation keeps the style, and isn't a blank", [$w.cell(3, 1).style == $w.cell(2, 1).style, $w.cell(3, 1) == tui::Cell::blank(), $w.cell(3, 1).is_wide()], [true, false, false]);
+$w.put(1, 2, "😀x");
+expect("put: an emoji is wide too", [$w.lines()[1], $w.cell(3, 2).character], ["😀x     ", "x"]);
+$w.put(5, 1, "e\u{301}z");
+expect("put: a combining mark joins the character before it in one cell", [$w.cell(5, 1).character, $w.cell(5, 1).width, $w.cell(6, 1).character, $w.lines()[0]], ["e\u{301}", 1, "z", "a中be\u{301}z  "]);
+$w.put(7, 1, "\u{301}");
+expect("put: a mark starting the text is drawn over a space, in a cell of its own", [$w.cell(7, 1).character, $w.cell(7, 1).width], [" \u{301}", 1]);
+$w.put(4, 2, "中\u{301}\u{308}");
+expect("put: marks join a wide character", [$w.cell(4, 2).character, $w.cell(4, 2).width, $w.cell(5, 2).is_continuation()], ["中\u{301}\u{308}", 2, true]);
+$w.put(1, 2, "\xe2\x9c");
+expect("put: a byte that isn't UTF-8 is a cell each, one column wide", [$w.cell(1, 2).character, $w.cell(1, 2).width, $w.cell(2, 2).character, $w.cell(3, 2).character], ["\xe2", 1, "\x9c", "x"]);
+
+/* A wide character is clipped whole: the column it has on the screen is a blank */
+$c = tui::Screen(4, 1);
+$c.put(1, 1, "ab中");
+expect("put: a wide character fits when both columns do", $c.lines()[0], "ab中");
+$c.put(1, 1, "abc中");
+expect("put: one that doesn't fit at the right edge is a blank in its column, not half of it", [$c.lines()[0], $c.cell(4, 1) == tui::Cell::blank()], ["abc ", true]);
+$c.put(0, 1, "中xy");
+expect("put: and at the left edge", $c.lines()[0], " xy ");
+$c.put(4, 1, "中", "red");
+expect("put: the blank of a clipped wide character keeps the style, so a field's background reaches its edge", $c.cell(4, 1), tui::Cell(" ", 1, term::Style::of("red")));
+$c.put(5, 1, "中");
+$c.put(-1, 1, "中");
+expect("put: a wide character wholly off the screen does nothing", $c.lines()[0], " xy ");
+
+/* Writing over half of a wide character blanks the other half, as a terminal does */
+$h = tui::Screen(6, 1);
+$h.put(1, 1, "中文x");
+$h.put(2, 1, "a");
+expect("put: over the second half of a wide character, the first becomes a blank", [$h.lines()[0], $h.cell(1, 1) == tui::Cell::blank()], [" a文x ", true]);
+$h.put(3, 1, "b");
+expect("put: over the first half, the second becomes a blank", [$h.lines()[0], $h.cell(4, 1) == tui::Cell::blank()], [" ab x ", true]);
+$h.put(1, 1, "中文x");
+$h.put(2, 1, "日");
+expect("put: a wide character over two halves blanks both", $h.lines()[0], " 日 x ");
+$h.put(1, 1, "中文x");
+$h.put(1, 1, "日本");
+expect("put: a wide character over a wide character replaces it", $h.lines()[0], "日本x ");
+$h.put(1, 1, "ab中");
+$h.fill(2, 1, 2, 1, "-");
+expect("put: a fill over half of a wide character blanks the other half", $h.lines()[0], "a-- x ");
+
+/* A control character never reaches the terminal: the grid would no longer say what it shows */
+throws("put: a control character is refused", () -> $h.put(1, 1, "a\tb"), "tui: a cell can't hold the control character \"\\t\": expand tabs before drawing, and give a style as put()'s \$style");
+throws("put: an escape sequence is one too, so a styled string can't be put", () -> $h.put(1, 1, term::style("x", "bold")), "tui: a cell can't hold the control character \"\\e\": expand tabs before drawing, and give a style as put()'s \$style");
+throws("put: delete is one", () -> $h.put(1, 1, "\x7f"), "tui: a cell can't hold the control character \"\\x7F\": expand tabs before drawing, and give a style as put()'s \$style");
+throws("put: a control character off the screen is still refused", () -> $h.put(99, 1, "\n"), "tui: a cell can't hold the control character \"\\n\": expand tabs before drawing, and give a style as put()'s \$style");
+throws("fill: a control character is refused", () -> $h.fill(1, 1, 2, 1, "\t"), "tui: a cell can't hold the control character \"\\t\": expand tabs before drawing, and give a style as put()'s \$style");
+$h.put(1, 1, "ok");
+expect("put: a stray continuation byte is drawn, being one column on a terminal", [$h.put(3, 1, "\x80"), $h.cell(3, 1).character], [null, "\x80"]);
+
+/* fill counts columns */
+$f = tui::Screen(7, 1);
+$f.fill(1, 1, 5, 1, "中");
+expect("fill: a wide character fills the width in columns, an odd one short of its last", [$f.lines()[0], $f.cell(5, 1) == tui::Cell::blank()], ["中中   ", true]);
 
 /* ---- Rendering ---- */
 $s = tui::Screen(5, 3);
@@ -96,6 +163,21 @@ $s.put(3, 1, "cd", "on_blue");
 $s.put(5, 1, "ef");
 expect("styles in a row", $s.render(), "\e[0m\e[2J\e[1;1H\e[31mab\e[0m\e[44mcd\e[0mef\e[?25l");
 
+/* Wide characters are written once, and the diff keeps them whole */
+$rw = tui::Screen(6, 1);
+$rw.put(1, 1, "a中b");
+expect("render: a wide character is written once, and the continuation not at all", $rw.render(), "\e[0m\e[2J\e[1;1Ha中b\e[?25l");
+$rw.put(2, 1, "文");
+expect("render: only the wide character changed, so only it is written", $rw.render(), "\e[1;2H文\e[?25l");
+$rw.put(3, 1, "x");
+expect("render: a character over its second half redraws the blank the first became", $rw.render(), "\e[1;2H x\e[?25l");
+$rw.put(2, 1, "中", "bold");
+expect("render: a styled wide character", $rw.render(), "\e[1;2H\e[1m中\e[0m\e[?25l");
+$rw.put(1, 1, "e\u{301}");
+expect("render: a mark goes to the terminal with its character", $rw.render(), "\e[1;1He\u{301}\e[?25l");
+$rw.clear();
+expect("render: cleared, the wide character's columns are blanked", $rw.render(), "\e[1;1H    \e[?25l");
+
 /* ---- label ---- */
 $s = tui::Screen(12, 1);
 tui::label($s, 2, 1, 8, "abc");
@@ -116,6 +198,19 @@ tui::label($s, 1, 1, 0, "no");
 tui::label($s, 1, 1, -3, "no");
 expect("label: no room", $s.lines()[0], "é→          ");
 
+$lw = tui::Screen(10, 1);
+tui::label($lw, 1, 1, 6, "中文", "", "right");
+expect("label: wide text is padded by columns", $lw.lines()[0], "  中文    ");
+tui::label($lw, 1, 1, 5, "中文中");
+expect("label: cut by columns, a wide character that doesn't fit left out whole", $lw.lines()[0], "中文      ");
+tui::label($lw, 1, 1, 7, "中", "", "center");
+expect("label: centred by columns", $lw.lines()[0], "  中      ");
+tui::label($lw, 1, 1, 5, "a中文", "", "center");
+expect("label: a wide character that just fits", $lw.lines()[0], "a中文     ");
+tui::label($lw, 1, 1, 4, "e\u{301}\u{301}x");
+expect("label: marks take no column", $lw.lines()[0], "e\u{301}\u{301}x        ");
+throws("label: a misspelt style fails when its Style is made", () -> tui::label($lw, 1, 1, 5, "x", "bolder"), "term: unknown style \"bolder\"");
+
 /* ---- box ---- */
 $s = tui::Screen(10, 4);
 tui::box($s, 1, 1, 10, 4);
@@ -124,6 +219,10 @@ tui::box($s, 1, 1, 10, 4, "Hi");
 expect("box: a title", $s.lines()[0], "┌─ Hi ───┐");
 tui::box($s, 1, 1, 10, 4, "A very long title");
 expect("box: a long title is cut", $s.lines()[0], "┌─ A very┐");
+tui::box($s, 1, 1, 10, 4, "中文");
+expect("box: a wide title is measured by columns", $s.lines()[0], "┌─ 中文 ─┐");
+tui::box($s, 1, 1, 10, 4, "中文中文");
+expect("box: a wide title too long is cut whole", $s.lines()[0], "┌─ 中文中┐");
 $s.put(3, 2, "text");
 tui::box($s, 1, 1, 10, 4, "", "", "double");
 expect("box: the inside is cleared", $s.lines(), ["╔════════╗", "║        ║", "║        ║", "╚════════╝"]);
@@ -155,7 +254,7 @@ expect("progress: more than all is all", $s.lines()[0], "███████�
 tui::progress($s, 1, 1, 15, -1);
 expect("progress: less than none is none", $s.lines()[0], "░░░░░░░░░░   0%");
 tui::progress($s, 1, 1, 15, 0.42, "red");
-expect("progress: filled cells take the style, the rest is dim", [$s.cell(4, 1), $s.cell(5, 1)], [["█", "red"], ["░", "dim"]]);
+expect("progress: filled cells take the style, the rest is dim", [$s.cell(4, 1).character, $s.cell(4, 1).style.spec, $s.cell(5, 1).character, $s.cell(5, 1).style.spec], ["█", "red", "░", "dim"]);
 $s = tui::Screen(5, 1);
 tui::progress($s, 1, 1, 5, 0.5);
 expect("progress: too narrow for a bar", $s.lines()[0], "     ");
@@ -165,11 +264,14 @@ $s = tui::Screen(20, 6);
 $height = tui::table($s, 1, 1, ["Name", "Pts"], [["Ann", 12], ["Bob", 7], ["Christina", 105]]);
 expect("table", rows($s), "Name      │ Pts|──────────┼────|Ann       │  12|Bob       │   7|Christina │ 105|");
 expect("table: how many rows it took", $height, 5);
-expect("table: the header is bold, the rule dim", [$s.cell(1, 1)[1], $s.cell(1, 2)[1], $s.cell(1, 3)[1]], ["bold", "dim", ""]);
+expect("table: the header is bold, the rule dim", [$s.cell(1, 1).style.spec, $s.cell(1, 2).style.spec, $s.cell(1, 3).style.spec], ["bold", "dim", ""]);
 $s = tui::Screen(20, 4);
 tui::table($s, 2, 2, ["é", "x"], [["→→→", 1.5]]);
 expect("table: characters, and floats on the right", rows($s), "| é   │ x| ────┼────| →→→ │ 1.5");
 
+$s = tui::Screen(20, 4);
+tui::table($s, 1, 1, ["名前", "n"], [["中", 1], ["ab", 22]]);
+expect("table: wide cells line up by columns", rows($s), "名前 │ n|─────┼───|中   │  1|ab   │ 22");
 $s = tui::Screen(24, 6);
 $height = tui::table($s, 1, 1, ["a"], [[1, 2, 3]]);
 expect("table: a row longer than the headers", [rows($s), $height], ["a │   │|──┼───┼──|1 │ 2 │ 3|||", 3]);
@@ -216,7 +318,7 @@ $s = tui::Screen(12, 5);
 $menu = tui::Menu(["one", "two", "three", "four", "five"], "Pick");
 $menu.draw($s, 1, 1, 12, 5);
 expect("menu: draw", $s.lines(), ["┌─ Pick ───┐", "│> one     │", "│  two     │", "│  three   │", "└──────────┘"]);
-expect("menu: the selected item is inverse", [$s.cell(3, 2)[1], $s.cell(3, 3)[1]], ["inverse", ""]);
+expect("menu: the selected item is inverse", [$s.cell(3, 2).style.spec, $s.cell(3, 3).style.spec], ["inverse", ""]);
 press($menu, "\e[B\e[B\e[B");
 $menu.draw($s, 1, 1, 12, 5);
 expect("menu: scrolls to keep the selection in view", $s.lines()[1] .. $s.lines()[2] .. $s.lines()[3], "│  two     ││  three   ││> four    │");
@@ -301,7 +403,7 @@ $s = tui::Screen(10, 2);
 $f = tui::TextField("abc");
 $f.draw($s, 2, 1, 6);
 expect("field: draw", $s.lines()[0], " abc      ");
-expect("field: the underline style", $s.cell(2, 1)[1], "underline");
+expect("field: the underline style", $s.cell(2, 1).style.spec, "underline");
 expect("field: the cursor follows the text", $s.render(), "\e[0m\e[2J\e[1;2H\e[4mabc   \e[0m\e[1;5H\e[?25h");
 $f = tui::TextField("abcdefghij");
 $f.draw($s, 1, 1, 6);
@@ -312,7 +414,33 @@ $f.draw($s, 1, 1, 6);
 expect("field: scrolls back", $s.lines()[0], "abcdef    ");
 $s.clear();
 $f.draw($s, 1, 2, 6, "bold");
-expect("field: a style", $s.cell(1, 2)[1], "bold");
+expect("field: a style", $s.cell(1, 2).style.spec, "bold");
+
+/* The cursor is drawn by columns, two along after a wide character, and scrolling is by columns */
+$ts = tui::Screen(10, 1);
+$tf = tui::TextField("a中b");
+$tf.draw($ts, 1, 1, 10);
+expect("field: the cursor column is the width of the characters before it", [$ts.lines()[0], ends_with($ts.render(), "\e[1;5H\e[?25h")], ["a中b      ", true]);
+press($tf, "\e[D\e[D");
+$tf.draw($ts, 1, 1, 10);
+expect("field: left moves by a character, and the cursor by its columns", ends_with($ts.render(), "\e[1;2H\e[?25h"), true);
+press($tf, "\e[C");
+$tf.draw($ts, 1, 1, 10);
+expect("field: after the wide character the cursor is two along", ends_with($ts.render(), "\e[1;4H\e[?25h"), true);
+press($tf, "\x7f");
+expect("field: backspace removes the whole wide character", $tf.value(), "ab");
+$tf = tui::TextField("中文中文");
+$tf.draw($ts, 1, 1, 5);
+expect("field: scrolled by columns so the cursor is in view, never through a wide character", [$ts.lines()[0], ends_with($ts.render(), "\e[1;5H\e[?25h")], ["中文      ", true]);
+press($tf, "\e[H");
+$tf.draw($ts, 1, 1, 5);
+expect("field: home scrolls back, and only what fits is shown", [$ts.lines()[0], ends_with($ts.render(), "\e[1;1H\e[?25h")], ["中文      ", true]);
+press($tf, "\e[C\e[C\e[C");
+$tf.draw($ts, 1, 1, 5);
+expect("field: a wide character under the cursor scrolls another whole character off", [$ts.lines()[0], ends_with($ts.render(), "\e[1;5H\e[?25h")], ["文中      ", true]);
+$tf = tui::TextField("e\u{301}x");
+$tf.draw($ts, 1, 1, 10);
+expect("field: a mark takes no column", ends_with($ts.render(), "\e[1;3H\e[?25h"), true);
 
 /* ---- Rect ---- */
 fn dims($rect) {
@@ -351,20 +479,20 @@ $s = tui::Screen(30, 7);
 $table = tui::Table(["Name", "Age", "Rating"], $people);
 $table.draw($s, $s.bounds());
 expect("table: header and rows", rows($s), "Name    Age   Rating|Ann      31     71.5|Bob      24     80.0|Cy       27    65.25|Dee      24     90.0||");
-expect("table: the header is bold", [$s.cell(1, 1)[1], $s.cell(10, 1)[1]], ["bold", "bold"]);
-expect("table: the selected row is inverse", [$s.cell(1, 2)[1], $s.cell(1, 3)[1]], ["inverse", ""]);
+expect("table: the header is bold", [$s.cell(1, 1).style.spec, $s.cell(10, 1).style.spec], ["bold", "bold"]);
+expect("table: the selected row is inverse", [$s.cell(1, 2).style.spec, $s.cell(1, 3).style.spec], ["inverse", ""]);
 expect("table: nothing is sorted", $table.sorted_by(), null);
 expect("table: the first row is selected", [$table.selected_index(), $table.selected_row()], [0, ["Ann", 31, 71.5]]);
 $table.draw($s, $s.bounds(), false);
-expect("table: unfocused, the selected row is only bold", $s.cell(1, 2)[1], "bold");
+expect("table: unfocused, the selected row is only bold", $s.cell(1, 2).style.spec, "bold");
 
 $table = tui::Table(["Name", "Age", "Rating"], $people, ($row, $index) -> $row[0] == "Bob" ? "green" : "");
 $s = tui::Screen(30, 7);
 $table.draw($s, $s.bounds());
-expect("table: a row style", [$s.cell(1, 2)[1], $s.cell(1, 3)[1], $s.cell(1, 4)[1]], ["inverse", "green", ""]);
+expect("table: a row style", [$s.cell(1, 2).style.spec, $s.cell(1, 3).style.spec, $s.cell(1, 4).style.spec], ["inverse", "green", ""]);
 $table.handle(term::decode("j")["keys"][0]);
 $table.draw($s, $s.bounds());
-expect("table: a row style and the selection together", $s.cell(1, 3)[1], "green inverse");
+expect("table: a row style and the selection together", $s.cell(1, 3).style.spec, "green inverse");
 
 /* Sorting */
 $table = tui::Table(["Name", "Age", "Rating"], $people);
@@ -385,7 +513,7 @@ expect("table: the mark of the sort", trim($s.lines()[0]), "Name    Age  Rating�
 $table.sort_by(2, true);
 $table.draw($s, $s.bounds());
 expect("table: the mark of a descending sort", trim($s.lines()[0]), "Name    Age  Rating▼");
-expect("table: the sorted column's header is underlined", [$s.cell(20, 1)[1], $s.cell(1, 1)[1]], ["bold underline", "bold"]);
+expect("table: the sorted column's header is underlined", [$s.cell(20, 1).style.spec, $s.cell(1, 1).style.spec], ["bold underline", "bold"]);
 
 /* The selection follows its row through a sort */
 $table = tui::Table(["Name", "Age", "Rating"], $people);
@@ -447,7 +575,7 @@ $press("j");
 $press("j");
 $table.draw($s, $s.bounds());
 expect("table: scrolls to keep the selection in view", rows($s), "Name|row 3|row 4|row 5");
-expect("table: the selection is the last one showing", [$s.cell(1, 4)[1], $s.cell(1, 3)[1]], ["inverse", ""]);
+expect("table: the selection is the last one showing", [$s.cell(1, 4).style.spec, $s.cell(1, 3).style.spec], ["inverse", ""]);
 $press("k");
 $press("k");
 $press("k");
@@ -599,9 +727,14 @@ expect("table: past what leaving out saves, the rest are squeezed", trim($tiny.l
 expect("wrap: at spaces, no line wider than asked", tui::wrap("the quick brown fox jumps", 10), ["the quick", "brown fox", "jumps"]);
 expect("wrap: its own line breaks are kept", tui::wrap("one\ntwo three", 20), ["one", "two three"]);
 expect("wrap: a word too long starts a line and is cut into whole lines", tui::wrap("to antidisestablishment", 8), ["to", "antidise", "stablish", "ment"]);
+expect("wrap: a word cut into whole lines exactly leaves no empty line after it", [tui::wrap("abcd ef", 2), tui::wrap("abcd", 2), tui::wrap("", 3), tui::wrap("ab\n\ncd", 2)], [["ab", "cd", "ef"], ["ab", "cd"], [""], ["ab", "", "cd"]]);
 expect("wrap: widths are the screen's, not bytes", tui::wrap("héllo wörld", 5), ["héllo", "wörld"]);
+expect("wrap: wide words fit by columns", tui::wrap("中文 ab 日本語", 7), ["中文 ab", "日本語"]);
+expect("wrap: a wide word too long is cut between characters, never through one", tui::wrap("中文中文中", 5), ["中文", "中文", "中"]);
+expect("wrap: a width of 1 still gives a wide character a line of its own", tui::wrap("中文", 1), ["中", "文"]);
+expect("wrap: marks stay with their characters", tui::wrap("e\u{301}e\u{301}e\u{301}", 2), ["e\u{301}e\u{301}", "e\u{301}"]);
 $para = tui::Screen(8, 2);
-expect("paragraph: as much as fits, and how many lines that was", [tui::paragraph($para, $para.bounds(), "one two three four", "dim"), $para.lines(), $para.cell(1, 1)[1]], [2, ["one two ", "three   "], "dim"]);
+expect("paragraph: as much as fits, and how many lines that was", [tui::paragraph($para, $para.bounds(), "one two three four", "dim"), $para.lines(), $para.cell(1, 1).style.spec], [2, ["one two ", "three   "], "dim"]);
 
 /* How wide table() draws */
 $drawn = tui::Screen(40, 4);
@@ -616,7 +749,7 @@ tui::hints($bar, 1, 1, 40, $keys, "? keys");
 expect("hints: a prompt as it is, then as many whole keys as fit, and where the rest are at the end", $bar.lines()[0], "Who goes off?  j/k move           ? keys");
 $bar = tui::Screen(60, 1);
 tui::hints($bar, 1, 1, 60, $keys);
-expect("hints: with room, all of them, dim", [trim($bar.lines()[0]), $bar.cell(1, 1)[1]], ["Who goes off?  j/k move  enter choose  escape cancel", "dim"]);
+expect("hints: with room, all of them, dim", [trim($bar.lines()[0]), $bar.cell(1, 1).style.spec], ["Who goes off?  j/k move  enter choose  escape cancel", "dim"]);
 $help = tui::Screen(40, 12);
 tui::key_help($help, [["Squad", $keys], ["Everywhere", [["q", "quit"]]]]);
 expect("key_help: a box in the middle, each group's keys under its title, prompts left out, no blank line at the end", map(slice($help.lines(), 1, 9), $line -> trim($line)), [
@@ -630,4 +763,4 @@ expect("key_help: a box in the middle, each group's keys under its title, prompt
     "│ q       quit   │",
     "└────────────────┘",
 ]);
-expect("key_help: centred, the keys in cyan and the titles bold", [$help.cell(12, 2)[0], $help.cell(14, 4)[1], $help.cell(14, 3)[1]], ["┌", "cyan", "bold"]);
+expect("key_help: centred, the keys in cyan and the titles bold", [$help.cell(12, 2).character, $help.cell(14, 4).style.spec, $help.cell(14, 3).style.spec], ["┌", "cyan", "bold"]);

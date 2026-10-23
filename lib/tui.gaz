@@ -30,9 +30,59 @@ const BORDERS = {
     "ascii" => ["+", "+", "+", "+", "-", "|"],
 };
 
+// A wide character's columns, and a continuation's: the cell after a wide character, which holds nothing
+const WIDE = 2;
+const CONTINUATION = 0;
+
 /**
- * The screen as a grid of cells, each [character, style], columns and rows counted from 1.
- * Drawing outside it is clipped, so a widget that doesn't fit is cut off, not an error.
+ * One cell of a Screen: a character (a base character with any combining marks joined to it, as
+ * one string), the columns it takes, and its term::Style. A character is 1 column wide, or 2 for
+ * a wide one (CJK, an emoji), which takes two cells: its own, and after it a continuation, a Cell
+ * of width 0 holding "" that render() and lines() pass over, so a reader tells it from a blank by
+ * its width. A Cell is a value: two with the same character, width and style are ==, which the
+ * Screen's diff relies on.
+ */
+pub readonly kind Cell {
+    static #shared_blank = null;
+
+    /**
+     * The cell showing $character in $style, $width columns wide
+     */
+    fn _(pub #character, pub #width, pub term::Style #style);
+
+    /**
+     * The blank cell, a space in no style: one shared value, which every blank cell is
+     */
+    pub static fn blank() {
+        #shared_blank ??= Cell(" ", 1, term::Style::of(""));
+        return #shared_blank;
+    }
+
+    /**
+     * Whether it is the second cell of a wide character, which holds nothing of its own
+     */
+    pub fn is_continuation() {
+        return #width == CONTINUATION;
+    }
+
+    /**
+     * Whether it is a wide character, which takes this cell and the next
+     */
+    pub fn is_wide() {
+        return #width == WIDE;
+    }
+}
+
+/* Where the terminal's cursor is put after a render, columns and rows from 1 */
+kind Caret {
+    fn _(pub #col, pub #row);
+}
+
+/**
+ * The screen as a grid of Cells, columns and rows counted from 1. Drawing outside it is clipped,
+ * so a widget that doesn't fit is cut off, not an error. Text is placed by columns, as the
+ * terminal draws it: a wide character (CJK, an emoji) takes two cells, a combining mark joins the
+ * character before it in one, and a control character is refused (see put()).
  */
 pub kind Screen {
     #cells = [];
@@ -51,7 +101,7 @@ pub kind Screen {
     fn reset() {
         #blank = [];
         for ($c = 0; $c < #cols; $c++) {
-            #blank[] = [" ", ""];
+            #blank[] = Cell::blank();
         }
         #cells = [];
         for ($r = 0; $r < #rows; $r++) {
@@ -82,8 +132,9 @@ pub kind Screen {
     }
 
     /**
-     * Take the terminal's size (term_size(), which is polled: nothing tells a program the window
-     * changed). True when it was different, and the screen is blank and to be drawn in full.
+     * Take the terminal's size (term_size()). True when it was different, and the screen is
+     * blank and to be drawn in full. interact() calls it on every pass, and term::Input.read()
+     * gives the key "resize" when the window changes, so a program on it needs nothing more.
      */
     pub fn fit() {
         $size = term_size();
@@ -102,28 +153,128 @@ pub kind Screen {
     }
 
     /**
-     * $text from column $col of row $row in $style (a term::style() spec, "" for none). One
-     * character to a cell; ponytail: a wide character (CJK, emoji) takes two columns but one cell,
-     * which shifts what follows it on the row, and a control character is drawn as it is.
+     * $text from column $col of row $row in $style (a term::style() spec or a term::Style, "" for
+     * none), placed by columns as the terminal draws it (utf8_width()): a character takes a cell,
+     * a wide one (CJK, an emoji) two, and a combining mark joins the character before it in its
+     * cell (one with nothing before it in the text is drawn over a space, so a put never reaches
+     * back before $col). What falls outside the screen is clipped, a wide character as a whole:
+     * one with a column on the screen and a column off it is a blank in the one on it, never
+     * half a character. Writing over half of a wide character blanks its other half, as a
+     * terminal does. A control character (a byte below 32, or 127) is an error: the terminal
+     * would do something with it (a tab moves to its own tab stop, an escape starts a sequence)
+     * that the grid can't know, and the grid's promise is that the terminal shows what it holds;
+     * expand tabs before drawing, and give a style as $style, not as escape sequences in $text.
      */
     pub fn put($col, $row, $text, $style = "") {
         if ($row < 1 || $row > #rows) {
             return null;
         }
+        $style = term::Style::of($style);
+        $r = $row - 1;
         $at = $col;
+        /* the character read last isn't placed until the next is read, since a mark joins it */
+        $pending = null;
+        $pending_width = 0;
         foreach (term::chars($text) as $char) {
-            if ($at >= 1 && $at <= #cols) {
-                #cells[$row - 1][$at - 1] = [$char, $style];
+            $width = utf8_width($char);
+            if ($width == 0 && $pending != null) {
+                $pending ..= $char;
+                continue;
             }
-            $at++;
+            if (len($char) == 1 && (ord($char) < 32 || ord($char) == 127)) {
+                throw "tui: a cell can't hold the control character " .. quote($char)
+                    .. ": expand tabs before drawing, and give a style as put()'s \$style";
+            }
+            if ($pending != null) {
+                /* a one-column character on the screen, the common case, is placed here rather
+                   than by place() and set(): a frame drawn in full is twelve thousand of these,
+                   and each call is a frame of its own */
+                if ($pending_width == 1 && $at >= 1 && $at <= #cols) {
+                    $old = #cells[$r][$at - 1];
+                    if ($old.width != 1) {
+                        #free_half($r, $at - 1, $old);
+                    }
+                    #cells[$r][$at - 1] = Cell($pending, 1, $style);
+                    $at++;
+                } else {
+                    $at = #place($r, $at, $pending, $pending_width, $style);
+                }
+            }
+            if ($width == 0) {
+                $char = " " .. $char;
+                $width = 1;
+            }
+            $pending = $char;
+            $pending_width = $width;
+        }
+        if ($pending != null) {
+            #place($r, $at, $pending, $pending_width, $style);
         }
     }
 
+    /*
+     * $char, $width columns wide, at column $at of row index $r in $style, or clipped: gives the
+     * column after it. A wide character that doesn't fit at an edge is a blank in the column it
+     * has on the screen, in the style, so a styled field keeps its background to its edge.
+     */
+    fn place($r, $at, $char, $width, $style) {
+        $end = $at + $width - 1;
+        if ($at >= 1 && $end <= #cols) {
+            if ($width == WIDE) {
+                #set_wide($r, $at - 1, $char, $style);
+            } else {
+                #set($r, $at - 1, Cell($char, 1, $style));
+            }
+        } else if ($width == WIDE && $at == #cols) {
+            #set($r, $at - 1, Cell(" ", 1, $style));
+        } else if ($width == WIDE && $end == 1) {
+            #set($r, 0, Cell(" ", 1, $style));
+        }
+        return $end + 1;
+    }
+
+    /*
+     * $cell at column index $c of row $r. A wide character with half under it loses its other
+     * half, which becomes the blank, as a terminal does when one is written over.
+     */
+    fn set($r, $c, $cell) {
+        $old = #cells[$r][$c];
+        if ($old.width != 1) {
+            #free_half($r, $c, $old);
+        }
+        #cells[$r][$c] = $cell;
+    }
+
+    /*
+     * $old, half of a wide character at column index $c of row $r, is being written over: its
+     * other half becomes the blank
+     */
+    fn free_half($r, $c, $old) {
+        if ($old.width == CONTINUATION) {
+            #cells[$r][$c - 1] = Cell::blank();
+        } else {
+            #cells[$r][$c + 1] = Cell::blank();
+        }
+    }
+
+    /* The wide character $char at column indexes $c and $c + 1 of row $r, its halves' neighbours as set()'s */
+    fn set_wide($r, $c, $char, $style) {
+        if (#cells[$r][$c].width == CONTINUATION) {
+            #cells[$r][$c - 1] = Cell::blank();
+        }
+        if (#cells[$r][$c + 1].width == WIDE) {
+            #cells[$r][$c + 2] = Cell::blank();
+        }
+        #cells[$r][$c] = Cell($char, WIDE, $style);
+        #cells[$r][$c + 1] = Cell("", CONTINUATION, $style);
+    }
+
     /**
-     * A $width by $height rectangle of $char in $style
+     * A $width by $height rectangle of $char in $style; a wide $char fills $width columns, so
+     * an odd width leaves its last column as it was
      */
     pub fn fill($col, $row, $width, $height, $char = " ", $style = "") {
-        $line = repeat($char, max($width, 0));
+        $line = repeat($char, intdiv(max($width, 0), max(utf8_width($char), 1)));
         for ($i = 0; $i < $height; $i++) {
             #put($col, $row + $i, $line, $style);
         }
@@ -133,7 +284,7 @@ pub kind Screen {
      * Where the terminal's cursor goes after a render (a text field's), or none
      */
     pub fn cursor($col, $row) {
-        #caret = [$col, $row];
+        #caret = Caret($col, $row);
     }
 
     /**
@@ -144,14 +295,15 @@ pub kind Screen {
     }
 
     /**
-     * Each row as plain text, for a test to read
+     * Each row as plain text, for a test to read: each wide character once, so a row's text is
+     * as wide as the screen in columns, not in characters
      */
     pub fn lines() {
         $lines = [];
         foreach (#cells as $row) {
             $line = "";
             foreach ($row as $cell) {
-                $line ..= $cell[0];
+                $line ..= $cell.character;
             }
             $lines[] = $line;
         }
@@ -180,7 +332,7 @@ pub kind Screen {
             $out ..= "styles:\n" .. join($runs, "");
         }
         if (#caret != null) {
-            $out ..= "cursor: column " .. #caret[0] .. ", row " .. #caret[1] .. "\n";
+            $out ..= "cursor: column " .. #caret.col .. ", row " .. #caret.row .. "\n";
         }
         return $out;
     }
@@ -195,19 +347,19 @@ pub kind Screen {
         return $ruler;
     }
 
-    // Each stretch of a row in one style that has a letter or digit in it (a border tells nothing), a line each
+    // Each stretch of a row in one style that has a letter or digit in it (a border tells nothing), a line each, naming the style's spec
     fn styled_runs($margin) {
         $runs = [];
         foreach (#cells as $r => $row) {
             $start = 0;
             for ($c = 1; $c <= #cols; $c++) {
-                if ($c < #cols && $row[$c][1] == $row[$start][1]) {
+                if ($c < #cols && $row[$c].style == $row[$start].style) {
                     continue;
                 }
-                $style = $row[$start][1];
-                $text = trim_end(join(map(slice($row, $start, $c - $start), $cell -> $cell[0]), ""));
-                if ($style != "" && has_word($text)) {
-                    $runs[] = format_row($r + 1, $margin) .. " " .. ($start + 1) .. "-" .. $c .. "  " .. $style
+                $style = $row[$start].style;
+                $text = trim_end(join(map(slice($row, $start, $c - $start), $cell -> $cell.character), ""));
+                if (!$style.is_plain() && has_word($text)) {
+                    $runs[] = format_row($r + 1, $margin) .. " " .. ($start + 1) .. "-" .. $c .. "  " .. $style.spec
                         .. "  " .. quote($text) .. "\n";
                 }
                 $start = $c;
@@ -217,7 +369,7 @@ pub kind Screen {
     }
 
     /**
-     * What a cell is, as [character, style]
+     * The Cell at column $col of row $row: its character, width and style
      */
     pub fn cell($col, $row) {
         return #cells[$row - 1][$col - 1];
@@ -225,11 +377,13 @@ pub kind Screen {
 
     /**
      * The escape sequences that make the terminal show this screen. The first render clears the
-     * terminal and draws what isn't blank; after that only what has changed since the last one.
+     * terminal and draws what isn't blank; after that only what has changed since the last one,
+     * each row from its first changed cell to its last, a wide character always whole.
      */
     pub fn render() {
         $full = #shown == null;
         $out = $full ? term::RESET .. term::clear() : "";
+        $blank = Cell::blank();
         for ($r = 0; $r < #rows; $r++) {
             $row = #cells[$r];
             if ($full ? $row == #blank : $row == #shown[$r]) {
@@ -239,10 +393,10 @@ pub kind Screen {
             $last = #cols - 1;
             if ($full) {
                 /* the clear made the blanks at either end so already */
-                while ($row[$first] == [" ", ""]) {
+                while ($row[$first] == $blank) {
                     $first++;
                 }
-                while ($row[$last] == [" ", ""]) {
+                while ($row[$last] == $blank) {
                     $last--;
                 }
             } else {
@@ -253,22 +407,24 @@ pub kind Screen {
                     $last--;
                 }
             }
+            if ($row[$first].width == CONTINUATION) {
+                // a run never starts on a continuation: the wide character before it is drawn whole
+                $first--;
+            }
             $out ..= term::move_to($first + 1, $r + 1);
-            $style = "";
+            $style = $blank.style;
             for ($c = $first; $c <= $last; $c++) {
                 $cell = $row[$c];
-                if ($cell[1] != $style) {
-                    if ($style != "") {
+                if ($cell.style != $style) {
+                    if (!$style.is_plain()) {
                         $out ..= term::RESET;
                     }
-                    $style = $cell[1];
-                    if ($style != "") {
-                        $out ..= term::start($style);
-                    }
+                    $style = $cell.style;
+                    $out ..= $style.sequence;
                 }
-                $out ..= $cell[0];
+                $out ..= $cell.character;
             }
-            if ($style != "") {
+            if (!$style.is_plain()) {
                 $out ..= term::RESET;
             }
         }
@@ -276,8 +432,35 @@ pub kind Screen {
         if (#caret == null) {
             return $out .. term::hide_cursor();
         }
-        return $out .. term::move_to(#caret[0], #caret[1]) .. term::show_cursor();
+        return $out .. term::move_to(#caret.col, #caret.row) .. term::show_cursor();
     }
+}
+
+/* $text cut to what fits in $width columns, and the columns that takes */
+kind Fit {
+    fn _(pub #text, pub #columns);
+}
+
+/*
+ * As much of $text as fits in $width columns, by utf8_width(): a wide character that doesn't fit
+ * ends it, so one is never cut in half; a combining mark joins the character before it, and one
+ * starting the text counts a column, as put() draws it over a space
+ */
+fn fit($text, $width) {
+    $kept = "";
+    $columns = 0;
+    foreach (term::chars($text) as $char) {
+        $takes = utf8_width($char);
+        if ($takes == 0 && $kept == "") {
+            $takes = 1;
+        }
+        if ($columns + $takes > $width) {
+            break;
+        }
+        $kept ..= $char;
+        $columns += $takes;
+    }
+    return Fit($kept, $columns);
 }
 
 /**
@@ -334,21 +517,21 @@ pub kind Rect {
 /* ---- Drawing ----------------------------------------------------------------------------- */
 
 /**
- * $text in a field $width wide, cut off if longer and padded if shorter, $align "left", "center"
- * or "right"
+ * $text in a field $width columns wide, cut off if longer (a wide character that doesn't fit is
+ * left out whole) and padded if shorter, $align "left", "center" or "right"
  */
 pub fn label($screen, $col, $row, $width, $text, $style = "", $align = "left") {
     if ($width <= 0) {
         return null;
     }
-    $chars = slice(term::chars($text), 0, $width);
-    $gap = $width - len($chars);
+    $fit = fit($text, $width);
+    $gap = $width - $fit.columns;
     $before = match ($align) {
         "left" => 0,
         "center" => intdiv($gap, 2),
         "right" => $gap,
     };
-    $screen.put($col, $row, repeat(" ", $before) .. join($chars, "") .. repeat(" ", $gap - $before), $style);
+    $screen.put($col, $row, repeat(" ", $before) .. $fit.text .. repeat(" ", $gap - $before), $style);
 }
 
 /**
@@ -365,8 +548,8 @@ pub fn box($screen, $col, $row, $width, $height, $title = "", $style = "", $bord
     [$top_left, $top_right, $bottom_left, $bottom_right, $across, $down] = BORDERS[$border];
     $top = repeat($across, $width - 2);
     if ($title != "" && $width >= 5) {
-        $words = slice(term::chars(" " .. $title .. " "), 0, $width - 3);
-        $top = $across .. join($words, "") .. repeat($across, $width - 3 - len($words));
+        $fit = fit(" " .. $title .. " ", $width - 3);
+        $top = $across .. $fit.text .. repeat($across, $width - 3 - $fit.columns);
     }
     $screen.put($col, $row, $top_left .. $top .. $top_right, $style);
     for ($i = 1; $i < $height - 1; $i++) {
@@ -433,11 +616,11 @@ pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
 
 /* ---- Widgets that take keys -------------------------------------------------------------- */
 
-/* $text cut to $width characters and padded to it, on the left when $right */
+/* $text cut to $width columns and padded to it, on the left when $right */
 fn fitted($text, $width, $right) {
-    $chars = slice(term::chars($text), 0, $width);
-    $gap = $width - len($chars);
-    return $right ? repeat(" ", $gap) .. join($chars, "") : join($chars, "") .. repeat(" ", $gap);
+    $fit = fit($text, $width);
+    $gap = $width - $fit.columns;
+    return $right ? repeat(" ", $gap) .. $fit.text : $fit.text .. repeat(" ", $gap);
 }
 
 /**
@@ -474,13 +657,15 @@ fn column_widths($headers, $rows) {
 }
 
 /**
- * $text cut into lines no wider than $width: at spaces, keeping its own line breaks, and a word
- * wider than a whole line cut where it must be
+ * $text cut into lines no wider than $width columns: at spaces, keeping its own line breaks, and
+ * a word wider than a whole line cut where it must be, never through a wide character (a width
+ * of 1 still gives a wide character a line of its own, which is clipped when drawn)
  */
 pub fn wrap($text, $width) {
     $width = max($width, 1);
     $lines = [];
     foreach (split($text, "\n") as $paragraph) {
+        $before = len($lines);
         $line = "";
         foreach (split($paragraph, " ") as $word) {
             while (term::width($word) > $width) {
@@ -489,9 +674,16 @@ pub fn wrap($text, $width) {
                     $lines[] = $line;
                     $line = "";
                 }
-                $chars = term::chars($word);
-                $lines[] = join(slice($chars, 0, $width), "");
-                $word = join(slice($chars, $width), "");
+                $fit = fit($word, $width);
+                if ($fit.text == "") {
+                    $fit = fit($word, WIDE);
+                }
+                $lines[] = $fit.text;
+                $word = slice($word, len($fit.text));
+            }
+            if ($word == "" && $line == "" && len($lines) > $before) {
+                // the word was whole lines exactly, so nothing of it is left to start the next
+                continue;
             }
             if ($line == "") {
                 $line = $word;
@@ -502,7 +694,10 @@ pub fn wrap($text, $width) {
                 $line = $word;
             }
         }
-        $lines[] = $line;
+        if ($line != "" || len($lines) == $before) {
+            // a paragraph is a line at the least, and never ends in an empty line it didn't have
+            $lines[] = $line;
+        }
     }
     return $lines;
 }
@@ -842,9 +1037,9 @@ pub kind Table {
                     $cells[] = fitted(to_string($cell), $widths[$i], #numeric[$i]);
                 }
             }
-            $style = $style_of == null ? "" : $style_of($row, $index);
+            $style = term::Style::of($style_of == null ? "" : $style_of($row, $index));
             if ($position == #cursor) {
-                $style = trim($style .. ($focused ? " inverse" : " bold"));
+                $style = $style.with($focused ? "inverse" : "bold");
             }
             label($screen, $rect.col, $rect.row + 1 + $line, $rect.width, join($cells, "  "), $style);
         }
@@ -930,9 +1125,12 @@ pub kind Menu {
  * A line of text being edited. handle() takes a key and gives "submit" for enter, "cancel" for
  * escape or ctrl+c, and null otherwise: typing inserts, and backspace, delete, the arrows,
  * home and end (or ctrl+a and ctrl+e), ctrl+u (delete to the start) and ctrl+k (to the end) edit.
+ * The cursor moves by characters (term::chars()) and is drawn by columns, after a wide character
+ * two along.
  */
 pub kind TextField {
     #chars;
+    /* The cursor, as the index of the character it is before; and the first character shown */
     #at;
     #left = 0;
 
@@ -985,22 +1183,38 @@ pub kind TextField {
     }
 
     /**
-     * Draw it $width wide, scrolled sideways to keep the cursor in view, and put the cursor there
+     * Draw it $width columns wide, scrolled sideways to keep the cursor in view, and put the
+     * cursor there
      */
     pub fn draw($screen, $col, $row, $width, $style = "underline") {
         if ($width <= 0) {
             return null;
         }
-        /* not scrolled further than the text needs, or deleting leaves it off the left edge */
-        #left = min(#left, max(len(#chars) - $width + 1, 0));
+        #scroll($width);
+        label($screen, $col, $row, $width, join(slice(#chars, #left), ""), $style);
+        $screen.cursor($col + #columns(#left, #at), $row);
+    }
+
+    /* The columns the characters from index $from up to $to take */
+    fn columns($from, $to) {
+        return utf8_width(join(slice(#chars, $from, max($to - $from, 0)), ""));
+    }
+
+    /*
+     * Move #left so that the cursor, and the column of its own it needs after the text, are
+     * within $width columns: not scrolled further than the text needs (or deleting leaves it off
+     * the left edge), and never past the cursor
+     */
+    fn scroll($width) {
+        while (#left > 0 && #columns(#left - 1, len(#chars)) + 1 <= $width) {
+            #left--;
+        }
         if (#at < #left) {
             #left = #at;
         }
-        if (#at > #left + $width - 1) {
-            #left = #at - $width + 1;
+        while (#columns(#left, #at) > $width - 1) {
+            #left++;
         }
-        label($screen, $col, $row, $width, join(slice(#chars, #left, $width), ""), $style);
-        $screen.cursor($col + #at - #left, $row);
     }
 }
 

@@ -95,17 +95,81 @@ fn sgr_codes($word) {
     throw "term: unknown style \"" .. $word .. "\"";
 }
 
+// How many parsed styles are kept before the cache starts again: a program has a few dozen
+const STYLES_KEPT = 500;
+
 /**
- * The escape sequence that starts a style: term::start("bold red") is "\e[1;31m"
+ * A style, parsed once: its spec ("bold red", the words with one space between them) and the
+ * escape sequence that starts it, so a program drawing thousands of cells a frame never parses
+ * a spec twice. Made by Style::of(), which keeps each by its spec and gives the same one again,
+ * and an unknown word is the error start() raises, raised when the Style is made. A Style is a
+ * value: two from one spec are ==, however each was made (of(), with(), or specs that differ
+ * only in their spaces), which a tui::Screen's diff relies on.
+ */
+pub readonly kind Style {
+    /**
+     * The style whose spec is $spec, starting with $sequence; Style::of() makes one, cached
+     */
+    fn _(pub #spec, pub #sequence);
+
+    /**
+     * The style $spec names ("bold red on_#003"; "" for none), the same object for the same spec.
+     * A Style given is given back, so a function may take either.
+     */
+    pub static fn of($spec) {
+        return Styles::of($spec);
+    }
+
+    /**
+     * This style with $words added: Style::of("green").with("inverse") is Style::of("green inverse")
+     */
+    pub fn with($words) {
+        return Styles::of(#spec == "" ? $words : #spec .. " " .. $words);
+    }
+
+    /**
+     * Whether it is no style at all (the spec ""), which starts with no sequence
+     */
+    pub fn is_plain() {
+        return #spec == "";
+    }
+}
+
+/* The styles made so far, by the spec they were asked for as it was written */
+kind Styles {
+    static #kept = {};
+
+    pub static fn of($spec) {
+        if (type_of($spec) == "object") {
+            return $spec;
+        }
+        if (!has_key(#kept, $spec)) {
+            if (len(#kept) >= STYLES_KEPT) {
+                #kept = {};
+            }
+            #kept[$spec] = parse($spec);
+        }
+        return #kept[$spec];
+    }
+}
+
+/* The Style $spec names, parsed: an unknown word is an error here */
+fn parse($spec) {
+    $words = filter(split(trim($spec), " "), $word -> $word != "");
+    $codes = [];
+    foreach ($words as $word) {
+        $codes = [...$codes, ...sgr_codes($word)];
+    }
+    $sequence = len($codes) == 0 ? "" : CSI .. join($codes, ";") .. "m";
+    return Style(join($words, " "), $sequence);
+}
+
+/**
+ * The escape sequence that starts a style: term::start("bold red") is "\e[1;31m", and "" starts
+ * nothing. The same as Style::of($spec).sequence.
  */
 pub fn start($spec) {
-    $codes = [];
-    foreach (split(trim($spec), " ") as $word) {
-        if ($word != "") {
-            $codes = [...$codes, ...sgr_codes($word)];
-        }
-    }
-    return CSI .. join($codes, ";") .. "m";
+    return Style::of($spec).sequence;
 }
 
 /**
@@ -113,7 +177,8 @@ pub fn start($spec) {
  * bold dim italic underline blink inverse hidden strike; black red green yellow blue magenta
  * cyan white, bright_ for the bright ones; on_ before a colour for the background; #rgb and
  * #rrggbb for truecolour; c0 to c255 for the 256-colour palette. An unknown word is an error.
- * A style inside a style ends both at the inner one's end, since there is one reset.
+ * A style inside a style ends both at the inner one's end, since there is one reset. $spec may
+ * be a Style, and a program styling much text makes one with Style::of() and keeps it.
  */
 pub fn style($text, $spec) {
     return start($spec) .. $text .. RESET;
@@ -514,7 +579,9 @@ fn utf8_length($text, $i) {
 
 /**
  * $text as a list of its characters: "aé→" is ["a", "é", "→"]. Not split(): that splits bytes.
- * The first byte says how long a character is; a stray continuation byte is one of its own.
+ * The first byte says how long a character is; a byte that makes no well formed character (a
+ * stray continuation byte, a lead byte cut short of its rest, an overlong form) is one of its
+ * own, as utf8_width() counts it, so the two agree on what a cell holds.
  */
 pub fn chars($text) {
     $out = [];
@@ -522,6 +589,9 @@ pub fn chars($text) {
     $i = 0;
     while ($i < $n) {
         $length = utf8_length($text, $i);
+        if ($length > 1 && !utf8_valid(slice($text, $i, $length))) {
+            $length = 1;
+        }
         $out[] = slice($text, $i, $length);
         $i += $length;
     }
@@ -529,12 +599,12 @@ pub fn chars($text) {
 }
 
 /**
- * How many columns $text takes up: its characters (as chars() counts them), without escape
- * sequences. ponytail: a wide character (CJK, emoji) takes two columns and counts one, and a
- * combining mark takes none and counts one.
+ * How many columns $text takes up on the terminal, without its escape sequences: utf8_width()'s
+ * count, so a wide character (CJK, an emoji) is 2, a combining mark 0, and anything else 1,
+ * a control character and a byte that isn't UTF-8 included.
  */
 pub fn width($text) {
-    return len(chars(strip($text)));
+    return utf8_width(strip($text));
 }
 
 // ---- Keys ------------------------------------------------------------------------------------

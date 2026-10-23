@@ -42,14 +42,30 @@ ok strip: intermediates and a final byte
 ok chars: ascii
 ok chars: each length of character
 ok chars: nothing
-ok chars: a cut-off character is what is left
+ok chars: a cut-off character is a byte each, as utf8_width counts it
 ok chars: a stray continuation byte is its own
 ok chars: a lead byte doesn't eat what isn't a continuation
 ok chars: nor two of three
+ok chars: an overlong form is bytes too
 ok width: agrees with chars on bad UTF-8
 ok width: ascii
 ok width: multibyte
 ok width: ignores styles
+ok width: a wide character is two columns, CJK or an emoji
+ok width: a combining mark takes none
+ok width: escape sequences take none, whatever they hold
+ok width: a tab and a control character count one each, as utf8_width says
+ok Style::of: the spec and the sequence that starts it
+ok Style::of: the same spec is the same object
+ok Style: two from one spec are ==, however made
+ok Style::of: spaces don't make another style
+ok Style::of: the words in another order are another style
+ok Style::of: a Style is given back
+ok Style::of: no style
+ok with: the style and more words
+ok Style::of: an unknown word fails when the style is made
+ok with: an unknown word
+ok start: no style starts with nothing
 ok printable
 ok enter, tab, backspace, escape
 ok ctrl letters
