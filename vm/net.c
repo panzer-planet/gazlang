@@ -50,6 +50,9 @@ static void sigpipe_restore(void) { sigaction(SIGPIPE, &saved_sigpipe, NULL); }
 /* A connection's timeout for each read and write, and no SIGPIPE from it where the system can
    say so per socket (macOS); elsewhere sigpipe_ignore() covers each call */
 static void connection_options(int fd, int timeout_ms) {
+    /* Blocking, bounded by the timeouts below: macOS hands an accepted connection the listener's
+       O_NONBLOCK, which net_listen() sets */
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK);
     struct timeval tv = {.tv_sec = timeout_ms / 1000, .tv_usec = (timeout_ms % 1000) * 1000};
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
@@ -750,6 +753,10 @@ bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
     }
     freeaddrinfo(found);
     if (fd < 0) return raisef("Cannot listen on %s port %lld: %s", host->data, (long long)port, strerror(err));
+    /* Non-blocking, so a worker that poll() woke for a connection another worker took first gets
+       EAGAIN and waits again, rather than blocking in accept() where neither a stop nor its
+       master's death is seen (every worker wakes for one connection) */
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
     listener_made(fd);
     *out = v_socket(socket_new(fd, true, 0));
     return true;
@@ -775,8 +782,9 @@ bool net_accept(Socket *listener, double timeout, Value *out) {
         if (ready < 0 && errno != EINTR) return raisef("socket_accept() failed: %s", strerror(errno));
         if (ready <= 0) continue;
         fd = accept(listener->fd, NULL, NULL);
-        /* Interrupted, or a connection given up on while it queued: wait for the next */
-        if (fd < 0 && errno != EINTR && errno != ECONNABORTED) return raisef("socket_accept() failed: %s", strerror(errno));
+        /* Interrupted, taken by another worker first, or a connection given up on while it queued:
+           wait for the next */
+        if (fd < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK && errno != ECONNABORTED) return raisef("socket_accept() failed: %s", strerror(errno));
     }
     worker_accepted();
     fcntl(fd, F_SETFD, FD_CLOEXEC);

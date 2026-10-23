@@ -1099,6 +1099,8 @@ class HttpServerTest extends GazLangTestCase
         try {
             $this->assertSame(1, preg_match('/^listening on (\d+)$/', trim((string) fgets($pipes[1])), $m));
             $port = (int) $m[1];
+            // Both workers in poll() first, so both wake for the one connection and one loses the race
+            usleep(300000);
             $silent = self::connect($port);
             usleep(200000);
             $workers = self::killMaster($server);
