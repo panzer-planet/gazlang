@@ -7,6 +7,8 @@ ok docs/bytecode.md's gaz blocks all lex
 ok docs/internals.md has code blocks
 ok docs/internals.md's gaz blocks all lex
 ok lib/ has files
-ok every file of lib/ lexes and round trips
+ok every file of lib/ lexes and round trips, broken half-way too
+ok a mistake planted half-way in a file of lib/ is refused by the lexer
 ok examples/ has files
-ok every file of examples/ lexes and round trips
+ok every file of examples/ lexes and round trips, broken half-way too
+ok a mistake planted half-way in a file of examples/ is refused by the lexer
