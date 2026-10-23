@@ -25,12 +25,9 @@ kind Todo {
     // $created_at and $due_at are times, seconds since 1970; a todo needn't be due
     fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at, pub ?int #due_at = null);
 
-    /*
-     * created_at arrives as PostgreSQL writes a timestamptz, "2026-10-01 14:04:27.78+02", and
-     * due_at as seconds since 1970, or null
-     */
+    // created_at and due_at are timestamptz columns, which arrive as times (due_at may be null)
     pub static fn from_row(map $row): Todo {
-        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], date::parse($row["created_at"]).time, $row["due_at"]);
+        return Todo($row["id"], $row["user_id"], $row["title"], $row["done"], $row["created_at"], $row["due_at"]);
     }
 
     // When it was added, as $zone's clocks showed it: "1 Oct, 14:04"
@@ -72,7 +69,7 @@ kind Todos {
     fn _(#db);
 
     fn columns() {
-        return db::raw("id, user_id, title, done, created_at::text as created_at, floor(extract(epoch from due_at))::bigint as due_at");
+        return db::raw("id, user_id, title, done, created_at, due_at");
     }
 
     // A user's todos: the open ones due soonest first, then those not due, then the done ones, each newest first

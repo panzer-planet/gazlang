@@ -1503,10 +1503,12 @@ on four builtins, so a driver adds no names to a program:
   without, it may be a script, and the last statement's result is the one given. There is no
   last-insert id: use `returning`.
 - Values: SQLite's INTEGER is an int, REAL a float, TEXT and BLOB strings. PostgreSQL's int2, int4 and
-  int8 are ints, float4 and float8 floats, bool a bool, and the rest (numeric, timestamps, json) the text
-  Postgres prints. Both give `null` for NULL. Going in, `null`, ints, floats and strings are sent as
+  int8 are ints, float4 and float8 floats, bool a bool, timestamptz a time (an int, seconds since 1970
+  as `time()` gives them, a fraction of a second dropped), and the rest (numeric, timestamp without a
+  zone, date, json) the text Postgres prints. A time goes back in with `to_timestamp({$time})`.
+  Both give `null` for NULL. Going in, `null`, ints, floats and strings are sent as
   they are and a bool as 0 or 1 (SQLite) or `t` or `f`; lists, maps and objects are errors, and so is an
-  infinite float coming back, since floats here are always finite.
+  infinite float coming back, since floats here are always finite, and an infinite timestamptz.
 - Errors are catchable and start `sqlite:` or `postgres:`. After one the database itself gave,
   `db_error($db)` is `{"code" => ...}`: SQLite's extended result code (an int), or PostgreSQL's
   SQLSTATE with `"constraint"`, `"table"` and `"column"` (each `null` when the server names none).

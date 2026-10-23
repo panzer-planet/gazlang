@@ -3,6 +3,7 @@
  * go with the connection, so nothing is left behind.
  */
 import "std/test.gaz" use expect, throws;
+import "std/date.gaz";
 import "std/db.gaz";
 
 fn failure($f) {
@@ -88,6 +89,45 @@ expect("quotes and SQL in values are data", $db.query(db::sql"select {$column} a
 
 expect("an array literal's braces are text", $db.value(db::sql"select ('{1,2}'::int[])[2] + {$one}"), 3);
 expect("and so are JSON's", $db.value(db::sql"select '{\"k\": 1}'::json ->> 'k'"), "1");
+
+/*
+ * A timestamptz is a time, seconds since 1970 as time() gives them, whatever the session's
+ * TimeZone; a timestamp without a zone is no time yet, so it stays text
+ */
+fn at_utc(int $year, int $month, int $day, int $seconds = 0): int {
+    return date::utc().time(date::days($year, $month, $day), $seconds);
+}
+
+$db.exec(db::sql"create temp table times (id int primary key, at timestamptz, reading timestamp)");
+$due = at_utc(2026, 10, 5, date::time_of_day(13, 30));
+$db.exec(db::sql"insert into times values (1, to_timestamp({$due}), '2026-10-05 14:30'), (2, null, null)");
+expect("a time goes in with to_timestamp() and comes out as it went", $db.value(db::sql"select at from times where id = 1"), $due);
+expect("null is null", $db.value(db::sql"select at from times where id = 2"), null);
+expect("a timestamp without a zone is text", $db.value(db::sql"select reading from times where id = 1"), "2026-10-05 14:30:00");
+expect("as returning gives it", $db.row(db::sql"update times set at = at + interval '1 hour' where id = 1 returning at")["at"], $due + 3600);
+expect("a fraction is dropped", $db.value(db::sql"select '2026-10-05 13:30:00.999999+00'::timestamptz"), $due);
+expect("so a time before 1970 rounds down", $db.value(db::sql"select '1969-12-31 23:59:59.5+00'::timestamptz"), -1);
+$now = $db.row(db::sql"select now() as at, now()::text as text");
+expect("the same time date::parse() reads in the text", $now["at"], date::parse($now["text"]).time);
+$db.exec(db::sql"set timezone = 'Asia/Kolkata'");
+expect("the session's zone changes the text", $db.value(db::sql"select at::text from times where id = 1"), "2026-10-05 20:00:00+05:30");
+expect("but not the time", $db.value(db::sql"select at from times where id = 1"), $due + 3600);
+$db.exec(db::sql"set timezone = 'America/New_York'");
+expect("nor behind UTC", [$db.value(db::sql"select at::text from times where id = 1"), $db.value(db::sql"select at from times where id = 1")],
+    ["2026-10-05 10:30:00-04", $due + 3600]);
+$db.exec(db::sql"set timezone = 'Europe/Brussels'");
+expect("an offset with seconds", [$db.value(db::sql"select '1850-01-01 00:00:00+00'::timestamptz::text"), $db.value(db::sql"select '1850-01-01 00:00:00+00'::timestamptz")],
+    ["1850-01-01 00:17:30+00:17:30", at_utc(1850, 1, 1)]);
+expect("a year before Christ, 44 BC being year -43", $db.value(db::sql"select '0044-03-15 12:00:00+00 BC'::timestamptz"), at_utc(-43, 3, 15, 43200));
+expect("the first time PostgreSQL has", $db.value(db::sql"select '4714-11-24 00:00:00+00 BC'::timestamptz"), at_utc(-4713, 11, 24));
+expect("and the last", $db.value(db::sql"select '294276-12-31 23:59:59+00'::timestamptz"), at_utc(294276, 12, 31, 86399));
+$db.exec(db::sql"reset timezone");
+throws("infinity is no time", () -> $db.value(db::sql"select 'infinity'::timestamptz"), "postgres: cannot read infinity as a time, which is always a number of seconds");
+throws("nor is -infinity", () -> $db.value(db::sql"select '-infinity'::timestamptz"), "postgres: cannot read -infinity as a time, which is always a number of seconds");
+$db.exec(db::sql"set datestyle = 'SQL, DMY'; set timezone = 'UTC'");
+throws("another DateStyle names zones, not offsets", () -> $db.value(db::sql"select '2026-10-05 13:30:00+00'::timestamptz"),
+    "postgres: cannot read 05/10/2026 13:30:00 UTC as a timestamptz: gaz reads only what DateStyle ISO writes");
+$db.exec(db::sql"reset datestyle; reset timezone");
 
 /*
  * What the server refuses is a db::Failure, with its SQLSTATE, the constraint, table and column it

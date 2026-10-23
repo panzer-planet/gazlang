@@ -298,7 +298,22 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   through `db::Failure`'s constructor; `pg_check.gaz` has the server raise every SQLSTATE the table
   names (`raise exception ... using errcode`), and a real lock timeout and a connection it ends.
   `ponytail:` a bool parameter is 0/1 in SQLite, no blobs going in,
-  and PostgreSQL's numeric, timestamps and json come back as text.
+  and PostgreSQL's numeric, timestamp without a zone, date and json come back as text.
+- **A timestamptz is a time** (an int, seconds since 1970 began in UTC), since it is an instant and
+  every time in GazLang is that int (`time()`, `date.gaz`), and so a program storing ints in SQLite
+  reads the same shape from both. `read_timestamptz()` in `pg.c` reads the text DateStyle ISO writes
+  (initdb's default), step by step: the offset says only how the clocks read, so the session's
+  TimeZone can't change the time; a fraction is dropped, as `date::parse()` drops it (so before 1970
+  it rounds down); BC years count as `date.gaz` does (1 BC is year 0). **Refused, loudly**: another
+  DateStyle, whose zone abbreviations don't say the offset, and `infinity`/`-infinity`, which no int
+  is (the restrictive choice: null or the int limits could come later). **A timestamp without a
+  zone stays text**: it is a clock reading, not a time, and only a zone the program knows makes it
+  one (`date::parse_reading()`, `Zone.time()`). **Nothing is done going in**: an int parameter is
+  text the server reads as the type the query wants, and a timestamptz doesn't read a number, so a
+  time is written `to_timestamp({$time})`, the SQL that says what it is (null stays null). The
+  driver can't know the parameter's type without a second round trip, and making an int one type
+  would change every other int parameter. Tested by `pg_check.gaz` in four zones, with fractions,
+  BC and both ends of PostgreSQL's range.
 
 ## Time, the terminal and random numbers
 
