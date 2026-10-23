@@ -49,14 +49,33 @@ expect("strip: intermediates and a final byte", term::strip("a\e[?25lb\e[ qc"), 
 expect("chars: ascii", term::chars("abc"), ["a", "b", "c"]);
 expect("chars: each length of character", term::chars("aé→😀x"), ["a", "é", "→", "😀", "x"]);
 expect("chars: nothing", term::chars(""), []);
-expect("chars: a cut-off character is what is left", term::chars("a\xe2\x9c"), ["a", "\xe2\x9c"]);
+expect("chars: a cut-off character is a byte each, as utf8_width counts it", term::chars("a\xe2\x9c"), ["a", "\xe2", "\x9c"]);
 expect("chars: a stray continuation byte is its own", term::chars("\x80a"), ["\x80", "a"]);
 expect("chars: a lead byte doesn't eat what isn't a continuation", term::chars("\xc3a"), ["\xc3", "a"]);
-expect("chars: nor two of three", term::chars("\xe2\x9cz"), ["\xe2\x9c", "z"]);
-expect("width: agrees with chars on bad UTF-8", [term::width("\xc3a"), term::width("\x80a"), term::width("a\xe2\x9c")], [2, 2, 2]);
+expect("chars: nor two of three", term::chars("\xe2\x9cz"), ["\xe2", "\x9c", "z"]);
+expect("chars: an overlong form is bytes too", term::chars("\xc0\x80a"), ["\xc0", "\x80", "a"]);
+expect("width: agrees with chars on bad UTF-8", [term::width("\xc3a"), term::width("\x80a"), term::width("a\xe2\x9c")], [2, 2, 3]);
 expect("width: ascii", term::width("hello"), 5);
 expect("width: multibyte", term::width("héllo → ✓"), 9);
 expect("width: ignores styles", term::width(term::style("héllo", "bold")), 5);
+expect("width: a wide character is two columns, CJK or an emoji", [term::width("中文"), term::width("a😀b")], [4, 4]);
+expect("width: a combining mark takes none", [term::width("e\u{301}"), term::width("中\u{301}")], [1, 2]);
+expect("width: escape sequences take none, whatever they hold", term::width(term::style("中", "bold") .. term::move_to(1, 1) .. "x"), 3);
+expect("width: a tab and a control character count one each, as utf8_width says", term::width("a\tb\x01"), 4);
+
+// A Style is a spec parsed once, and a value
+$bold = term::Style::of("bold red");
+expect("Style::of: the spec and the sequence that starts it", [$bold.spec, $bold.sequence], ["bold red", "\e[1;31m"]);
+expect("Style::of: the same spec is the same object", term::Style::of("bold red") == $bold, true);
+expect("Style: two from one spec are ==, however made", term::Style("bold red", "\e[1;31m") == $bold, true);
+expect("Style::of: spaces don't make another style", term::Style::of("  bold   red ") == $bold, true);
+expect("Style::of: the words in another order are another style", term::Style::of("red bold") == $bold, false);
+expect("Style::of: a Style is given back", term::Style::of($bold) == $bold, true);
+expect("Style::of: no style", [term::Style::of("").spec, term::Style::of("").sequence, term::Style::of("").is_plain(), $bold.is_plain()], ["", "", true, false]);
+expect("with: the style and more words", [$bold.with("inverse").spec, $bold.with("inverse") == term::Style::of("bold red inverse"), term::Style::of("").with("dim").spec], ["bold red inverse", true, "dim"]);
+throws("Style::of: an unknown word fails when the style is made", () -> term::Style::of("bold bogus"), "term: unknown style \"bogus\"");
+throws("with: an unknown word", () -> $bold.with("shiny"), "term: unknown style \"shiny\"");
+expect("start: no style starts with nothing", term::start(""), "");
 
 // Keys
 expect("printable", names("abZ 9~"), "a b Z space 9 ~");

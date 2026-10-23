@@ -1,9 +1,11 @@
 ok a screen starts blank
 ok size
 ok put
-ok put: a cell is a character and a style
+ok put: a cell is a character, its width and a style
+ok put: a cell's style is a term::Style
 ok put clips on the right
 ok put keeps the style
+ok put: a cell is a value
 ok put clips on the left
 ok put outside the rows does nothing
 ok put is a character to a cell
@@ -13,6 +15,32 @@ ok fill of no width does nothing
 ok clear
 ok clear: the cells are blank again
 ok resize: blank at the new size
+ok put: a term::Style as the style
+ok put: a wide character takes two cells, and what follows is two along
+ok put: its own cell, then a continuation holding nothing
+ok put: the continuation keeps the style, and isn't a blank
+ok put: an emoji is wide too
+ok put: a combining mark joins the character before it in one cell
+ok put: a mark starting the text is drawn over a space, in a cell of its own
+ok put: marks join a wide character
+ok put: a byte that isn't UTF-8 is a cell each, one column wide
+ok put: a wide character fits when both columns do
+ok put: one that doesn't fit at the right edge is a blank in its column, not half of it
+ok put: and at the left edge
+ok put: the blank of a clipped wide character keeps the style, so a field's background reaches its edge
+ok put: a wide character wholly off the screen does nothing
+ok put: over the second half of a wide character, the first becomes a blank
+ok put: over the first half, the second becomes a blank
+ok put: a wide character over two halves blanks both
+ok put: a wide character over a wide character replaces it
+ok put: a fill over half of a wide character blanks the other half
+ok put: a control character is refused
+ok put: an escape sequence is one too, so a styled string can't be put
+ok put: delete is one
+ok put: a control character off the screen is still refused
+ok fill: a control character is refused
+ok put: a stray continuation byte is drawn, being one column on a terminal
+ok fill: a wide character fills the width in columns, an odd one short of its last
 ok the first render clears and draws what isn't blank
 ok a render of nothing new is only the cursor
 ok a changed cell
@@ -23,15 +51,29 @@ ok invalidate draws everything again
 ok the cursor is shown where it was put
 ok clear forgets the cursor
 ok styles in a row
+ok render: a wide character is written once, and the continuation not at all
+ok render: only the wide character changed, so only it is written
+ok render: a character over its second half redraws the blank the first became
+ok render: a styled wide character
+ok render: a mark goes to the terminal with its character
+ok render: cleared, the wide character's columns are blanked
 ok label: left
 ok label: right
 ok label: centre
 ok label: cut off
 ok label: characters, not bytes
 ok label: no room
+ok label: wide text is padded by columns
+ok label: cut by columns, a wide character that doesn't fit left out whole
+ok label: centred by columns
+ok label: a wide character that just fits
+ok label: marks take no column
+ok label: a misspelt style fails when its Style is made
 ok box
 ok box: a title
 ok box: a long title is cut
+ok box: a wide title is measured by columns
+ok box: a wide title too long is cut whole
 ok box: the inside is cleared
 ok box: ascii
 ok box: round
@@ -50,6 +92,7 @@ ok table
 ok table: how many rows it took
 ok table: the header is bold, the rule dim
 ok table: characters, and floats on the right
+ok table: wide cells line up by columns
 ok table: a row longer than the headers
 ok table: rows shorter than the headers
 ok table: no headers
@@ -111,6 +154,14 @@ ok field: the cursor follows the text
 ok field: scrolls to keep the cursor in view
 ok field: scrolls back
 ok field: a style
+ok field: the cursor column is the width of the characters before it
+ok field: left moves by a character, and the cursor by its columns
+ok field: after the wide character the cursor is two along
+ok field: backspace removes the whole wide character
+ok field: scrolled by columns so the cursor is in view, never through a wide character
+ok field: home scrolls back, and only what fits is shown
+ok field: a wide character under the cursor scrolls another whole character off
+ok field: a mark takes no column
 ok rect: inset
 ok rect: inset by more
 ok rect: inset to nothing is nothing, never negative
@@ -198,7 +249,12 @@ ok table: past what leaving out saves, the rest are squeezed
 ok wrap: at spaces, no line wider than asked
 ok wrap: its own line breaks are kept
 ok wrap: a word too long starts a line and is cut into whole lines
+ok wrap: a word cut into whole lines exactly leaves no empty line after it
 ok wrap: widths are the screen's, not bytes
+ok wrap: wide words fit by columns
+ok wrap: a wide word too long is cut between characters, never through one
+ok wrap: a width of 1 still gives a wide character a line of its own
+ok wrap: marks stay with their characters
 ok paragraph: as much as fits, and how many lines that was
 ok table_width: what table() takes, separators included
 ok table_width: a row longer than the header counts

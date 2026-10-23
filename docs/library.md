@@ -644,4 +644,57 @@ behind them:
 - `term.gaz`'s drawing functions return their sequence, so a program prints them and a test
   compares them; `tui.gaz` draws into a `Screen`, a grid that `render()` diffs against what it last
   drew, so a program redraws it all every frame and a test reads `lines()` without a terminal.
+  - **A style is parsed once** (`term::Style`, a `readonly kind`): `Style::of("bold red")` keeps
+    each parsed spec in a static map by the text it was asked for (as `web.gaz`'s `Scans::of` keeps
+    scans, emptied at `STYLES_KEPT`) and gives the same object again, so `render()` never parses a
+    spec and an unknown word fails where the Style is made, at the `label()` call, not deep in a
+    frame. `$style.with("inverse")` composes, so no caller concatenates strings. **A Style is a
+    value**: two from one spec are `==` by fields (`spec` and `sequence`; the spec normalised to one
+    space between words), whichever way each was made, which is what lets the diff compare cells.
+    `term::start()` and `style()` go through it; `start("")` is `""`, since no style starts with
+    nothing.
+  - **A cell is a `tui::Cell`** (`readonly kind`, so `==` by fields): the character, with any
+    combining marks joined to it as one string; its width in columns, 1 or 2; and its Style. A wide
+    character (CJK, an emoji: `utf8_width()` says 2) takes two cells, its own and after it a
+    **continuation**, a Cell of width 0 holding `""` and the wide character's style, which
+    `render()` and `lines()` pass over and a reader tells from a blank by its width; the blank
+    (`Cell::blank()`) is one shared value. **A width-0 character joins the character before it in
+    the text** (a combining mark, a joiner, a variation selector); one that starts the text is
+    drawn over a space in a cell of its own, so a `put()` never reaches back before its column.
+    **A wide character is clipped whole**: one with a column on the screen and a column off it is
+    a space in the style in the column it has, never half a character. **Writing over half of a
+    wide character blanks the other half**, as a terminal does (`free_half()`), so the grid and the
+    terminal agree after any overwrite; the halves a `put()` disturbs are only at its ends, so the
+    check is one field read a cell. `term::chars()` gives a malformed byte by itself, as
+    `utf8_width()` counts it, so a cut-off sequence is one-column cells and never taken for a wide
+    character. Measuring and cutting (`term::width()`, `label()`, `box()`'s title, `wrap()`,
+    `table()`'s columns, `Table`, `hints()`, `key_help()`, `TextField`) all go by `utf8_width()`
+    columns, never a count of characters, and a cut never splits a wide character (`fit()`):
+    `wrap()` at a width of 1 gives a wide character a line of its own, and `TextField`'s cursor is
+    a character index drawn at the width of the characters before it, scrolled by columns.
+  - **A control character is an error in `put()`** (a byte below 32, or 127: a tab, a newline, an
+    escape), not a visible substitute: the grid's one promise is that the terminal shows what it
+    holds, and a control byte sent through `render()` moves the real cursor (a tab to the
+    terminal's own tab stop, an escape into a sequence) while the grid thinks otherwise. A
+    substitute (`^I`, `␉`) would show a bug as content a reader can't tell from text; so, would
+    rather stop than guess: an editor expands tabs itself before drawing, and a widget drawing a
+    user's string with a control byte in it has a bug to fix. The check is before anything of the
+    text is placed in that cell, and a control byte off the screen is refused too. A styled
+    string can't be `put()` either (its escape is a control byte): a style goes in `put()`'s
+    `$style`.
+  - **The diff still redraws each row from its first changed cell to its last**, and a run never
+    starts on a continuation (`render()` steps back to the wide character, so it is sent whole).
+    Cached Styles compare by identity first (`values_equal()` tests the pointer before the
+    fields), so the per-cell style compare in `render()` costs what a string compare did.
+  - **What it costs**, on a 200x60 Screen (12000 cells), a `PGO=0` build, best of 20, the cell
+    lists before and the Cells after: a full first frame 3.1 / 5.2 ms, a steady frame (clear,
+    repaint every cell, render) 3.0 / 5.1 ms, an unchanged render 0.002 / 0.002 ms, a
+    highlight-dense frame (40 styled spans a row, all changing) 4.5 / 6.1 ms. The difference is
+    the `Cell()` constructor, a call frame per cell (~80ns; `[char, style]` was a list literal,
+    ~8ns), plus `utf8_width()` (~13ns) and the field read of the cell being written over. A cache
+    of a Cell per (character, style) measured slower than constructing (the key is a concatenation
+    and a map lookup), so cells are constructed; a VM fast path for a constructor that only
+    promotes its parameters (no frame) would bring it near the list's cost. `put()` places a
+    one-column character inside the screen itself rather than through `place()` and `set()`, since
+    each call is a frame and there are twelve thousand a full redraw (0.5 ms of the 2 ms).
 - Scan long strings with `index_of`, not a character at a time.

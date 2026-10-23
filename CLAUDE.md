@@ -1013,6 +1013,9 @@ and methods a table in C.
   sentence (`refuse_after_readonly()`, `READONLY_REFUSED`): a field of a read-only kind, a static
   field (that is a `const`), a method, a function, a constant, an interface and its methods, an
   enum and its methods, a plain parameter.
+- **A read-only kind closes its fields, not its statics**: a static is a slot, not a field, so a
+  `readonly kind` can keep a cache in one (`term::Style`'s parsed specs, `tui::Cell`'s one shared
+  blank), which is what lets a value kind hand out the same object for the same value.
 - **Inheritance is read-only all the way**: a read-only kind extends only a read-only kind and is
   extended only by one (`resolve_kind()`), so a header speaks for every field an object of it has
   and no child reopens a parent's field. The restrictive choice; loosening it breaks nothing.
