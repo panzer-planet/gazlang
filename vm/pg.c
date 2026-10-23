@@ -359,7 +359,7 @@ static bool cell(PGresult *res, int row, int col, Value *out) {
         return true;
     }
     case OID_TIMESTAMPTZ: {
-        int64_t time;
+        int64_t time = 0;  // set whenever read_timestamptz() succeeds; gcc can't see it through raisef()
         if (!read_timestamptz(text, len, &time)) return false;
         *out = v_int(time);
         return true;
