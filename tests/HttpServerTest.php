@@ -148,10 +148,10 @@ class HttpServerTest extends GazLangTestCase
      */
     private static function untilClosed($socket): array
     {
-        $start = microtime(true);
+        $start = self::clock();
         $rest = (string) stream_get_contents($socket);
 
-        return [microtime(true) - $start, $rest];
+        return [self::clock() - $start, $rest];
     }
 
     /**
@@ -667,11 +667,11 @@ class HttpServerTest extends GazLangTestCase
             // The first request waits for the first workers to start
             $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
             $slowest = 0.0;
-            $until = microtime(true) + 2.5 * $startup;
-            for ($count = 0; microtime(true) < $until; $count++) {
-                $start = microtime(true);
+            $until = self::clock() + 2.5 * $startup;
+            for ($count = 0; self::clock() < $until; $count++) {
+                $start = self::clock();
                 $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
-                $slowest = max($slowest, microtime(true) - $start);
+                $slowest = max($slowest, self::clock() - $start);
                 usleep(20000);
             }
             $this->assertLessThan($startup / 2, $slowest, "the slowest of {$count} requests");
@@ -707,10 +707,10 @@ class HttpServerTest extends GazLangTestCase
         $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
         [$server, $port] = self::startSmallServer(1, '{"handler_timeout" => 0.3}', self::SLEEPY, '', $log);
         try {
-            $start = microtime(true);
+            $start = self::clock();
             $response = self::exchange("GET /5 HTTP/1.1\r\nHost: x\r\n\r\n", $port);
             $this->assertSame(self::TIMED_OUT."Service Unavailable\n", $response);
-            $this->assertLessThan(2, microtime(true) - $start);
+            $this->assertLessThan(2, self::clock() - $start);
             // A HEAD's 503 has the headers alone
             $this->assertSame(self::TIMED_OUT, self::exchange("HEAD /5 HTTP/1.1\r\nHost: x\r\n\r\n", $port));
 
@@ -800,7 +800,7 @@ class HttpServerTest extends GazLangTestCase
         $socket = stream_socket_client('tcp://127.0.0.1:'.self::$port);
         $this->assertNotFalse($socket);
         stream_set_blocking($socket, false);
-        $start = microtime(true);
+        $start = self::clock();
         $response = '';
         foreach (str_split("GET / HTTP/1.1\r\nHost: x\r\nX-Slow: ".str_repeat('a', 20)) as $byte) {
             @fwrite($socket, $byte);
@@ -816,7 +816,7 @@ class HttpServerTest extends GazLangTestCase
         fclose($socket);
 
         $this->assertSame(408, self::response($response)['status']);
-        $this->assertLessThan(4, microtime(true) - $start);
+        $this->assertLessThan(4, self::clock() - $start);
     }
 
     /**
@@ -828,7 +828,7 @@ class HttpServerTest extends GazLangTestCase
     private static function sendSlowly(int $port, string $part, string $rest = '', float $gap = 0): array
     {
         $socket = self::connect($port);
-        $start = microtime(true);
+        $start = self::clock();
         fwrite($socket, $part);
         stream_set_blocking($socket, false);
         $response = '';
@@ -844,7 +844,7 @@ class HttpServerTest extends GazLangTestCase
         $response .= (string) stream_get_contents($socket);
         fclose($socket);
 
-        return [microtime(true) - $start, $response];
+        return [self::clock() - $start, $response];
     }
 
     /**
@@ -1140,7 +1140,7 @@ class HttpServerTest extends GazLangTestCase
      */
     private static function assertEndWithin(array $pids, float $seconds, int $port): void
     {
-        $until = microtime(true) + $seconds;
+        $until = self::clock() + $seconds;
         do {
             $running = [];
             exec('ps -o pid= -p '.implode(',', $pids), $running);
@@ -1148,7 +1148,7 @@ class HttpServerTest extends GazLangTestCase
                 break;
             }
             usleep(20000);
-        } while (microtime(true) < $until);
+        } while (self::clock() < $until);
         if ($running !== []) {
             // Or they would outlive the test, holding the port
             exec('kill -9 '.implode(' ', array_map('trim', $running)));
@@ -1185,9 +1185,9 @@ class HttpServerTest extends GazLangTestCase
             for ($i = 0; $i < 5; $i++) {
                 $idle[] = self::keptOpen($port);
             }
-            $start = microtime(true);
+            $start = self::clock();
             $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
-            $this->assertLessThan(0.5, microtime(true) - $start);
+            $this->assertLessThan(0.5, self::clock() - $start);
 
             // Every one of them is still open, and carries its next request
             foreach ($idle as $socket) {
@@ -1256,12 +1256,12 @@ class HttpServerTest extends GazLangTestCase
                 $socket = self::connect($port);
                 fwrite($socket, $first);
                 usleep(300000);
-                $start = microtime(true);
+                $start = self::clock();
                 fwrite($socket, $rest);
                 $response = self::response(self::readResponse($socket));
                 fclose($socket);
                 $this->assertSame(200, $response['status'], (string) json_encode($first));
-                $this->assertLessThan(1, microtime(true) - $start, 'answered only at header_timeout: '.json_encode($first));
+                $this->assertLessThan(1, self::clock() - $start, 'answered only at header_timeout: '.json_encode($first));
             }
         } finally {
             proc_terminate($server);
@@ -1330,9 +1330,9 @@ class HttpServerTest extends GazLangTestCase
             stream_set_blocking($third, true);
 
             fclose($first);
-            $start = microtime(true);
+            $start = self::clock();
             $this->assertSame(200, self::response(self::readResponse($third))['status']);
-            $this->assertLessThan(0.5, microtime(true) - $start);
+            $this->assertLessThan(0.5, self::clock() - $start);
             fclose($second);
             fclose($third);
         } finally {
@@ -1359,8 +1359,8 @@ class HttpServerTest extends GazLangTestCase
         $answers = array_fill(0, $slow, '');
         $slowest = 0.0;
         $answered = 0;
-        $start = microtime(true);
-        for ($tick = 0; microtime(true) - $start < 2.6; $tick++) {
+        $start = self::clock();
+        for ($tick = 0; self::clock() - $start < 2.6; $tick++) {
             foreach ($sockets as $i => $socket) {
                 // Read first, so nothing is written to a connection the server has answered and closed
                 $answers[$i] .= (string) fread($socket, 8192);
@@ -1370,11 +1370,11 @@ class HttpServerTest extends GazLangTestCase
             }
             // Up to three a round, so a slow machine still fits twenty in before the tricklers' 408s
             for ($k = 0; $k < 3 && $answered < 20; $k++) {
-                $began = microtime(true);
+                $began = self::clock();
                 if (self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status'] === 200) {
                     $answered++;
                 }
-                $slowest = max($slowest, microtime(true) - $began);
+                $slowest = max($slowest, self::clock() - $began);
             }
             usleep(200000);
         }
@@ -1462,7 +1462,7 @@ class HttpServerTest extends GazLangTestCase
         [$server, $port] = self::startSmallServer(2, '{"idle_timeout" => 1}');
         try {
             $idle = self::keptOpen($port);
-            $start = microtime(true);
+            $start = self::clock();
             // A new client every 0.3s for 2.4s: each wakes the idle worker, which must not start over
             for ($i = 0; $i < 8; $i++) {
                 usleep(300000);
@@ -1471,7 +1471,7 @@ class HttpServerTest extends GazLangTestCase
             stream_set_blocking($idle, false);
             $closed = fread($idle, 1) === '' && feof($idle);
             fclose($idle);
-            $this->assertTrue($closed, 'the idle connection was still open after '.round(microtime(true) - $start, 1).'s');
+            $this->assertTrue($closed, 'the idle connection was still open after '.round(self::clock() - $start, 1).'s');
         } finally {
             proc_terminate($server);
             proc_close($server);
@@ -1563,10 +1563,10 @@ class HttpServerTest extends GazLangTestCase
             $idle = self::keptOpen($port);
             usleep(100000);
 
-            $start = microtime(true);
+            $start = self::clock();
             $response = self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port));
             $this->assertSame(200, $response['status']);
-            $this->assertLessThan(0.5, microtime(true) - $start);
+            $this->assertLessThan(0.5, self::clock() - $start);
 
             // The idle connection was closed for it, without a word
             [$seconds, $rest] = self::untilClosed($idle);
@@ -1623,7 +1623,7 @@ class HttpServerTest extends GazLangTestCase
             $busy = self::keptOpen($port);
             $waiting = self::connect($port);
             fwrite($waiting, "GET / HTTP/1.1\r\nHost: x\r\n\r\n");
-            $start = microtime(true);
+            $start = self::clock();
             // The busy client asks again as soon as it has its answer, until it is told it closes
             $closed = false;
             for ($asked = 0; ! $closed && $asked < 100; $asked++) {
@@ -1637,7 +1637,7 @@ class HttpServerTest extends GazLangTestCase
             $this->assertSame(200, self::response(self::readResponse($waiting))['status']);
             fclose($waiting);
             // A TURN (50ms) and a request or two, with room for a busy machine
-            $this->assertLessThan(1, microtime(true) - $start, "the waiting client was answered after the busy one had {$asked}");
+            $this->assertLessThan(1, self::clock() - $start, "the waiting client was answered after the busy one had {$asked}");
         } finally {
             proc_terminate($server);
             proc_close($server);
@@ -1684,10 +1684,10 @@ class HttpServerTest extends GazLangTestCase
         try {
             $this->assertSame("waiting\n", fgets($pipes[1]));
             usleep(200000);
-            $start = microtime(true);
+            $start = self::clock();
             proc_terminate($server);
             $out = (string) stream_get_contents($pipes[1]);
-            $this->assertLessThan(2.5, microtime(true) - $start);
+            $this->assertLessThan(2.5, self::clock() - $start);
             $this->assertSame("null\nstopped\n", $out);
         } finally {
             proc_terminate($server, SIGKILL);

@@ -284,9 +284,9 @@ class HttpTest extends GazLangTestCase
         $address = (string) stream_socket_get_name($quiet, false);
         $port = substr($address, strrpos($address, ':') + 1);
 
-        $start = microtime(true);
+        $start = self::clock();
         $this->assertSame('socket_read() timed out', $this->failure("socket_read(socket_open(\"127.0.0.1\", {$port}, false, 0.3))"));
-        $this->assertLessThan(5, microtime(true) - $start);
+        $this->assertLessThan(5, self::clock() - $start);
         fclose($quiet);
     }
 

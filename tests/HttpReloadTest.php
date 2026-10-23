@@ -62,8 +62,8 @@ class HttpReloadTest extends GazLangTestCase
         fwrite($half, "GET / HTTP/1.1\r\n");
 
         $bodies = [];
-        $deadline = microtime(true) + 15;
-        for ($i = 0; count(array_filter($bodies, fn ($b) => $b === 'v2')) < 30 && microtime(true) < $deadline; $i++) {
+        $deadline = self::clock() + 15;
+        for ($i = 0; count(array_filter($bodies, fn ($b) => $b === 'v2')) < 30 && self::clock() < $deadline; $i++) {
             if ($i === 10) {
                 $this->write('v2');
                 posix_kill(proc_get_status($master)['pid'], SIGUSR2);

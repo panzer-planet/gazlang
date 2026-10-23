@@ -468,7 +468,7 @@ final class CVM
                 }
                 stream_set_blocking($pipes[1], false);
                 stream_set_blocking($pipes[2], false);
-                $running[$key] = ['process' => $process, 'pipes' => $pipes, 'out' => '', 'err' => '', 'deadline' => microtime(true) + self::timeLimit()];
+                $running[$key] = ['process' => $process, 'pipes' => $pipes, 'out' => '', 'err' => '', 'deadline' => hrtime(true) / 1e9 + self::timeLimit()];
             }
             $read = [];
             foreach ($running as $job) {
@@ -485,7 +485,7 @@ final class CVM
             foreach ($running as $key => &$job) {
                 $job['out'] .= (string) stream_get_contents($job['pipes'][1]);
                 $job['err'] .= (string) stream_get_contents($job['pipes'][2]);
-                $killed = microtime(true) > $job['deadline'];
+                $killed = hrtime(true) / 1e9 > $job['deadline'];
                 if ($killed) {
                     proc_terminate($job['process'], 9);
                     $job['err'] .= "\n[killed after ".self::timeLimit()."s]\n";

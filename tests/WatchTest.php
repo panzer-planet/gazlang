@@ -72,7 +72,7 @@ class WatchTest extends GazLangTestCase
      */
     private function waitFor(string $stream, string $text, int $count = 1): void
     {
-        $until = microtime(true) + self::DEADLINE;
+        $until = self::clock() + self::DEADLINE;
         do {
             $printed = (string) @file_get_contents("{$this->dir}/{$stream}");
             if (substr_count($printed, $text) >= $count) {
@@ -81,7 +81,7 @@ class WatchTest extends GazLangTestCase
                 return;
             }
             usleep(20000);
-        } while (microtime(true) < $until);
+        } while (self::clock() < $until);
         $this->fail("Never printed {$text} ({$count} times) on {$stream}; it printed:\n{$printed}");
     }
 
@@ -92,8 +92,8 @@ class WatchTest extends GazLangTestCase
      */
     private function waitForExit(): array
     {
-        $until = microtime(true) + self::DEADLINE;
-        while (($status = proc_get_status($this->supervisor))['running'] && microtime(true) < $until) {
+        $until = self::clock() + self::DEADLINE;
+        while (($status = proc_get_status($this->supervisor))['running'] && self::clock() < $until) {
             usleep(20000);
         }
 

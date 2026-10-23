@@ -237,15 +237,15 @@ class HttpTlsTest extends GazLangTestCase
             fwrite($partial, "\x16\x03\x01");
             usleep(100000);
             // Each holds a worker for its handshake; a new client waits its turn, then is answered
-            $started = microtime(true);
+            $started = self::clock();
             $answered = self::ask(self::connect($port), '/meanwhile');
             $this->assertSame(200, $answered['status'] ?? null);
             foreach ([$quiet, $partial] as $socket) {
-                $closed = microtime(true);
+                $closed = self::clock();
                 $this->assertSame('', (string) stream_get_contents($socket), 'closed without a word');
-                $this->assertLessThan(2.5, microtime(true) - $started, 'at the header timeout');
+                $this->assertLessThan(2.5, self::clock() - $started, 'at the header timeout');
             }
-            $this->assertLessThan(2.5, microtime(true) - $started);
+            $this->assertLessThan(2.5, self::clock() - $started);
         } finally {
             self::stop($server);
         }
@@ -261,9 +261,9 @@ class HttpTlsTest extends GazLangTestCase
                 $idle[$i] = self::connect($port);
                 $this->assertSame(200, self::ask($idle[$i], "/idle{$i}")['status'] ?? null);
             }
-            $started = microtime(true);
+            $started = self::clock();
             $this->assertSame(200, self::ask(self::connect($port), '/new')['status'] ?? null);
-            $this->assertLessThan(0.5, microtime(true) - $started, 'answered without waiting out an idle client');
+            $this->assertLessThan(0.5, self::clock() - $started, 'answered without waiting out an idle client');
             // Two of the three still have a worker each, at most: one at least gave way, and found its
             // connection closed, as a client does after any idle wait, and one at least kept it
             $kept = array_filter($idle, fn ($socket) => self::ask($socket, '/again') !== null);
@@ -301,9 +301,9 @@ class HttpTlsTest extends GazLangTestCase
             $this->assertSame(200, self::ask($idle, '/idle')['status'] ?? null);
             // Its idle time runs out and the worker closes it: the one connection allowed is free again
             usleep(800000);
-            $started = microtime(true);
+            $started = self::clock();
             $this->assertSame(200, self::ask(self::connect($port), '/next')['status'] ?? null);
-            $this->assertLessThan(1, microtime(true) - $started);
+            $this->assertLessThan(1, self::clock() - $started);
         } finally {
             self::stop($server);
         }
@@ -379,10 +379,10 @@ class HttpTlsTest extends GazLangTestCase
         [$server, $port] = self::startServer(1, '"handler_timeout" => 0.3', '$r -> { sleep(5); return {"body" => "late"}; }', $log);
         try {
             $socket = self::connect($port);
-            $started = microtime(true);
+            $started = self::clock();
             // Nothing can be encrypted from the deadline's signal handler, so the client hears the close
             $this->assertNull(self::ask($socket, '/slow'));
-            $this->assertLessThan(2, microtime(true) - $started);
+            $this->assertLessThan(2, self::clock() - $started);
             self::loggedLines($log, '#127\.0\.0\.1 GET /slow 503 0 300\.000ms$#');
             self::loggedLines($log, '/worker 1 timed out on a request; starting another/');
         } finally {
@@ -397,14 +397,14 @@ class HttpTlsTest extends GazLangTestCase
         try {
             $socket = self::connect($port);
             $this->assertSame(200, self::ask($socket, '/kept')['status'] ?? null);
-            $started = microtime(true);
+            $started = self::clock();
             proc_terminate($server);
             $this->assertSame('', (string) stream_get_contents($socket), 'the client sees the end');
             for ($wait = 0; proc_get_status($server)['running'] && $wait < 100; $wait++) {
                 usleep(50000);
             }
             $this->assertFalse(proc_get_status($server)['running']);
-            $this->assertLessThan(3, microtime(true) - $started);
+            $this->assertLessThan(3, self::clock() - $started);
         } finally {
             self::stop($server);
         }
@@ -758,9 +758,9 @@ class HttpTlsTest extends GazLangTestCase
             fwrite($idle, self::getFrame(1, '/idle'));
             self::responses($idle, [1]);
             usleep(100000);
-            $started = microtime(true);
+            $started = self::clock();
             $this->assertSame(200, self::ask(self::connect($port), '/new')['status'] ?? null);
-            $this->assertLessThan(0.5, microtime(true) - $started);
+            $this->assertLessThan(0.5, self::clock() - $started);
             // The idle one was told GOAWAY, its last stream 1, before its connection closed
             $seen = [];
             for ($frame = self::nextFrame($idle); $frame !== null; $frame = self::nextFrame($idle)) {

@@ -130,8 +130,8 @@ class TestCommandTest extends GazLangTestCase
     {
         $process = proc_open([self::binary(), 'test', self::FIXTURES.'/passing'], [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes, self::ROOT);
         $this->assertIsResource($process);
-        $deadline = microtime(true) + 20;
-        while (proc_get_status($process)['running'] && microtime(true) < $deadline) {
+        $deadline = self::clock() + 20;
+        while (proc_get_status($process)['running'] && self::clock() < $deadline) {
             usleep(50000);
         }
         $running = proc_get_status($process)['running'];

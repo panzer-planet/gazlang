@@ -10,6 +10,16 @@ use PHPUnit\Framework\TestCase;
  */
 abstract class GazLangTestCase extends TestCase
 {
+    /**
+     * The time now, in seconds, for measuring how long something took or waiting until a deadline:
+     * monotonic (hrtime), since the wall clock steps under load on some machines (WSL2), which
+     * made an elapsed time come out negative
+     */
+    protected static function clock(): float
+    {
+        return hrtime(true) / 1e9;
+    }
+
     protected const ROOT = __DIR__.'/..';
 
     /**
