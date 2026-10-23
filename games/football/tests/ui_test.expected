@@ -200,6 +200,11 @@ ok at the end of the ninety minutes a level tie has gone on: the clock is at nin
 ok c ends the day: the inbox has the round's results and the club's report
 ok the fixtures have the tie, marked as the cup's, dated, with its score
 ok a club that is out has nothing more of the cup to come
+ok a section is a tui::View, and its hints are tui::Hints
+ok a key the view deals with itself gives nothing, and one for the game gives an Action
+ok the action carries what the key asked for
+ok and nothing changes until the shell carries it out
+ok a notice is an action that changes nothing and says why
 ok the board sits under the menu: its confidence as a bar, its mood and its aim
 ok sacked, the bar says so and offers to quit
 ok and c moves nothing, saying why

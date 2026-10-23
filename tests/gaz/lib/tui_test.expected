@@ -63,6 +63,9 @@ ok label: centre
 ok label: cut off
 ok label: characters, not bytes
 ok label: no room
+ok label: on the first row of a taller Rect, and only there
+ok label: a Rect of no height draws nothing, which a line past the last is
+ok label: a Rect's line is one row of it
 ok label: wide text is padded by columns
 ok label: cut by columns, a wide character that doesn't fit left out whole
 ok label: centred by columns
@@ -88,10 +91,15 @@ ok progress: more than all is all
 ok progress: less than none is none
 ok progress: filled cells take the style, the rest is dim
 ok progress: too narrow for a bar
+ok progress: no height draws nothing, and the bar is on the Rect's row
 ok table
 ok table: how many rows it took
 ok table: the header is bold, the rule dim
 ok table: characters, and floats on the right
+ok table: as many rows as fit the height, and how many rows that took
+ok table: cut off at the width
+ok table: one row high is the header alone
+ok table: no height is nothing
 ok table: wide cells line up by columns
 ok table: a row longer than the headers
 ok table: rows shorter than the headers
@@ -119,6 +127,7 @@ ok menu: scrolls to keep the selection in view
 ok menu: page down goes to the last
 ok menu: scrolled to the end
 ok menu: page up is a page (the rows showing, less one)
+ok menu: drawn in its Rect, the box on its edges
 ok menu: no items, nothing to move
 ok menu: j and page down on nothing
 ok menu: nothing to select
@@ -165,6 +174,11 @@ ok field: a mark takes no column
 ok rect: inset
 ok rect: inset by more
 ok rect: inset to nothing is nothing, never negative
+ok rect: inset by columns and rows apart
+ok rect: inset by columns alone
+ok rect: a line is one row of it, from 0
+ok rect: a line past the end has no height
+ok rect: empty when it has no width or no height
 ok rect: split_left
 ok rect: split_right
 ok rect: split_top
@@ -228,8 +242,8 @@ ok table: squeezed to fit
 ok table: squeezed as far as it goes, then cut off
 ok table: no room draws nothing
 ok table: drawn in a rect of the screen
-ok centered
-ok centered: too big is the corner
+ok centered: a Rect that size in the middle
+ok centered: too big starts at the corner
 ok metronome: not due at the start
 ok metronome: due when the beat is
 ok metronome: how long to wait
@@ -258,7 +272,16 @@ ok wrap: marks stay with their characters
 ok paragraph: as much as fits, and how many lines that was
 ok table_width: what table() takes, separators included
 ok table_width: a row longer than the header counts
+ok hint: keys and what they do, said with a space between
+ok hint: a prompt has no keys, and is said as it is
+ok hint: a value
 ok hints: a prompt as it is, then as many whole keys as fit, and where the rest are at the end
 ok hints: with room, all of them, dim
+ok hints: on the first row of its Rect, from its column
+ok hints: too narrow even for where the rest are shows nothing
 ok key_help: a box in the middle, each group's keys under its title, prompts left out, no blank line at the end
 ok key_help: centred, the keys in cyan and the titles bold
+ok outcome: the cases a widget answers with
+ok view: a kind for a shell's section, with no hints unless it says
+ok view: draws in its Rect
+ok view: a key is its own, or a value for the shell

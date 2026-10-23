@@ -1,12 +1,13 @@
 /*
  * The interface: a Shell (a top bar, a menu of sections down the left, the section on show, and a
- * line of hints at the bottom) and a View for each section. A view is given a Rect of the screen
- * and draws in it; the shell cuts the screen up and decides where keys go. Like Football Manager
- * the game is mostly tables you move about in, and time moves on with one key: c.
+ * line of hints at the bottom) and a tui::View for each section. A view is given a Rect of the
+ * screen and draws in it; the shell cuts the screen up and decides where keys go. Like Football
+ * Manager the game is mostly tables you move about in, and time moves on with one key: c.
  *
- * Views only read the game (game.gaz) and never change it: the shell does that, so what a key
- * does is in one place. Nothing here talks to the terminal, so it is all tested by drawing into
- * a tui::Screen and reading its lines.
+ * Views only read the game (game.gaz) and never change it: a key gives an Action, which the shell
+ * carries out, so what a key does to the game is in one place, the actions, one kind each.
+ * Nothing here talks to the terminal, so it is all tested by drawing into a tui::Screen and
+ * reading its lines.
  */
 namespace ui;
 
@@ -18,30 +19,132 @@ import "engine/money.gaz";
 import "engine/teams.gaz" use Team;
 import "engine/matches.gaz" use Goal, Booking, Whistle, Injury, Substitution;
 
-/* What the shell needs of a section */
-pub abstract kind View {
+/* ---- Actions: what a view asks the shell to do to the game ------------------------------- */
+
+/*
+ * A change to the game a key asked for. The shell carries it out, and what it gives is the note
+ * for the bottom line: what was done, or why it couldn't be.
+ */
+pub abstract kind Action {
+    pub abstract fn carry_out($game);
+}
+
+/* $note when the game reported no $problem, else the problem */
+fn done($problem, $note) {
+    return $problem == "" ? $note : $problem;
+}
+
+/* Swap one of the eleven with one from the bench */
+pub kind Swap extends Action {
+    fn _(pub #first, pub #second);
+
+    pub fn carry_out($game) {
+        return done($game.swap(#first, #second), "Lineup changed");
+    }
+}
+
+/* Pick the best eleven for the formation as it is */
+pub kind BestEleven extends Action {
+    pub fn carry_out($game) {
+        return done($game.auto_lineup(), "The best eleven, picked");
+    }
+}
+
+/* Change the formation, and pick the best eleven for it */
+pub kind Formation extends Action {
+    fn _(pub #name);
+
+    pub fn carry_out($game) {
+        return done($game.auto_lineup(#name), "{#name}, with the best eleven for it");
+    }
+}
+
+/* Set how attacking the side is, in or out of a match */
+pub kind Mentality extends Action {
+    fn _(pub #level);
+
+    pub fn carry_out($game) {
+        $game.set_mentality(#level);
+        return "Mentality: " .. $game.club.mentality_name();
+    }
+}
+
+/* Set how hard the side presses */
+pub kind Intensity extends Action {
+    fn _(pub #level);
+
+    pub fn carry_out($game) {
+        $game.set_intensity(#level);
+        return "Intensity: " .. $game.club.intensity_name();
+    }
+}
+
+/* Renew a player's contract */
+pub kind Renew extends Action {
+    fn _(pub #player);
+
+    pub fn carry_out($game) {
+        return done($game.renew(#player), "{#player} is on a contract until " .. date::format(#player.contract_until));
+    }
+}
+
+/* Buy a player from another club */
+pub kind Buy extends Action {
+    fn _(pub #player);
+
+    pub fn carry_out($game) {
+        return done($game.buy(#player), "Signed {#player}");
+    }
+}
+
+/* Sell one of the club's players */
+pub kind Sell extends Action {
+    fn _(pub #player);
+
+    pub fn carry_out($game) {
+        return done($game.sell(#player), "Sold {#player}");
+    }
+}
+
+/* Bring a player on for one of the eleven, during a match */
+pub kind Substitute extends Action {
+    fn _(pub #off, pub #on);
+
+    pub fn carry_out($game) {
+        return done($game.substitute(#off, #on), "{#on} on for {#off}");
+    }
+}
+
+/* The matchday is over: put its results in the table and the news in the inbox */
+pub kind EndMatchday extends Action {
+    pub fn carry_out($game) {
+        $game.end_matchday();
+        return "";
+    }
+}
+
+/* Nothing to change: a key couldn't be obeyed, and the note says why */
+pub kind Notice extends Action {
+    fn _(pub #text);
+
+    pub fn carry_out($game) {
+        return #text;
+    }
+}
+
+/* ---- Views ------------------------------------------------------------------------------- */
+
+/* A section of the game: a view that reads the game and never changes it */
+pub abstract kind GameView extends tui::View {
     fn _(kin #game);
-
-    pub abstract fn title();
-
-    /* Draw in $rect; $focused is whether keys are going to this view */
-    pub abstract fn draw($screen, $rect, $focused);
-
-    /* Take a key that reached the view. It changes nothing in the game: it gives null, or an action
-       for the shell to carry out (["swap", $a, $b], ["auto"]). */
-    pub abstract fn handle($key);
-
-    /* What the keys of this view do, as [keys, what they do]: for the line at the bottom and the
-       list ? shows. Empty keys are a prompt, said as it is. */
-    pub fn hints() { return []; }
 }
 
 /* Messages, the newest first: a list above and the one selected in full below */
-pub kind InboxView extends View {
+pub kind InboxView extends GameView {
     #table = tui::Table(["Date", "Subject"], []);
 
     pub fn title() { return "Inbox"; }
-    pub fn hints() { return [["j/k", "move"]]; }
+    pub fn hints() { return [tui::Hint("j/k", "move")]; }
 
     pub fn draw($screen, $rect, $focused) {
         $messages = reverse(#game.inbox);
@@ -53,7 +156,7 @@ pub kind InboxView extends View {
             return null;
         }
         $message = $messages[$index];
-        tui::box($screen, $rest.col, $rest.row, $rest.width, $rest.height, $message["subject"]);
+        tui::box($screen, $rest, $message["subject"]);
         tui::paragraph($screen, $rest.inset(1), $message["body"]);
     }
 
@@ -68,7 +171,7 @@ pub kind InboxView extends View {
  * each with its role and whether it can play. Enter picks a player and enter on another swaps
  * them (one from the eleven with one from the bench), and a picks the best eleven.
  */
-pub kind SquadView extends View {
+pub kind SquadView extends GameView {
     #table = tui::Table(["#", "Name", "Pos", "Age", "Rating", "Goals", "Role", "Status", "Contract"], [], ($row, $index) -> match {
         starts_with($row[1], "▸") => "bold cyan",
         $row[7] != "" => "red",
@@ -81,7 +184,15 @@ pub kind SquadView extends View {
 
     pub fn title() { return "Squad"; }
     pub fn hints() {
-        return [["j/k", "move"], ["enter", "pick, then enter to swap"], ["a", "best eleven"], ["r", "renew"], [". ,", "sort"], ["o", "reverse"], ["x", "unsorted"]];
+        return [
+            tui::Hint("j/k", "move"),
+            tui::Hint("enter", "pick, then enter to swap"),
+            tui::Hint("a", "best eleven"),
+            tui::Hint("r", "renew"),
+            tui::Hint(". ,", "sort"),
+            tui::Hint("o", "reverse"),
+            tui::Hint("x", "unsorted"),
+        ];
     }
 
     /* Put the game's squad in the table, the eleven first: done for a key as well as for a frame, so
@@ -99,8 +210,8 @@ pub kind SquadView extends View {
         [$body, $footer] = $rect.split_bottom(2);
         #table.draw($screen, $body, $focused);
         $help = #picked == null ? "Enter picks a player to swap: one of the eleven with one from the bench" : "Swap {#picked} with: move to the other player and press enter";
-        tui::label($screen, $footer.col, $footer.row, $footer.width, "{$club.formation()}   Team rating {$club.rating()}", "dim");
-        tui::label($screen, $footer.col, $footer.row + 1, $footer.width, $help, #picked == null ? "dim" : "cyan");
+        tui::label($screen, $footer.line(0), "{$club.formation()}   Team rating {$club.rating()}", "dim");
+        tui::label($screen, $footer.line(1), $help, #picked == null ? "dim" : "cyan");
     }
 
     pub fn handle($key) {
@@ -109,12 +220,12 @@ pub kind SquadView extends View {
         if ($name == "a") {
             #picked = null;
 
-            return ["auto"];
+            return BestEleven();
         }
         if ($name == "r") {
             $index = #table.selected_index();
 
-            return $index == null ? null : ["renew", #shown[$index]];
+            return $index == null ? null : Renew(#shown[$index]);
         }
         if ($name != "enter" && $name != "space") {
             #table.handle($key);
@@ -135,12 +246,17 @@ pub kind SquadView extends View {
         #picked = null;
 
         // the same player again puts him down
-        return $first == $player ? null : ["swap", $first, $player];
+        return $first == $player ? null : Swap($first, $player);
     }
 }
 
+/* A line of the fixture list: when it is, its cells, and whether it has been played */
+kind FixtureLine {
+    fn _(pub #when, pub #cells, pub #played);
+}
+
 /* The club's matches, played and to come */
-pub kind FixturesView extends View {
+pub kind FixturesView extends GameView {
     #table = tui::Table(["Date", "Home", "", "Away", "Score", "Res"], [], ($row, $index) -> match ($row[5]) {
         "W" => "green",
         "D" => "yellow",
@@ -149,11 +265,11 @@ pub kind FixturesView extends View {
     });
 
     pub fn title() { return "Fixtures"; }
-    pub fn hints() { return [["j/k", "move"]]; }
+    pub fn hints() { return [tui::Hint("j/k", "move")]; }
 
     pub fn draw($screen, $rect, $focused) {
         $club = #game.club;
-        $items = [];
+        $lines = [];
         foreach (#game.league.fixtures_of($club) as $fixture) {
             $match = $fixture["match"];
             $result = "";
@@ -163,29 +279,29 @@ pub kind FixturesView extends View {
                 $result = $mine > $theirs ? "W" : ($mine == $theirs ? "D" : "L");
                 $score = "{$match.home_goals} - {$match.away_goals}";
             }
-            $items[] = [$fixture["date"] ?? $fixture["matchday"], [$fixture["date"] == null ? $fixture["matchday"] : date::short($fixture["date"]), to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result], $match != null];
+            $lines[] = FixtureLine($fixture["date"] ?? $fixture["matchday"], [$fixture["date"] == null ? $fixture["matchday"] : date::short($fixture["date"]), to_string($fixture["home"]), "v", to_string($fixture["away"]), $score, $result], $match != null);
         }
         // The cup: the ties played, and the round the club is in next, whose draw isn't made yet
         foreach (#game.cup.fixtures_of($club) as $fixture) {
             $tie = $fixture["tie"];
             $day = $fixture["date"] == null ? "" : date::short($fixture["date"]);
             if ($tie == null) {
-                $items[] = [$fixture["date"] ?? 999999, [$day, "The Cup: " .. $fixture["round"], "cup", "(draw to come)", "-", ""], false];
+                $lines[] = FixtureLine($fixture["date"] ?? 999999, [$day, "The Cup: " .. $fixture["round"], "cup", "(draw to come)", "-", ""], false);
             } else {
                 $match = $tie.match;
                 $mine = $tie.winner() == $club;
-                $items[] = [$fixture["date"] ?? 0, [$day, to_string($match.home), "cup", to_string($match.away), "{$match.home_goals} - {$match.away_goals}" .. ($tie.penalties != null ? " pens" : ($tie.extra_time ? " aet" : "")), $mine ? "W" : "L"], true];
+                $lines[] = FixtureLine($fixture["date"] ?? 0, [$day, to_string($match.home), "cup", to_string($match.away), "{$match.home_goals} - {$match.away_goals}" .. ($tie.penalties != null ? " pens" : ($tie.extra_time ? " aet" : "")), $mine ? "W" : "L"], true);
             }
         }
-        $items = sort($items, ($a, $b) -> $a[0] <=> $b[0]);
+        $lines = sort($lines, ($a, $b) -> $a.when <=> $b.when);
         $rows = [];
         $next = true;
-        foreach ($items as [$when, $row, $played]) {
-            if (!$played && $next) {
-                $row[4] = "next ▸";
+        foreach ($lines as $line) {
+            if (!$line.played && $next) {
+                $line.cells[4] = "next ▸";
                 $next = false;
             }
-            $rows[] = $row;
+            $rows[] = $line.cells;
         }
         #table.set_rows($rows);
         #table.draw($screen, $rect, $focused);
@@ -201,7 +317,7 @@ pub kind FixturesView extends View {
  * The league table of the club's division, with the club's own row marked and the places that go
  * up green and the ones that go down red; d looks at the other division's.
  */
-pub kind LeagueView extends View {
+pub kind LeagueView extends GameView {
     #table;
     #other = false;
     /* How many clubs the division on show has, for where relegation begins */
@@ -223,7 +339,9 @@ pub kind LeagueView extends View {
     fn shown_level() { return #other ? 1 - #game.level : #game.level; }
 
     pub fn title() { return (#other ? #game.other_division_name() : #game.division_name()) .. " table"; }
-    pub fn hints() { return [["j/k", "move"], ["d", "other division"], [". ,", "sort"], ["o", "reverse"], ["x", "unsorted"]]; }
+    pub fn hints() {
+        return [tui::Hint("j/k", "move"), tui::Hint("d", "other division"), tui::Hint(". ,", "sort"), tui::Hint("o", "reverse"), tui::Hint("x", "unsorted")];
+    }
 
     pub fn draw($screen, $rect, $focused) {
         $rows = [];
@@ -247,7 +365,7 @@ pub kind LeagueView extends View {
 }
 
 /* A section that isn't built yet */
-pub kind PlaceholderView extends View {
+pub kind PlaceholderView extends GameView {
     fn _($game, #heading, #text) {
         ##_($game);
     }
@@ -270,21 +388,21 @@ fn signed($n) {
  * The club's money: the balance, what came in and went out this season, and every entry in the
  * books, newest first. Green in, red out.
  */
-pub kind FinancesView extends View {
+pub kind FinancesView extends GameView {
     #table = tui::Table(["MD", "Item", "Amount"], [], ($row, $index) -> starts_with($row[2], "-") ? "red" : "green");
 
     pub fn title() { return "Finances"; }
-    pub fn hints() { return [["j/k", "move"]]; }
+    pub fn hints() { return [tui::Hint("j/k", "move")]; }
 
     pub fn draw($screen, $rect, $focused) {
         $club = #game.club;
         $in = sum(map(filter(#game.ledger, $e -> $e["amount"] > 0), $e -> $e["amount"]));
         $out = -sum(map(filter(#game.ledger, $e -> $e["amount"] < 0), $e -> $e["amount"]));
         [$head, $body] = $rect.split_top(4);
-        tui::label($screen, $head.col, $head.row, $head.width, "Balance  " .. money::pounds($club.balance), $club.balance < 0 ? "bold red" : "bold green");
-        tui::label($screen, $head.col, $head.row + 1, $head.width, "Income   " .. money::pounds($in), "green");
-        tui::label($screen, $head.col, $head.row + 2, $head.width, "Spending " .. money::pounds($out), "red");
-        tui::label($screen, $head.col, $head.row + 3, $head.width, "Wages a season " .. money::pounds(money::wages($club)) .. "   Transfers: press 7", "dim");
+        tui::label($screen, $head.line(0), "Balance  " .. money::pounds($club.balance), $club.balance < 0 ? "bold red" : "bold green");
+        tui::label($screen, $head.line(1), "Income   " .. money::pounds($in), "green");
+        tui::label($screen, $head.line(2), "Spending " .. money::pounds($out), "red");
+        tui::label($screen, $head.line(3), "Wages a season " .. money::pounds(money::wages($club)) .. "   Transfers: press 7", "dim");
         #table.set_rows(map(reverse(#game.ledger), $e -> [$e["matchday"], $e["text"], ($e["amount"] > 0 ? "+" : "") .. money::pounds($e["amount"])]));
         #table.draw($screen, $body, $focused);
     }
@@ -300,14 +418,21 @@ pub kind FinancesView extends View {
  * Buying and selling. The market lists every player at the other clubs with the price they ask;
  * t switches to your own squad, with what a club would pay. Enter buys or sells the player picked.
  */
-pub kind TransfersView extends View {
+pub kind TransfersView extends GameView {
     #market = tui::Table(["Name", "Pos", "Age", "Rating", "Club", "Contract", "Price"], []).drop_when_narrow([5, 2]);
     #squad = tui::Table(["Name", "Pos", "Age", "Rating", "Goals", "Fee"], []).drop_when_narrow([4, 2]);
     #selling = false;
     #shown = [];
 
     pub fn title() { return #selling ? "Transfers: sell" : "Transfers: buy"; }
-    pub fn hints() { return [["j/k", "move"], ["enter", #selling ? "sell" : "buy"], ["t", #selling ? "buy instead" : "sell instead"], [". ,", "sort"]]; }
+    pub fn hints() {
+        return [
+            tui::Hint("j/k", "move"),
+            tui::Hint("enter", #selling ? "sell" : "buy"),
+            tui::Hint("t", #selling ? "buy instead" : "sell instead"),
+            tui::Hint(". ,", "sort"),
+        ];
+    }
 
     fn refresh() {
         $club = #game.club;
@@ -324,7 +449,7 @@ pub kind TransfersView extends View {
         #refresh();
         [$body, $footer] = $rect.split_bottom(2);
         (#selling ? #squad : #market).draw($screen, $body, $focused);
-        tui::label($screen, $footer.col, $footer.row, $footer.width, "Budget " .. money::pounds(#game.club.balance) .. "   Squad " .. len(#game.club.players) .. " of " .. Team::MAX_SQUAD, "bold");
+        tui::label($screen, $footer, "Budget " .. money::pounds(#game.club.balance) .. "   Squad " .. len(#game.club.players) .. " of " .. Team::MAX_SQUAD, "bold");
     }
 
     pub fn handle($key) {
@@ -343,9 +468,17 @@ pub kind TransfersView extends View {
             return null;
         }
         $index = $table.selected_index();
+        if ($index == null) {
+            return null;
+        }
 
-        return $index == null ? null : [#selling ? "sell" : "buy", #shown[$index]];
+        return #selling ? Sell(#shown[$index]) : Buy(#shown[$index]);
     }
+}
+
+/* One of the tactics: its name, what it is set to, and what that does */
+kind Setting {
+    fn _(pub #name, pub #value, pub #effect);
 }
 
 /*
@@ -353,22 +486,26 @@ pub kind TransfersView extends View {
  * between with j/k and change with h/l (or enter): the formation (which picks the best eleven for
  * it), how attacking the side is, and how hard it presses. What each does is said under it.
  */
-pub kind TacticsView extends View {
+pub kind TacticsView extends GameView {
+    /* The rows the picture of the eleven takes: a line of the pitch every other row, then a gap */
+    const PITCH_ROWS = 9;
+    /* Each setting takes its row, the row under it for what it does, and a blank one */
+    const ROWS_A_SETTING = 3;
     #row = 0;
 
     pub fn title() { return "Tactics"; }
-    pub fn hints() { return [["j/k", "choose"], ["h/l", "change"]]; }
+    pub fn hints() { return [tui::Hint("j/k", "choose"), tui::Hint("h/l", "change")]; }
 
-    /* [name, value, what it does] for each setting; the percentages are Team's factors */
+    /* Each setting; the percentages are Team's factors */
     fn settings() {
         $club = #game.club;
         $mentality = $club.mentality - 2;
         $intensity = $club.intensity - 1;
 
         return [
-            ["Formation", $club.formation(), "Picks the best eleven who can play in it"],
-            ["Mentality", $club.mentality_name(), "Attack " .. signed(12 * $mentality) .. "%, defence " .. signed(-10 * $mentality) .. "%: a side that attacks leaves gaps"],
-            ["Intensity", $club.intensity_name(), "Attack " .. signed(5 * $intensity) .. "%, tiredness " .. signed(25 * $intensity) .. "%: pressing hard wears players out"],
+            Setting("Formation", $club.formation(), "Picks the best eleven who can play in it"),
+            Setting("Mentality", $club.mentality_name(), "Attack " .. signed(12 * $mentality) .. "%, defence " .. signed(-10 * $mentality) .. "%: a side that attacks leaves gaps"),
+            Setting("Intensity", $club.intensity_name(), "Attack " .. signed(5 * $intensity) .. "%, tiredness " .. signed(25 * $intensity) .. "%: pressing hard wears players out"),
         ];
     }
 
@@ -377,16 +514,18 @@ pub kind TacticsView extends View {
         /* the eleven, a row a line of the pitch: forwards at the top */
         foreach (["FW", "MF", "DF", "GK"] as $i => $position) {
             $names = map(filter($club.eleven(), $p -> $p.position() == $position), $p -> $p.number .. " " .. $p);
-            tui::label($screen, $rect.col, $rect.row + $i * 2, $rect.width, join($names, "   "), match ($position) { "GK" => "yellow", "DF" => "blue", "MF" => "green", default => "red" }, "center");
+            tui::label($screen, $rect.line($i * 2), join($names, "   "), match ($position) { "GK" => "yellow", "DF" => "blue", "MF" => "green", default => "red" }, "center");
         }
-        $top = $rect.row + 9;
-        foreach (#settings() as $i => [$name, $value, $effect]) {
+        [, $settings] = $rect.split_top(#PITCH_ROWS);
+        foreach (#settings() as $i => $setting) {
             $selected = $i == #row;
-            tui::label($screen, $rect.col, $top + $i * 3, $rect.width, ($selected ? "▸ " : "  ") .. pad_right($name, 10) .. "◂ " .. $value .. " ▸", $selected && $focused ? "bold cyan" : ($selected ? "bold" : ""));
-            tui::label($screen, $rect.col + 2, $top + $i * 3 + 1, $rect.width - 2, $effect, "dim");
+            $line = $settings.line($i * #ROWS_A_SETTING);
+            tui::label($screen, $line, ($selected ? "▸ " : "  ") .. pad_right($setting.name, 10) .. "◂ " .. $setting.value .. " ▸", $selected && $focused ? "bold cyan" : ($selected ? "bold" : ""));
+            [, $effect] = $settings.line($i * #ROWS_A_SETTING + 1).split_left(2);
+            tui::label($screen, $effect, $setting.effect, "dim");
         }
         if (#game.live != null) {
-            tui::label($screen, $rect.col, $top + 9, $rect.width, "The formation can't change during a match.", "dim");
+            tui::label($screen, $settings.line(len(#settings()) * #ROWS_A_SETTING), "The formation can't change during a match.", "dim");
         }
     }
 
@@ -416,13 +555,13 @@ pub kind TacticsView extends View {
                 }
             }
 
-            return ["formation", $formations[($at + $step + len($formations)) % len($formations)]];
+            return Formation($formations[($at + $step + len($formations)) % len($formations)]);
         }
         if (#row == 1) {
-            return ["mentality", $club.mentality + $step];
+            return Mentality($club.mentality + $step);
         }
 
-        return ["intensity", $club.intensity + $step];
+        return Intensity($club.intensity + $step);
     }
 }
 
@@ -447,14 +586,27 @@ fn event_style($event, $club) {
     return "";
 }
 
+/* A line of the commentary as drawn: its text, wrapped, and the style of its event */
+kind CommentaryLine {
+    fn _(pub #text, pub #style);
+}
+
 /*
  * The matchday being played, as it happens: the score and the clock, what is being said about
  * the club's match, the club's eleven with their goals and cards, and the other matches' scores.
  * Time passes when the shell calls step(); the view says how much, since it has the speed.
  */
-pub kind MatchView extends View {
+pub kind MatchView extends GameView {
     /* Minutes played each time step() is called, at each speed */
     const SPEEDS = [1, 2, 5, 15];
+    /* The rows of the head: the score, how the side plays, and a rule */
+    const HEAD_ROWS = 3;
+    /* The columns the state ("Paused", the speed) and the clock take at the head's ends */
+    const STATE_WIDTH = 12;
+    const CLOCK_WIDTH = 6;
+    /* The rows the eleven and the other matches take below the commentary, at most, and the rows the commentary keeps */
+    const PANEL_ROWS = 13;
+    const COMMENTARY_ROWS = 5;
     #speed = 0;
     #paused = false;
     /* A substitution being made: null, or the player going off once chosen, and where in the list the cursor is */
@@ -467,13 +619,20 @@ pub kind MatchView extends View {
     pub fn hints() {
         if (#making != null) {
             $question = #off == null ? "Who goes off?" : "Who comes on for {#off}?";
-            return [["", $question], ["j/k", "move"], ["enter", "choose"], ["escape", "cancel"]];
+            return [tui::Hint::prompt($question), tui::Hint("j/k", "move"), tui::Hint("enter", "choose"), tui::Hint("escape", "cancel")];
         }
         if (#game.live.finished()) {
-            return [["c", "continue"]];
+            return [tui::Hint("c", "continue")];
         }
 
-        return [["space", "pause"], ["+/-", "speed"], ["s", "skip"], ["w", "substitute"], ["[ ]", "mentality"], ["i", "intensity"]];
+        return [
+            tui::Hint("space", "pause"),
+            tui::Hint("+/-", "speed"),
+            tui::Hint("s", "skip"),
+            tui::Hint("w", "substitute"),
+            tui::Hint("[ ]", "mentality"),
+            tui::Hint("i", "intensity"),
+        ];
     }
 
     /* Whether a substitution is being chosen, which stops the clock */
@@ -503,8 +662,9 @@ pub kind MatchView extends View {
         }
     }
 
-    /* Take a key: "end" when the matchday is over and it is time to go on, a message to show
-       when a key can't be obeyed, and null otherwise */
+    /* Take a key: an Action for the shell (EndMatchday when the matchday is over and it is time to
+       go on, a Notice when a key can't be obeyed, a Substitute or a change of tactics), and null
+       otherwise */
     pub fn handle($key) {
         $day = #game.live;
         if (#making != null) {
@@ -513,18 +673,18 @@ pub kind MatchView extends View {
         match (term::name($key)) {
             "w" => {
                 if ($day.finished()) {
-                    return "The match is over";
+                    return Notice("The match is over");
                 }
                 if (!#game.club.can_substitute()) {
-                    return "No substitutions left";
+                    return Notice("No substitutions left");
                 }
                 #making = true;
                 #off = null;
                 #cursor = 0;
             }
-            "[" => { return ["mentality", #game.club.mentality - 1]; }
-            "]" => { return ["mentality", #game.club.mentality + 1]; }
-            "i" => { return ["intensity", (#game.club.intensity + 1) % 3]; }
+            "[" => { return Mentality(#game.club.mentality - 1); }
+            "]" => { return Mentality(#game.club.mentality + 1); }
+            "i" => { return Intensity((#game.club.intensity + 1) % 3); }
             "space" => { #paused = !#paused; }
             "+", "=" => { #speed = min(#speed + 1, len(#SPEEDS) - 1); }
             "-" => { #speed = max(#speed - 1, 0); }
@@ -535,10 +695,10 @@ pub kind MatchView extends View {
             }
             "c", "enter" => {
                 if ($day.finished()) {
-                    return "end";
+                    return EndMatchday();
                 }
 
-                return "The match isn't over: s skips to the end";
+                return Notice("The match isn't over: s skips to the end");
             }
             default => {}
         }
@@ -558,11 +718,11 @@ pub kind MatchView extends View {
                     #making = null;
                     #off = null;
 
-                    return "There is nobody on the bench who can play";
+                    return Notice("There is nobody on the bench who can play");
                 }
                 if (#off == null) {
                     if (#game.club.substitutes($list[#cursor]) == []) {
-                        return "Nobody on the bench can come on for {$list[#cursor]}: they are hurt, banned or only goalkeepers";
+                        return Notice("Nobody on the bench can come on for {$list[#cursor]}: they are hurt, banned or only goalkeepers");
                     }
                     #off = $list[#cursor];
                     #cursor = 0;
@@ -574,7 +734,7 @@ pub kind MatchView extends View {
                 #making = null;
                 #off = null;
 
-                return ["substitute", $off, $on];
+                return Substitute($off, $on);
             }
             default => {}
         }
@@ -587,48 +747,35 @@ pub kind MatchView extends View {
         $club = #game.club;
         $mine = $day.mine;
         if ($mine == null) {
-            $screen.put($rect.col, $rect.row, "{$club} doesn't play this matchday.", "dim");
+            tui::label($screen, $rect, "{$club} doesn't play this matchday.", "dim");
 
             return null;
         }
 
         /* the score, in the middle, with what the game is doing on the left and the clock on the right */
-        [$head, $rest] = $rect.split_top(3);
+        [$head, $rest] = $rect.split_top(#HEAD_ROWS);
         $state = $day.finished() ? "Full time" : (#making != null ? "Paused" : (#paused ? "Paused" : "▶ x" .. #SPEEDS[#speed]));
-        tui::label($screen, $head.col, $head.row, $head.width, to_string($mine), "bold yellow", "center");
-        tui::label($screen, $head.col, $head.row + 1, $head.width, "{$club.mentality_name()}, {$club.intensity_name()} intensity", match ($club.mentality) { 0, 1 => "blue", 2 => "dim", default => "magenta" }, "center");
-        tui::label($screen, $head.col, $head.row, min(12, $head.width), $state, $day.finished() ? "bold" : "dim");
-        tui::label($screen, $head.col + max($head.width - 6, 0), $head.row, min(6, $head.width), $day.clock() .. "'", "bold", "right");
-        $screen.put($head.col, $head.row + 2, repeat("─", $head.width), "dim");
+        tui::label($screen, $head.line(0), to_string($mine), "bold yellow", "center");
+        tui::label($screen, $head.line(1), "{$club.mentality_name()}, {$club.intensity_name()} intensity", match ($club.mentality) { 0, 1 => "blue", 2 => "dim", default => "magenta" }, "center");
+        $state_part = $head.line(0).split_left(#STATE_WIDTH)[0];
+        tui::label($screen, $state_part, $state, $day.finished() ? "bold" : "dim");
+        [, $clock] = $head.line(0).split_right(#CLOCK_WIDTH);
+        tui::label($screen, $clock, $day.clock() .. "'", "bold", "right");
+        $screen.fill($head.line(2), "─", "dim");
 
         /* the eleven and the other matches below, as much of them as fits, and the commentary above */
-        [$commentary, $panels] = $rest.split_bottom(min(13, max($rest.height - 5, 0)));
+        [$commentary, $panels] = $rest.split_bottom(min(#PANEL_ROWS, max($rest.height - #COMMENTARY_ROWS, 0)));
         if (#making != null) {
             // choosing takes the whole of the space below the score
-            $commentary = $rest;
-            $screen.put($commentary.col, $commentary.row, #off == null ? "Substitution ({$club.substitutions} of 3 used): who goes off?" : "Who comes on for {#off}?", "bold cyan");
-            foreach (slice(#candidates(), 0, max($commentary.height - 1, 0)) as $i => $player) {
-                tui::label($screen, $commentary.col + 2, $commentary.row + 1 + $i, $commentary.width - 2, ($i == #cursor ? "▸ " : "  ") .. $player.profile() .. ($player.status() == "" ? "" : "  " .. $player.status()), $i == #cursor ? "bold cyan" : "");
-            }
+            #draw_choice($screen, $rest, $club);
 
             return null;
-        } else if (len($day.commentary) == 0) {
-            $screen.put($commentary.col, $commentary.row, "The teams are out.", "dim");
         }
-        if (#making == null) {
-            /* newest first, each under its minute and wrapped to the pane, so a long line keeps its score */
-            $lines = [];
-            foreach (reverse($day.commentary) as $event) {
-                if (len($lines) >= $commentary.height) {
-                    break;
-                }
-                foreach (tui::wrap($event.describe(), max($commentary.width - 6, 10)) as $i => $part) {
-                    $lines[] = [($i == 0 ? pad_left("{$event.minute}'", 4) .. "  " : "      ") .. $part, event_style($event, $club)];
-                }
-            }
-            foreach (slice($lines, 0, $commentary.height) as $i => [$text, $style]) {
-                tui::label($screen, $commentary.col, $commentary.row + $i, $commentary.width, $text, $style);
-            }
+        if (len($day.commentary) == 0) {
+            tui::label($screen, $commentary, "The teams are out.", "dim");
+        }
+        foreach (#commentary_lines($day, $club, $commentary) as $i => $line) {
+            tui::label($screen, $commentary.line($i), $line.text, $line.style);
         }
         if ($panels.height < 3) {
             return null;
@@ -636,21 +783,46 @@ pub kind MatchView extends View {
         $rows = map($club.eleven(), $player -> [$player.number, to_string($player), $player.position(), $player.match_goals, $player.sent_off ? "R" : ($player.hurt ? "+" : ($player.yellow_cards > 0 ? "Y" : ""))]);
         $headers = ["#", "Name", "Pos", "G", "C"];
         [$eleven, $others] = $panels.split_left(min(tui::table_width($headers, $rows) + 2, $panels.width));
-        tui::table($screen, $eleven.col, $eleven.row, $headers, slice($rows, 0, max($eleven.height - 2, 0)));
+        tui::table($screen, $eleven, $headers, $rows);
         if ($others.width > 4) {
             #draw_others($screen, $others, $day, $mine);
         }
     }
 
+    /* The substitution being chosen: the question, then the players to choose from with the cursor on one */
+    fn draw_choice($screen, $rect, $club) {
+        tui::label($screen, $rect.line(0), #off == null ? "Substitution ({$club.substitutions} of 3 used): who goes off?" : "Who comes on for {#off}?", "bold cyan");
+        [, $below] = $rect.split_top(1);
+        [, $list] = $below.split_left(2);
+        foreach (slice(#candidates(), 0, $list.height) as $i => $player) {
+            tui::label($screen, $list.line($i), ($i == #cursor ? "▸ " : "  ") .. $player.profile() .. ($player.status() == "" ? "" : "  " .. $player.status()), $i == #cursor ? "bold cyan" : "");
+        }
+    }
+
+    /* The commentary as drawn in $rect: newest first, each under its minute and wrapped to the pane, so a long line keeps its score */
+    fn commentary_lines($day, $club, $rect) {
+        $lines = [];
+        foreach (reverse($day.commentary) as $event) {
+            if (len($lines) >= $rect.height) {
+                break;
+            }
+            foreach (tui::wrap($event.describe(), max($rect.width - 6, 10)) as $i => $part) {
+                $lines[] = CommentaryLine(($i == 0 ? pad_left("{$event.minute}'", 4) .. "  " : "      ") .. $part, event_style($event, $club));
+            }
+        }
+
+        return slice($lines, 0, $rect.height);
+    }
+
     // The other matches of the matchday, in full where they fit and by the clubs' short names where not
     fn draw_others($screen, $rect, $day, $mine) {
-        $width = $rect.width - 2;
-        tui::label($screen, $rect.col + 2, $rect.row, $width, "Other matches", "bold");
+        [, $inner] = $rect.split_left(2);
+        tui::label($screen, $inner.line(0), "Other matches", "bold");
         $others = filter($day.matches, $match -> $match != $mine);
-        $fits = reduce($others, ($fits, $match) -> $fits && term::width(to_string($match)) <= $width, true);
-        foreach (slice($others, 0, max($rect.height - 2, 0)) as $line => $match) {
-            $text = $fits ? to_string($match) : short_result($match);
-            tui::label($screen, $rect.col + 2, $rect.row + 2 + $line, $width, $text);
+        $fits = reduce($others, ($fits, $match) -> $fits && term::width(to_string($match)) <= $inner.width, true);
+        [, $list] = $inner.split_top(2);
+        foreach (slice($others, 0, $list.height) as $i => $match) {
+            tui::label($screen, $list.line($i), $fits ? to_string($match) : short_result($match));
         }
     }
 }
@@ -665,15 +837,22 @@ fn short_result($match) {
     return short_name($match.home) .. " {$match.home_goals}-{$match.away_goals} " .. short_name($match.away);
 }
 
+/* ---- The shell --------------------------------------------------------------------------- */
+
+/* A section of the shell: what the menu calls it, and the view that draws it */
+pub kind Section {
+    fn _(pub #name, pub #view);
+}
+
 /*
- * The whole screen. Keys: 1 to 6 (or the arrows in the menu) choose a section, tab moves between
+ * The whole screen. Keys: 1 to 7 (or the arrows in the menu) choose a section, tab moves between
  * the menu and the section, escape goes back to the menu, c moves time on to the next matchday
  * and q quits; the rest go to the section on show.
  */
 pub kind Shell {
-    // The keys that work on every screen, and while a match is on
-    const KEYS = [["1-7", "sections"], ["tab", "menu or section"], ["escape", "back to the menu"], ["c", "continue"], ["C", "play the match at once"], ["S", "save"], ["q", "quit"]];
-    const MATCH_KEYS = [["ctrl+c", "quit"]];
+    /* The columns of the menu, and of the key to press at the bar's right end */
+    const MENU_WIDTH = 16;
+    const NEXT_WIDTH = 14;
 
     #current = 0;
     #where = "menu";
@@ -684,58 +863,86 @@ pub kind Shell {
 
     pub static fn for_game($game, $save_path = null) {
         return Shell($game, [
-            ["Inbox", InboxView($game)],
-            ["Squad", SquadView($game)],
-            ["Tactics", TacticsView($game)],
-            ["Fixtures", FixturesView($game)],
-            ["Table", LeagueView($game)],
-            ["Finances", FinancesView($game)],
-            ["Transfers", TransfersView($game)],
+            Section("Inbox", InboxView($game)),
+            Section("Squad", SquadView($game)),
+            Section("Tactics", TacticsView($game)),
+            Section("Fixtures", FixturesView($game)),
+            Section("Table", LeagueView($game)),
+            Section("Finances", FinancesView($game)),
+            Section("Transfers", TransfersView($game)),
         ], MatchView($game), $save_path);
     }
 
+    // The keys that work on every screen, and while a match is on
+    fn keys_everywhere() {
+        return [
+            tui::Hint("1-7", "sections"),
+            tui::Hint("tab", "menu or section"),
+            tui::Hint("escape", "back to the menu"),
+            tui::Hint("c", "continue"),
+            tui::Hint("C", "play the match at once"),
+            tui::Hint("S", "save"),
+            tui::Hint("q", "quit"),
+        ];
+    }
+
+    fn keys_in_a_match() {
+        return [tui::Hint("ctrl+c", "quit")];
+    }
+
     /* Which section is on show, by name, and whether keys go to the menu or the section */
-    pub fn section() { return #sections[#current][0]; }
+    pub fn section() { return #sections[#current].name; }
     pub fn focus() { return #where; }
     pub fn notice() { return #note; }
+
+    /* The view keys go to: the matchday being played, or the section on show */
+    fn current_view() {
+        return #game.live != null ? #match : #sections[#current].view;
+    }
 
     pub fn draw($screen) {
         [$top, $rest] = $screen.bounds().split_top(1);
         [$rest, $bottom] = $rest.split_bottom(1);
-        [$menu, $content] = $rest.split_left(min(16, $rest.width));
-        $league = #game.league;
+        [$menu, $content] = $rest.split_left(min(#MENU_WIDTH, $rest.width));
         $live = #game.live != null;
 
-        /* the bar: the club on the left, where the season is in the middle, the key to press on the right */
-        $screen.fill($top.col, $top.row, $top.width, 1, " ", "inverse");
-        tui::label($screen, $top.col + term::width(#game.club.name) + 3, $top.row, max($top.width - term::width(#game.club.name) - 17, 0), #status(), "inverse", "center");
-        tui::label($screen, $top.col, $top.row, term::width(#game.club.name) + 2, " " .. #game.club.name, "bold inverse");
-        $next = match {
-            $live && !#game.live.finished() => "s Skip ▸ ",
-            #game.sacked() => "q Quit ▸ ",
-            default => "c Continue ▸ ",
-        };
-        tui::label($screen, $top.col + $top.width - 14, $top.row, 14, $next, "bold inverse", "right");
+        #draw_bar($screen, $top, $live);
 
         /* a matchday being played takes over the section, and the menu waits */
         $in_menu = #where == "menu" && !$live;
-        tui::box($screen, $menu.col, $menu.row, $menu.width, $menu.height, "", $in_menu ? "cyan" : "");
+        tui::box($screen, $menu, "", $in_menu ? "cyan" : "");
         $inside = $menu.inset(1);
-        foreach (#sections as $i => [$title, $view]) {
+        foreach (#sections as $i => $section) {
             $shown = $i == #current && !$live;
-            tui::label($screen, $inside.col, $inside.row + $i, $inside.width, " " .. ($i + 1) .. " " .. $title, $live ? "dim" : ($shown ? ($in_menu ? "inverse" : "bold") : ""));
+            tui::label($screen, $inside.line($i), " " .. ($i + 1) .. " " .. $section.name, $live ? "dim" : ($shown ? ($in_menu ? "inverse" : "bold") : ""));
         }
         [, $below] = $inside.split_top(len(#sections) + 1);
         #draw_board($screen, $below);
 
-        $view = $live ? #match : #sections[#current][1];
-        tui::box($screen, $content.col, $content.row, $content.width, $content.height, $view.title(), $in_menu ? "" : "cyan");
+        $view = #current_view();
+        tui::box($screen, $content, $view.title(), $in_menu ? "" : "cyan");
         $view.draw($screen, $content.inset(1), !$in_menu);
 
         #draw_bottom($screen, $bottom, $view);
         if (#keys_shown) {
             #draw_keys($screen, $view);
         }
+    }
+
+    /* The bar: the club on the left, where the season is in the middle, the key to press on the right */
+    fn draw_bar($screen, $rect, $live) {
+        $screen.fill($rect, " ", "inverse");
+        [$club, $rest] = $rect.split_left(term::width(#game.club.name) + 2);
+        [$rest, $next] = $rest.split_right(#NEXT_WIDTH);
+        [, $status] = $rest.split_left(1);
+        tui::label($screen, $club, " " .. #game.club.name, "bold inverse");
+        tui::label($screen, $status, #status(), "inverse", "center");
+        $key = match {
+            $live && !#game.live.finished() => "s Skip ▸ ",
+            #game.sacked() => "q Quit ▸ ",
+            default => "c Continue ▸ ",
+        };
+        tui::label($screen, $next, $key, "bold inverse", "right");
     }
 
     /* The board, under the menu: how much it trusts the manager, as a bar and a word, and what it wants */
@@ -750,13 +957,12 @@ pub kind Shell {
             $board.confidence > 25 => "yellow",
             default => "red",
         };
-        $col = $rect.col + 1;
-        $width = $rect.width - 2;
-        tui::label($screen, $col, $rect.row, $width, "Board", "bold");
-        tui::progress($screen, $col, $rect.row + 1, $width, $board.confidence / 100, $style);
-        tui::label($screen, $col, $rect.row + 2, $width, #game.sacked() ? "Sacked" : $board.mood(), $style);
-        tui::label($screen, $col, $rect.row + 3, $width, "Aim", "dim");
-        tui::label($screen, $col, $rect.row + 4, $width, $board.aim);
+        $inner = $rect.inset(1, 0);
+        tui::label($screen, $inner.line(0), "Board", "bold");
+        tui::progress($screen, $inner.line(1), $board.confidence / 100, $style);
+        tui::label($screen, $inner.line(2), #game.sacked() ? "Sacked" : $board.mood(), $style);
+        tui::label($screen, $inner.line(3), "Aim", "dim");
+        tui::label($screen, $inner.line(4), $board.aim);
     }
 
     /* Where the season is: the date, the matchday or the cup's round, and the club's place once there is one */
@@ -772,17 +978,17 @@ pub kind Shell {
 
     /* The line at the bottom: a notice, or the section's keys as many as fit, and ? for the rest */
     fn draw_bottom($screen, $rect, $view) {
-        $width = max($rect.width - 2, 0);
+        $line = $rect.inset(1, 0);
         if (#note != "") {
-            tui::label($screen, $rect.col + 1, $rect.row, $width, #note, "bold yellow");
+            tui::label($screen, $line, #note, "bold yellow");
             return null;
         }
-        tui::hints($screen, $rect.col + 1, $rect.row, $width, $view.hints(), "? keys");
+        tui::hints($screen, $line, $view.hints(), "? keys");
     }
 
     /* Every key there is on this screen, in a box over it, until the next key */
     fn draw_keys($screen, $view) {
-        tui::key_help($screen, [[$view.title(), $view.hints()], ["Everywhere", #game.live != null ? #MATCH_KEYS : #KEYS]]);
+        tui::key_help($screen, {$view.title() => $view.hints(), "Everywhere" => #game.live != null ? #keys_in_a_match() : #keys_everywhere()});
     }
 
     /* Time passes, while nobody is pressing keys: a matchday being played moves on, unless the keys are being read */
@@ -811,15 +1017,10 @@ pub kind Shell {
                 #note = "Finish the match first: s skips to the end";
                 return null;
             }
-            $result = #match.handle($key);
-            if (type_of($result) == "list") {
-                #carry_out($result);
-            } else if ($result == "end") {
-                #game.end_matchday();
-                // the inbox is where a matchday's news is
+            #carry_out(#match.handle($key));
+            if (#game.live == null) {
+                // the matchday ended: the inbox is where its news is
                 #current = 0;
-            } else if ($result != null) {
-                #note = $result;
             }
 
             return null;
@@ -875,39 +1076,14 @@ pub kind Shell {
             #where = "menu";
             return null;
         }
-        $action = #sections[#current][1].handle($key);
-        if ($action != null) {
-            #carry_out($action);
-        }
+        #carry_out(#sections[#current].view.handle($key));
         return null;
     }
 
-    /* What a section asked for: the game changes here, in one place */
+    /* What a section asked for, or nothing: the game changes here, through the action, and the note says what happened */
     fn carry_out($action) {
-        if ($action[0] == "swap") {
-            $problem = #game.swap($action[1], $action[2]);
-            #note = $problem == "" ? "Lineup changed" : $problem;
-        } else if ($action[0] == "auto") {
-            $problem = #game.auto_lineup();
-            #note = $problem == "" ? "The best eleven, picked" : $problem;
-        } else if ($action[0] == "formation") {
-            $problem = #game.auto_lineup($action[1]);
-            #note = $problem == "" ? "{$action[1]}, with the best eleven for it" : $problem;
-        } else if ($action[0] == "mentality") {
-            #game.set_mentality($action[1]);
-            #note = "Mentality: " .. #game.club.mentality_name();
-        } else if ($action[0] == "intensity") {
-            #game.set_intensity($action[1]);
-            #note = "Intensity: " .. #game.club.intensity_name();
-        } else if ($action[0] == "renew") {
-            $problem = #game.renew($action[1]);
-            #note = $problem == "" ? "{$action[1]} is on a contract until " .. date::format($action[1].contract_until) : $problem;
-        } else if ($action[0] == "buy" || $action[0] == "sell") {
-            $problem = $action[0] == "buy" ? #game.buy($action[1]) : #game.sell($action[1]);
-            #note = $problem == "" ? ($action[0] == "buy" ? "Signed {$action[1]}" : "Sold {$action[1]}") : $problem;
-        } else if ($action[0] == "substitute") {
-            $problem = #game.substitute($action[1], $action[2]);
-            #note = $problem == "" ? "{$action[2]} on for {$action[1]}" : $problem;
+        if ($action != null) {
+            #note = $action.carry_out(#game);
         }
     }
 }

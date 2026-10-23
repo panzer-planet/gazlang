@@ -523,6 +523,16 @@ A new open item is filed as an issue with a topic and a kind label, never added 
     is saved with a `.dir` file naming that directory, where `--shrink` runs it again. What a
     mutant imports is the files its bytecode's `@` lines name (as `gaz --watch` finds them, from
     an unsanitized `gaz -c`), not a regex following import lines.
+- **The terminal toolkit (`lib/tui.gaz`) speaks in Rects**: every drawing function and widget
+  draw takes a `tui::Rect`, and only `Screen.put()` and `Screen.cursor()` take a column and a row,
+  since a cell is addressed by its column and nothing else is; a function that draws one row draws
+  on the Rect's first and nothing on one of no height, so a view writes `$rect.line($n)` and never
+  checks. A widget's `handle()` answers with `tui::Outcome` (`Select`, `Cancel`, `Submit`) or null,
+  never a string a caller could misspell; `tui::View` (`title()`, `draw($screen, $rect, $focused)`,
+  `handle($key)`, `hints()` as `tui::Hint`s) is what a shell asks of a section, the shell routing
+  keys by hand, with no widget tree or focus model. The column shapes are gone, not kept as twins.
+  `games/football/ui.gaz` is the model of a shell, its actions a kind per verb; the reasons are in
+  `docs/library.md`.
 - **Before changing `lib/http.gaz` or `vm/workers.c`, read `docs/http.md`**: the HTTP client and
   server (prefork `workers()` processes, the master reading request heads and handing workers
   whole ones, keep-alive and the single process's idle yield, the worker hand-over, reloading on

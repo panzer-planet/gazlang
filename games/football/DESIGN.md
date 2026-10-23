@@ -42,8 +42,9 @@ twenty-four clubs and squads of seventeen, to begin with. Names are made up, mos
 - `game.gaz`: the state of a game (clubs, the manager's club, the inbox) and moving time on. It
   never draws or reads a key.
 - `ui.gaz`: a `Shell` cuts the screen up with `tui::Rect` and hands each section a rectangle; a
-  `View` per section draws in it. Views only read the game; the shell changes it, so what a key does
-  is in one place.
+  `tui::View` per section draws in it. Views only read the game: a key gives an `Action` (a kind
+  per verb, `Swap`, `Buy`, `Substitute`, each with `carry_out($game)` giving the note for the
+  bottom line), which the shell carries out, so what a key does to the game is in one place.
 - `main.gaz`: the launcher, and the only file that needs a terminal.
 - Widgets that more than this game needs belong in `lib/tui.gaz`, not here (`Rect` and `Table`
   began as this game's).

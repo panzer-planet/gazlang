@@ -9,12 +9,16 @@
  * without a terminal.
  *
  *     $screen = tui::Screen(80, 24);
- *     tui::box($screen, 1, 1, 30, 5, "Title");
- *     tui::label($screen, 3, 3, 26, "hello", "bold");
+ *     $panel = tui::Rect(1, 1, 30, 5);
+ *     tui::box($screen, $panel, "Title");
+ *     tui::label($screen, $panel.inset(2), "hello", "bold");
  *     print($screen.render());
  *
- * Interactive widgets (Menu, TextField) take keys from term::Input and draw themselves; choose()
- * and ask() are each one of them run as a screen of its own.
+ * Everything that draws takes a Rect, a part of the screen, and a view cuts the one it is given
+ * into parts with the split_ methods, so only Screen.put() and Screen.cursor() speak in columns.
+ * Interactive widgets (Table, Menu, TextField) take keys from term::Input, answer with an Outcome
+ * or null, and draw themselves; choose() and ask() are each one of them run as a screen of its
+ * own. A View is what a full-screen program's shell asks of each section it shows.
  */
 namespace tui;
 
@@ -270,13 +274,13 @@ pub kind Screen {
     }
 
     /**
-     * A $width by $height rectangle of $char in $style; a wide $char fills $width columns, so
-     * an odd width leaves its last column as it was
+     * $rect filled with $char in $style; a wide $char fills the width in columns, so an odd
+     * width leaves its last column as it was
      */
-    pub fn fill($col, $row, $width, $height, $char = " ", $style = "") {
-        $line = repeat($char, intdiv(max($width, 0), max(utf8_width($char), 1)));
-        for ($i = 0; $i < $height; $i++) {
-            #put($col, $row + $i, $line, $style);
+    pub fn fill($rect, $char = " ", $style = "") {
+        $line = repeat($char, intdiv(max($rect.width, 0), max(utf8_width($char), 1)));
+        for ($i = 0; $i < $rect.height; $i++) {
+            #put($rect.col, $rect.row + $i, $line, $style);
         }
     }
 
@@ -464,9 +468,10 @@ fn fit($text, $width) {
 }
 
 /**
- * A rectangle of the screen: where it starts (columns and rows count from 1) and how big. A view
- * is given one to draw in and cuts it up with the split_ methods for its parts, so it does no
- * column arithmetic of its own, and a part that doesn't fit is smaller, never negative.
+ * A rectangle of the screen: where it starts (columns and rows count from 1) and how big. Every
+ * drawing function takes one, and a view is given one to draw in and cuts it up with the split_
+ * methods, inset() and line() for its parts, so it does no column arithmetic of its own; a part
+ * that doesn't fit is smaller, never negative, and one of no width or height draws nothing.
  */
 pub kind Rect {
     /**
@@ -475,10 +480,26 @@ pub kind Rect {
     fn _(pub #col, pub #row, pub #width, pub #height);
 
     /**
-     * Shrunk by $n on every side, to nothing at the least
+     * Shrunk by $cols on the left and the right and $rows at the top and the bottom, to nothing
+     * at the least: inset(1) is the inside of a box drawn in it
      */
-    pub fn inset($n = 1) {
-        return Rect(#col + $n, #row + $n, max(#width - 2 * $n, 0), max(#height - 2 * $n, 0));
+    pub fn inset($cols = 1, $rows = $cols) {
+        return Rect(#col + $cols, #row + $rows, max(#width - 2 * $cols, 0), max(#height - 2 * $rows, 0));
+    }
+
+    /**
+     * Row $n of the rectangle (from 0) as a Rect one row high, for a label on it; past the last
+     * row it has no height, so a label there draws nothing
+     */
+    pub fn line($n) {
+        return Rect(#col, #row + $n, #width, $n >= 0 && $n < #height ? 1 : 0);
+    }
+
+    /**
+     * Whether nothing can be drawn in it: no width or no height
+     */
+    pub fn is_empty() {
+        return #width <= 0 || #height <= 0;
     }
 
     /**
@@ -517,32 +538,34 @@ pub kind Rect {
 /* ---- Drawing ----------------------------------------------------------------------------- */
 
 /**
- * $text in a field $width columns wide, cut off if longer (a wide character that doesn't fit is
- * left out whole) and padded if shorter, $align "left", "center" or "right"
+ * $text on the first row of $rect, filling its width: cut off if longer (a wide character that
+ * doesn't fit is left out whole) and padded if shorter, $align "left", "center" or "right". A
+ * $rect of no width or height draws nothing.
  */
-pub fn label($screen, $col, $row, $width, $text, $style = "", $align = "left") {
-    if ($width <= 0) {
+pub fn label($screen, $rect, $text, $style = "", $align = "left") {
+    if ($rect.is_empty()) {
         return null;
     }
-    $fit = fit($text, $width);
-    $gap = $width - $fit.columns;
+    $fit = fit($text, $rect.width);
+    $gap = $rect.width - $fit.columns;
     $before = match ($align) {
         "left" => 0,
         "center" => intdiv($gap, 2),
         "right" => $gap,
     };
-    $screen.put($col, $row, repeat(" ", $before) .. $fit.text .. repeat(" ", $gap - $before), $style);
+    $screen.put($rect.col, $rect.row, repeat(" ", $before) .. $fit.text .. repeat(" ", $gap - $before), $style);
 }
 
 /**
- * A box $width by $height with its top left at $col, $row, its inside blank, and $title in the
- * top edge. $border is single, double, round, heavy or ascii.
+ * A box on the edges of $rect, its inside blank, and $title in the top edge; $rect.inset() is
+ * the inside, to draw in. $border is single, double, round, heavy or ascii.
  */
-pub fn box($screen, $col, $row, $width, $height, $title = "", $style = "", $border = "single") {
+pub fn box($screen, $rect, $title = "", $style = "", $border = "single") {
     if (!has_key(BORDERS, $border)) {
         throw "tui::box: unknown border \"" .. $border .. "\"";
     }
-    if ($width < 2 || $height < 2) {
+    $width = $rect.width;
+    if ($width < 2 || $rect.height < 2) {
         return null;
     }
     [$top_left, $top_right, $bottom_left, $bottom_right, $across, $down] = BORDERS[$border];
@@ -551,26 +574,31 @@ pub fn box($screen, $col, $row, $width, $height, $title = "", $style = "", $bord
         $fit = fit(" " .. $title .. " ", $width - 3);
         $top = $across .. $fit.text .. repeat($across, $width - 3 - $fit.columns);
     }
-    $screen.put($col, $row, $top_left .. $top .. $top_right, $style);
-    for ($i = 1; $i < $height - 1; $i++) {
-        $screen.put($col, $row + $i, $down .. repeat(" ", $width - 2) .. $down, $style);
+    $screen.put($rect.col, $rect.row, $top_left .. $top .. $top_right, $style);
+    for ($i = 1; $i < $rect.height - 1; $i++) {
+        $screen.put($rect.col, $rect.row + $i, $down .. repeat(" ", $width - 2) .. $down, $style);
     }
-    $screen.put($col, $row + $height - 1, $bottom_left .. repeat($across, $width - 2) .. $bottom_right, $style);
+    $screen.put($rect.col, $rect.row + $rect.height - 1, $bottom_left .. repeat($across, $width - 2) .. $bottom_right, $style);
 }
 
+// What progress() keeps at the bar's end for the percentage: " 100%"
+const PERCENTAGE_WIDTH = 5;
+
 /**
- * A bar $width wide, $fraction (0 to 1) of it filled, and the percentage at its end
+ * A bar across the first row of $rect, $fraction (0 to 1) of it filled, and the percentage at
+ * its end
  */
-pub fn progress($screen, $col, $row, $width, $fraction, $style = "green") {
-    $bar = $width - 5;
-    if ($bar < 1) {
+pub fn progress($screen, $rect, $fraction, $style = "green") {
+    $bar = $rect.width - PERCENTAGE_WIDTH;
+    if ($bar < 1 || $rect.height < 1) {
         return null;
     }
     $fraction = max(0, min(1, $fraction));
     $filled = to_int(round($fraction * $bar));
-    $screen.put($col, $row, repeat("█", $filled), $style);
-    $screen.put($col + $filled, $row, repeat("░", $bar - $filled), "dim");
-    label($screen, $col + $bar, $row, 5, to_int(round($fraction * 100)) .. "%", "", "right");
+    $screen.put($rect.col, $rect.row, repeat("█", $filled), $style);
+    $screen.put($rect.col + $filled, $rect.row, repeat("░", $bar - $filled), "dim");
+    [, $percentage] = $rect.line(0).split_right(PERCENTAGE_WIDTH);
+    label($screen, $percentage, to_int(round($fraction * 100)) .. "%", "", "right");
 }
 
 /* $text in a field $width wide, numbers on the right */
@@ -590,11 +618,13 @@ fn padded($cells, $count) {
 }
 
 /**
- * A table: $headers a list of names, $rows a list of lists, columns as wide as their widest
- * cell and numbers aligned on the right; a header or a row shorter than the rest is blank where it
- * stops. Gives how many rows it took (two more than $rows).
+ * A table from the top of $rect: $headers a list of names, $rows a list of lists, columns as
+ * wide as their widest cell and numbers aligned on the right; a header or a row shorter than the
+ * rest is blank where it stops. As many rows as fit under the header and its rule, each cut off
+ * at $rect's width (table_width() says what it wants). Gives how many rows of $rect it took
+ * (two more than the rows shown).
  */
-pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
+pub fn table($screen, $rect, $headers, $rows, $style = "") {
     [$headers, $rows] = squared($headers, $rows);
     $widths = column_widths($headers, $rows);
     $rule = join(map($widths, $w -> repeat("─", $w)), "─┼─");
@@ -602,19 +632,42 @@ pub fn table($screen, $col, $row, $headers, $rows, $style = "") {
     foreach ($headers as $i => $header) {
         $line[] = cell_text($header, $widths[$i]);
     }
-    $screen.put($col, $row, join($line, TABLE_SEPARATOR), "bold");
-    $screen.put($col, $row + 1, $rule, "dim");
-    foreach ($rows as $n => $cells) {
+    label($screen, $rect.line(0), join($line, TABLE_SEPARATOR), "bold");
+    label($screen, $rect.line(1), $rule, "dim");
+    $shown = slice($rows, 0, max($rect.height - 2, 0));
+    foreach ($shown as $n => $cells) {
         $line = [];
         foreach ($cells as $i => $cell) {
             $line[] = cell_text($cell, $widths[$i]);
         }
-        $screen.put($col, $row + 2 + $n, join($line, TABLE_SEPARATOR), $style);
+        label($screen, $rect.line(2 + $n), join($line, TABLE_SEPARATOR), $style);
     }
-    return len($rows) + 2;
+    return min(len($shown) + 2, max($rect.height, 0));
 }
 
 /* ---- Widgets that take keys -------------------------------------------------------------- */
+
+/**
+ * What a widget's handle($key) gives when a key ends something, so a caller matches on a case
+ * (tui::Outcome::Select) and a misspelling is an error when the program is read: Select for
+ * enter on a Table or a Menu, Cancel for escape, q or ctrl+c on a Menu or escape or ctrl+c on a
+ * TextField, Submit for enter on a TextField. A key the widget dealt with itself (moving,
+ * typing) gives null.
+ */
+pub enum Outcome {
+    /**
+     * Enter on a Table or a Menu: the row or item selected is the answer
+     */
+    Select;
+    /**
+     * Escape, ctrl+c or the end of the input (and q on a Menu): no answer
+     */
+    Cancel;
+    /**
+     * Enter on a TextField: its text is the answer
+     */
+    Submit;
+}
 
 /* $text cut to $width columns and padded to it, on the left when $right */
 fn fitted($text, $width, $right) {
@@ -708,63 +761,123 @@ pub fn wrap($text, $width) {
 pub fn paragraph($screen, $rect, $text, $style = "") {
     $lines = slice(wrap($text, $rect.width), 0, max($rect.height, 0));
     foreach ($lines as $i => $line) {
-        label($screen, $rect.col, $rect.row + $i, $rect.width, $line, $style);
+        label($screen, $rect.line($i), $line, $style);
     }
     return len($lines);
 }
 
 /**
- * A line of key hints in $width from $col, $row: $hints is a list of [keys, what they do]
- * (["j/k", "move"]), said "j/k move", or ["", text] for a prompt said as it is. As many whole
- * hints as fit, and $more at the right end ("? keys") when given, for where the rest are.
+ * A key hint: the keys and what they do, Hint("j/k", "move"), said "j/k move" by hints() and
+ * in its own columns by key_help(); or a prompt, Hint::prompt("Who goes off?"), text with no
+ * keys, said as it is by hints() and left out by key_help(). A View's hints() gives a list of
+ * them.
  */
-pub fn hints($screen, $col, $row, $width, $hints, $more = "", $style = "dim") {
-    $room = $more == "" ? $width : $width - term::width($more) - 2;
-    $line = "";
-    foreach ($hints as [$keys, $what]) {
-        $text = $keys == "" ? $what : $keys .. " " .. $what;
-        $next = $line == "" ? $text : $line .. "  " .. $text;
-        if (term::width($next) > $room) {
-            break;
-        }
-        $line = $next;
+pub readonly kind Hint {
+    /**
+     * The hint that $keys do $what; $keys "" for a prompt
+     */
+    fn _(pub #keys, pub #what);
+
+    /**
+     * A prompt: $text with no keys, for a line of hints to say as it is
+     */
+    pub static fn prompt($text) {
+        return Hint("", $text);
     }
-    label($screen, $col, $row, max($room, 0), $line, $style);
-    if ($more != "" && $width >= term::width($more)) {
-        label($screen, $col + $width - term::width($more), $row, term::width($more), $more, $style);
+
+    /**
+     * Whether it is a prompt rather than keys
+     */
+    pub fn is_prompt() {
+        return #keys == "";
+    }
+
+    /**
+     * The hint as one line of hints says it: the keys, a space and what they do, or the prompt
+     */
+    pub fn text() {
+        return #is_prompt() ? #what : #keys .. " " .. #what;
     }
 }
 
+// What hints() puts between two hints
+const HINT_GAP = "  ";
+
 /**
- * Every key there is, in a box in the middle of $screen, over what is there: $groups is a list of
- * [title, hints], hints as hints() takes them (a prompt, with no keys, is left out). What doesn't
- * fit the screen is cut off.
+ * A line of key hints on the first row of $rect: as many whole ones of $hints (a list of Hint)
+ * as fit, two spaces between them, and $more at the right end ("? keys") when given, for where
+ * the rest are
+ */
+pub fn hints($screen, $rect, $hints, $more = "", $style = "dim") {
+    $line = $rect.line(0);
+    $room = $line;
+    if ($more != "" && $line.width >= term::width($more)) {
+        [$room, $end] = $line.split_right(term::width($more));
+        $room = $room.split_right(len(HINT_GAP))[0];
+        label($screen, $end, $more, $style);
+    }
+    $text = "";
+    foreach ($hints as $hint) {
+        $next = $text == "" ? $hint.text() : $text .. HINT_GAP .. $hint.text();
+        if (term::width($next) > $room.width) {
+            break;
+        }
+        $text = $next;
+    }
+    label($screen, $room, $text, $style);
+}
+
+/* A line of key_help(): a group's heading, or a hint under it */
+kind HelpLine {
+    fn _(pub #heading, pub #hint = null);
+
+    /* What it says in the keys column and in the column after it; a heading has no keys */
+    pub fn keys() {
+        return #hint == null ? "" : #hint.keys;
+    }
+
+    pub fn what() {
+        return #hint == null ? #heading : #hint.what;
+    }
+}
+
+// Columns between a box's edge and its text, and between the keys and what they do, in key_help()
+const HELP_MARGIN = 2;
+const HELP_GAP = 2;
+
+/**
+ * Every key there is, in a box in the middle of $screen, over what is there: $groups is a map
+ * of a heading to its hints as hints() takes them, {"Squad" => $view.hints(), "Everywhere" =>
+ * $keys} (a prompt is left out). What doesn't fit the screen is cut off.
  */
 pub fn key_help($screen, $groups, $title = "Keys") {
     $lines = [];
-    foreach ($groups as [$heading, $group]) {
-        $lines[] = ["", $heading];
-        foreach (filter($group, $hint -> $hint[0] != "") as $hint) {
-            $lines[] = $hint;
+    foreach ($groups as $heading => $group) {
+        if (len($lines) > 0) {
+            $lines[] = HelpLine("");
         }
-        $lines[] = ["", ""];
+        $lines[] = HelpLine($heading);
+        foreach (filter($group, $hint -> !$hint.is_prompt()) as $hint) {
+            $lines[] = HelpLine("", $hint);
+        }
     }
-    // no blank line under the last group: the box's border is there
-    delete $lines[len($lines) - 1];
-    $keys_width = reduce($lines, ($most, [$keys, $what]) -> max($most, term::width($keys)), 0);
-    $inner = reduce($lines, ($most, [$keys, $what]) -> max($most, $keys == "" ? term::width($what) : $keys_width + 2 + term::width($what)), term::width($title) + 4);
-    $width = min($screen.cols, $inner + 4);
+    $keys_width = reduce($lines, ($most, $line) -> max($most, term::width($line.keys())), 0);
+    $inner = reduce($lines, ($most, $line) -> max($most, $line.keys() == "" ? term::width($line.what()) : $keys_width + HELP_GAP + term::width($line.what())), term::width($title) + 4);
+    $width = min($screen.cols, $inner + 2 * HELP_MARGIN);
     $height = min($screen.rows, len($lines) + 2);
-    [$col, $row] = centered($screen, $width, $height);
-    $screen.fill($col, $row, $width, $height);
-    box($screen, $col, $row, $width, $height, $title, "cyan");
-    foreach (slice($lines, 0, max($height - 2, 0)) as $i => [$keys, $what]) {
-        $at = $row + 1 + $i;
-        if ($keys == "") {
-            label($screen, $col + 2, $at, $width - 4, $what, "bold");
+    $box = centered($screen, $width, $height);
+    $screen.fill($box);
+    box($screen, $box, $title, "cyan");
+    $inside = $box.inset(HELP_MARGIN, 1);
+    foreach (slice($lines, 0, $inside.height) as $i => $line) {
+        $at = $inside.line($i);
+        if ($line.keys() == "") {
+            label($screen, $at, $line.what(), "bold");
         } else {
-            label($screen, $col + 2, $at, $keys_width, $keys, "cyan");
-            label($screen, $col + 4 + $keys_width, $at, max($width - 6 - $keys_width, 0), $what);
+            [$keys, $rest] = $at.split_left($keys_width);
+            [, $what] = $rest.split_left(HELP_GAP);
+            label($screen, $keys, $line.keys(), "cyan");
+            label($screen, $what, $line.what());
         }
     }
 }
@@ -776,14 +889,18 @@ pub fn key_help($screen, $groups, $title = "Keys") {
  * drawn in ($index is where it is in $rows, however they are sorted now), so a table can mark
  * the user's own club. Cells in a column must be alike, or sorting on it is an error.
  *
- * handle() gives "select" for enter and null for anything else. Keys: the arrows or j and k, home
- * and end or g and G, page up and down; "." and "," (or > and <) sort by the next or previous
- * column shown, "o" turns the order round and "x" goes back to the order the rows came in.
+ * handle() gives Outcome::Select for enter and null for anything else. Keys: the arrows or j and
+ * k, home and end or g and G, page up and down; "." and "," (or > and <) sort by the next or
+ * previous column shown, "o" turns the order round and "x" goes back to the order the rows came
+ * in.
  *
  * A table too wide for where it is drawn leaves out the columns drop_when_narrow() names, then
  * squeezes the widest of the rest.
  */
 pub kind Table {
+    // Columns between two of its columns
+    const COLUMN_GAP = 2;
+
     #headers;
     #rows = [];
     #style_of;
@@ -902,8 +1019,8 @@ pub kind Table {
     }
 
     /**
-     * Take a key: "select" for enter, null for anything else, which the table has dealt with
-     * itself (see the keys above)
+     * Take a key: Outcome::Select for enter, null for anything else, which the table has dealt
+     * with itself (see the keys above)
      */
     pub fn handle($key) {
         $last = max(len(#order) - 1, 0);
@@ -929,7 +1046,7 @@ pub kind Table {
             }
             "enter" => {
                 if (len(#order) > 0) {
-                    return "select";
+                    return Outcome::Select;
                 }
             }
             default => {}
@@ -968,12 +1085,12 @@ pub kind Table {
             }
             $widths[] = $width;
         }
-        $total = sum($widths) + 2 * max(len($widths) - 1, 0);
+        $total = sum($widths) + #COLUMN_GAP * max(len($widths) - 1, 0);
         foreach (#droppable as $column) {
             if ($total <= $available) {
                 break;
             }
-            $total -= $widths[$column] + 2;
+            $total -= $widths[$column] + #COLUMN_GAP;
             $widths[$column] = null;
         }
         while ($total > $available) {
@@ -1015,15 +1132,16 @@ pub kind Table {
             #top = #cursor - $visible + 1;
         }
 
-        $at = $rect.col;
+        $rest = $rect.line(0);
         foreach (#headers as $i => $header) {
             if ($widths[$i] == null) {
                 continue;
             }
             $mark = #column == $i ? (#descending ? "▼" : "▲") : "";
             $text = fitted(to_string($header) .. $mark, $widths[$i], #numeric[$i]);
-            label($screen, $at, $rect.row, $widths[$i], $text, #column == $i ? "bold underline" : "bold");
-            $at += $widths[$i] + 2;
+            [$cell, $rest] = $rest.split_left($widths[$i]);
+            label($screen, $cell, $text, #column == $i ? "bold underline" : "bold");
+            [, $rest] = $rest.split_left(#COLUMN_GAP);
         }
 
         $style_of = #style_of;
@@ -1041,15 +1159,15 @@ pub kind Table {
             if ($position == #cursor) {
                 $style = $style.with($focused ? "inverse" : "bold");
             }
-            label($screen, $rect.col, $rect.row + 1 + $line, $rect.width, join($cells, "  "), $style);
+            label($screen, $rect.line(1 + $line), join($cells, repeat(" ", #COLUMN_GAP)), $style);
         }
     }
 }
 
 /**
- * A list to choose from, in a box. handle() takes a key, and gives "select" for enter,
- * "cancel" for escape, q or ctrl+c, and null for anything else, which it has dealt with itself
- * (the arrows, j and k, home and end, page up and down).
+ * A list to choose from, in a box. handle() takes a key, and gives Outcome::Select for enter,
+ * Outcome::Cancel for escape, q or ctrl+c, and null for anything else, which it has dealt with
+ * itself (the arrows, j and k, home and end, page up and down).
  */
 pub kind Menu {
     #items;
@@ -1077,8 +1195,8 @@ pub kind Menu {
     pub fn item() { return #items[#selected]; }
 
     /**
-     * Take a key: "select" for enter, "cancel" for escape, q or ctrl+c, and null for anything
-     * else, which the menu has dealt with itself
+     * Take a key: Outcome::Select for enter, Outcome::Cancel for escape, q or ctrl+c, and null
+     * for anything else, which the menu has dealt with itself
      */
     pub fn handle($key) {
         /* an empty menu has nothing to move to, and nothing to select */
@@ -1092,41 +1210,41 @@ pub kind Menu {
             "page_down" => { #selected = min(#selected + #page, $last); }
             "enter" => {
                 if (len(#items) > 0) {
-                    return "select";
+                    return Outcome::Select;
                 }
             }
-            "escape", "q", "ctrl+c", "eof" => { return "cancel"; }
+            "escape", "q", "ctrl+c", "eof" => { return Outcome::Cancel; }
             default => {}
         }
         return null;
     }
 
     /**
-     * Draw it in a box $width by $height, scrolled so the selected item shows
+     * Draw it in a box on $rect, scrolled so the selected item shows
      */
-    pub fn draw($screen, $col, $row, $width, $height) {
-        box($screen, $col, $row, $width, $height, #title);
-        $visible = $height - 2;
-        #page = max($visible - 1, 1);
+    pub fn draw($screen, $rect) {
+        box($screen, $rect, #title);
+        $inside = $rect.inset(1);
+        #page = max($inside.height - 1, 1);
         if (#selected < #top) {
             #top = #selected;
         }
-        if (#selected >= #top + $visible) {
-            #top = #selected - $visible + 1;
+        if (#selected >= #top + $inside.height) {
+            #top = #selected - $inside.height + 1;
         }
-        for ($i = 0; $i < $visible && #top + $i < len(#items); $i++) {
+        for ($i = 0; $i < $inside.height && #top + $i < len(#items); $i++) {
             $on = #top + $i == #selected;
-            label($screen, $col + 1, $row + 1 + $i, $width - 2, ($on ? "> " : "  ") .. #items[#top + $i], $on ? "inverse" : "");
+            label($screen, $inside.line($i), ($on ? "> " : "  ") .. #items[#top + $i], $on ? "inverse" : "");
         }
     }
 }
 
 /**
- * A line of text being edited. handle() takes a key and gives "submit" for enter, "cancel" for
- * escape or ctrl+c, and null otherwise: typing inserts, and backspace, delete, the arrows,
- * home and end (or ctrl+a and ctrl+e), ctrl+u (delete to the start) and ctrl+k (to the end) edit.
- * The cursor moves by characters (term::chars()) and is drawn by columns, after a wide character
- * two along.
+ * A line of text being edited. handle() takes a key and gives Outcome::Submit for enter,
+ * Outcome::Cancel for escape or ctrl+c, and null otherwise: typing inserts, and backspace,
+ * delete, the arrows, home and end (or ctrl+a and ctrl+e), ctrl+u (delete to the start) and
+ * ctrl+k (to the end) edit. The cursor moves by characters (term::chars()) and is drawn by
+ * columns, after a wide character two along.
  */
 pub kind TextField {
     #chars;
@@ -1148,8 +1266,8 @@ pub kind TextField {
     pub fn value() { return join(#chars, ""); }
 
     /**
-     * Take a key: "submit" for enter, "cancel" for escape or ctrl+c, and null for anything else,
-     * which edits the text (see above)
+     * Take a key: Outcome::Submit for enter, Outcome::Cancel for escape or ctrl+c, and null for
+     * anything else, which edits the text (see above)
      */
     pub fn handle($key) {
         $typed = term::text($key);
@@ -1175,24 +1293,24 @@ pub kind TextField {
                 #at = 0;
             }
             "ctrl+k" => { #chars = slice(#chars, 0, #at); }
-            "enter" => { return "submit"; }
-            "escape", "ctrl+c", "eof" => { return "cancel"; }
+            "enter" => { return Outcome::Submit; }
+            "escape", "ctrl+c", "eof" => { return Outcome::Cancel; }
             default => {}
         }
         return null;
     }
 
     /**
-     * Draw it $width columns wide, scrolled sideways to keep the cursor in view, and put the
-     * cursor there
+     * Draw it across the first row of $rect, scrolled sideways to keep the cursor in view, and
+     * put the cursor there
      */
-    pub fn draw($screen, $col, $row, $width, $style = "underline") {
-        if ($width <= 0) {
+    pub fn draw($screen, $rect, $style = "underline") {
+        if ($rect.is_empty()) {
             return null;
         }
-        #scroll($width);
-        label($screen, $col, $row, $width, join(slice(#chars, #left), ""), $style);
-        $screen.cursor($col + #columns(#left, #at), $row);
+        #scroll($rect.width);
+        label($screen, $rect, join(slice(#chars, #left), ""), $style);
+        $screen.cursor($rect.col + #columns(#left, #at), $rect.row);
     }
 
     /* The columns the characters from index $from up to $to take */
@@ -1215,6 +1333,50 @@ pub kind TextField {
         while (#columns(#left, #at) > $width - 1) {
             #left++;
         }
+    }
+}
+
+/* ---- Views ------------------------------------------------------------------------------- */
+
+/**
+ * What a full-screen program's shell asks of each section it shows: a title, how to draw it in
+ * a Rect, what a key does to it and what its keys are. The shell cuts the screen up, draws the
+ * frame and routes each key to the view it belongs to; a view only answers. A view changes
+ * nothing outside itself: handle() gives null, or a value the shell carries out (an action of
+ * the program's own, a kind for each), so what a key does to the program is in one place.
+ *
+ *     kind Inbox extends tui::View {
+ *         fn _(#messages);
+ *         pub fn title() { return "Inbox"; }
+ *         pub fn draw($screen, $rect, $focused) { ... }
+ *         pub fn handle($key) { ... }
+ *         pub fn hints() { return [tui::Hint("j/k", "move")]; }
+ *     }
+ */
+pub abstract kind View {
+    /**
+     * What it is called, for a border, a menu or a heading
+     */
+    pub abstract fn title();
+
+    /**
+     * Draw it in $rect; $focused is whether keys are going to this view, so it can show its
+     * selection as such
+     */
+    pub abstract fn draw($screen, $rect, $focused);
+
+    /**
+     * Take a key that reached the view: null when the view dealt with it, or a value for the
+     * shell to act on
+     */
+    pub abstract fn handle($key);
+
+    /**
+     * What its keys do, a list of Hint, for a line of hints and the list key_help() shows;
+     * none unless the view says
+     */
+    pub fn hints() {
+        return [];
     }
 }
 
@@ -1373,10 +1535,11 @@ fn leave($screen, $input, $result) {
 }
 
 /**
- * A box of $width by $height in the middle of $screen, as [col, row] of its top left
+ * The Rect $width by $height in the middle of $screen; one too big for the screen starts at its
+ * top left corner
  */
 pub fn centered($screen, $width, $height) {
-    return [max(intdiv($screen.cols - $width, 2), 0) + 1, max(intdiv($screen.rows - $height, 2), 0) + 1];
+    return Rect(max(intdiv($screen.cols - $width, 2), 0) + 1, max(intdiv($screen.rows - $height, 2), 0) + 1, $width, $height);
 }
 
 /**
@@ -1392,14 +1555,17 @@ pub fn choose($items, $title = "", $input = null) {
         $screen -> {
             $width = min($screen.cols, max(term::width($title) + 6, 4 + reduce($items, ($most, $item) -> max($most, term::width(to_string($item))), 0)));
             $height = min($screen.rows, len($items) + 2);
-            [$col, $row] = centered($screen, $width, $height);
-            $menu.draw($screen, $col, $row, $width, $height);
+            $menu.draw($screen, centered($screen, $width, $height));
         },
         $key -> $menu.handle($key),
         $input
     );
-    return $picked == "select" ? $menu.index() : null;
+    return $picked == Outcome::Select ? $menu.index() : null;
 }
+
+// The rows of ask()'s box: the question in the top edge, a blank row, the field, the bottom edge
+const ASK_HEIGHT = 4;
+const ASK_WIDTH = 40;
 
 /**
  * Ask a question on a screen of its own and give the answer, or null if cancelled. $initial is
@@ -1409,13 +1575,13 @@ pub fn ask($question, $initial = "", $input = null) {
     $field = TextField($initial);
     $answered = interact(
         $screen -> {
-            $width = min($screen.cols, max(term::width($question) + 4, 40));
-            [$col, $row] = centered($screen, $width, 4);
-            box($screen, $col, $row, $width, 4, $question);
-            $field.draw($screen, $col + 2, $row + 2, $width - 4);
+            $width = min($screen.cols, max(term::width($question) + 4, ASK_WIDTH));
+            $box = centered($screen, $width, ASK_HEIGHT);
+            box($screen, $box, $question);
+            $field.draw($screen, $box.inset(2, 1).line(1));
         },
         $key -> $field.handle($key),
         $input
     );
-    return $answered == "submit" ? $field.value() : null;
+    return $answered == Outcome::Submit ? $field.value() : null;
 }
