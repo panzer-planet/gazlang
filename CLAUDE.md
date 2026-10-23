@@ -475,7 +475,9 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   tests its parts.
 - **Speed** is measured by `php tools/bench.php` (CPU time, interleaved, best of several; the README's
   table is its output on the default PGO build, so a `PGO=0` build runs a little slower). gaz is
-  around PHP's speed and faster than Python. The arithmetic loop is still about nine dispatches an
+  around PHP's speed and faster than Python; on a Ryzen AI Max (the README's second machine)
+  PHP's JIT pulls up to 3 times ahead on the integer loop, since the JIT gains more from a newer
+  core than the interpreter does, which is the register-bytecode or JIT ceiling below. The arithmetic loop is still about nine dispatches an
   iteration after fusion (a register form would need about six), which only a register bytecode
   or a JIT would close; lists, maps, strings and objects spend theirs in malloc/free (about 17% of
   a football run) and the collector. A list keeps its first four items in its own header (see

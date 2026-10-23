@@ -128,9 +128,10 @@ or dim is listed under it. [The keys and clock are written out here](docs/langua
 - **A small set of operators that pull their weight.** `??` and `?.` for missing things, `|>`
   for pipelines, `match` with or without a subject, list patterns for unpacking, spread for
   combining lists and maps.
-- **It is quick.** It beats Python 3.13 by 1.5 to 2.9 times, and stays within about 1.5 times of
-  PHP 8.5 with its JIT, beating it on calls, closures, maps and strings and level on objects and
-  lists
+- **It is quick.** Faster than Python everywhere measured, by 1.2 to 2.9 times, and around PHP 8.5
+  with its JIT: ahead on closures, maps and strings, level to 1.4 times behind on calls, objects
+  and lists, and behind on the bare integer loop, by 1.5 times on an Intel i7 and 3 times on a
+  Ryzen AI Max, where the JIT gains more from the newer core than the interpreter does
   ([numbers below](#how-fast-is-it)).
 - **Batteries included, and self-hosted.** JSON, CSV, an HTTP/1.1 client with TLS and a
   preforking web server with uploads and a test client for handlers, SQLite and PostgreSQL with
@@ -296,18 +297,20 @@ GazLang, reachable in [`lib/`](lib) and documented in [docs/language.md](docs/la
 ## How fast is it?
 
 Each program below does the same work in GazLang, PHP and Python (they are in
-[`tools/bench/`](tools/bench)). The time is the whole process's CPU time, best of 7 runs, interleaved,
-on an Intel i7-8700 running macOS.
+[`tools/bench/`](tools/bench)). The time is the whole process's CPU time, best of 7 runs,
+interleaved, on two machines: the first three columns an Intel i7-8700 running macOS (an iMac),
+the last three an AMD Ryzen AI Max+ 395 (Strix Halo) running Ubuntu 24.04 under WSL2, where
+Python is 3.12. The fastest on each machine is in bold.
 
-| Program | GazLang | PHP 8.5 (JIT) | Python 3.13 |
-| --- | ---: | ---: | ---: |
-| `fib` — recursive calls, `fib(30)` | **0.063s** | 0.100s | 0.156s |
-| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.039s** | 0.108s | 0.082s |
-| `loop` — ten million rounds of integer arithmetic | 0.350s | **0.234s** | 0.996s |
-| `objects` — half a million small objects and method calls | **0.152s** | 0.161s | 0.336s |
-| `lists` — a million elements, built, read and written | **0.124s** | 0.126s | 0.232s |
-| `maps` — counting half a million words | **0.100s** | 0.120s | 0.181s |
-| `strings` — building, splitting and joining 3MB of text | **0.100s** | 0.115s | 0.147s |
+| Program | GazLang | PHP 8.5 (JIT) | Python 3.13 | GazLang | PHP 8.5 (JIT) | Python 3.12 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `fib` — recursive calls, `fib(30)` | **0.063s** | 0.100s | 0.156s | 0.036s | **0.032s** | 0.062s |
+| `closures` — `map`, `filter`, `reduce` and `sort` with lambdas | **0.039s** | 0.108s | 0.082s | **0.020s** | 0.045s | 0.035s |
+| `loop` — ten million rounds of integer arithmetic | 0.350s | **0.234s** | 0.996s | 0.212s | **0.067s** | 0.339s |
+| `objects` — half a million small objects and method calls | **0.152s** | 0.161s | 0.336s | 0.082s | **0.060s** | 0.126s |
+| `lists` — a million elements, built, read and written | **0.124s** | 0.126s | 0.232s | 0.065s | **0.052s** | 0.098s |
+| `maps` — counting half a million words | **0.100s** | 0.120s | 0.181s | **0.045s** | **0.045s** | 0.066s |
+| `strings` — building, splitting and joining 3MB of text | **0.100s** | 0.115s | 0.147s | **0.049s** | 0.055s | 0.059s |
 
 Run `php tools/bench.php 7` to measure on your own machine.
 
