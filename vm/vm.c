@@ -528,12 +528,15 @@ static inline int field_slot(Instr *in, Object *o, Kind *asking) {
 }
 
 /* An operator's result when it is quick and can't fail: ints that don't overflow for arithmetic,
-   % and ordering, anything for == and != (which never runs program code). The fast paths of
-   the instructions themselves, for the superinstructions that end in one. */
+   % and ordering, anything for == and != (which never runs program code; the one way it fails,
+   read-only objects nested too deep, is left to the instruction itself, which raises it again).
+   The fast paths of the instructions themselves, for the superinstructions that end in one. */
 static inline bool quick_binary(int op, Value a, Value b, Value *out) {
     int64_t n;
     if (op == OP_EQUALS || op == OP_NOT_EQUALS) {
-        *out = v_bool(values_equal(a, b) == (op == OP_EQUALS));
+        bool equal;
+        if (!values_equal(a, b, &equal)) return false;
+        *out = v_bool(equal == (op == OP_EQUALS));
         return true;
     }
     if (a.type != T_INT || b.type != T_INT) return false;
@@ -720,7 +723,8 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_EQUALS:
         case OP_NOT_EQUALS: {
             a = sp[-2], b = sp[-1];
-            bool equal = values_equal(a, b);
+            bool equal;
+            if (!values_equal(a, b, &equal)) goto error;
             decref(a);
             decref(b);
             sp--;

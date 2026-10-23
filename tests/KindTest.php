@@ -86,6 +86,49 @@ class KindTest extends GazLangTestCase
             CODE));
     }
 
+    public function test_objects_of_a_read_only_kind_are_compared_by_their_fields()
+    {
+        // The same kind exactly and every field equal by ==, in declaration order; a field
+        // holding a mutable object is still identity, and a kind that isn't read-only stays so
+        $this->assertEquals(
+            "true\nfalse\nfalse\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\nfalse\n",
+            $this->executeCode(<<<'CODE'
+                readonly kind Point { fn _(pub #x, pub #y); }
+                readonly kind Point3 extends Point { pub #z = 0; }
+                readonly kind Box { fn _(pub #at, pub #tag); }
+                kind Tag { fn _(pub #name); }
+                $tag = Tag("a");
+                echo Point(1, 2) == Point(1, 2);
+                echo Point(1, 2) == Point(1, 3);
+                echo Point(1, 2) != Point(1, 2);
+                echo Box(Point(1, 2), $tag) == Box(Point(1, 2), $tag);
+                echo Box(Point(1, 2), Tag("a")) == Box(Point(1, 2), Tag("a"));
+                echo Point3(1, 2) == Point(1, 2);
+                echo Point3(1, 2) == Point3(1, 2);
+                echo Tag("a") == Tag("a");
+                echo in_array(Point(1, 2), [Point(0, 0), Point(1, 2)]);
+                echo match (Point(1, 2)) { Point(1, 3) => true, default => false };
+                CODE)
+        );
+    }
+
+    public function test_comparing_read_only_objects_is_bounded_like_calls()
+    {
+        // A chain of nested read-only objects is compared on the C stack, so nesting past the
+        // call depth limit is a catchable error, not a crash; a cycle is not an error
+        $this->assertEquals(
+            "Maximum depth of 100000 exceeded comparing Link\ntrue\n",
+            $this->executeCode(<<<'CODE'
+                readonly kind Link { fn _(pub #next); }
+                readonly kind Self { pub #me; fn _() { #me = #; } }
+                $a = null; $b = null;
+                for ($i = 0; $i <= 100000; $i++) { $a = Link($a); $b = Link($b); }
+                try { echo $a == $b; } catch (Error $e) { echo $e.message; }
+                echo Self() == Self();
+                CODE)
+        );
+    }
+
     public function test_kinds_and_objects_as_values()
     {
         $this->assertEquals(

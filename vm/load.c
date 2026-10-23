@@ -894,7 +894,8 @@ static void read_case(Block *b, const char *line, Words *w) {
     }
     for (int i = 0; i < b->ncases; i++) {
         if (b->case_names[i] == name) fail("Enum %s has case %s twice", kind, name->data);
-        if (b->backing && values_equal(b->case_values[i], value)) {
+        bool same;
+        if (b->backing && values_equal(b->case_values[i], value, &same) && same) {
             fail("Cases %s and %s of enum %s have the same value", b->case_names[i]->data, name->data, kind);
         }
     }

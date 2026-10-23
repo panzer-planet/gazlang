@@ -402,6 +402,7 @@ snippet:7c92d8b23616
 snippet:7cb7a0331011
 snippet:7cc8ab9574bc
 snippet:7d11f0e001a4
+snippet:7dd7f68d1905
 snippet:7eb5574e5ec8
 snippet:7efc5575f43e
 snippet:7f17f9cdba35
@@ -496,6 +497,7 @@ snippet:9df6f1512250
 snippet:9e2365daad1d
 snippet:9e5497232815
 snippet:9e6bfcc5b77c
+snippet:9fbfbc261740
 snippet:a048f106b855
 snippet:a0575352f61d
 snippet:a0eb82bd2a7d
@@ -1130,6 +1132,7 @@ tests/corpora/vm/nullsafe.gaz
 tests/corpora/vm/pattern_parameters.gaz
 tests/corpora/vm/pipe.gaz
 tests/corpora/vm/power.gaz
+tests/corpora/vm/readonly_equality.gaz
 tests/corpora/vm/rethrow_file_with_nul.gaz
 tests/corpora/vm/rethrow_from_catch.gaz
 tests/corpora/vm/rethrow_from_finally.gaz
@@ -1260,6 +1263,7 @@ tests/gaz/objects/kinds_test.gaz
 tests/gaz/objects/other_languages_words_test.gaz
 tests/gaz/objects/private_member_names_test.gaz
 tests/gaz/objects/promoted_fields_test.gaz
+tests/gaz/objects/readonly_equality_test.gaz
 tests/gaz/objects/readonly_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz

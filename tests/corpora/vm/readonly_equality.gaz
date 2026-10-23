@@ -1,0 +1,169 @@
+// == on objects of a read-only kind compares their fields, in declaration order, by == itself;
+// every other object stays identity
+readonly kind Style {
+    fn _(pub #fg, pub #bold = false);
+}
+
+readonly kind Cell {
+    fn _(pub #text, pub Style #style);
+}
+
+readonly kind Wide extends Cell {
+    pub #width = 2;
+}
+
+kind Mutable {
+    fn _(pub #n);
+}
+
+readonly kind Holder {
+    fn _(pub #inner);
+}
+
+readonly kind Memo {
+    pub #note;
+    fn _(pub #id, $note = false) {
+        if ($note != false) {
+            #note = $note;
+        }
+    }
+}
+
+$plain = Style("red");
+echo Style("red") == Style("red");
+echo Style("red") == Style("red", true);
+echo Style("red") != Style("blue");
+echo $plain == $plain;
+echo $plain != Style("red");
+
+// Nested read-only values compare by value, through a list and a map too
+echo Cell("a", Style("red")) == Cell("a", Style("red"));
+echo Cell("a", Style("red")) == Cell("a", Style("red", true));
+echo [Cell("a", $plain), Cell("b", $plain)] == [Cell("a", Style("red")), Cell("b", Style("red"))];
+echo Holder([Style("red"), 1]) == Holder([Style("red"), 1]);
+echo Holder([Style("red"), 1]) == Holder([Style("red"), 2]);
+echo Holder({"s" => Style("red")}) == Holder({"s" => Style("red")});
+echo Holder(null) == Holder(null);
+echo Holder(null) == Holder(0);
+
+// A mutable object inside is still identity; its kind alone stays identity
+$m = Mutable(1);
+echo Holder($m) == Holder($m);
+echo Holder(Mutable(1)) == Holder(Mutable(1));
+echo Mutable(1) == Mutable(1);
+echo $m == $m;
+
+// A parent's object and a child's are different, whatever their fields say
+echo Wide("a", $plain) == Cell("a", $plain);
+echo Cell("a", $plain) == Wide("a", $plain);
+echo Wide("a", $plain) == Wide("a", $plain);
+
+// A field never set equals one never set, not one set to null
+echo Memo(1) == Memo(1);
+echo Memo(1) == Memo(1, null);
+echo Memo(1, "x") == Memo(1, "x");
+
+// Another type, a kind value, an enum case: not equal, no error
+echo Style("red") == "red";
+echo Style("red") == Style;
+enum Filter { Open; Done; }
+echo Filter::Open == Filter::Open;
+echo Filter::Open == Filter::Done;
+echo Holder(Filter::Open) == Holder(Filter::Open);
+
+// in_array and match follow ==
+$cells = [Cell("a", Style("red")), Cell("b", Style("blue"))];
+echo in_array(Cell("b", Style("blue")), $cells);
+echo in_array(Cell("b", Style("red")), $cells);
+echo match (Cell("b", Style("blue"))) {
+    Cell("a", Style("red")) => "first",
+    Cell("b", Style("blue")) => "second",
+    default => "none",
+};
+echo match (Filter::Done) {
+    Filter::Open => "open",
+    Filter::Done => "done",
+};
+
+// The screen diff that asked for it: a row repaints only where a cell changed
+$shown = [Cell("a", $plain), Cell("b", $plain), Cell("c", $plain)];
+$row = [Cell("a", Style("red")), Cell("B", Style("red")), Cell("c", Style("red", true))];
+$changed = [];
+for ($c = 0; $c < len($row); $c++) {
+    if ($row[$c] != $shown[$c]) {
+        $changed[] = $c;
+    }
+}
+echo $changed;
+
+// An object holding itself: a pair met again inside its own comparison is equal there, so the
+// other fields decide
+readonly kind Ring {
+    pub #me;
+    pub #items;
+    fn _(pub #label) {
+        #me = #;
+        #items = [#, {"me" => #}];
+    }
+}
+echo Ring("a") == Ring("a");
+echo Ring("a") == Ring("b");
+
+// Two rings of the same cells are equal, two of different cells are not
+readonly kind Link {
+    pub #next;
+    fn _(pub #value, $next = null) {
+        #next = $next ?? #;
+    }
+}
+readonly kind Loop {
+    pub #first;
+    pub #second;
+    fn _($a, $b) {
+        #first = Link($a);
+        #second = Link($b, #first);
+    }
+}
+echo Loop(1, 2) == Loop(1, 2);
+echo Loop(1, 2) == Loop(1, 3);
+echo Loop(1, 2).second == Loop(1, 2).second;
+
+// The pair is what is remembered, not the object: $x holds itself and $y holds $z, whose other
+// field differs from $x's, so $x and $y are not equal though $x is met again inside
+readonly kind Twin {
+    pub #other;
+    fn _(pub #n, $other = null) {
+        #other = $other ?? #;
+    }
+}
+$x = Twin(1);
+$z = Twin(2);
+$y = Twin(1, $z);
+echo $x == $y;
+echo $x == Twin(1, Twin(1));
+
+// Nesting is bounded as calls are, with a catchable error; the objects compare again afterwards
+$deep = null;
+$same = null;
+for ($i = 0; $i < 100001; $i++) {
+    $deep = Holder($deep);
+    $same = Holder($same);
+}
+try {
+    echo $deep == $same;
+} catch (Error $e) {
+    echo $e.message .. " at line " .. $e.line;
+}
+echo Holder($plain) == Holder(Style("red"));
+$short = null;
+$other = null;
+for ($i = 0; $i < 1000; $i++) {
+    $short = Holder($short);
+    $other = Holder($other);
+}
+echo $short == $other;
+try {
+    echo in_array($deep, [$same]);
+} catch (Error $e) {
+    echo $e.message;
+}

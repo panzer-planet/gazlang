@@ -628,7 +628,8 @@ version.
   (`power()` in `parser.gaz` reads a postfix, then `**` and a unary).
 - **Truthiness** is `is_truthy()` in `value.c`, the one place a non-bool is read as a bool.
 - **`==`** is `values_equal()` in `value.c`, shared with `in_array` and `match`; functions, kinds and objects compare by identity (bound
-  methods: the same object, kind and method). `===` lexes as `==` then `=`, a syntax error.
+  methods: the same object, kind and method), except two objects of one read-only kind, which
+  compare by their fields (see "readonly"). `===` lexes as `==` then `=`, a syntax error.
 - **List ordering** is `order()` in `ops.c`, as in Python and Rust; each pair follows `==`'s
   rules, so `[1] < ["a"]` is an error, but only once that pair is reached.
 - **Bitwise**: a shift count above 63 is an error (PHP quietly gives 0), and bits shifted off the
@@ -946,9 +947,36 @@ and methods a table in C.
 - **`readonly` closes a field once its object is made**, so an id, a key or a record read from a
   request can be shared without any "did someone change it?" question, and a `readonly kind`
   closes every field, so a shared object nobody can change behaves like a value (money, points,
-  colours). Objects stay handles: `==` is still identity, and the object a read-only field holds
-  is still writable through it (shallow, as everywhere else). A changed copy (`with`) and
-  field-by-field `==` for read-only kinds stay open in #88.
+  colours). Objects stay handles: the object a read-only field holds is still writable through
+  it (shallow, as everywhere else). A changed copy (`with`) stays open in #88.
+- **Two objects of one read-only kind are `==` when their fields are** (`objects_equal()` in
+  `value.c`, inside `values_equal()`, so `in_array` and `match` follow): the same kind exactly
+  (a child adds fields, so a parent's object and a child's differ: the restrictive choice,
+  loosened later without breaking anything), then every field by `==` itself in declaration
+  order, stopping at the first that differs, so a nested read-only value compares by value, a
+  list or map in a field as it does anywhere, a mutable object in a field by identity, `null` on
+  both sides equal, and a field never set equal only to one never set. The terminal toolkit's
+  screen diff asked for it (`$row[$c] == #shown[$r][$c]` on read-only cells and styles, which
+  under identity would repaint every frame in full). Any other object, an enum case included
+  (an enum is not a read-only kind), stays identity, which `match` on cases relies on.
+  - **A cycle compares as equal at the level it is met**: a constructor can store `#` in a
+    field, or in a list in one, so a pair of objects already being compared that is reached
+    again inside its own comparison is taken as equal there, and the fields reached so far give
+    the answer; that is what every finite unfolding of the two says, so two rings of the same
+    cells are equal and a ring differing in any cell is not. An error instead would make `==`
+    fail on a program that stores a legitimate back-reference. The pair is what is remembered,
+    not the object (`x` holding itself is not equal to `y` holding a `z` whose other field
+    differs from `x`'s), kept as a chain on the C stack and walked only when an object is met
+    while its `comparing` flag (in the padding of `Object`, so no object grows) is set, which
+    only a cycle does; the flag is restored, not cleared, since an object compared above is in
+    another pair there.
+  - **Nesting is bounded as calls are**: each level of read-only objects is a C frame, so past
+    `MAX_CALL_DEPTH` it is the catchable `Maximum depth of 100000 exceeded comparing Holder`,
+    not a crash. Lists and maps keep their unbounded depth, which the 1GB thread stack already
+    holds (millions deep). So `values_equal()` returns false with an error raised, which only
+    that depth does; the superinstructions' `quick_binary()` then leaves the instruction itself
+    to raise it again, and it never runs program code. The parser never evaluates `==` on
+    objects when the program is read (a constant can't be one), so nothing there changes.
 - **Written only while the object is being constructed, and only by the declaring kind's own
   constructor**: `_` itself, a promoted parameter, a field default, and a parent's `_` reached by
   `##_(...)` for the parent's own fields. A child's constructor, a helper method and a lambda made

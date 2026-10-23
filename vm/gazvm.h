@@ -169,7 +169,8 @@ struct Func {
     int64_t line;
 };
 
-/* An object: a handle, so == is identity. fields[] holds one value per field of its kind,
+/* An object: a handle, so == is identity, except that two of one read-only kind compare by
+   their fields (objects_equal() in value.c). fields[] holds one value per field of its kind,
    in layout order; a field never set is T_UNSET. */
 struct Object {
     Gc gc;
@@ -180,6 +181,8 @@ struct Object {
                            where it happened, as a thrown one's doesn't; in the padding too */
     bool constructing;  /* while NEW's frame runs (the field defaults and the constructor): the
                            one time a read-only field takes a write; in the padding too */
+    bool comparing;     /* while == compares its fields with another's, so one met again inside
+                           that is known to be a cycle; in the padding too */
     int32_t case_number; /* a case of an enum: which, from 1 (0 for any other object), in the
                             padding before the fields, so it costs an object nothing */
     Value fields[];
@@ -539,7 +542,7 @@ void quote(const Str *s, Buf *out);
 bool to_string(Value v, Str **out);          /* echo's text; can run to_string() */
 bool append_string(Value v, Buf *out);       /* the same, into a buffer */
 bool append_joined(Value v, Buf *out);       /* the same for .., ..= and join(), refusing an Html */
-bool values_equal(Value a, Value b);
+bool values_equal(Value a, Value b, bool *equal);   /* false with an error raised only when read-only objects nest too deep */
 int compare_numbers(Value a, Value b);       /* -1, 0 or 1 */
 bool parse_integer(const char *s, size_t len, int64_t *out);
 bool parse_number(const char *s, size_t len, Value *out);

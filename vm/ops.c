@@ -204,7 +204,9 @@ bool binary_op(int op, Value l, Value r, Value *out) {
         return true;
     }
     if (op == OP_EQUALS || op == OP_NOT_EQUALS) {
-        *out = v_bool(values_equal(l, r) == (op == OP_EQUALS));
+        bool equal;
+        if (!values_equal(l, r, &equal)) return false;
+        *out = v_bool(equal == (op == OP_EQUALS));
         return true;
     }
     if (op == OP_LT || op == OP_LE || op == OP_GT || op == OP_GE || op == OP_CMP) {
