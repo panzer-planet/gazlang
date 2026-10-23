@@ -1059,6 +1059,7 @@ all of a kind's fields, methods and constants across its hierarchy, and an enum'
 | `utf8_upper($s)` | Well formed UTF-8 with every letter in uppercase |
 | `utf8_lower($s)` | Well formed UTF-8 with every letter in lowercase |
 | `utf8_fold($s)` | Well formed UTF-8 folded for comparing without case |
+| `utf8_width($s)` | The columns a terminal draws `$s` in: 2 for a wide character (CJK, an emoji), 0 for a combining mark, 1 for anything else |
 
 The builtins for strings are `len`, `slice($x, $start, $length)`, `lower`, `upper`, `trim`, `split($s, $sep, $limit)`,
 `join($list, $sep)`, `replace($s, $search, $replacement)`, `contains`, `ends_with`,
@@ -1081,6 +1082,7 @@ echo [utf8_valid("café"), utf8_valid("caf\xe9")];
 echo [utf8_slice("café au lait", 0, 4), utf8_slice("café", -2)];
 echo [upper("straße"), utf8_upper("straße"), utf8_lower("ΟΔΟΣ")];
 echo utf8_fold("Straße") == utf8_fold("STRASSE");
+echo [utf8_width("café"), utf8_width("中文"), utf8_width("e\u{301}"), utf8_width("😀 ok")];
 ```
 ```
 [5, 4]
@@ -1089,6 +1091,7 @@ echo utf8_fold("Straße") == utf8_fold("STRASSE");
 ["café", "fé"]
 ["STRAßE", "STRASSE", "οδος"]
 true
+[4, 4, 1, 5]
 ```
 
 `utf8_valid` follows RFC 3629: no character written in more bytes than it needs, no surrogates
@@ -1110,6 +1113,22 @@ Lithuanian rules, which depend on the language, are left out. **Compare without 
 `utf8_fold`, not `utf8_lower`**: folding makes every spelling of a word that differs only in case the
 same (`Straße` and `STRASSE` both fold to `strasse`, every sigma to `σ`), which lowercasing doesn't.
 The mappings are Unicode 17.0's.
+
+`utf8_width` is how many columns a terminal draws the text in, so a table or a box lines up when a
+cell holds CJK or an emoji, where `utf8_length` would be two off and a combining mark one. Each
+character counts 2 when Unicode calls it East Asian Wide or Fullwidth (CJK ideographs, Hangul
+syllables, the fullwidth forms, and the emoji drawn as pictures by default), 0 when it is a
+nonspacing or enclosing mark (`"e\u{301}"` is an `e` and an accent over it: 1), a format character
+(a zero-width joiner or space, a soft hyphen, a byte order mark) or a Hangul vowel or trailing
+consonant written as a jamo after its leading consonant, and 1 otherwise. So a flag's two regional
+indicators are 2 together, and `"👨\u{200D}👩"` is 4, two pictures joined. A control character
+counts 1, a tab too, since what a terminal does with one differs. **A byte that isn't well formed
+UTF-8 counts 1** and reading goes on at the next byte, since the question is asked of text about to
+be drawn and a terminal draws something for every byte: after `utf8_valid`, `utf8_width` is the one
+`utf8_` builtin that doesn't refuse bad text. The rule is GazLang's own, written out from Unicode 17.0's tables,
+never the platform's `wcwidth()`, so a layout worked out on one machine holds on every other; a
+terminal may still draw a sequence its own way (an emoji followed by `\u{FE0F}`, a family joined by
+zero-width joiners).
 
 ### Numbers
 

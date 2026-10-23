@@ -1,0 +1,48 @@
+ok empty
+ok ASCII
+ok accented letters
+ok Greek, Cyrillic and Arabic letters
+ok ambiguous width counts one, as outside East Asia
+ok a private use character
+ok NUL and other control characters count one
+ok DEL counts one
+ok C1 controls count one
+ok a tab counts one: a terminal's tab stops are its own
+ok a newline counts one
+ok CJK ideographs
+ok Hangul syllables
+ok hiragana and katakana
+ok fullwidth forms
+ok a fullwidth space
+ok an emoji drawn as a picture by default
+ok a watch and an hourglass, emoji among the symbols
+ok a heart with text presentation by default counts one
+ok a character past the basic plane
+ok CJK among ASCII
+ok e and a combining acute
+ok a combining mark alone
+ok several marks on one base
+ok an enclosing mark
+ok a spacing combining mark takes its column
+ok the zero-width joiner
+ok a family: each picture, joined by zero-width joiners
+ok the zero-width space and non-joiner
+ok a soft hyphen
+ok a byte order mark
+ok a variation selector
+ok bidi controls
+ok a combining mark that is also wide counts none
+ok a leading consonant alone
+ok lead, vowel and trail make one syllable
+ok a vowel or trailing consonant alone
+ok the later jamo blocks
+ok a flag
+ok a regional indicator alone
+ok a bad byte
+ok a bad byte among text
+ok a character cut short, each byte one
+ok a stray continuation byte before a wide character
+ok utf8_length refuses what utf8_width counts
+ok an int
+ok a list
+ok null

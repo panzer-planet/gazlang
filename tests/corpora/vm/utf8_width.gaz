@@ -1,0 +1,52 @@
+/*
+ * utf8_width(): the columns a terminal draws text in, at the edges of its tables (vm/unicode.c,
+ * column_width()): the code points either side of where a width changes, so a range that is one
+ * off at either end shows here. tests/gaz/strings/utf8_width_test.gaz says what each rule means.
+ */
+
+// The code point as a UTF-8 string
+fn code_point($code) {
+    if ($code < 0x80) {
+        return chr($code);
+    }
+    if ($code < 0x800) {
+        return chr(0xC0 | ($code >> 6)) .. chr(0x80 | ($code & 0x3F));
+    }
+    if ($code < 0x10000) {
+        return chr(0xE0 | ($code >> 12)) .. chr(0x80 | (($code >> 6) & 0x3F)) .. chr(0x80 | ($code & 0x3F));
+    }
+    return chr(0xF0 | ($code >> 18)) .. chr(0x80 | (($code >> 12) & 0x3F)) .. chr(0x80 | (($code >> 6) & 0x3F)) .. chr(0x80 | ($code & 0x3F));
+}
+
+$edges = {
+    "the soft hyphen, the first zero-width code point" => [0xAC, 0xAD, 0xAE],
+    "combining marks" => [0x2FF, 0x300, 0x36F, 0x370],
+    "Hangul leading consonants (wide), vowels and trailing consonants (zero)" => [0x10FF, 0x1100, 0x115F, 0x1160, 0x11A7, 0x11A8, 0x11FF, 0x1200],
+    "the zero-width space and joiner" => [0x200A, 0x200B, 0x200D, 0x200E, 0x2010],
+    "a combining mark that is also wide" => [0x3098, 0x3099, 0x309A, 0x309B],
+    "CJK unified ideographs" => [0x4DBF, 0x4DC0, 0x4DFF, 0x4E00],
+    "Hangul syllables" => [0xABFF, 0xAC00, 0xD7A3, 0xD7A4],
+    "the byte order mark" => [0xFEFE, 0xFEFF, 0xFF00],
+    "fullwidth forms" => [0xFF00, 0xFF01, 0xFF60, 0xFF61],
+    "regional indicators, one each" => [0x1F1E5, 0x1F1E6, 0x1F1FF, 0x1F200],
+    "emoji" => [0x1F5FF, 0x1F600, 0x1F64F, 0x1F650],
+    "the CJK planes, their unassigned parts included" => [0x1FFFF, 0x20000, 0x2FFFD, 0x2FFFE, 0x2FFFF, 0x30000, 0x3FFFD, 0x3FFFE],
+    "the last code points" => [0xE0001, 0xE0002, 0xE0100, 0xE01EF, 0xE01F0, 0x10FFFF],
+};
+foreach ($edges as $what => $codes) {
+    $widths = map($codes, $code -> utf8_width(code_point($code)));
+    echo $what .. ": " .. join($widths, " ");
+}
+
+// Every byte that can't start a character counts one, and reading goes on at the next byte
+echo "a lone continuation byte: " .. utf8_width("\x80");
+echo "an overlong form, two bad bytes: " .. utf8_width("\xc0\xaf");
+echo "a surrogate, three bad bytes: " .. utf8_width("\xed\xa0\x80");
+echo "a wide character cut short, two bad bytes: " .. utf8_width("\xe4\xb8");
+echo "a bad byte inside text: " .. utf8_width("caf\xe9!");
+echo "a bad byte before a wide character: " .. utf8_width("\xff\u{4e2d}");
+$every_byte = "";
+for ($byte = 0; $byte < 256; $byte++) {
+    $every_byte ..= chr($byte);
+}
+echo "all 256 bytes, 128 characters and 128 bad bytes: " .. utf8_width($every_byte);

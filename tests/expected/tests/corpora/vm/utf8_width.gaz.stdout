@@ -1,0 +1,20 @@
+the soft hyphen, the first zero-width code point: 1 0 1
+combining marks: 1 0 0 1
+Hangul leading consonants (wide), vowels and trailing consonants (zero): 1 2 2 0 0 0 0 1
+the zero-width space and joiner: 1 0 0 0 1
+a combining mark that is also wide: 1 0 0 2
+CJK unified ideographs: 2 2 2 2
+Hangul syllables: 1 2 2 1
+the byte order mark: 1 0 1
+fullwidth forms: 1 2 2 1
+regional indicators, one each: 1 1 1 2
+emoji: 2 2 2 1
+the CJK planes, their unassigned parts included: 1 2 2 1 1 2 2 1
+the last code points: 0 1 0 0 1 1
+a lone continuation byte: 1
+an overlong form, two bad bytes: 2
+a surrogate, three bad bytes: 3
+a wide character cut short, two bad bytes: 2
+a bad byte inside text: 5
+a bad byte before a wide character: 3
+all 256 bytes, 128 characters and 128 bad bytes: 256
