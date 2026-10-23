@@ -1,0 +1,130 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * == on objects of a read-only kind: equal when both are of the same kind exactly and every
+ * field is equal by == itself, in declaration order; every other object is still a handle,
+ * equal only to itself. in_array and match follow, as they are ==. A pair met again inside its
+ * own comparison is equal at that level, and nesting is bounded as calls are. The VM corpus
+ * (tests/corpora/vm/readonly_equality.gaz) records the same rules as a program's output.
+ */
+
+readonly kind Style {
+    fn _(pub #fg, pub #bold = false);
+}
+
+readonly kind Cell {
+    fn _(pub #text, pub Style #style);
+}
+
+readonly kind Wide extends Cell {
+    pub #width = 2;
+}
+
+kind Mutable {
+    fn _(pub #n);
+}
+
+readonly kind Holder {
+    fn _(pub #inner);
+}
+
+readonly kind Memo {
+    pub #note;
+    fn _(pub #id, $note = false) {
+        if ($note != false) {
+            #note = $note;
+        }
+    }
+}
+
+enum Filter {
+    Open;
+    Done;
+}
+
+$plain = Style("red");
+expect("two objects with the same fields are equal", Style("red") == Style("red"), true);
+expect("a field that differs makes them unequal", Style("red") == Style("red", true), false);
+expect("!= is the opposite", Style("red") != Style("blue"), true);
+expect("an object is still equal to itself", $plain == $plain, true);
+
+expect("a read-only field is compared by value", Cell("a", Style("red")) == Cell("a", Style("red")), true);
+expect("down to the nested object's own fields", Cell("a", Style("red")) == Cell("a", Style("red", true)), false);
+expect("lists of them compare element by element", [Cell("a", $plain)] == [Cell("a", Style("red"))], true);
+expect("a list field by its elements", Holder([Style("red"), 1]) == Holder([Style("red"), 1]), true);
+expect("which may differ", Holder([Style("red"), 1]) == Holder([Style("red"), 2]), false);
+expect("a map field by its entries", Holder({"s" => Style("red")}) == Holder({"s" => Style("red")}), true);
+expect("null on both sides is equal", Holder(null) == Holder(null), true);
+expect("null and 0 are not", Holder(null) == Holder(0), false);
+
+$m = Mutable(1);
+expect("a mutable object in a field compares by identity: the same object", Holder($m) == Holder($m), true);
+expect("two alike are not equal", Holder(Mutable(1)) == Holder(Mutable(1)), false);
+expect("a kind that isn't read-only stays identity", Mutable(1) == Mutable(1), false);
+
+expect("a child's object differs from its parent's", Wide("a", $plain) == Cell("a", $plain), false);
+expect("whichever side it is on", Cell("a", $plain) == Wide("a", $plain), false);
+expect("two of the child are compared", Wide("a", $plain) == Wide("a", $plain), true);
+
+expect("a field never set equals one never set", Memo(1) == Memo(1), true);
+expect("but not one set to null", Memo(1) == Memo(1, null), false);
+
+expect("another type is not equal, without an error", Style("red") == "red", false);
+expect("nor is the kind itself", Style("red") == Style, false);
+expect("an enum case is equal to itself", Filter::Open == Filter::Open, true);
+expect("and to no other case, since an enum is not a read-only kind", Filter::Open == Filter::Done, false);
+
+$cells = [Cell("a", Style("red")), Cell("b", Style("blue"))];
+expect("in_array finds an equal object", in_array(Cell("b", Style("blue")), $cells), true);
+expect("and not one that differs", in_array(Cell("b", Style("red")), $cells), false);
+$arm = match (Cell("b", Style("blue"))) {
+    Cell("a", Style("red")) => "first",
+    Cell("b", Style("blue")) => "second",
+    default => "none",
+};
+expect("match takes the arm whose value is equal", $arm, "second");
+
+// The screen diff that asked for it: a row repaints only where a cell changed
+$shown = [Cell("a", $plain), Cell("b", $plain), Cell("c", $plain)];
+$row = [Cell("a", Style("red")), Cell("B", Style("red")), Cell("c", Style("red", true))];
+$changed = [];
+for ($c = 0; $c < len($row); $c++) {
+    if ($row[$c] != $shown[$c]) {
+        $changed[] = $c;
+    }
+}
+expect("a screen diff finds the cells that changed", $changed, [1, 2]);
+
+// Cycles: a pair met again inside its own comparison is equal there, so the other fields decide
+readonly kind Ring {
+    pub #me;
+    pub #items;
+    fn _(pub #label) {
+        #me = #;
+        #items = [#, {"me" => #}];
+    }
+}
+expect("two objects each holding itself are equal when the rest is", Ring("a") == Ring("a"), true);
+expect("and not when the rest differs", Ring("a") == Ring("b"), false);
+
+readonly kind Twin {
+    pub #other;
+    fn _(pub #n, $other = null) {
+        #other = $other ?? #;
+    }
+}
+$x = Twin(1);
+$y = Twin(1, Twin(2));
+expect("the pair is remembered, not the object: one holding itself differs from one holding another", $x == $y, false);
+expect("and equals one whose every unfolding is the same", $x == Twin(1, Twin(1)), true);
+
+// Depth: bounded as calls are, with a catchable error, and nothing is left marked afterwards
+$deep = null;
+$same = null;
+for ($i = 0; $i < 100001; $i++) {
+    $deep = Holder($deep);
+    $same = Holder($same);
+}
+throws("nesting past the call depth limit", () -> $deep == $same, "Maximum depth of 100000 exceeded comparing Holder");
+throws("through in_array too", () -> in_array($deep, [$same]), "Maximum depth of 100000 exceeded comparing Holder");
+expect("objects the error left compare again", $deep.inner.inner == $same.inner.inner, true);

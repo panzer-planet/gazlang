@@ -1,0 +1,35 @@
+ok two objects with the same fields are equal
+ok a field that differs makes them unequal
+ok != is the opposite
+ok an object is still equal to itself
+ok a read-only field is compared by value
+ok down to the nested object's own fields
+ok lists of them compare element by element
+ok a list field by its elements
+ok which may differ
+ok a map field by its entries
+ok null on both sides is equal
+ok null and 0 are not
+ok a mutable object in a field compares by identity: the same object
+ok two alike are not equal
+ok a kind that isn't read-only stays identity
+ok a child's object differs from its parent's
+ok whichever side it is on
+ok two of the child are compared
+ok a field never set equals one never set
+ok but not one set to null
+ok another type is not equal, without an error
+ok nor is the kind itself
+ok an enum case is equal to itself
+ok and to no other case, since an enum is not a read-only kind
+ok in_array finds an equal object
+ok and not one that differs
+ok match takes the arm whose value is equal
+ok a screen diff finds the cells that changed
+ok two objects each holding itself are equal when the rest is
+ok and not when the rest differs
+ok the pair is remembered, not the object: one holding itself differs from one holding another
+ok and equals one whose every unfolding is the same
+ok nesting past the call depth limit
+ok through in_array too
+ok objects the error left compare again

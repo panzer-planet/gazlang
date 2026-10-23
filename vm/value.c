@@ -815,56 +815,134 @@ int compare_numbers(Value a, Value b) {
 }
 
 /*
- * ==: no conversion between strings and numbers, numbers by value, lists element by element,
- * maps by keys and values in any order, functions, kinds and objects by identity (two bound
- * methods when they bind the same method to the same object)
+ * A pair of read-only objects whose fields are being compared, one for each level of the
+ * comparison below it on the C stack, so a pair met again inside its own comparison can be
+ * told from any other pair of the same objects
  */
-bool values_equal(Value a, Value b) {
+typedef struct Comparing {
+    Object *a, *b;
+    const struct Comparing *outer;
+} Comparing;
+
+static bool equal_at(Value a, Value b, const Comparing *outer, int depth, bool *equal);
+
+/*
+ * Two objects of one read-only kind are equal when every field is, by == itself, in declaration
+ * order, stopping at the first that differs; a field never set equals only one never set. The
+ * same kind exactly: a child adds fields, so a parent's object and a child's differ (the
+ * restrictive choice, loosened later without breaking anything). A pair met again inside its
+ * own comparison (a constructor can store # in a field, or in a list in one) is equal at that
+ * level, so the fields reached so far give the answer: two rings of the same cells are equal,
+ * as every finite unfolding of them is. The pairs above are a chain on the C stack, walked only
+ * when an object is met while its `comparing` flag is set, which only a cycle does, so a long
+ * chain of distinct objects pays nothing for the check. Each level is a C frame, so the nesting
+ * is bounded as calls are, with a catchable error.
+ */
+static bool objects_equal(Object *a, Object *b, const Comparing *outer, int depth, bool *equal) {
+    if (a == b) {
+        *equal = true;
+        return true;
+    }
+    if (a->kind != b->kind || !a->kind->block->is_readonly) {
+        *equal = false;
+        return true;
+    }
+    if (a->comparing || b->comparing) {
+        for (const Comparing *c = outer; c; c = c->outer) {
+            if ((c->a == a && c->b == b) || (c->a == b && c->b == a)) {
+                *equal = true;
+                return true;
+            }
+        }
+    }
+    if (depth == MAX_CALL_DEPTH) return raisef("Maximum depth of %d exceeded comparing %s", MAX_CALL_DEPTH, a->kind->name->data);
+    Comparing here = { a, b, outer };
+    /* Restored rather than cleared: an object compared above is in another pair there */
+    bool was_a = a->comparing, was_b = b->comparing;
+    a->comparing = b->comparing = true;
+    bool ok = true;
+    *equal = true;
+    for (int i = 0; i < a->kind->nfields && ok && *equal; i++) {
+        Value x = a->fields[i], y = b->fields[i];
+        if (x.type == T_UNSET || y.type == T_UNSET) *equal = x.type == y.type;
+        else ok = equal_at(x, y, &here, depth + 1, equal);
+    }
+    a->comparing = was_a;
+    b->comparing = was_b;
+    return ok;
+}
+
+/* ==, inside a comparison `depth` read-only objects deep, `outer` being the pairs above */
+static bool equal_at(Value a, Value b, const Comparing *outer, int depth, bool *equal) {
     switch (a.type) {
     case T_NULL:
-        return b.type == T_NULL;
+        *equal = b.type == T_NULL;
+        return true;
     case T_BOOL:
-        return b.type == T_BOOL && a.b == b.b;
+        *equal = b.type == T_BOOL && a.b == b.b;
+        return true;
     case T_INT:
     case T_FLOAT:
-        return (b.type == T_INT || b.type == T_FLOAT) && compare_numbers(a, b) == 0;
+        *equal = (b.type == T_INT || b.type == T_FLOAT) && compare_numbers(a, b) == 0;
+        return true;
     case T_STRING:
-        return b.type == T_STRING && str_eq(a.s, b.s);
+        *equal = b.type == T_STRING && str_eq(a.s, b.s);
+        return true;
     case T_LIST:
-        if (b.type != T_LIST) return false;
-        if (a.l == b.l) return true;
-        if (a.l->len != b.l->len) return false;
-        for (size_t i = 0; i < a.l->len; i++) {
-            if (!values_equal(a.l->items[i], b.l->items[i])) return false;
+        *equal = b.type == T_LIST && (a.l == b.l || a.l->len == b.l->len);
+        if (!*equal || a.l == b.l) return true;
+        for (size_t i = 0; i < a.l->len && *equal; i++) {
+            if (!equal_at(a.l->items[i], b.l->items[i], outer, depth, equal)) return false;
         }
         return true;
     case T_MAP:
-        if (b.type != T_MAP) return false;
-        if (a.m == b.m) return true;
-        if (a.m->count != b.m->count) return false;
-        for (size_t i = 0; map_next(a.m, &i); i++) {
+        *equal = b.type == T_MAP && (a.m == b.m || a.m->count == b.m->count);
+        if (!*equal || a.m == b.m) return true;
+        for (size_t i = 0; map_next(a.m, &i) && *equal; i++) {
             Value *other = map_find(b.m, a.m->entries[i].key);
-            if (!other || !values_equal(a.m->entries[i].value, *other)) return false;
+            if (!other) *equal = false;
+            else if (!equal_at(a.m->entries[i].value, *other, outer, depth, equal)) return false;
         }
         return true;
     case T_FUNCTION:
-        if (b.type != T_FUNCTION) return false;
-        if (a.fn == b.fn) return true;
-        return a.fn->kind == F_BOUND && b.fn->kind == F_BOUND && a.fn->receiver == b.fn->receiver
-            && a.fn->definer == b.fn->definer && a.fn->name == b.fn->name;
+        *equal = b.type == T_FUNCTION
+            && (a.fn == b.fn
+                || (a.fn->kind == F_BOUND && b.fn->kind == F_BOUND && a.fn->receiver == b.fn->receiver
+                    && a.fn->definer == b.fn->definer && a.fn->name == b.fn->name));
+        return true;
     case T_OBJECT:
-        return b.type == T_OBJECT && a.o == b.o;
+        if (b.type != T_OBJECT) {
+            *equal = false;
+            return true;
+        }
+        return objects_equal(a.o, b.o, outer, depth, equal);
     case T_SOCKET:
-        return b.type == T_SOCKET && a.sock == b.sock;
+        *equal = b.type == T_SOCKET && a.sock == b.sock;
+        return true;
     case T_DB:
-        return b.type == T_DB && a.db == b.db;
+        *equal = b.type == T_DB && a.db == b.db;
+        return true;
     case T_FILE:
-        return b.type == T_FILE && a.file == b.file;
+        *equal = b.type == T_FILE && a.file == b.file;
+        return true;
     case T_KIND:
-        return b.type == T_KIND && a.k == b.k;
+        *equal = b.type == T_KIND && a.k == b.k;
+        return true;
     default:
-        return false;
+        *equal = false;
+        return true;
     }
+}
+
+/*
+ * ==: no conversion between strings and numbers, numbers by value, lists element by element,
+ * maps by keys and values in any order, functions and kinds by identity (two bound methods when
+ * they bind the same method to the same object), objects by identity unless both are of one
+ * read-only kind, which compare field by field (objects_equal()). False with an error raised
+ * only when read-only objects nest deeper than MAX_CALL_DEPTH; it never runs program code.
+ */
+bool values_equal(Value a, Value b, bool *equal) {
+    return equal_at(a, b, NULL, 0, equal);
 }
 
 /* Decimal digits with an optional minus that fit an int, as integer literals are read */

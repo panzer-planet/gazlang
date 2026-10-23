@@ -324,7 +324,7 @@ Every one means what `vm/ops.c` says, including the error messages.
 | `SHL`, `SHR` | `a b -- c` | Ints only. A count outside 0 to 63 fails on "Shift count must be between 0 and 63, got 64". `SHL` drops the bits shifted off the top, so the result wraps; `SHR` keeps the sign. |
 | `BIT_NOT` | `a -- b` | Flips every bit of an int, two's complement. Fails on anything else. |
 | `CONCAT` | `a b -- c` | Joins two values as text, as `..` does. |
-| `EQUALS`, `NOT_EQUALS` | `a b -- c` | Never converts between types; a bool equals only itself. |
+| `EQUALS`, `NOT_EQUALS` | `a b -- c` | Never converts between types; a bool equals only itself. Two objects of one read-only kind compare by their fields, and fail on "Maximum depth of 100000 exceeded comparing Link" when that nests past the call depth limit; any other object is equal only to itself. |
 | `LT`, `LE`, `GT`, `GE` | `a b -- c` | Ordering. Two numbers, or two strings byte by byte. Fails on anything else. |
 | `CMP` | `a b -- c` | `<=>`: -1, 0 or 1 by the ordering rules. |
 | `NOT` | `a -- b` | Truthiness, negated; always a bool. |

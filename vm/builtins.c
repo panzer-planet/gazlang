@@ -1726,7 +1726,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, b, M(T_LIST))) return false;
         *out = v_bool(false);
         for (size_t i = 0; i < b.l->len; i++) {
-            if (values_equal(a, b.l->items[i])) {
+            bool found;
+            if (!values_equal(a, b.l->items[i], &found)) return false;
+            if (found) {
                 *out = v_bool(true);
                 break;
             }

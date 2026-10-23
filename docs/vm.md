@@ -133,6 +133,13 @@ shell calls are its session and a sequence showing a bug is already a test case.
     but make and look up new string keys and nothing measurable elsewhere. `ponytail:` not
     constant-time and not for secrets; a program that must cap what a client can send still
     wants `max_body`.
+  - **`==` is `values_equal()` in `value.c`**, the one definition, which `in_array` and `match`
+    share: lists and maps by their contents, and objects by identity unless both are of one
+    read-only kind, which compare field by field (`objects_equal()`). That nests on the C stack
+    as printing a nested list does, so a chain of read-only objects deeper than `MAX_CALL_DEPTH`
+    is a catchable error, and it is the one way `==` fails; a pair of objects met again inside
+    its own comparison (`Object.comparing`, in the padding) is equal at that level, so an object
+    holding itself compares without looping.
 - **Frames live on one value stack**: a call's pushed arguments become the callee's first
   locals, and its stack is sized by the loader's walk. The one use of the C stack is a method
   or a builtin's callback run from inside an instruction (`call_method()`, `call_value()`), which

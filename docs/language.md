@@ -290,7 +290,9 @@ and the right side of `??`, and its operand runs as far right as it can.
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
   There is no `===`. Ordering a string against a number is an error. Strings compare byte by
   byte (`"10" < "9"`), and numbers by their exact value, so `9007199254740993 !=
-  9007199254740992.0`.
+  9007199254740992.0`. Lists and maps compare by their contents, functions and kinds by
+  identity, and objects too, unless both are of the same read-only kind, which compare by their
+  fields (see [Objects](#objects)).
 - `<=>` gives -1, 0 or 1, for comparison functions.
 - Lists order element by element: the first pair that differs decides, and a shorter list the
   other starts with comes first (`[1, 2] < [1, 3]`, `[1] < [1, 0]`). That makes a sort by
@@ -540,8 +542,9 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   constructor with nothing else to do ends at `;`, not an empty `{}`.
 - **`#` is this object**, `#name` a field or method, `##name` the parent's version of a method.
   All checked at parse time against the kind.
-- **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity. Lists and maps
-  inside them are still values.
+- **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity, except for two
+  objects of the same read-only kind, which compare by their fields (see `readonly` below).
+  Lists and maps inside them are still values.
 - **`.` reads and writes members**: `$user.name`, `$rows[0].total = 5`, `$obj.method(args)`.
   `$obj.method` on its own is a bound method. A write can go through what a call returns, as
   long as it writes a field: `$team.keeper().saves++` changes the keeper, and the call runs
@@ -619,6 +622,29 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   $price = Money(1500, "ZAR").plus(Money(250, "ZAR"));
   echo $price.cents;                     // 1750
   $price.cents = 0;                      // Error: Money #cents is read-only: only Money's constructor sets it
+  ```
+- **Two objects of the same read-only kind are `==` when their fields are**, since nothing can
+  tell them apart afterwards: `Money(1750, "ZAR") == Money(1750, "ZAR")`, and so a screen diff
+  can ask whether a cell changed. The fields are compared in declaration order by `==` itself,
+  stopping at the first that differs, so a read-only object inside compares by its fields, a
+  list or map by its contents, an object of any other kind by identity (it is still a handle),
+  `null` on both sides is equal, and a field never set equals only one never set. The kind must
+  be the same exactly: a child's object is never equal to its parent's, since a child adds
+  fields. `in_array` and `match` follow, being `==`. Anything else is still identity, an enum's
+  cases included (an enum is not a read-only kind), so `match` on cases compares the case
+  itself. A pair of objects met again inside its own comparison (a constructor can store `#` in
+  a field, or in a list in one) is equal at that level, so the other fields decide: two rings of
+  the same cells are equal, two rings differing in a cell are not. Comparing nests as calls do,
+  so a chain of read-only objects deeper than the call depth limit is the catchable `Maximum
+  depth of 100000 exceeded comparing Link`; a list nested that deep compares as ever.
+
+  ```gaz
+  readonly kind Style { fn _(pub #fg, pub #bold = false); }
+  readonly kind Cell { fn _(pub #text, pub Style #style); }
+
+  echo Cell("a", Style("red")) == Cell("a", Style("red"));          // true
+  echo Cell("a", Style("red")) == Cell("a", Style("red", true));    // false
+  echo in_array(Style("red"), [Style("blue"), Style("red")]);       // true
   ```
 - **`fields()` and `echo` are not member access** and show every field that is set, whatever it
   escapes: reflection exists so a pass can walk an object without knowing its kind.
@@ -760,7 +786,8 @@ Direction::North
   and constants, and follows `pub` and namespaces as a kind does (`palette::Colour::Red`). It
   needs at least one case, and every case is `pub`.
 - **A case is one object, made before the program runs**, so `==` and `match` compare it as
-  itself: `Filter::Open == Filter::from("open")`. `type_of` is `"object"`, `kind_of` the enum,
+  itself (an enum is not a read-only kind, so its cases never compare by their fields):
+  `Filter::Open == Filter::from("open")`. `type_of` is `"object"`, `kind_of` the enum,
   `is_a($x, Filter)` asks whether it is one of its cases, and a parameter, return or field typed
   `Filter` (or `?Filter`) takes its cases and nothing else. `match` promises no exhaustiveness: a
   case no arm names is the usual error, which names it without running anything, `No arm matches
