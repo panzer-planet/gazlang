@@ -660,6 +660,30 @@ behind them:
 - `term.gaz`'s drawing functions return their sequence, so a program prints them and a test
   compares them; `tui.gaz` draws into a `Screen`, a grid that `render()` diffs against what it last
   drew, so a program redraws it all every frame and a test reads `lines()` without a terminal.
+  - **Every drawing function and widget draw takes a `Rect`**, and only `Screen.put()` and
+    `Screen.cursor()` take a column and a row, since a cell is addressed by its column and
+    nothing else is. `label($screen, $col, $row, $width, $text, "bold", "center")` was seven
+    positional arguments, a list read by position in disguise, and a view that had cut its `Rect`
+    up unpacked it again at every call (`$footer.col, $footer.row, $footer.width`, 23 times in the
+    football shell). A function that draws one row (`label`, `progress`, `hints`, `TextField.draw`)
+    draws on the `Rect`'s first row and nothing on one of no height, which is what lets a view
+    write `$rect.line($n)` for each row and never check whether the row exists; `table()` shows as
+    many rows as fit the height, so a caller no longer slices; `box()` and `Menu.draw()` sit on the
+    `Rect`'s edges and `inset()` is their inside. No compatibility twins: a program written to the
+    column shapes changes, as there is no compatibility promise yet and two spellings of one thing
+    is the first thing a style guide would have to settle.
+  - **A widget's `handle()` answers with `tui::Outcome`** (`Select`, `Cancel`, `Submit`) or `null`,
+    not `"select"`: a misspelt `"cancle"` in a caller was silently never matched, and an enum case
+    is checked when the program is read (`tui.gaz` predates enums). `null` stays "the widget dealt
+    with it", so a shell routes on one `!= null` test as before.
+  - **`tui::View` is the library's**, not the football game's, since every full-screen program's
+    shell writes that kind: `title()`, `draw($screen, $rect, $focused)`, `handle($key)` and
+    `hints()` (a list of `tui::Hint`, a kind rather than `[keys, what]` pairs). What `handle()`
+    gives the shell is the program's own, and the football shell's are an `Action` kind per verb
+    (`Swap`, `Buy`, `Substitute`, a `Notice` that only says why a key couldn't be obeyed) with a
+    `carry_out($game)` that gives the note, in place of `["swap", $a, $b]` lists matched on
+    `$action[0]`. No widget tree and no focus model: the shell routes keys by hand, which is the
+    right size for a shell with a menu and a section, and an editor needs nothing more.
   - **A style is parsed once** (`term::Style`, a `readonly kind`): `Style::of("bold red")` keeps
     each parsed spec in a static map by the text it was asked for (as `web.gaz`'s `Scans::of` keeps
     scans, emptied at `STYLES_KEPT`) and gives the same object again, so `render()` never parses a

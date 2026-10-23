@@ -8,9 +8,9 @@ kind Demo {
     #beats = 0;
 
     pub fn draw($screen) {
-        #menu.draw($screen, 1, 1, 20, 5);
-        tui::label($screen, 1, 6, 60, "keys: " .. join(slice(#pressed, -12), " "), "bold");
-        tui::label($screen, 1, 7, 60, "beats: " .. #beats);
+        #menu.draw($screen, tui::Rect(1, 1, 20, 5));
+        tui::label($screen, tui::Rect(1, 6, 60, 1), "keys: " .. join(slice(#pressed, -12), " "), "bold");
+        tui::label($screen, tui::Rect(1, 7, 60, 1), "beats: " .. #beats);
     }
 
     pub fn handle($key) {

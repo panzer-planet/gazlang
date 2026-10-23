@@ -3,17 +3,16 @@
  * move its progress, q quits. Needs a terminal.
  *
  * Written in the clean code style: a kind for each thing (a task, the board), small methods whose
- * names say what they do, named layout numbers, and drawing and key handling kept apart from the
- * state they show and change.
+ * names say what they do, named layout numbers, the screen cut into Rects rather than columns
+ * added up, and drawing and key handling kept apart from the state they show and change.
  */
 import "std/term.gaz";
 import "std/tui.gaz";
 
 const MAX_WIDTH = 64;
-const MARGIN = 3;          // columns from the box's left edge to the text
-const FIRST_TASK_ROW = 3;
+const PADDING = 1;         // blank columns inside the box's edges, and blank rows above and below the tasks
 const NAME_WIDTH = 28;
-const BAR_COLUMN = 32;
+const GAP = 1;             // columns between a task's name and its bar
 const HELP = "up/down pick   +/- change   q quit";
 
 kind Task {
@@ -54,20 +53,26 @@ kind Board {
     }
 }
 
+// The box: a row a task, the help on the last row inside, and the padding between
 fn draw_board(tui::Screen $screen, Board $board): null {
-    $width = min($screen.cols, MAX_WIDTH);
     $count = len($board.tasks);
-    tui::box($screen, 1, 1, $width, $count + 5, "Tasks");
+    $panel = tui::Rect(1, 1, min($screen.cols, MAX_WIDTH), $count + 2 * PADDING + 3);
+    tui::box($screen, $panel, "Tasks");
+    [$body, $foot] = $panel.inset(1).split_bottom(1);
+    $rows = $body.inset(PADDING);
     foreach ($board.tasks as $index => $task) {
-        draw_task($screen, FIRST_TASK_ROW + $index, $width, $task, $board.is_selected($index));
+        draw_task($screen, $rows.line($index), $task, $board.is_selected($index));
     }
-    tui::label($screen, MARGIN, FIRST_TASK_ROW + $count + 1, $width - 4, HELP, "dim");
+    tui::label($screen, $foot.inset(PADDING, 0), HELP, "dim");
 }
 
-fn draw_task(tui::Screen $screen, int $row, int $width, Task $task, bool $selected): null {
+// One task on $line: its name, then its progress bar in the rest of the row
+fn draw_task(tui::Screen $screen, tui::Rect $line, Task $task, bool $selected): null {
+    [$name, $rest] = $line.split_left(NAME_WIDTH);
+    [, $bar] = $rest.split_left(GAP);
     $marker = $selected ? "> " : "  ";
-    tui::label($screen, MARGIN, $row, NAME_WIDTH, $marker .. $task.name, $selected ? "bold" : "");
-    tui::progress($screen, BAR_COLUMN, $row, $width - BAR_COLUMN - 1, $task.progress(), $selected ? "cyan" : "blue");
+    tui::label($screen, $name, $marker .. $task.name, $selected ? "bold" : "");
+    tui::progress($screen, $bar, $task.progress(), $selected ? "cyan" : "blue");
 }
 
 // What a key does to the board; "quit" ends the dashboard, as tui::interact asks

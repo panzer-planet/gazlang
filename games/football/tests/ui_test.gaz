@@ -10,7 +10,7 @@ import "engine/matches.gaz" use Goal, Booking;
 import "game.gaz" use Game;
 import "std/date.gaz";
 import "engine/money.gaz";
-import "ui.gaz" use Shell;
+import "ui.gaz" use Shell, SquadView, TacticsView, Action, BestEleven, Formation, Notice;
 
 /* How many of $list satisfy $test */
 fn count_where($list, $test) {
@@ -909,6 +909,18 @@ if ($cup_tie.winner() == $game.club) {
 } else {
     expect("a club that is out has nothing more of the cup to come", shows($screen, "(draw to come)"), false);
 }
+
+/* ---- A view answers a key with an action, which the shell carries out ---- */
+$game = Game::start(6);
+$squad = SquadView($game);
+expect("a section is a tui::View, and its hints are tui::Hints", [is_a($squad, tui::View), is_a($squad.hints()[0], tui::Hint), $squad.hints()[0].text()], [true, true, "j/k move"]);
+expect("a key the view deals with itself gives nothing, and one for the game gives an Action", [press($squad, "j"), kind_of(press($squad, "a")), is_a(press($squad, "a"), Action)], [null, BestEleven, true]);
+$tactics = TacticsView($game);
+$asked = press($tactics, "l");
+expect("the action carries what the key asked for", [kind_of($asked), $asked.name], [Formation, "4-3-3"]);
+$eleven = map($game.club.eleven(), $p -> $p.number);
+expect("and nothing changes until the shell carries it out", [$game.club.formation(), $asked.carry_out($game), $game.club.formation(), map($game.club.eleven(), $p -> $p.number) == $eleven], ["4-4-2", "4-3-3, with the best eleven for it", "4-3-3", false]);
+expect("a notice is an action that changes nothing and says why", Notice("The match is over").carry_out($game), "The match is over");
 
 /* ---- The board, and the sack ---- */
 $boarded = Game::start(1);

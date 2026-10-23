@@ -2414,7 +2414,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
 | `syntax.gaz` | GazLang's own lexer, the one the compiler reads every program with: `syntax::Lexer($text)`, whose `get_next_token()` gives each `syntax::Token` (its `type`, `value` and `line`) until one of type `"EOF"`, and whose `span()` says where in the text the last one lies; `syntax::LexError` for source it refuses, and `syntax::Lexer::KEYWORDS` |
 | `highlight.gaz` | Code as the GazLang website shows it: `highlight::to_html($language, $source)`, an `Html` of `<span>`s with a class for each sort of token (`kw`, `str`, `com` and so on, for a stylesheet to colour), every piece escaped; `highlight::pieces($language, $source)` the same as `highlight::Piece`s, each on one line (`line`) and their text joined the source back, and `highlight::lines($language, $source)` the pieces of each line, for an editor. GazLang (`"gaz"`) is read by `std/syntax.gaz`, source it refuses pieced up to the refused token and plain from there; bytecode, templates and shell commands have highlighters of their own |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect`, `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (`[col, row]` of a box that size in the middle), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect` (the part of the screen every drawing function takes), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::Hint`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (the `Rect` that size in the middle), `tui::Outcome` (what a widget's `handle()` gives), `tui::View` (what a shell asks of a section), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -3056,29 +3056,38 @@ has is redrawn from its first changed cell to its last, so a program clears and 
 interface every frame without flicker. A test draws into a `Screen` and reads `$screen.lines()`,
 with no terminal.
 
-- **`tui::Screen($cols, $rows)`**: `put($col, $row, $text, $style = "")`, `fill($col, $row,
-  $width, $height, $char = " ", $style = "")`, `clear()`, `cursor($col, $row)` (where the
+- **`tui::Screen($cols, $rows)`**: `put($col, $row, $text, $style = "")`, `fill($rect, $char = " ",
+  $style = "")`, `clear()`, `cursor($col, $row)` (where the
   terminal's cursor goes after a render, shown only then), `render()`, `lines()` and
-  `cell($col, $row)` (`[character, style]`), `resize($cols, $rows)`, `fit()` (take the terminal's
-  size, `true` when it changed; call it when a read gives the key `"resize"`, which `interact()`
-  does itself) and `invalidate()` (draw everything at the next render: after `term_suspend()`,
-  or anything else that drew on the terminal). Drawing outside the screen is clipped.
-  A wide character (CJK, emoji) takes two columns but one cell.
-- **Drawing**: `tui::label($screen, $col, $row, $width, $text, $style = "", $align = "left")` (cut
-  off or padded to `$width`; `"left"`, `"center"`, `"right"`), `tui::box($screen, $col, $row,
-  $width, $height, $title = "", $style = "", $border = "single")` (`single`, `double`, `round`,
-  `heavy`, `ascii`; the inside is blanked), `tui::progress($screen, $col, $row, $width,
-  $fraction, $style = "green")` and `tui::table($screen, $col, $row, $headers, $rows, $style = "")`
-  (columns as wide as their widest cell, numbers on the right; gives the rows it took).
+  `cell($col, $row)` (a `tui::Cell`: `character`, `width`, `style`), `resize($cols, $rows)`, `fit()`
+  (take the terminal's size, `true` when it changed; call it when a read gives the key `"resize"`,
+  which `interact()` does itself) and `invalidate()` (draw everything at the next render: after
+  `term_suspend()`, or anything else that drew on the terminal). Drawing outside the screen is
+  clipped. A wide character (CJK, emoji) takes two columns, its own cell and a continuation.
+  `put()` and `cursor()` are the only places columns are spoken: everything else takes a `Rect`.
 - **`tui::Rect($col, $row, $width, $height)`** is a part of the screen (`$screen.bounds()` is all of
-  it). A view is given one to draw in and cuts it up with `inset($n = 1)`, `split_left($width)`,
-  `split_right`, `split_top($height)` and `split_bottom`, each of the last four giving `[a, b]`, so it
-  does no column arithmetic of its own; a part that doesn't fit is smaller, never negative.
+  it, `tui::centered($screen, $width, $height)` one that size in the middle). Every drawing function
+  and widget takes one, and a view is given one to draw in and cuts it up with `inset($cols = 1,
+  $rows = $cols)`, `split_left($width)`, `split_right`, `split_top($height)` and `split_bottom`
+  (each of the four giving `[a, b]`), and `line($n)` (row `$n` of it, from 0, one row high), so it
+  does no column arithmetic of its own; a part that doesn't fit is smaller, never negative, and one
+  of no width or height (`is_empty()`, which a `line()` past the last row is) draws nothing. A
+  function that draws one row draws on the `Rect`'s first.
+- **Drawing**: `tui::label($screen, $rect, $text, $style = "", $align = "left")` (on the first row,
+  cut off or padded to the width; `"left"`, `"center"`, `"right"`), `tui::box($screen, $rect, $title
+  = "", $style = "", $border = "single")` (on the edges; `single`, `double`, `round`, `heavy`,
+  `ascii`; the inside, `$rect.inset()`, is blanked), `tui::progress($screen, $rect, $fraction,
+  $style = "green")` (across the first row) and `tui::table($screen, $rect, $headers, $rows, $style =
+  "")` (columns as wide as their widest cell, numbers on the right, as many rows as fit the height
+  and each cut at the width; gives the rows it took).
+- **`tui::Outcome`** is what a widget's `handle($key)` gives when a key ends something, `Select`,
+  `Cancel` or `Submit`, so a caller matches on `tui::Outcome::Select` and a misspelling is an error
+  when the program is read; `null` means the widget dealt with the key itself.
 - **`tui::Table($headers, $rows, $style_of = null)`** is a table you move about in: `draw($screen,
   $rect, $focused = true)`, scrolling rows, a selected row and columns that sort. `handle($key)` gives
-  `"select"` for enter and `null` otherwise (the arrows or `j`/`k`, home and end or `g`/`G`, page up
-  and down; `.` and `,`, or `>` and `<`, sort by the next or previous column, `o` turns the order
-  round and `x` goes back to the order given). `selected_index()` is the selected row's index in
+  `Outcome::Select` for enter and `null` otherwise (the arrows or `j`/`k`, home and end or `g`/`G`,
+  page up and down; `.` and `,`, or `>` and `<`, sort by the next or previous column, `o` turns the
+  order round and `x` goes back to the order given). `selected_index()` is the selected row's index in
   `$rows` however they are sorted now, `selected_row()` the row, `sort_by($column, $descending)` and
   `sorted_by()` say and set the sort, and `set_rows($rows)` shows others, keeping the selection on
   its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
@@ -3092,20 +3101,30 @@ with no terminal.
   too long for a line starting one of its own and cut into whole lines; widths are the screen's.
   **`tui::paragraph($screen, $rect, $text, $style = "")`** draws it wrapped into a `Rect`, as much as
   fits, and gives how many lines that took.
-- **`tui::hints($screen, $col, $row, $width, $hints, $more = "", $style = "dim")`** is a line of
-  key hints: `$hints` is a list of `[keys, what they do]` (`["j/k", "move"]`, shown `j/k move`), or
-  `["", text]` for a prompt shown as it is; as many whole ones as fit, and `$more` (`"? keys"`) at
-  the right end. **`tui::key_help($screen, $groups, $title = "Keys")`** is all of them, in a box in
-  the middle of the screen: `$groups` is `[[title, hints], ...]`, prompts left out. Together they
-  are the usual shape: the keys that fit at the bottom, and `?` for the rest.
+- **`tui::Hint($keys, $what)`** is a key hint (`tui::Hint("j/k", "move")`, said `j/k move`), and
+  `tui::Hint::prompt($text)` a prompt with no keys, said as it is; `is_prompt()` and `text()`.
+  **`tui::hints($screen, $rect, $hints, $more = "", $style = "dim")`** is a line of them on the
+  `Rect`'s first row: as many whole ones as fit, and `$more` (`"? keys"`) at the right end.
+  **`tui::key_help($screen, $groups, $title = "Keys")`** is all of them, in a box in the middle of
+  the screen: `$groups` is a map of a heading to its hints, `{"Squad" => $view.hints(), "Everywhere"
+  => $keys}`, prompts left out. Together they are the usual shape: the keys that fit at the bottom,
+  and `?` for the rest.
+- **`tui::View`** is what a full-screen program's shell asks of each section it shows, an
+  `abstract kind` to extend: `title()`, `draw($screen, $rect, $focused)` (`$focused` is whether keys
+  are going to it), `handle($key)` (`null` when the view dealt with it, or a value for the shell to
+  carry out: an action of the program's own, a kind for each, never a list read by position) and
+  `hints()` (a list of `Hint`, none unless the view says). The shell cuts the screen up, draws the
+  frame and routes each key by hand; there is no widget tree or focus model. `games/football/ui.gaz`
+  is the model.
 - **`tui::Metronome($interval, $now)`** is a steady beat: `due($now)`, `wait($now)` (seconds to the
   next, 0 if due) and `beat($now)` after taking one; a late beat isn't made up for with two.
 - **`tui::Menu($items, $title = "")`** and **`tui::TextField($value = "")`** take keys
-  (`handle($key)`) and draw themselves (`draw(...)`). `handle` gives `"select"` or `"cancel"` for
-  a menu and `"submit"` or `"cancel"` for a field, and `null` for a key it dealt with itself: the
-  arrows, `j`/`k`, home and end, page up and down; typing, backspace, delete, the arrows, home and
-  end or ctrl+a and ctrl+e, ctrl+u and ctrl+k. `$menu.index()` and `$menu.item()` say what is
-  selected and `$field.value()` what was typed.
+  (`handle($key)`) and draw themselves (`$menu.draw($screen, $rect)`, a box on the `Rect`'s edges;
+  `$field.draw($screen, $rect, $style = "underline")`, across its first row). `handle` gives
+  `Outcome::Select` or `Outcome::Cancel` for a menu and `Outcome::Submit` or `Outcome::Cancel` for a
+  field, and `null` for a key it dealt with itself: the arrows, `j`/`k`, home and end, page up and
+  down; typing, backspace, delete, the arrows, home and end or ctrl+a and ctrl+e, ctrl+u and ctrl+k.
+  `$menu.index()` and `$menu.item()` say what is selected and `$field.value()` what was typed.
 - **`tui::interact($draw, $handle, $input = null, $tick = null, $interval = 0.25)`** runs
   `$draw($screen)` and `$handle($key)` on a screen of its own until `$handle` gives something
   other than `null`, which is what it gives (`null` too when the input ends). Keys come from
