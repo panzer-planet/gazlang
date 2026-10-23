@@ -636,8 +636,24 @@ behind them:
   the language, and every piece is cut from the source by `Lexer.span()` rather than written back
   from a token, so joining the pieces gives the source byte for byte
   (`tests/gaz/site/round_trip_test.gaz`, on every docs block and every file of `lib/` and
-  `examples/`). Source the lexer refuses is one plain piece, so a broken example is shown rather
-  than fatal. **`to_html()` and `render()` give an `Html`**, not a string: every piece is escaped
+  `examples/`, each also with a mistake planted half-way). **Source the lexer refuses is pieced
+  up to the token it refused and plain from there**: the tokens before the mistake are read
+  token by token with the `LexError` caught, as `compiler/docblocks.gaz` reads them, and are
+  exactly as valid as in a source without it; from where the lexer stopped (`span()`'s start
+  after the error, the refused token's start) the rest is `TEXT_TYPE`, nothing guessed at. So a
+  broken example is shown rather than fatal, and a file being typed, whose common state is an
+  unclosed quote, keeps its colours above the cursor. **No piece spans a line**: each carries the
+  line it starts on (`line`, from 1), and one that would (a block comment, a string with a line
+  break in it, a run of whitespace) is cut at each newline into pieces of its kind, the newline
+  the last byte of the piece it ends, so an editor needn't split them; `lines()` gathers each
+  line's pieces, without its line break, which is what an editor draws from, built from the
+  pieces rather than a second lexing. `render()` keeps the pieces a newline cut from one run in
+  one `<span>` (the same class and type, after a piece ending in a newline), so the site's HTML
+  is what one piece gave; where two pieces of one class were always separate (`#a.b`) they stay
+  two spans. Highlighting is whole-file (about 50 ms for `compiler/parser.gaz`), so an editor on
+  a big file wants incremental highlighting, lexing again from the start of the token the edited
+  line is in; that waits for the editor to show its shape (the `ponytail:` at `gaz()`).
+  **`to_html()` and `render()` give an `Html`**, not a string: every piece is escaped
   inside, so a caller can't escape it again or forget to, and it nests into `web::html` or a
   template as it is. The class names are the website's (`kw`, `str`, ...), so an app's stylesheet
   can colour code as the site does.
