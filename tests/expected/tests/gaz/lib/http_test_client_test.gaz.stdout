@@ -12,14 +12,16 @@ ok a cookie without a name is skipped, the rest kept
 ok the token in the page is the session's
 ok a page without the field
 ok or without one of that name
-ok a form without its token is refused
+ok a form from this site needs no token, as a browser's Origin says where it is from
+ok the Origin it sends
+ok a GET sends none
 ok a form with its token gets through
 ok form-encoded
 ok as a form
 ok which the handler can decode
 ok with its length
 ok the token in a header does as well
-ok from another site it is refused
+ok from another site it is refused, token or not
 ok from this site it isn't
 ok a PUT with a JSON body
 ok a HEAD has no body, as a browser sees it

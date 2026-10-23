@@ -27,11 +27,7 @@ import "views/edit.gazml";
 
 // A page inside the layout
 fn render(map $request, string $title, Html $body, int $status = 200): map {
-    return page(layout($title, $request["flash"], $request["user"], $request["session"]["csrf_token"], $body), $status);
-}
-
-fn csrf_token(map $request): string {
-    return $request["session"]["csrf_token"];
+    return page(layout($title, $request["flash"], $request["user"], $body), $status);
 }
 
 fn not_found(map $request): map {
@@ -58,7 +54,7 @@ kind Handlers {
             return http::redirect("/");
         }
 
-        return render($request, "Register", register_page(csrf_token($request), RegistrationForm("", "", ""), {}));
+        return render($request, "Register", register_page(RegistrationForm("", "", ""), {}));
     }
 
     pub fn register(map $request): map {
@@ -72,7 +68,7 @@ kind Handlers {
             $errors["taken"] = "An account with that email already exists";
         }
 
-        return render($request, "Register", register_page(csrf_token($request), $form, $errors), 422);
+        return render($request, "Register", register_page($form, $errors), 422);
     }
 
     pub fn login_form(map $request): map {
@@ -80,7 +76,7 @@ kind Handlers {
             return http::redirect("/");
         }
 
-        return render($request, "Log in", login_page(csrf_token($request), LoginForm("", ""), {}));
+        return render($request, "Log in", login_page(LoginForm("", ""), {}));
     }
 
     pub fn login(map $request): map {
@@ -88,7 +84,7 @@ kind Handlers {
         $errors = $form.errors();
         $address = http::client_address($request, #trusted_proxies);
         if (len($errors) == 0 && #throttle.blocked($form.email, $address)) {
-            return render($request, "Log in", login_page(csrf_token($request), $form, {"login" => "Too many attempts. Try again in a few minutes."}), 429);
+            return render($request, "Log in", login_page($form, {"login" => "Too many attempts. Try again in a few minutes."}), 429);
         }
         if (len($errors) == 0) {
             $user = #auth.authenticate($form);
@@ -101,7 +97,7 @@ kind Handlers {
             $errors["login"] = "Wrong email or password";
         }
 
-        return render($request, "Log in", login_page(csrf_token($request), $form, $errors), 401);
+        return render($request, "Log in", login_page($form, $errors), 401);
     }
 
     pub fn logout(map $request): map {
@@ -117,15 +113,15 @@ kind Handlers {
     // The list as $filter shows it, with what is overdue marked against the time now
     fn list(map $request, TodoForm $form, map $errors, int $status, Filter $filter): map {
         $todos = filter(#todos.for_user($request["user"].id), $todo -> $filter.shows($todo));
-        $page = todos_page(csrf_token($request), $todos, $form, $errors, #zone, $filter, #clock());
+        $page = todos_page($todos, $form, $errors, #zone, $filter, #clock());
 
         return render($request, "Your todos", $page, $status);
     }
 
-    // The forms on the list send its filter, so each goes back to the list as it was
+    // A form on the list goes back to the list as it was sent from
     pub fn create(map $request): map {
         $form = TodoForm::from_request($request);
-        $filter = Filter::from_form($request);
+        $filter = Filter::from_referer($request);
         $errors = $form.errors();
         if (len($errors) > 0) {
             return #list($request, $form, $errors, 422, $filter);
@@ -140,7 +136,7 @@ kind Handlers {
         $id = #todo_id($request);
         $todo = $id == null ? null : #todos.toggle($request["user"].id, $id);
 
-        return $todo == null ? not_found($request) : http::redirect(Filter::from_form($request).path());
+        return $todo == null ? not_found($request) : http::redirect(Filter::from_referer($request).path());
     }
 
     pub fn remove(map $request): map {
@@ -149,7 +145,7 @@ kind Handlers {
         if (!$removed) {
             return not_found($request);
         }
-        $back = http::redirect(Filter::from_form($request).path());
+        $back = http::redirect(Filter::from_referer($request).path());
 
         return http::with_session($back, http::flash($request, "Deleted."));
     }
@@ -163,7 +159,7 @@ kind Handlers {
 
         $form = TodoForm($todo.title, $todo.due_field(#zone));
 
-        return render($request, "Edit todo", edit_page(csrf_token($request), $todo.id, $form, {}));
+        return render($request, "Edit todo", edit_page($todo.id, $form, {}));
     }
 
     pub fn update(map $request): map {
@@ -174,7 +170,7 @@ kind Handlers {
             return not_found($request);
         }
         if (len($errors) > 0) {
-            return render($request, "Edit todo", edit_page(csrf_token($request), $id, $form, $errors), 422);
+            return render($request, "Edit todo", edit_page($id, $form, $errors), 422);
         }
         $todo = #todos.change($request["user"].id, $id, $form.title, $form.due_at(#zone));
         if ($todo == null) {

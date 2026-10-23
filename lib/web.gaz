@@ -117,7 +117,8 @@ pub fn html(list $strings, list $values): Html {
 
 /**
  * The hidden field that carries a form's CSRF token, for `http::csrf()` to check, written once
- * here rather than by hand in every form:
+ * here rather than by hand in every form. Only a browser that sends neither `Sec-Fetch-Site` nor
+ * `Origin` needs it, so a form can leave it out unless it is for browsers older than 2020:
  *
  *   <form method="post" action="/logout">
  *       {{ web::csrf_field($csrf) }}

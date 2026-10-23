@@ -74,7 +74,7 @@ done ones, and marks an open todo whose time has passed as overdue.
 
 Every value reaches SQL through `db::sql"..."`, so none is read as SQL; pages are escaped by the
 templates; text must be well-formed UTF-8 on one line, because the database refuses anything else; a
-form without the session's CSRF token, or from another origin, is a 403; a login changes the
+form the browser says came from another site, or from a client that says nothing and has no CSRF token, is a 403; a login changes the
 session, so one planted before it is no use; an email nobody has costs a login the same as one that is
 real, and a todo that isn't yours is a 404, as one that doesn't exist is; the list's filter is one of three
 names or nothing, so a redirect that keeps it never leaves the site; the stylesheet is served from a

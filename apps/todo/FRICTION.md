@@ -10,7 +10,7 @@ Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
 (handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), 6
-(`http::TestClient`), 8 (`main_dir()`), and the redirect, the timestamps, the due dates, the CSRF field and static files
+(`http::TestClient`), 8 (`main_dir()`), and the redirect, the timestamps, the due dates, the CSRF field, the repeated filter and tokens and static files
 in 10. Half done: 9 (decoding needs no `try`; the request is still parsed twice). Open: 7, the rest of
 9, and the rest of 10, each
 linking the issue that tracks it (label `todo-app`).
@@ -249,13 +249,15 @@ have caught running out of call depth.
   checks `[db::Problem::Unique, "users_email_key"]`. The app itself never matched on words:
   `Users.create()` asks `on conflict (email) do nothing`, which stays the better way where SQL can
   say it, since it leaves a transaction usable.
-- **`@csrf`-shaped repetition in templates** (resolved: `web::csrf_field($csrf)`):
-  `<input type="hidden" name="_csrf" value="{{ $csrf }}">` was written by hand in 7 places, two of
-  them inside the todo list. Each form now writes `{{ web::csrf_field($csrf) }}`, so the field's name
-  and escaping are the library's, and the app's test still checks each form carries the token. Still
-  open: the filter's `<input type="hidden" name="show" ...>` repeats in the same three forms, since a
-  redirect after a POST has nothing else to go back to, and a page of 40 todos still carries 82
-  tokens; a form that forgets the helper is still the template's mistake to make ([#57](https://github.com/panzer-planet/gazlang/issues/57)).
+- **`@csrf`-shaped repetition in templates** (resolved: no form carries a token or the filter):
+  `<input type="hidden" name="_csrf" value="{{ $csrf }}">` was written by hand in 7 places, then as
+  `{{ web::csrf_field($csrf) }}`, and a page of 40 todos carried 82 tokens; a form that forgot it was
+  a 403 waiting to happen. `http::csrf()` now takes the browser's word for where a request came from
+  (`Sec-Fetch-Site`, else `Origin`, which no page can set), and wants the token only from a client
+  that sends neither, so the app's forms carry none. The filter's hidden `show` field went the same
+  way: a form on the list goes back to the filter of the page it was sent from (`Filter::from_referer()`,
+  the `Referer` that `Referrer-Policy: same-origin` keeps), which two tabs on two filters keep apart
+  as a session wouldn't.
 - **Every first visit gets a session cookie, even for the stylesheet or a 404** (resolved:
   `http::sessions()` keeps a new visitor's token only if the response hands it out): the token was
   made as soon as a request had no cookie, and written back, so `/style.css`, a 404 and a bot all got

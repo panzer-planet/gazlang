@@ -1,7 +1,7 @@
 namespace todo;
 import "std/web.gaz";
 import "users.gaz";
-@template layout(string $title, ?string $flash, ?User $user, string $csrf, Html $body)
+@template layout(string $title, ?string $flash, ?User $user, Html $body)
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,7 +15,6 @@ import "users.gaz";
         <a class="brand" href="/">Todo</a>
         @if ($user != null)
             <form method="post" action="/logout" class="inline">
-                {{ web::csrf_field($csrf) }}
                 <span class="who">{{ $user.email }}</span>
                 <button type="submit" class="link">Log out</button>
             </form>

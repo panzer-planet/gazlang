@@ -2,12 +2,10 @@ namespace todo;
 import "std/web.gaz";
 import "forms.gaz";
 import "std/date.gaz";
-@template todos_page(string $csrf, list $todos, TodoForm $form, map $errors, date::Zone $zone, Filter $filter, int $now)
+@template todos_page(list $todos, TodoForm $form, map $errors, date::Zone $zone, Filter $filter, int $now)
 <h1>Your todos</h1>
 
 <form method="post" action="/todos" class="add">
-    {{ web::csrf_field($csrf) }}
-    <input type="hidden" name="show" value="{{ $filter.value }}">
     <input
         type="text"
         name="title"
@@ -40,8 +38,6 @@ import "std/date.gaz";
         @foreach ($todos as $todo)
             <li class="{{ $todo.done ? "done" : "open" }}{{ $todo.is_overdue($now) ? " overdue" : "" }}">
                 <form method="post" action="/todos/{{ $todo.id }}/toggle" class="inline">
-                    {{ web::csrf_field($csrf) }}
-                    <input type="hidden" name="show" value="{{ $filter.value }}">
                     <button
                         type="submit"
                         class="check"
@@ -57,8 +53,6 @@ import "std/date.gaz";
                 <a href="/todos/{{ $todo.id }}/edit">Edit</a>
 
                 <form method="post" action="/todos/{{ $todo.id }}/delete" class="inline">
-                    {{ web::csrf_field($csrf) }}
-                    <input type="hidden" name="show" value="{{ $filter.value }}">
                     <button type="submit" class="link danger">Delete</button>
                 </form>
             </li>

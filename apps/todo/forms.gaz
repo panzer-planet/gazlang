@@ -210,7 +210,9 @@ kind TodoForm {
 }
 
 /*
- * Which todos the list shows, from the list's ?show= or a form's "show" field. Anything else is
+ * Which todos the list shows, from the list's ?show=, or for a form on the list, the ?show= of the
+ * page it was sent from (the Referer, which a browser sends for this site's own pages, as
+ * Referrer-Policy: same-origin lets it), so no form carries the filter itself. Anything else is
  * All, so path(), where a redirect goes, only ever names one of the three.
  */
 enum Filter: string {
@@ -222,8 +224,12 @@ enum Filter: string {
         return Filter::from(field(http::query($request, {}), "show"), Filter::All);
     }
 
-    pub static fn from_form(map $request): Filter {
-        return Filter::from(field(http::form($request, {}), "show"), Filter::All);
+    pub static fn from_referer(map $request): Filter {
+        $referer = $request["headers"]["referer"] ?? "";
+        $mark = index_of($referer, "?");
+        $query = $mark == null ? "" : slice($referer, $mark + 1);
+
+        return Filter::from_query({"query" => $query});
     }
 
     // The list's address with this filter: "/" or "/?show=open"

@@ -2828,10 +2828,13 @@ $app.post("/todos", $request -> http::with_session(http::redirect("/"), http::fl
   flash is shown once: the next session has none unless the handler sets one. `$secret` must be at
   least 32 bytes, or making the middleware is an error. `$options` are `http::set_cookie()`'s,
   with `"max_age"` two weeks unless given.
-- `http::csrf($options = {})` answers a POST, PUT, PATCH or DELETE with a 403 unless it carries
-  the session's token, in the form field `_csrf` or an `X-CSRF-Token` header, and, when the
-  browser sent an `Origin` header, that it names the request's own host (`Origin: null` doesn't).
-  A body that isn't a form carries no token. `$options`: `"field"`, the form field's name, and
+- `http::csrf($options = {})` answers a POST, PUT, PATCH or DELETE with a 403 unless it came from
+  this site. A browser says so itself: `Sec-Fetch-Site: same-origin`, or, from one that doesn't
+  send that, an `Origin` naming the request's own host (`Origin: null` doesn't); either header
+  naming anywhere else is a 403, token or not. A client that sends neither must carry the
+  session's token, in the form field `_csrf` (`web::csrf_field()`) or an `X-CSRF-Token` header, so
+  a form needs the field only for a browser too old to send an `Origin`. A body that isn't a form
+  carries no token. `$options`: `"field"`, the form field's name, and
   `"failure"`, a function from the request to the response to send instead of the 403. Without
   `http::sessions()` before it, a request is an error saying so.
 - `http::with_session($response, $session)` is `$response` with `"session"` set, and
@@ -2871,8 +2874,8 @@ import "std/test.gaz" use expect;
 import "std/http.gaz";
 
 $client = http::TestClient($app.handler());
-$page = $client.get("/login");
-$done = $client.post("/login", {"_csrf" => http::form_token($page), "email" => "ada@example.com"});
+$client.get("/login");
+$done = $client.post("/login", {"email" => "ada@example.com", "password" => "correct horse"});
 expect("logging in goes home", [$done["status"], $done["headers"]["location"]], [303, "/"]);
 expect("and the next page knows who it is", $client.session($secret)["user_id"], 1);
 ```
@@ -2888,8 +2891,10 @@ expect("and the next page knows who it is", $client.session($secret)["user_id"],
 - The cookies a response sets are kept and sent with every later request (`Max-Age=0` forgets one);
   `$client.cookie($name)` and `$client.forget($name)` read and drop one, and a `Cookie` header
   given to a request is sent instead. `$client.session($secret)` is the session the cookie holds.
+- A POST, PUT, PATCH or DELETE carries this site's `Origin`, as a browser's does, so
+  `http::csrf()` lets it through; give an `origin` header to send it from elsewhere.
 - `http::form_token($response, $field = "_csrf")` is the CSRF token a page carries, as
-  `web::csrf_field()` writes it.
+  `web::csrf_field()` writes it, for testing a client that sends no `Origin`.
 - A redirect is answered as it is; `$client.follow($response)` fetches where it points with a GET,
   a relative `Location` read against the last request's target. One on another site is an error.
 - `$options`: `"host"`, the `Host` sent (`"example.test"`), `"remote_address"` (`"192.0.2.1"`,

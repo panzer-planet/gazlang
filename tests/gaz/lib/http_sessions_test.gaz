@@ -123,7 +123,7 @@ throws("a short secret", () -> http::sessions("too short"), "http::sessions() ne
 throws("an unknown option", () -> http::sessions(SECRET, {"secret" => 1}), "http::sessions() has no option \"secret\": only path, http_only, secure, same_site, max_age");
 throws("a session that isn't a map", () -> $sessions(request("GET"), handler({"session" => 5})), "a response's \"session\" is a map, not int");
 
-/* CSRF: a request that changes something carries the session's token, and comes from this site */
+/* CSRF: a request that changes something comes from this site, as the browser says, or carries the session's token */
 $csrf = http::csrf();
 $session = {"csrf_token" => $token};
 
@@ -149,11 +149,15 @@ expect("PUT, PATCH and DELETE are checked", map(["PUT", "PATCH", "DELETE"], $m -
 expect("a body that isn't a form is refused, not an error", status($csrf, with_session_in(request("POST", {"content-type" => "application/json"}, "{}"), $session)), 403);
 expect("a form with a bad escape is refused, not an error", status($csrf, with_session_in(form_post("_csrf=%zz"), $session)), 403);
 $good = "_csrf=" .. http::url_encode($token);
-expect("another site's Origin is refused", status($csrf, with_session_in(form_post($good, {"origin" => "https://evil.example"}), $session)), 403);
+expect("another site's Origin is refused, token or not", status($csrf, with_session_in(form_post($good, {"origin" => "https://evil.example"}), $session)), 403);
 expect("Origin null is refused", status($csrf, with_session_in(form_post($good, {"origin" => "null"}), $session)), 403);
-expect("our own Origin passes", status($csrf, with_session_in(form_post($good, {"origin" => "https://app.example"}), $session)), 200);
-expect("over http too", status($csrf, with_session_in(form_post($good, {"origin" => "http://app.example"}), $session)), 200);
-expect("no Origin passes", status($csrf, with_session_in(form_post($good), $session)), 200);
+expect("our own Origin passes without a token", status($csrf, with_session_in(form_post("a=1", {"origin" => "https://app.example"}), $session)), 200);
+expect("over http too", status($csrf, with_session_in(form_post("a=1", {"origin" => "http://app.example"}), $session)), 200);
+expect("Sec-Fetch-Site same-origin passes without a token", status($csrf, with_session_in(form_post("a=1", {"sec-fetch-site" => "same-origin"}), $session)), 200);
+$elsewhere = map(["same-site", "cross-site", "none", ""], $site -> status($csrf, with_session_in(form_post($good, {"sec-fetch-site" => $site}), $session)));
+expect("any other Sec-Fetch-Site is refused, token or not", $elsewhere, [403, 403, 403, 403]);
+expect("and it decides over a matching Origin", status($csrf, with_session_in(form_post($good, {"sec-fetch-site" => "cross-site", "origin" => "https://app.example"}), $session)), 403);
+expect("with neither, the token passes", status($csrf, with_session_in(form_post($good), $session)), 200);
 $refused = $csrf(with_session_in(form_post("a=1"), $session), handler());
 expect("the refusal says what to do", $refused["body"], "Forbidden: this form has expired. Go back, reload the page and try again.\n");
 throws("without http::sessions() first", () -> $csrf(request("GET"), handler()), "http::csrf() needs the session: add http::sessions() to the Router before it");

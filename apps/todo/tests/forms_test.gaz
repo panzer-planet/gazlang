@@ -88,5 +88,6 @@ foreach (["", "//evil.example", "Open", "done ", "all\r\n"] as $name) {
 }
 $query = $text -> ({"method" => "GET", "path" => "/", "query" => $text, "headers" => {}, "body" => ""});
 expect("from the query string", [Filter::from_query($query("show=open")), Filter::from_query($query("")), Filter::from_query($query("show=%zz")), Filter::from_query($query("show[]=open"))], [Filter::Open, Filter::All, Filter::All, Filter::All]);
-expect("from a form", [Filter::from_form(form_request("show=done")), Filter::from_form(form_request(""))], [Filter::Done, Filter::All]);
+$sent_from = $referer -> ({"method" => "POST", "path" => "/todos", "query" => "", "headers" => $referer == null ? {} : {"referer" => $referer}, "body" => ""});
+expect("from the page a form was sent from", map(["http://example.test/?show=done", "http://example.test/", "http://example.test/?x=1&show=open", null], $r -> Filter::from_referer($sent_from($r))), [Filter::Done, Filter::All, Filter::Open, Filter::All]);
 test::done();

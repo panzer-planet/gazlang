@@ -4057,11 +4057,13 @@ pub fn flash(map $request, string $message, ?map $session = null): map {
 }
 
 /**
- * Middleware that refuses a POST, PUT, PATCH or DELETE with a 403 unless it carries the session's
- * token, in the form field "_csrf" or the X-CSRF-Token header, and, if the browser sent an Origin,
- * that Origin is this host. $options: "field", the form field's name, and "failure", a function
- * from the request to the response to answer with instead. It needs http::sessions() before it,
- * and says so on the first request otherwise.
+ * Middleware that refuses a POST, PUT, PATCH or DELETE with a 403 unless it came from this site.
+ * A browser says where a request came from itself: Sec-Fetch-Site must be "same-origin", or, from a
+ * browser that doesn't send that, the Origin must be this host. A client that sends neither must
+ * carry the session's token instead, in the form field "_csrf" or the X-CSRF-Token header, so a
+ * form needs `web::csrf_field()` only for a browser too old to send an Origin. $options: "field",
+ * the form field's name, and "failure", a function from the request to the response to answer
+ * with instead. It needs http::sessions() before it, and says so on the first request otherwise.
  */
 pub fn csrf($options = {}) {
     $options = with_defaults("http::csrf()", $options, CSRF_OPTIONS);
@@ -4086,11 +4088,24 @@ pub fn csrf($options = {}) {
     };
 }
 
-// Whether a request that changes something carries the session's token and, if it says, our Origin
+/*
+ * Whether a request that changes something came from this site: as the browser says, by
+ * Sec-Fetch-Site or else Origin, which no page can set; from a client that says neither, by the
+ * session's token. A browser's word decides: one that names another site is refused, token or not.
+ */
 fn from_this_site($request, $field) {
-    $submitted = $request["headers"][CSRF_HEADER] ?? form_field($request, $field);
+    $headers = $request["headers"];
+    $site = $headers["sec-fetch-site"] ?? null;
+    if ($site != null) {
+        return $site == "same-origin";
+    }
+    $origin = $headers["origin"] ?? null;
+    if ($origin != null) {
+        return same_origin($origin, $headers["host"] ?? "");
+    }
+    $submitted = $headers[CSRF_HEADER] ?? form_field($request, $field);
 
-    return verify_csrf($request["session"], $submitted) && same_origin($request);
+    return verify_csrf($request["session"], $submitted);
 }
 
 /*
@@ -4101,14 +4116,8 @@ fn form_field($request, $field) {
     return form($request, {})[$field] ?? null;
 }
 
-// Whether the Origin the browser sent, if it sent one, is the host it sent the request to
-fn same_origin($request) {
-    $origin = $request["headers"]["origin"] ?? null;
-    if ($origin == null) {
-        return true;
-    }
-    $host = $request["headers"]["host"] ?? "";
-
+// Whether an Origin the browser sent is the host it sent the request to, over http or https
+fn same_origin(string $origin, string $host) {
     return $origin == "http://" .. $host || $origin == "https://" .. $host;
 }
 
@@ -4121,8 +4130,8 @@ const TEST_CLIENT_OPTIONS = {"host" => "example.test", "remote_address" => "192.
  * or socket: for testing a handler.
  *
  *     $client = http::TestClient($app.handler());
- *     $page = $client.get("/login");
- *     $done = $client.post("/login", {"_csrf" => http::form_token($page), "email" => "ada@example.com"});
+ *     $client.get("/login");
+ *     $done = $client.post("/login", {"email" => "ada@example.com", "password" => "correct horse"});
  *     expect("logging in goes home", $done["headers"]["location"], "/");
  *     expect("and is remembered", $client.session(SECRET)["user_id"], 1);
  *
@@ -4135,6 +4144,8 @@ const TEST_CLIENT_OPTIONS = {"host" => "example.test", "remote_address" => "192.
  *   Content-Type, and lower-cased header names, a repeated header's values joined with ", ".
  * - Cookies a response sets are kept and sent back with every later request, as one site's are:
  *   Path, Domain, Secure and Expires are not read, and a Max-Age of 0 or less forgets the cookie.
+ * - A POST, PUT, PATCH or DELETE carries this site's Origin, as a browser's does, so http::csrf()
+ *   lets it through; give another "origin" header to send one from elsewhere.
  * - A redirect is followed only when asked, with follow().
  * - $options: "host", the Host header sent ("example.test", a name kept for examples),
  *   "remote_address", the address the requests come from ("192.0.2.1", kept for documentation;
@@ -4192,7 +4203,7 @@ pub kind TestClient {
             throw "HTTP error: the target has a line break or NUL byte in it";
         }
         #last_target = $target;
-        $bytes = #exchange(request_text($method, $target, #headers_for($headers, $body), $body));
+        $bytes = #exchange(request_text($method, $target, #headers_for($method, $headers, $body), $body));
         #keep_cookies($bytes);
 
         return read_response(Reader(null, $bytes), $method);
@@ -4246,13 +4257,17 @@ pub kind TestClient {
         return $answer[0];
     }
 
-    // $headers, checked and lower-cased, with what a browser sends without being asked
-    fn headers_for(map $headers, string $body): map {
+    // $headers, checked and lower-cased, with what a browser sends without being asked: the Origin
+    // of a request that changes something comes from this site
+    fn headers_for(string $method, map $headers, string $body): map {
         $given = {};
         foreach ($headers as $name => $value) {
             $given[lower($name)] = checked_header($name, $value);
         }
         $sent = {"host" => #options["host"]};
+        if (in_array($method, UNSAFE_METHODS)) {
+            $sent["origin"] = #options["scheme"] .. "://" .. #options["host"];
+        }
         if (len(#cookies) > 0) {
             $sent["cookie"] = #cookie_header();
         }

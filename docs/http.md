@@ -794,8 +794,13 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   - **The cookie is compared against the session as it came, *before* the token is added**:
     compared with the session after, a new visitor's token is never written and every form of
     theirs is a 403. A test plants exactly that mutation.
-  - **`http::csrf()` checks the `Origin` as well as the token**, a second, independent line that
-    holds if a token leaks; a hostile non-form POST is a 403, not a 500. Without `http::sessions()`
+  - **`http::csrf()` takes the browser's word first** (`from_this_site()`): `Sec-Fetch-Site`
+    decides when it is sent (only `same-origin` passes, so a token can't outvote a browser that
+    names another site), else `Origin` (this host, over http or https), and only a client that
+    sends neither must carry the session's token. No page can set either header, and every browser
+    since 2020 sends `Origin` on a POST, so forms need no token and one that forgets the field isn't
+    a 403 waiting to happen; a browser too old for both still gets the token's protection, the
+    strict choice. A hostile non-form POST is a 403, not a 500. Without `http::sessions()`
     before it every request is an error, since a wiring mistake that answered 403 for ever would
     look like a user's problem.
   - **The secret must be 32 bytes or more**: a short signing secret is the program's mistake, and
@@ -827,6 +832,8 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
 - **Cookies are one site's**: Path, Domain, Secure and Expires are not read, `Max-Age` of 0 or less
   forgets one, and one with no name (no `=`, or nothing before it) is skipped, since no Cookie
   header could send it back by name. A `Cookie` header a test gives wins over the jar, so a forged cookie can be sent.
+- **A POST, PUT, PATCH or DELETE carries this site's `Origin`** (`headers_for()`), as a browser's
+  does, so a test drives the app as a browser would; a test gives its own `origin` to send another.
 - **`http::form_token()` reads exactly what `web::csrf_field()` writes**, so finding the token needs
   no app-specific pattern; `session($secret)` reads the cookie as `http::sessions()` does, for what
   a page doesn't show.

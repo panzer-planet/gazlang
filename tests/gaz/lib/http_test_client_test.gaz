@@ -88,13 +88,16 @@ expect("forgetting what isn't there is nothing", $client.forget("nothing"), null
 $client.get("/nameless");
 expect("a cookie without a name is skipped, the rest kept", [$client.cookie("a"), $client.cookie("flag"), $client.cookie(""), $client.cookie("b")], ["1", null, null, "3"]);
 
-/* A form post, with and without the CSRF token its page carries */
+/* A form post, from this site and from another, with and without the CSRF token its page carries */
 $form = http::TestClient(app());
 $token = http::form_token($form.get("/form"));
 expect("the token in the page is the session's", $form.session(SECRET)["csrf_token"], $token);
 throws("a page without the field", () -> http::form_token($form.get("/count")), "no CSRF field \"_csrf\" in the page");
 throws("or without one of that name", () -> http::form_token($form.get("/form"), "token"), "no CSRF field \"token\" in the page");
-expect("a form without its token is refused", $form.post("/echo", {"a" => "1"})["status"], 403);
+expect("a form from this site needs no token, as a browser's Origin says where it is from", $form.post("/echo", {"a" => "1"})["status"], 200);
+expect("the Origin it sends", Seen::request["headers"]["origin"], "http://example.test");
+$form.get("/echo");
+expect("a GET sends none", has_key(Seen::request["headers"], "origin"), false);
 $posted = $form.post("/echo", {"_csrf" => $token, "name" => "Ada Lovelace", "sum" => "1+1"});
 expect("a form with its token gets through", $posted["status"], 200);
 expect("form-encoded", Seen::request["body"], "_csrf=$token&name=Ada%20Lovelace&sum=1%2B1");
@@ -102,7 +105,7 @@ expect("as a form", Seen::request["headers"]["content-type"], "application/x-www
 expect("which the handler can decode", http::form(Seen::request)["name"], "Ada Lovelace");
 expect("with its length", Seen::request["headers"]["content-length"], to_string(len(Seen::request["body"])));
 expect("the token in a header does as well", $form.post("/echo", {}, {"X-CSRF-Token" => $token})["status"], 200);
-expect("from another site it is refused", $form.post("/echo", {"_csrf" => $token}, {"origin" => "http://evil.example"})["status"], 403);
+expect("from another site it is refused, token or not", $form.post("/echo", {"_csrf" => $token}, {"origin" => "http://evil.example"})["status"], 403);
 expect("from this site it isn't", $form.post("/echo", {"_csrf" => $token}, {"origin" => "http://example.test"})["status"], 200);
 
 /* Other methods, and a body as it is */

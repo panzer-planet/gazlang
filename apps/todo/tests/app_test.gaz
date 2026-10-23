@@ -20,9 +20,14 @@ $config = test_config();
 $password = "correct horse battery";
 
 fn register($browser, $email, $password) {
-    $form = $browser.get("/register");
+    $browser.get("/register");
 
-    return $browser.post("/register", {"_csrf" => http::form_token($form), "email" => $email, "password" => $password, "confirmation" => $password});
+    return $browser.post("/register", {"email" => $email, "password" => $password, "confirmation" => $password});
+}
+
+// The Referer a browser sends with a form on the list as $show filters it
+fn from_list(string $show): map {
+    return {"referer" => "http://example.test/?show=" .. $show};
 }
 
 // When the todo called $title is due, as PostgreSQL counts seconds since 1970
@@ -30,29 +35,29 @@ fn due_of($db, string $title): ?int {
     return $db.value(db::sql"select floor(extract(epoch from due_at))::bigint from todos where title = {$title}");
 }
 
-/* --- Anyone arriving is sent to log in, and every page carries a fresh CSRF token and the security headers --- */
+/* --- Anyone arriving is sent to log in, with no cookie until they do, and every page carries the security headers --- */
 $visitor = browser($db, $config);
 $home = $visitor.get("/");
 expect("the home page sends a visitor to log in", [$home["status"], location_of($home)], [303, "/login"]);
 expect("a redirect hands out no token, so it sets no cookie", $visitor.cookie("session"), null);
 $login_page = $visitor.get("/login");
-expect("the login page's form does, so the visitor is given a session cookie", $visitor.cookie("session") != null, true);
+expect("nor does the login page, whose form needs none", $visitor.cookie("session"), null);
 expect("the login page", [$login_page["status"], contains(text_of($login_page), "<h1>Log in</h1>")], [200, true]);
 expect("pages are not cached", $login_page["headers"]["cache-control"], "no-store");
 expect("a content security policy", $login_page["headers"]["content-security-policy"], "default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
-expect("the session cookie can't be read by scripts", contains($login_page["headers"]["set-cookie"], "HttpOnly"), true);
 
 /* --- Registering --- */
 $browser = browser($db, $config);
 $form = $browser.get("/register");
-$token = http::form_token($form);
-$refused = $browser.post("/register", {"email" => "ada@example.com", "password" => $password, "confirmation" => $password});
-expect("a form without its token is refused", $refused["status"], 403);
-$bad = $browser.post("/register", {"_csrf" => $token, "email" => "nope", "password" => "short", "confirmation" => "x"});
+expect("a form carries no token: the browser's Origin says where it came from", contains(text_of($form), "_csrf"), false);
+$refused = $browser.post("/register", {"email" => "ada@example.com", "password" => $password, "confirmation" => $password}, {"origin" => "http://evil.example"});
+expect("a form from another site is refused", $refused["status"], 403);
+$bad = $browser.post("/register", {"email" => "nope", "password" => "short", "confirmation" => "x"});
 expect("bad details are shown, not saved", [$bad["status"], contains(text_of($bad), "That doesn&#39;t look like an email address"), contains(text_of($bad), "Use at least 10 characters")], [422, true, true]);
-$mismatch = $browser.post("/register", {"_csrf" => $token, "email" => "ada@example.com", "password" => $password, "confirmation" => "something else entirely"});
+$mismatch = $browser.post("/register", {"email" => "ada@example.com", "password" => $password, "confirmation" => "something else entirely"});
 expect("a mismatched confirmation", [$mismatch["status"], contains(text_of($mismatch), "The two passwords are not the same")], [422, true]);
 $ok = register($browser, "  Ada@Example.COM ", $password);
+expect("the session cookie can't be read by scripts", contains($ok["headers"]["set-cookie"], "HttpOnly"), true);
 expect("registering logs in and goes home", [$ok["status"], location_of($ok)], [303, "/"]);
 $home = $browser.get("/");
 expect("the first page shows the welcome, once", [$home["status"], contains(text_of($home), "Welcome! Your account is ready.")], [200, true]);
@@ -64,8 +69,8 @@ expect("the same email can't register twice", [$again["status"], contains(text_o
 expect("a logged in user is sent home from the login page", location_of($browser.get("/login")), "/");
 
 /* --- Todos --- */
-$token = http::form_token($browser.get("/"));
-$added = $browser.post("/todos", {"_csrf" => $token, "title" => "<script>alert(1)</script> write the app"});
+$browser.get("/");
+$added = $browser.post("/todos", {"title" => "<script>alert(1)</script> write the app"});
 expect("adding a todo goes home", [$added["status"], location_of($added)], [303, "/"]);
 $list = text_of($browser.get("/"));
 expect("a todo is shown escaped", [contains($list, "&lt;script&gt;alert(1)&lt;/script&gt; write the app"), contains($list, "<script>alert(1)")], [true, false]);
@@ -79,134 +84,133 @@ $shown = date::fixed(TEST_OFFSET).at($added_at);
 $utc_text = date::utc().at($added_at).rfc3339();
 $local_text = $shown.short() .. ", " .. $shown.short_clock();
 expect("when it was added is shown in the app's zone", contains($list, "<time datetime=\"{$utc_text}\">{$local_text}</time>"), true);
-$blank = $browser.post("/todos", {"_csrf" => $token, "title" => "   "});
+$blank = $browser.post("/todos", {"title" => "   "});
 expect("a blank todo is refused", [$blank["status"], contains(text_of($blank), "Write something to do")], [422, true]);
-$long = $browser.post("/todos", {"_csrf" => $token, "title" => repeat("x", 201)});
+$long = $browser.post("/todos", {"title" => repeat("x", 201)});
 expect("a title over 200 characters is refused", $long["status"], 422);
-expect("200 multibyte characters are fine", $browser.post("/todos", {"_csrf" => $token, "title" => repeat("\u{1f600}", 200)})["status"], 303);
-expect("invalid UTF-8 is refused, not a server error: a form that isn't text has no token", $browser.post("/todos", {"_csrf" => $token, "title" => "\xff\xfe"})["status"], 403);
-expect("a NUL byte is refused", $browser.post("/todos", {"_csrf" => $token, "title" => "a\0b"})["status"], 422);
+expect("200 multibyte characters are fine", $browser.post("/todos", {"title" => repeat("\u{1f600}", 200)})["status"], 303);
+expect("invalid UTF-8 is refused, not a server error", $browser.post("/todos", {"title" => "\xff\xfe"})["status"], 422);
+expect("a NUL byte is refused", $browser.post("/todos", {"title" => "a\0b"})["status"], 422);
 $id = $db.value(db::sql"select id from todos where title like '%write the app'");
-$toggled = $browser.post("/todos/{$id}/toggle", {"_csrf" => $token});
+$toggled = $browser.post("/todos/{$id}/toggle", {});
 expect("toggling goes home", [$toggled["status"], location_of($toggled)], [303, "/"]);
 expect("the todo is done", $db.value(db::sql"select done from todos where id = {$id}"), true);
 expect("done todos go below the open ones", $db.query(db::sql"select title from todos order by done, created_at desc, id desc")[0]["title"], repeat("\u{1f600}", 200));
 $edit = $browser.get("/todos/{$id}/edit");
 expect("the edit page holds the title", [$edit["status"], contains(text_of($edit), "write the app")], [200, true]);
-$saved = $browser.post("/todos/{$id}", {"_csrf" => $token, "title" => "renamed"});
+$saved = $browser.post("/todos/{$id}", {"title" => "renamed"});
 expect("saving goes home", [$saved["status"], $db.value(db::sql"select title from todos where id = {$id}")], [303, "renamed"]);
-expect("an empty rename is refused", $browser.post("/todos/{$id}", {"_csrf" => $token, "title" => ""})["status"], 422);
-expect("a todo that isn't there", [$browser.post("/todos/999999/toggle", {"_csrf" => $token})["status"], $browser.get("/todos/999999/edit")["status"]], [404, 404]);
-expect("an id that isn't a number", $browser.post("/todos/abc/toggle", {"_csrf" => $token})["status"], 404);
-expect("an id too large for an int", $browser.post("/todos/9223372036854775808/toggle", {"_csrf" => $token})["status"], 404);
+expect("an empty rename is refused", $browser.post("/todos/{$id}", {"title" => ""})["status"], 422);
+expect("a todo that isn't there", [$browser.post("/todos/999999/toggle", {})["status"], $browser.get("/todos/999999/edit")["status"]], [404, 404]);
+expect("an id that isn't a number", $browser.post("/todos/abc/toggle", {})["status"], 404);
+expect("an id too large for an int", $browser.post("/todos/9223372036854775808/toggle", {})["status"], 404);
 $wrong_method = $browser.get("/todos/{$id}/toggle");
 expect("toggling needs a POST", [$wrong_method["status"], $wrong_method["headers"]["allow"]], [405, "POST"]);
 
 /* --- One user can't reach another's todos --- */
 $bob = browser($db, $config);
 register($bob, "bob@example.com", "another long password");
-$bob_token = http::form_token($bob.get("/"));
-expect("Bob can't toggle Ada's todo", $bob.post("/todos/{$id}/toggle", {"_csrf" => $bob_token})["status"], 404);
+$bob.get("/");
+expect("Bob can't toggle Ada's todo", $bob.post("/todos/{$id}/toggle", {})["status"], 404);
 expect("Bob can't open it", $bob.get("/todos/{$id}/edit")["status"], 404);
-expect("Bob can't rename it", $bob.post("/todos/{$id}", {"_csrf" => $bob_token, "title" => "mine now"})["status"], 404);
-expect("Bob can't delete it", $bob.post("/todos/{$id}/delete", {"_csrf" => $bob_token})["status"], 404);
+expect("Bob can't rename it", $bob.post("/todos/{$id}", {"title" => "mine now"})["status"], 404);
+expect("Bob can't delete it", $bob.post("/todos/{$id}/delete", {})["status"], 404);
 expect("and it is unchanged", $db.row(db::sql"select title, done from todos where id = {$id}"), {"title" => "renamed", "done" => true});
 expect("Bob sees none of Ada's todos", contains(text_of($bob.get("/")), "Nothing to do"), true);
 
 /* --- Deleting --- */
-$deleted = $browser.post("/todos/{$id}/delete", {"_csrf" => $token});
+$deleted = $browser.post("/todos/{$id}/delete", {});
 expect("Ada deletes her todo", [$deleted["status"], $db.value(db::sql"select count(*) from todos where id = {$id}")], [303, 0]);
 
 /* --- Logging in and out --- */
 $caller = browser($db, $config);
-$caller_token = http::form_token($caller.get("/login"));
-$wrong = $caller.post("/login", {"_csrf" => $caller_token, "email" => "ada@example.com", "password" => "not the password"});
-$unknown = $caller.post("/login", {"_csrf" => $caller_token, "email" => "nobody@example.com", "password" => "not the password"});
+$caller.get("/login");
+$wrong = $caller.post("/login", {"email" => "ada@example.com", "password" => "not the password"});
+$unknown = $caller.post("/login", {"email" => "nobody@example.com", "password" => "not the password"});
 expect("a wrong password", [$wrong["status"], contains(text_of($wrong), "Wrong email or password")], [401, true]);
 expect("an unknown email says the same", [$unknown["status"], contains(text_of($unknown), "Wrong email or password")], [401, true]);
-expect("blank fields", $caller.post("/login", {"_csrf" => $caller_token, "email" => "", "password" => ""})["status"], 401);
-expect("an email with invalid UTF-8 is refused, not an error: a form that isn't text has no token", $caller.post("/login", {"_csrf" => $caller_token, "email" => "\xff@x.co", "password" => "x"})["status"], 403);
-expect("SQL in the email is only text", $caller.post("/login", {"_csrf" => $caller_token, "email" => "' or 1=1 --", "password" => "x"})["status"], 401);
+expect("blank fields", $caller.post("/login", {"email" => "", "password" => ""})["status"], 401);
+expect("an email with invalid UTF-8 is refused, not an error", $caller.post("/login", {"email" => "\xff@x.co", "password" => "x"})["status"], 401);
+expect("SQL in the email is only text", $caller.post("/login", {"email" => "' or 1=1 --", "password" => "x"})["status"], 401);
 $before = $caller.cookie("session");
-$logged_in = $caller.post("/login", {"_csrf" => $caller_token, "email" => "ada@example.com", "password" => $password});
+$logged_in = $caller.post("/login", {"email" => "ada@example.com", "password" => $password});
 expect("logging in goes home", [$logged_in["status"], location_of($logged_in)], [303, "/"]);
 expect("logging in gives a new session", $caller.cookie("session") != $before, true);
-expect("and the old token no longer works", $caller.post("/todos", {"_csrf" => $caller_token, "title" => "x"})["status"], 403);
-$token = http::form_token($caller.get("/"));
-$out = $caller.post("/logout", {"_csrf" => $token});
+$caller.get("/");
+$out = $caller.post("/logout", {});
 expect("logging out goes to the login page", [$out["status"], location_of($out)], [303, "/login"]);
 expect("and the home page asks again", location_of($caller.get("/")), "/login");
-expect("logging out needs the token too", $caller.post("/logout", {})["status"], 403);
+expect("logging out from another site is refused", $caller.post("/logout", {}, {"origin" => "http://evil.example"})["status"], 403);
 
 /* --- Guessing: five wrong passwords for an email from one address lock that pair for a while --- */
 $guesser_address = "198.51.100.1";
 $guesser = browser($db, $config, $guesser_address);
-$guess_token = http::form_token($guesser.get("/login"));
+$guesser.get("/login");
 foreach ([1, 2, 3, 4, 5] as $attempt) {
-    expect("wrong password number {$attempt}", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "ada@example.com", "password" => "guess {$attempt} guess"})["status"], 401);
+    expect("wrong password number {$attempt}", $guesser.post("/login", {"email" => "ada@example.com", "password" => "guess {$attempt} guess"})["status"], 401);
 }
-$locked = $guesser.post("/login", {"_csrf" => $guess_token, "email" => "ada@example.com", "password" => $password});
+$locked = $guesser.post("/login", {"email" => "ada@example.com", "password" => $password});
 expect("the sixth attempt is refused, even with the right password", [$locked["status"], contains(text_of($locked), "Too many attempts")], [429, true]);
-expect("other emails are not locked from that address", $guesser.post("/login", {"_csrf" => $guess_token, "email" => "bob@example.com", "password" => "another long password"})["status"], 303);
+expect("other emails are not locked from that address", $guesser.post("/login", {"email" => "bob@example.com", "password" => "another long password"})["status"], 303);
 $elsewhere = browser($db, $config, "198.51.100.2");
-expect("and the email isn't locked from another address", $elsewhere.post("/login", {"_csrf" => http::form_token($elsewhere.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 303);
+expect("and the email isn't locked from another address", $elsewhere.post("/login", {"email" => "ada@example.com", "password" => $password})["status"], 303);
 $again = browser($db, $config, $guesser_address);
-expect("which leaves the guesser's pair locked", $again.post("/login", {"_csrf" => http::form_token($again.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 429);
+expect("which leaves the guesser's pair locked", $again.post("/login", {"email" => "ada@example.com", "password" => $password})["status"], 429);
 $stranger = browser($db, $config, "198.51.100.3");
 $counted = $db.value(db::sql"select count(*) from login_failures where email = 'nobody@example.com'");
 expect("an email nobody has is counted too, so it can't be told apart", [
-    $stranger.post("/login", {"_csrf" => http::form_token($stranger.get("/login")), "email" => "nobody@example.com", "password" => "x"})["status"],
+    $stranger.post("/login", {"email" => "nobody@example.com", "password" => "x"})["status"],
     $db.value(db::sql"select count(*) from login_failures where email = 'nobody@example.com'") - $counted,
 ], [401, 1]);
 $db.exec(db::sql"update login_failures set failed_at = now() - interval '16 minutes' where email = 'ada@example.com'");
 $returning = browser($db, $config, $guesser_address);
-expect("after the window the pair can log in again", $returning.post("/login", {"_csrf" => http::form_token($returning.get("/login")), "email" => "ada@example.com", "password" => $password})["status"], 303);
+expect("after the window the pair can log in again", $returning.post("/login", {"email" => "ada@example.com", "password" => $password})["status"], 303);
 expect("and a good login clears the pair's count", $db.value(db::sql"select count(*) from login_failures where email = 'ada@example.com' and address = {$guesser_address}"), 0);
 
 /* --- Twenty wrong logins from one address, whatever the emails, lock the address --- */
 $sprayer_address = "198.51.100.4";
 $sprayer = browser($db, $config, $sprayer_address);
-$spray_token = http::form_token($sprayer.get("/login"));
+$sprayer.get("/login");
 $sprayed = [];
 for ($n = 1; $n <= 20; $n++) {
-    $sprayed[] = $sprayer.post("/login", {"_csrf" => $spray_token, "email" => "user{$n}@example.com", "password" => "a guess"})["status"];
+    $sprayed[] = $sprayer.post("/login", {"email" => "user{$n}@example.com", "password" => "a guess"})["status"];
 }
 expect("twenty wrong logins on twenty emails are each a 401", filter($sprayed, $status -> $status != 401), []);
-expect("the twenty-first, on an email it never tried, is refused", $sprayer.post("/login", {"_csrf" => $spray_token, "email" => "bob@example.com", "password" => "another long password"})["status"], 429);
+expect("the twenty-first, on an email it never tried, is refused", $sprayer.post("/login", {"email" => "bob@example.com", "password" => "another long password"})["status"], 429);
 $neighbour = browser($db, $config, "198.51.100.5");
-expect("another address is not locked", $neighbour.post("/login", {"_csrf" => http::form_token($neighbour.get("/login")), "email" => "bob@example.com", "password" => "another long password"})["status"], 303);
+expect("another address is not locked", $neighbour.post("/login", {"email" => "bob@example.com", "password" => "another long password"})["status"], 303);
 
 /* --- A good login clears its own pair's failures, never the rest of the address's --- */
 $owner_address = "198.51.100.6";
 register(browser($db, $config, $owner_address), "eve@example.com", $password);
 $eve = browser($db, $config, $owner_address);
-$eve_token = http::form_token($eve.get("/login"));
+$eve.get("/login");
 for ($n = 1; $n <= 2; $n++) {
-    $eve.post("/login", {"_csrf" => $eve_token, "email" => "eve@example.com", "password" => "typo {$n} typo"});
+    $eve.post("/login", {"email" => "eve@example.com", "password" => "typo {$n} typo"});
 }
 for ($n = 1; $n <= 17; $n++) {
-    $eve.post("/login", {"_csrf" => $eve_token, "email" => "victim{$n}@example.com", "password" => "a guess"});
+    $eve.post("/login", {"email" => "victim{$n}@example.com", "password" => "a guess"});
 }
 expect("nineteen failures from the address", $db.value(db::sql"select count(*) from login_failures where address = {$owner_address}"), 19);
-expect("logging into its own account works", $eve.post("/login", {"_csrf" => $eve_token, "email" => "eve@example.com", "password" => $password})["status"], 303);
+expect("logging into its own account works", $eve.post("/login", {"email" => "eve@example.com", "password" => $password})["status"], 303);
 expect("and clears only that pair's", [
     $db.value(db::sql"select count(*) from login_failures where address = {$owner_address} and email = 'eve@example.com'"),
     $db.value(db::sql"select count(*) from login_failures where address = {$owner_address}"),
 ], [0, 17]);
 $eve = browser($db, $config, $owner_address);
-$eve_token = http::form_token($eve.get("/login"));
+$eve.get("/login");
 for ($n = 18; $n <= 20; $n++) {
-    $eve.post("/login", {"_csrf" => $eve_token, "email" => "victim{$n}@example.com", "password" => "a guess"});
+    $eve.post("/login", {"email" => "victim{$n}@example.com", "password" => "a guess"});
 }
-expect("so three more guesses still reach the address's limit", $eve.post("/login", {"_csrf" => $eve_token, "email" => "victim21@example.com", "password" => "a guess"})["status"], 429);
+expect("so three more guesses still reach the address's limit", $eve.post("/login", {"email" => "victim21@example.com", "password" => "a guess"})["status"], 429);
 
 /* --- An address nobody knows is a bucket of its own, not a way round the limit --- */
 $unknown_peer = browser($db, $config, null);
-$unknown_token = http::form_token($unknown_peer.get("/login"));
+$unknown_peer.get("/login");
 for ($n = 1; $n <= 5; $n++) {
-    $unknown_peer.post("/login", {"_csrf" => $unknown_token, "email" => "ada@example.com", "password" => "guess {$n} guess"});
+    $unknown_peer.post("/login", {"email" => "ada@example.com", "password" => "guess {$n} guess"});
 }
-expect("an unknown peer is locked out too", $unknown_peer.post("/login", {"_csrf" => $unknown_token, "email" => "ada@example.com", "password" => $password})["status"], 429);
+expect("an unknown peer is locked out too", $unknown_peer.post("/login", {"email" => "ada@example.com", "password" => $password})["status"], 429);
 expect("and its failures are counted under unknown", $db.value(db::sql"select count(*) from login_failures where address = 'unknown'"), 5);
 
 /* --- Behind a trusted proxy, X-Forwarded-For says who the client is --- */
@@ -215,36 +219,35 @@ expect("TRUSTED_PROXIES is split on commas", trusted_proxies("10.0.0.1, ::1,"), 
 $proxy_address = "10.0.0.1";
 $proxied = proxied_config($proxy_address);
 $first = browser($db, $proxied, $proxy_address);
-$first_token = http::form_token($first.get("/login"));
+$first.get("/login");
 for ($n = 1; $n <= 5; $n++) {
-    $first.post("/login", {"_csrf" => $first_token, "email" => "ada@example.com", "password" => "guess {$n} guess"}, {"x-forwarded-for" => "203.0.113.1"});
+    $first.post("/login", {"email" => "ada@example.com", "password" => "guess {$n} guess"}, {"x-forwarded-for" => "203.0.113.1"});
 }
-expect("one client behind the proxy is locked", $first.post("/login", {"_csrf" => $first_token, "email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.1"})["status"], 429);
+expect("one client behind the proxy is locked", $first.post("/login", {"email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.1"})["status"], 429);
 expect("its failures are under its own address", $db.value(db::sql"select count(*) from login_failures where address = '203.0.113.1'"), 5);
 $second = browser($db, $proxied, $proxy_address);
-expect("another client behind the same proxy is not", $second.post("/login", {"_csrf" => http::form_token($second.get("/login")), "email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.2"})["status"], 303);
+expect("another client behind the same proxy is not", $second.post("/login", {"email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.2"})["status"], 303);
 
 /* --- Without trust in the proxy, a client's own X-Forwarded-For changes nothing --- */
 $spoofer_address = "10.0.0.9";
 $spoofer = browser($db, $config, $spoofer_address);
-$spoof_token = http::form_token($spoofer.get("/login"));
+$spoofer.get("/login");
 for ($n = 1; $n <= 5; $n++) {
-    $spoofer.post("/login", {"_csrf" => $spoof_token, "email" => "ada@example.com", "password" => "guess {$n} guess"}, {"x-forwarded-for" => "203.0.113.{$n}"});
+    $spoofer.post("/login", {"email" => "ada@example.com", "password" => "guess {$n} guess"}, {"x-forwarded-for" => "203.0.113.{$n}"});
 }
-expect("a new X-Forwarded-For each time is still one client", $spoofer.post("/login", {"_csrf" => $spoof_token, "email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.99"})["status"], 429);
+expect("a new X-Forwarded-For each time is still one client", $spoofer.post("/login", {"email" => "ada@example.com", "password" => $password}, {"x-forwarded-for" => "203.0.113.99"})["status"], 429);
 expect("counted under the connection's address", $db.value(db::sql"select count(*) from login_failures where address = {$spoofer_address}"), 5);
 
 /* --- Hostile requests --- */
 $evil = browser($db, $config);
-$evil_token = http::form_token($evil.get("/login"));
-expect("a form from another site", $evil.post("/login", {"_csrf" => $evil_token, "email" => "a", "password" => "b"}, {"origin" => "http://evil.example"})["status"], 403);
-expect("a form from this site", $evil.post("/login", {"_csrf" => $evil_token, "email" => "a", "password" => "b"}, {"origin" => "http://example.test"})["status"], 401);
-$evil.forget("session");
-expect("a token from another session", $evil.post("/login", {"_csrf" => $evil_token, "email" => "a", "password" => "b"})["status"], 403);
+$evil.get("/login");
+expect("a form from another site", $evil.post("/login", {"email" => "a", "password" => "b"}, {"origin" => "http://evil.example"})["status"], 403);
+expect("a form from this site", $evil.post("/login", {"email" => "a", "password" => "b"}, {"origin" => "http://example.test"})["status"], 401);
+expect("a form the browser says came from another site", $evil.post("/login", {"email" => "a", "password" => "b"}, {"sec-fetch-site" => "cross-site"})["status"], 403);
 $forged = browser($db, $config);
 $forged.get("/login");
 expect("a session the app didn't sign", $forged.get("/", {"cookie" => "session=%7B%22user_id%22%3A1%7D.AAAA"})["status"], 303);
-expect("a body that isn't a form", browser($db, $config).post("/login", {}, {"content-type" => "application/json"})["status"], 403);
+expect("a body that isn't a form is a failed login, not an error", browser($db, $config).post("/login", {}, {"content-type" => "application/json"})["status"], 401);
 expect("a path out of the static directory", browser($db, $config).get("/..%2fmain.gaz")["status"], 404);
 expect("the stylesheet", [browser($db, $config).get("/style.css")["status"], browser($db, $config).get("/style.css")["headers"]["content-type"]], [200, "text/css"]);
 expect("a page that doesn't exist", browser($db, $config).get("/nothing-here")["status"], 404);
@@ -255,32 +258,32 @@ expect("a page that doesn't exist", browser($db, $config).get("/nothing-here")["
  */
 $cleo = browser($db, london_config());
 register($cleo, "cleo@example.com", "a third long password");
-$token = http::form_token($cleo.get("/"));
-$due = $cleo.post("/todos", {"_csrf" => $token, "title" => "dentist", "due" => "2099-10-05T14:30"});
+$cleo.get("/");
+$due = $cleo.post("/todos", {"title" => "dentist", "due" => "2099-10-05T14:30"});
 expect("adding a todo with a due date", [$due["status"], location_of($due), due_of($db, "dentist")], [303, "/", date::parse("2099-10-05T14:30:00+01:00").time]);
 $list = text_of($cleo.get("/"));
 expect("it is shown in London's time, and in UTC for machines", contains($list, "Due <time datetime=\"2099-10-05T13:30:00Z\">5 Oct, 14:30</time>"), true);
-expect("with seconds too", [$cleo.post("/todos", {"_csrf" => $token, "title" => "to the second", "due" => "2026-10-05T14:30:15"})["status"], due_of($db, "to the second")], [303, date::parse("2026-10-05T13:30:15Z").time]);
-$no_due = $cleo.post("/todos", {"_csrf" => $token, "title" => "someday", "due" => ""});
+expect("with seconds too", [$cleo.post("/todos", {"title" => "to the second", "due" => "2026-10-05T14:30:15"})["status"], due_of($db, "to the second")], [303, date::parse("2026-10-05T13:30:15Z").time]);
+$no_due = $cleo.post("/todos", {"title" => "someday", "due" => ""});
 expect("a due date is optional", [$no_due["status"], due_of($db, "someday")], [303, null]);
-expect("a missing due field is none", [$cleo.post("/todos", {"_csrf" => $token, "title" => "no field"})["status"], due_of($db, "no field")], [303, null]);
+expect("a missing due field is none", [$cleo.post("/todos", {"title" => "no field"})["status"], due_of($db, "no field")], [303, null]);
 
-$malformed = $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => "tomorrow"});
+$malformed = $cleo.post("/todos", {"title" => "soon", "due" => "tomorrow"});
 expect("a due date that isn't one", [$malformed["status"], contains(text_of($malformed), "Give the date and time it is due, such as 2026-10-05T14:30")], [422, true]);
 expect("and what was typed is kept", contains(text_of($malformed), "value=\"tomorrow\""), true);
 foreach (["2026-02-30T10:00", "2026-10-05T25:00", "2026-10-05T14:30+01:00", "2026-10-05"] as $text) {
-    expect("not a due date: " .. $text, $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => $text})["status"], 422);
+    expect("not a due date: " .. $text, $cleo.post("/todos", {"title" => "soon", "due" => $text})["status"], 422);
 }
-$far = $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => "3000-01-01T00:00"});
+$far = $cleo.post("/todos", {"title" => "soon", "due" => "3000-01-01T00:00"});
 expect("a due date too far away", [$far["status"], contains(text_of($far), "Choose a date between 1970 and 2999")], [422, true]);
-expect("nor too long ago", $cleo.post("/todos", {"_csrf" => $token, "title" => "soon", "due" => "1969-12-31T23:59"})["status"], 422);
+expect("nor too long ago", $cleo.post("/todos", {"title" => "soon", "due" => "1969-12-31T23:59"})["status"], 422);
 expect("none of them was saved", $db.value(db::sql"select count(*) from todos where title = 'soon'"), 0);
 
-$skipped = $cleo.post("/todos", {"_csrf" => $token, "title" => "skipped", "due" => "2026-03-29T01:30"});
+$skipped = $cleo.post("/todos", {"title" => "skipped", "due" => "2026-03-29T01:30"});
 $cleo_home = text_of($cleo.get("/"));
 expect("a time the clocks skip is due when an alarm would ring, an hour on", [$skipped["status"], due_of($db, "skipped")], [303, date::parse("2026-03-29T02:30:00+01:00").time]);
 expect("and the user is told", contains($cleo_home, "Added. The clocks in Europe/London skip that time as they go forward, so it is due at 02:30 BST on 29 Mar."), true);
-$twice = $cleo.post("/todos", {"_csrf" => $token, "title" => "twice", "due" => "2026-10-25T01:30"});
+$twice = $cleo.post("/todos", {"title" => "twice", "due" => "2026-10-25T01:30"});
 $cleo_home = text_of($cleo.get("/"));
 expect("a time the clocks show twice is due the first time", [$twice["status"], due_of($db, "twice")], [303, date::parse("2026-10-25T01:30:00+01:00").time]);
 expect("and the user is told", contains($cleo_home, "Added. The clocks in Europe/London show that time twice as they go back, so it is due the first time, 01:30 BST on 25 Oct."), true);
@@ -290,23 +293,23 @@ $dentist = $db.value(db::sql"select id from todos where title = 'dentist'");
 expect("the edit page holds the due date as the field reads it", contains(text_of($cleo.get("/todos/{$dentist}/edit")), "name=\"due\" value=\"2099-10-05T14:30\""), true);
 $second_id = $db.value(db::sql"select id from todos where title = 'to the second'");
 expect("with its seconds when it has them", contains(text_of($cleo.get("/todos/{$second_id}/edit")), "name=\"due\" value=\"2026-10-05T14:30:15\""), true);
-$moved = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => "2026-12-01T09:00"});
+$moved = $cleo.post("/todos/{$dentist}", {"title" => "dentist", "due" => "2026-12-01T09:00"});
 expect("moving it", [$moved["status"], due_of($db, "dentist")], [303, date::parse("2026-12-01T09:00:00Z").time]);
-$bad_edit = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => "next week"});
+$bad_edit = $cleo.post("/todos/{$dentist}", {"title" => "dentist", "due" => "next week"});
 expect("a bad due date on edit", [$bad_edit["status"], contains(text_of($bad_edit), "Give the date and time it is due"), due_of($db, "dentist")], [422, true, date::parse("2026-12-01T09:00:00Z").time]);
-$moved_twice = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => "2026-10-25T01:15"});
+$moved_twice = $cleo.post("/todos/{$dentist}", {"title" => "dentist", "due" => "2026-10-25T01:15"});
 expect("an edit says so when the clocks show it twice", [$moved_twice["status"], contains(text_of($cleo.get("/")), "Saved. The clocks in Europe/London show that time twice")], [303, true]);
-$cleared = $cleo.post("/todos/{$dentist}", {"_csrf" => $token, "title" => "dentist", "due" => ""});
+$cleared = $cleo.post("/todos/{$dentist}", {"title" => "dentist", "due" => ""});
 expect("clearing it removes the due date", [$cleared["status"], due_of($db, "dentist")], [303, null]);
 expect("so the edit page has none", contains(text_of($cleo.get("/todos/{$dentist}/edit")), "name=\"due\" value=\"\""), true);
 
 /* The order: open and due soonest first, then open and not due, newest first, then done */
 $db.exec(db::sql"delete from todos where user_id = (select id from users where email = 'cleo@example.com')");
 foreach ({"later" => "2099-11-01T09:00", "not due, older" => "", "soonest" => "2099-10-06T09:00", "done and due first" => "2099-10-05T09:00", "not due, newer" => "", "middle" => "2099-10-20T09:00", "done, not due" => ""} as $title => $when) {
-    $cleo.post("/todos", {"_csrf" => $token, "title" => $title, "due" => $when});
+    $cleo.post("/todos", {"title" => $title, "due" => $when});
 }
 foreach (["done and due first", "done, not due"] as $title) {
-    $cleo.post("/todos/" .. $db.value(db::sql"select id from todos where title = {$title}") .. "/toggle", {"_csrf" => $token});
+    $cleo.post("/todos/" .. $db.value(db::sql"select id from todos where title = {$title}") .. "/toggle", {});
 }
 expect("the list's order", titles_in($cleo.get("/")), ["soonest", "middle", "later", "not due, newer", "not due, older", "done, not due", "done and due first"]);
 
@@ -319,7 +322,7 @@ expect("a done one isn't", [contains($home, "<li class=\"done overdue\">"), len(
 $at = date::parse("2026-10-05T12:00:00Z").time;
 $todos = [Todo(1, 1, "due at noon", false, 0, $at), Todo(2, 1, "done", true, 0, $at - 1), Todo(3, 1, "never due", false, 0)];
 fn rendered(list $todos, int $now): string {
-    return todos_page("token", $todos, TodoForm(""), {}, date::utc(), Filter::All, $now).text;
+    return todos_page($todos, TodoForm(""), {}, date::utc(), Filter::All, $now).text;
 }
 expect("at the moment it is due, not yet overdue", contains(rendered($todos, $at), "overdue"), false);
 expect("a second later it is", [contains(rendered($todos, $at + 1), "<li class=\"open overdue\">"), len(split(rendered($todos, $at + 1), "class=\"open overdue\"")) - 1], [true, 1]);
@@ -327,7 +330,7 @@ expect("a second later it is", [contains(rendered($todos, $at + 1), "<li class=\
 shared $now = $at;
 $dana = browser($db, clocked_config(() -> $now));
 register($dana, "dana@example.com", "a fourth long password");
-$dana.post("/todos", {"_csrf" => http::form_token($dana.get("/")), "title" => "due at noon", "due" => "2026-10-05T14:00"});
+$dana.post("/todos", {"title" => "due at noon", "due" => "2026-10-05T14:00"});
 expect("due at noon, two hours ahead of UTC", due_of($db, "due at noon"), $at);
 expect("the page drawn at noon doesn't call it overdue", contains(text_of($dana.get("/")), "overdue"), false);
 $now = $at + 1;
@@ -340,15 +343,17 @@ expect("only the open ones", titles_in($open_page), ["soonest", "middle", "later
 expect("only the done ones", titles_in($cleo.get("/?show=done")), ["done, not due", "done and due first"]);
 expect("all of them", len(titles_in($cleo.get("/?show=all"))), 7);
 expect("the filter shown is the one selected", [contains(text_of($open_page), "<a href=\"/?show=open\" aria-current=\"page\">Open</a>"), contains(text_of($open_page), "<a href=\"/\" aria-current=\"false\">All</a>")], [true, true]);
-expect("the forms carry it", len(split(text_of($open_page), "name=\"show\" value=\"open\"")) - 1, 11);
+expect("no form carries it", contains(text_of($open_page), "name=\"show\""), false);
 $middle = $db.value(db::sql"select id from todos where title = 'middle'");
-expect("toggling goes back to the same filter", location_of($cleo.post("/todos/{$middle}/toggle", {"_csrf" => $token, "show" => "open"})), "/?show=open");
-expect("and so does adding", location_of($cleo.post("/todos", {"_csrf" => $token, "title" => "filtered", "show" => "done"})), "/?show=done");
-$failed = $cleo.post("/todos", {"_csrf" => $token, "title" => "", "show" => "done"});
+expect("toggling goes back to the filter it was sent from", location_of($cleo.post("/todos/{$middle}/toggle", {}, from_list("open"))), "/?show=open");
+expect("and so does adding", location_of($cleo.post("/todos", {"title" => "filtered"}, from_list("done"))), "/?show=done");
+$failed = $cleo.post("/todos", {"title" => ""}, from_list("done"));
 expect("a refused add shows the same filter again", [$failed["status"], contains(text_of($failed), "<a href=\"/?show=done\" aria-current=\"page\">Done</a>")], [422, true]);
 $filtered = $db.value(db::sql"select id from todos where title = 'filtered'");
-expect("and deleting", location_of($cleo.post("/todos/{$filtered}/delete", {"_csrf" => $token, "show" => "open"})), "/?show=open");
-expect("all goes back to the plain list", location_of($cleo.post("/todos/{$middle}/toggle", {"_csrf" => $token, "show" => "all"})), "/");
+expect("and deleting", location_of($cleo.post("/todos/{$filtered}/delete", {}, from_list("open"))), "/?show=open");
+expect("all goes back to the plain list", location_of($cleo.post("/todos/{$middle}/toggle", {}, from_list("all"))), "/");
+$unsent = $cleo.post("/todos", {"title" => ""});
+expect("a form whose browser sent no Referer has the plain list", contains(text_of($unsent), "<a href=\"/\" aria-current=\"page\">All</a>"), true);
 
 /* Hostile filters: anything unknown shows all, and a redirect only ever goes to the list */
 foreach (["//evil.example", "https://evil.example/", "%zz", "open%0d%0aLocation:%20http://evil.example", "OPEN", "open%20", "", "x=1&show"] as $show) {
@@ -357,7 +362,9 @@ foreach (["//evil.example", "https://evil.example/", "%zz", "open%0d%0aLocation:
 }
 expect("a filter given twice keeps the last", titles_in($cleo.get("/?show=open&show=done")), ["done, not due", "done and due first"]);
 foreach (["//evil.example", "https://evil.example/", "/\\evil.example", "open\r\nLocation: http://evil.example", "open?x"] as $show) {
-    expect("a redirect stays on the list: " .. slice(to_string([$show]), 1, -1), location_of($cleo.post("/todos/{$middle}/toggle", {"_csrf" => $token, "show" => $show})), "/");
+    $sent = from_list(http::url_encode($show));
+    expect("a redirect stays on the list: " .. slice(to_string([$show]), 1, -1), location_of($cleo.post("/todos/{$middle}/toggle", {}, $sent)), "/");
 }
+expect("as it does from a Referer on another site", location_of($cleo.post("/todos/{$middle}/toggle", {}, {"referer" => "https://evil.example/?show=//evil.example"})), "/");
 
 test::done();

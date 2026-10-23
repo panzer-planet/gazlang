@@ -38,11 +38,14 @@ ok the token in the header passes
 ok PUT, PATCH and DELETE are checked
 ok a body that isn't a form is refused, not an error
 ok a form with a bad escape is refused, not an error
-ok another site's Origin is refused
+ok another site's Origin is refused, token or not
 ok Origin null is refused
-ok our own Origin passes
+ok our own Origin passes without a token
 ok over http too
-ok no Origin passes
+ok Sec-Fetch-Site same-origin passes without a token
+ok any other Sec-Fetch-Site is refused, token or not
+ok and it decides over a matching Origin
+ok with neither, the token passes
 ok the refusal says what to do
 ok without http::sessions() first
 ok a field of another name

@@ -90,7 +90,7 @@ expect("the course needs an account", $visitor.get("/course")["headers"]["locati
 expect("so does a lesson", $visitor.get("/lessons/{$first.slug}")["headers"]["location"], "/login");
 expect("the style sheet is served", $visitor.get("/style.css")["status"], 200);
 expect("an unknown page is a 404", $visitor.get("/nowhere")["status"], 404);
-expect("a form without its token is refused", $visitor.post("/login", {"email" => "a@b.co"})["status"], 403);
+expect("a form from another site is refused", $visitor.post("/login", {"email" => "a@b.co"}, {"origin" => "http://evil.example"})["status"], 403);
 
 // Registering
 $ada = client();
