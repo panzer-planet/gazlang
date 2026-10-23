@@ -1,0 +1,1 @@
+Error: gaz --tty: 'mouse left click 3 2' isn't a mouse report: 'mouse' needs a button, an action, a column and a row after it (mouse left press 10 5): left, middle, right or none, after ctrl+ alt+ or shift+ if held; press, release, drag, move, scroll_up or scroll_down; and the column and the row, from 1

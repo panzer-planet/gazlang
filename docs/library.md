@@ -341,6 +341,47 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   `ponytail:` `run()` hands a child whose output it collects the terminal as raw mode left it,
   which only a child opening `/dev/tty` meets; an inheriting one gets it as it was before (see
   [Processes and sockets](#processes-and-sockets)).
+- **What the terminal reports beyond keys is asked for, never on by default** (`fullscreen()`'s
+  `$options`; `term::enable()`/`disable()` and a pair of functions per feature are the sequences,
+  as every drawing function returns its own), so a program that asks for nothing prints what it
+  did. Each is turned on after the alternate screen is entered and off before it is left, in the
+  other order, so the kitty flags are popped on the screen they were pushed on (the protocol keeps
+  a stack per screen) and a terminal without the protocol ignores both. An unknown option is an
+  error, the rule for every option map.
+  - **Bracketed paste** gives one `paste` key with the text, its newlines made `"\n"`: a terminal
+    sends a pasted newline as the enter key's `"\r"`, and an editor inserting lines wants one
+    spelling. A paste cut across reads stays in `rest` until its end arrives, and `Input.read()`
+    waits for it as it waits for a key, not the escape wait, since a big paste over a slow
+    connection takes longer than 50ms and giving up would type its first half; one that never
+    ends is its text when the input ends. `term::text()` of one is `null`, since it isn't one
+    character: the program inserts `$key["text"]` itself.
+  - **Mouse reports are read in the SGR form only** (`?1006`), which `fullscreen()` enables; the
+    old X10 form stays `unknown`, since its three bytes can't be told from keys. The wheel's report
+    holds no button, and the buttons past the third and the wheel sideways are `unknown`.
+  - **The kitty keyboard protocol** is read with its first flag alone (every key as an escape code
+    of its own): the keys it numbers by their control character and the keypad's in the private
+    use area, the rest keeping their xterm forms, all decoded to the names the xterm forms give,
+    so a program's `match` never knows which protocol the terminal spoke. A release event is
+    `unknown`, since nothing here asks for the flag that sends them and a release taken for a
+    press would type every key twice; a repeat is a press, as it is without the flag; the
+    modifier's higher bits (super, caps lock) are passed over.
+  - **Byte 8 stays `backspace`**, the restrictive choice: with the protocol on, backspace arrives
+    as `"\e[127u"` and `"\e[104;5u"` is `ctrl+h`, so `decode()` needn't know whether the protocol
+    is on, which would make it stateful. A program that wants `ctrl+h` asks for `"keys" => "kitty"`.
+  - **`Input($escape_wait = 0.05)`** is Vim's `ttimeoutlen`, a parameter rather than the private
+    constant it was, since a slow connection wants more and a modal editor less; `tui::interact()`
+    passes nothing. **The ESC trap stays**: an ESC and a byte in one read are alt and the key, as
+    every terminal program reads them, so an escape typed ahead of a `j` to a busy program is
+    alt+j. The protocol closes it, since under it alt+j is `"\e[106;3u"` and the escape key
+    `"\e[27u"`, so the trap is documented rather than guessed around.
+  - **Cursor shapes** are DECSCUSR (`cursor_block()`, `cursor_underline()`, `cursor_bar()`, each
+    with `$blink`, and `cursor_default()`). `fullscreen()` doesn't restore the shape, since it
+    doesn't know whether the program changed it and the sequence would change what every program
+    prints; `cursor_default()` is the terminal's own default, not a remembered one.
+  - **`gaz --tty`'s script** gives a paste as `paste "text"` and a mouse report as `mouse left
+    press 10 5`, since neither is a key a word could name, and `focus_in` and `focus_out` as keys.
+    Tested in `term_test.gaz`, every shape with its cut-across-reads case, and by `CliTest`
+    running `tests/corpora/cli/tty_events.gaz`.
 - Random numbers: `xoshiro256**` through SplitMix64, as PHP's `Xoshiro256StarStar` does; the range
   mapping is `random_between()`, pinned for several seeds by `StdlibTest` against an independent
   port. The state is per program, reseeded by `run_program()`, since the compiler runs first.

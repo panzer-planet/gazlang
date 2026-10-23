@@ -1,0 +1,11 @@
+/* Every key gaz --tty's script gives, as a program reading its Input sees it, until the keys run out */
+import "std/term.gaz";
+
+$input = term::Input();
+while (true) {
+    $key = $input.read();
+    echo term::name($key) .. ": " .. to_string($key) .. " types " .. to_string([term::text($key)]);
+    if ($key["key"] == "eof") {
+        break;
+    }
+}

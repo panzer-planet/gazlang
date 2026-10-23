@@ -84,8 +84,9 @@ shell calls are its session and a sequence showing a bug is already a test case.
   the grid is the truth. `ponytail:` so a bug in `render()`'s bytes doesn't show, and a
   program drawing its own escapes gets keys and clock but no screens.
 - **The script's words are `term::name()`'s** (`j`, `enter`, `ctrl+c`, `page_up`), one
-  vocabulary; `"text"` types characters; `wait N` moves the clock; `snap` prints the screen. A
-  snap reaches `interact()` as the key `"snap"` through `Input.read_or_snap()`, never through
+  vocabulary; `"text"` types characters; `paste "text"` is one paste key and `mouse left press
+  10 5` one mouse report, since neither is bytes a word could type; `wait N` moves the clock;
+  `snap` prints the screen. A snap reaches `interact()` as the key `"snap"` through `Input.read_or_snap()`, never through
   `read()`, which passes it over, since only `interact()` has a screen to show; a snap that
   follows a `wait` inside one read is why it can't be peeked for before reading instead.
   An unknown word is the user's mistake, not the program's: one line and exit 2, no trace.

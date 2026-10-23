@@ -4,7 +4,9 @@
  * Drawing is escape sequences, and every function here that makes one *returns* it, so
  * print(term::style("hi", "bold red")) draws and "x" .. term::style("hi", "bold") .. "y" composes.
  * Reading is term_read()'s bytes turned into key events: a map {"key", "ctrl", "alt", "shift"},
- * where "key" is the character typed ("a", "é", "space") or a name ("enter", "up", "f5").
+ * where "key" is the character typed ("a", "é", "space") or a name ("enter", "up", "f5"), and
+ * what the terminal reports when asked to (fullscreen()'s options): a "paste" with its text, a
+ * "mouse" report with its button, action and place, and "focus_in" and "focus_out".
  * term::name($key) writes one as "ctrl+c", which is what a `match` wants.
  *
  * Nothing here needs a terminal except term_raw() and fullscreen(): the decoder is bytes in, keys
@@ -159,6 +161,39 @@ pub fn hide_cursor() { return CSI .. "?25l"; }
  */
 pub fn show_cursor() { return CSI .. "?25h"; }
 
+// The steady cursor shapes DECSCUSR numbers; the blinking one of each is the number before it
+const CURSOR_BLOCK = 2;
+const CURSOR_UNDERLINE = 4;
+const CURSOR_BAR = 6;
+
+// The cursor in shape $steady, or its blinking one
+fn cursor_shape($steady, $blink) {
+    $number = $blink ? $steady - 1 : $steady;
+    return CSI .. $number .. " q";
+}
+
+/**
+ * The cursor a block, blinking when $blink says so (a modal editor's normal mode); the shape
+ * stays after the program ends, so print cursor_default() before it does
+ */
+pub fn cursor_block($blink = false) { return cursor_shape(CURSOR_BLOCK, $blink); }
+
+/**
+ * The cursor an underline, blinking when $blink says so
+ */
+pub fn cursor_underline($blink = false) { return cursor_shape(CURSOR_UNDERLINE, $blink); }
+
+/**
+ * The cursor a bar, blinking when $blink says so (a modal editor's insert mode)
+ */
+pub fn cursor_bar($blink = false) { return cursor_shape(CURSOR_BAR, $blink); }
+
+/**
+ * The cursor in the shape the terminal's user chose, after cursor_block(), cursor_underline()
+ * or cursor_bar()
+ */
+pub fn cursor_default() { return CSI .. "0 q"; }
+
 /**
  * The cursor's place kept, for restore_cursor()
  */
@@ -204,13 +239,193 @@ pub fn leave_screen() { return CSI .. "?1049l"; }
  */
 pub fn title($text) { return ESC .. "]0;" .. $text .. "\x07"; }
 
+// ---- What the terminal reports ---------------------------------------------------------------
+
+// The private modes, set with "h" and reset with "l"
+const MODE_PASTE = "?2004";
+const MODE_MOUSE_BUTTONS = "?1000";
+const MODE_MOUSE_MOTION = "?1003";
+const MODE_MOUSE_SGR = "?1006";
+const MODE_FOCUS = "?1004";
+
+// The kitty keyboard protocol's first flag: every key as an escape code of its own
+const KITTY_DISAMBIGUATE = 1;
+
+/**
+ * Bracketed paste on: pasted text arrives between "\e[200~" and "\e[201~", which decode() gives
+ * as one "paste" key holding the text, instead of a key for each character
+ */
+pub fn enable_paste() { return CSI .. MODE_PASTE .. "h"; }
+
+/**
+ * Bracketed paste off
+ */
+pub fn disable_paste() { return CSI .. MODE_PASTE .. "l"; }
+
+/**
+ * Mouse reports on, in the SGR form decode() reads (presses, releases, dragging and the wheel),
+ * and with $all every movement of the pointer too, which is a report for each cell it crosses
+ */
+pub fn enable_mouse($all = false) {
+    return CSI .. mouse_mode($all) .. "h" .. CSI .. MODE_MOUSE_SGR .. "h";
+}
+
+/**
+ * Mouse reports off, $all as enable_mouse() was given it
+ */
+pub fn disable_mouse($all = false) {
+    return CSI .. MODE_MOUSE_SGR .. "l" .. CSI .. mouse_mode($all) .. "l";
+}
+
+// Which events the terminal reports: the buttons, or every movement too
+fn mouse_mode($all) {
+    return $all ? MODE_MOUSE_MOTION : MODE_MOUSE_BUTTONS;
+}
+
+/**
+ * Focus reports on: "focus_in" and "focus_out" keys as the window gains and loses the keyboard
+ */
+pub fn enable_focus() { return CSI .. MODE_FOCUS .. "h"; }
+
+/**
+ * Focus reports off
+ */
+pub fn disable_focus() { return CSI .. MODE_FOCUS .. "l"; }
+
+/**
+ * The kitty keyboard protocol on, its first flag: every key as an escape code of its own
+ * ("\e[13;2u" is shift+enter, "\e[105;5u" ctrl+i, "\e[27u" the escape key), which decode()
+ * reads to the same names as the terminal's usual sequences, so a program never knows which it
+ * spoke. Pushed onto the terminal's stack of flags, so disable_kitty_keys() pops it; a terminal
+ * without the protocol ignores both.
+ */
+pub fn enable_kitty_keys() { return CSI .. ">" .. KITTY_DISAMBIGUATE .. "u"; }
+
+/**
+ * The kitty keyboard protocol back as it was before enable_kitty_keys()
+ */
+pub fn disable_kitty_keys() { return CSI .. "<u"; }
+
+/*
+ * What a program asks the terminal to report, from fullscreen()'s $options, each checked when it
+ * is read so a misspelt one is an error and not a report that never comes
+ */
+kind Features {
+    #paste = false;
+    #mouse = null;      // null, true or "all"
+    #focus = false;
+    #kitty = false;
+
+    /* The features $options names */
+    pub static fn of($options) {
+        $features = Features();
+        foreach ($options as $name => $value) {
+            match ($name) {
+                "paste" => { $features.paste = flag($name, $value); }
+                "mouse" => { $features.mouse = mouse_option($value); }
+                "focus" => { $features.focus = flag($name, $value); }
+                "keys" => { $features.kitty = keys_option($value); }
+                default => {
+                    throw "term: unknown option \"" .. $name .. "\" (the options are paste, mouse, focus and keys)";
+                }
+            }
+        }
+        return $features;
+    }
+
+    /* The sequences that turn them on: paste, mouse, focus, then the keys */
+    pub fn on() {
+        $out = "";
+        if (#paste) {
+            $out ..= enable_paste();
+        }
+        if (#mouse != null) {
+            $out ..= enable_mouse(#mouse == "all");
+        }
+        if (#focus) {
+            $out ..= enable_focus();
+        }
+        if (#kitty) {
+            $out ..= enable_kitty_keys();
+        }
+        return $out;
+    }
+
+    /* The sequences that turn them off again, in the other order */
+    pub fn off() {
+        $out = "";
+        if (#kitty) {
+            $out ..= disable_kitty_keys();
+        }
+        if (#focus) {
+            $out ..= disable_focus();
+        }
+        if (#mouse != null) {
+            $out ..= disable_mouse(#mouse == "all");
+        }
+        if (#paste) {
+            $out ..= disable_paste();
+        }
+        return $out;
+    }
+}
+
+// An option that is on or off
+fn flag($name, $value) {
+    if ($value != true && $value != false) {
+        throw "term: option \"" .. $name .. "\" is true or false";
+    }
+    return $value;
+}
+
+// "mouse": off, the buttons, or every movement too
+fn mouse_option($value) {
+    if ($value == null || $value == false) {
+        return null;
+    }
+    if ($value == true || $value == "all") {
+        return $value;
+    }
+    throw "term: option \"mouse\" is true, false or \"all\"";
+}
+
+// "keys": the terminal's own sequences, or the kitty keyboard protocol
+fn keys_option($value) {
+    if ($value == null || $value == false) {
+        return false;
+    }
+    if ($value == "kitty") {
+        return true;
+    }
+    throw "term: option \"keys\" is \"kitty\", or false for the terminal's own sequences";
+}
+
+/**
+ * The sequences that turn on what $options asks for, as fullscreen($f, $options) prints them
+ * after entering its screen: "paste" => true (enable_paste()), "mouse" => true or "all"
+ * (enable_mouse()), "focus" => true (enable_focus()) and "keys" => "kitty"
+ * (enable_kitty_keys()), in that order. A key that isn't one of those is an error.
+ */
+pub fn enable($options) { return Features::of($options).on(); }
+
+/**
+ * The sequences that turn off what enable($options) turned on, in the other order, as
+ * fullscreen() prints them before leaving its screen
+ */
+pub fn disable($options) { return Features::of($options).off(); }
+
 /**
  * Run $f on a screen of its own in raw mode, with the cursor hidden, and put everything back
  * however $f ends (an error included; exit() and signals are term.c's). Gives what $f gives.
- * Standard input and output must be a terminal, or gaz --tty's pretend one: without, it says so
- * and exits 1.
+ * $options asks the terminal to report more than keys, each off unless asked for: "paste" => true
+ * for pasted text as one key, "mouse" => true for clicks and the wheel ("all" for every movement
+ * too), "focus" => true for the window gaining and losing the keyboard, and "keys" => "kitty" for
+ * the kitty keyboard protocol (see enable()); each is turned on after the screen is entered and
+ * off before it is left. Standard input and output must be a terminal, or gaz --tty's pretend
+ * one: without, it says so and exits 1.
  */
-pub fn fullscreen($f) {
+pub fn fullscreen($f, $options = {}) {
+    $features = Features::of($options);
     if (term_is_virtual()) {
         // gaz --tty: nothing to set up, and screens are printed as text (tui::interact)
         return $f();
@@ -223,11 +438,11 @@ pub fn fullscreen($f) {
         exit(1);
     }
     term_raw(true);
-    print(enter_screen() .. hide_cursor() .. clear() .. move_to(1, 1));
+    print(enter_screen() .. hide_cursor() .. clear() .. move_to(1, 1) .. $features.on());
     try {
         return $f();
     } finally {
-        print(RESET .. show_cursor() .. leave_screen());
+        print($features.off() .. RESET .. show_cursor() .. leave_screen());
         term_raw(false);
     }
 }
@@ -341,6 +556,46 @@ const TILDE_KEYS = {
     17 => "f6", 18 => "f7", 19 => "f8", 20 => "f9", 21 => "f10", 23 => "f11", 24 => "f12",
 };
 
+// "ESC [ I" and "ESC [ O": the window gained or lost the keyboard
+const FOCUS_KEYS = {"I" => "focus_in", "O" => "focus_out"};
+
+/*
+ * "ESC [ N ; MODIFIER u", the kitty keyboard protocol's own form, by N: the keys it numbers by
+ * their control character, and the keypad's, which it numbers in Unicode's private use area.
+ * The arrows, home, end, the pages, insert, delete and f1 to f12 keep the forms above under it.
+ */
+const CSI_U_KEYS = {
+    9 => "tab", 13 => "enter", 27 => "escape", 127 => "backspace",
+    57414 => "enter", 57417 => "left", 57418 => "right", 57419 => "up", 57420 => "down",
+    57421 => "page_up", 57422 => "page_down", 57423 => "home", 57424 => "end",
+    57425 => "insert", 57426 => "delete",
+};
+const PRIVATE_USE_FIRST = 57344;    // U+E000, where the protocol's own key numbers are
+const PRIVATE_USE_LAST = 63743;     // U+F8FF
+const SURROGATE_FIRST = 55296;      // U+D800: surrogates are no character
+const SURROGATE_LAST = 57343;       // U+DFFF
+const CODE_POINT_LAST = 1114111;    // U+10FFFF
+const DELETE_CONTROL_FIRST = 127;   // DEL and the C1 controls, 127 to 159, are no character either
+const C1_CONTROL_LAST = 159;
+const KEY_RELEASED = 3;             // the protocol's event type for a key let go
+
+// Bracketed paste: the terminal sends pasted text between these, so it can be told from typing
+const PASTE_START = "\e[200~";
+const PASTE_END = "\e[201~";
+
+// A mouse report's button, by the low two bits of its number
+const MOUSE_BUTTON_NAMES = ["left", "middle", "right", "none"];
+const BUTTON_BITS = 3;
+// The bits above the button in a mouse report's number
+const BUTTON_SHIFT = 4;
+const BUTTON_ALT = 8;
+const BUTTON_CTRL = 16;
+const BUTTON_MOTION = 32;
+const BUTTON_WHEEL = 64;
+const BUTTON_EXTRA = 128;       // the buttons past the third, which aren't read
+const WHEEL_UP = 0;
+const WHEEL_DOWN = 1;
+
 // A key with the modifiers xterm numbers: 1 plus shift 1, alt 2, ctrl 4 (so 5 is ctrl)
 fn modified($key, $modifier) {
     $bits = $modifier - 1;
@@ -349,6 +604,203 @@ fn modified($key, $modifier) {
 
 fn unknown_key($raw) {
     return {"key" => "unknown", "ctrl" => false, "alt" => false, "shift" => false, "raw" => $raw};
+}
+
+// A paste of $text, with its newlines as "\n": a terminal sends a pasted one as the enter key's "\r"
+fn make_paste($text) {
+    $key = make_key("paste");
+    $key["text"] = replace(replace($text, "\r\n", "\n"), "\r", "\n");
+    return $key;
+}
+
+// A mouse report as a key: the button, what it did, and the cell it was over
+fn make_mouse($button, $action, $col, $row, $ctrl, $alt, $shift) {
+    $key = make_key("mouse", $ctrl, $alt, $shift);
+    $key["button"] = $button;
+    $key["action"] = $action;
+    $key["col"] = $col;
+    $key["row"] = $row;
+    return $key;
+}
+
+// A code point written as UTF-8 bytes: each continuation byte carries the low 6 bits of
+// what is left, so the tail is shifted away 6 bits at a time
+fn utf8($code_point) {
+    if ($code_point < 0x80) {
+        return chr($code_point);
+    }
+    $continuation = chr(0x80 | $code_point & 0x3F);
+    if ($code_point < 0x800) {
+        return chr(0xC0 | $code_point >> 6) .. $continuation;
+    }
+    if ($code_point < 0x10000) {
+        return chr(0xE0 | $code_point >> 12) .. chr(0x80 | $code_point >> 6 & 0x3F) .. $continuation;
+    }
+    return chr(0xF0 | $code_point >> 18) .. chr(0x80 | $code_point >> 12 & 0x3F)
+        .. chr(0x80 | $code_point >> 6 & 0x3F) .. $continuation;
+}
+
+/*
+ * The paste that starts at $i (PASTE_START) as [key, length], or null until PASTE_END has
+ * arrived; with $flush nothing more is coming, so the text so far is the paste
+ */
+fn paste_key($bytes, $i, $flush) {
+    $start = $i + len(PASTE_START);
+    $end = index_of($bytes, PASTE_END, $start);
+    if ($end == null) {
+        if (!$flush) {
+            return null;
+        }
+        return [make_paste(slice($bytes, $start)), len($bytes) - $i];
+    }
+    return [make_paste(slice($bytes, $start, $end - $start)), $end + len(PASTE_END) - $i];
+}
+
+/*
+ * The mouse report "ESC [ < NUMBER ; COLUMN ; ROW M" ("m" for a release) as a key, or null for
+ * one this doesn't read: the number's low two bits are the button, then shift, alt and ctrl
+ * bits, 32 for movement and 64 for the wheel
+ */
+fn mouse_key($parameters, $final) {
+    $fields = split($parameters, ";");
+    if (len($fields) != 3 || ($final != "M" && $final != "m")) {
+        return null;
+    }
+    $number = to_int($fields[0], null);
+    $col = to_int($fields[1], null);
+    $row = to_int($fields[2], null);
+    if ($number == null || $number < 0 || $col == null || $row == null) {
+        return null;
+    }
+    $button = MOUSE_BUTTON_NAMES[$number & BUTTON_BITS];
+    $action = mouse_action($number, $button, $final == "m");
+    if ($action == null) {
+        return null;
+    }
+    if (($number & BUTTON_WHEEL) != 0) {
+        // the wheel's low bits are its direction, not a button held
+        $button = "none";
+    }
+    return make_mouse($button, $action, $col, $row,
+        ($number & BUTTON_CTRL) != 0, ($number & BUTTON_ALT) != 0, ($number & BUTTON_SHIFT) != 0);
+}
+
+// What the mouse did, or null for a report this doesn't read (the wheel sideways, a fourth button)
+fn mouse_action($number, $button, $released) {
+    if (($number & BUTTON_EXTRA) != 0) {
+        return null;
+    }
+    if (($number & BUTTON_WHEEL) != 0) {
+        $direction = $number & BUTTON_BITS;
+        if ($direction == WHEEL_UP) {
+            return "scroll_up";
+        }
+        return $direction == WHEEL_DOWN ? "scroll_down" : null;
+    }
+    if ($released) {
+        return "release";
+    }
+    if (($number & BUTTON_MOTION) != 0) {
+        return $button == "none" ? "move" : "drag";
+    }
+    return $button == "none" ? null : "press";
+}
+
+/*
+ * "ESC [ CODE ; MODIFIER u", the kitty keyboard protocol's key, or null for one this doesn't
+ * read. CODE is a code point: the character typed, as the protocol sends it (a letter is the
+ * lowercase one, shift in the modifier), or one of CSI_U_KEYS; MODIFIER is numbered as the other
+ * sequences' are. What follows a ":" in a field (an alternate key, an event type) is passed over,
+ * except that a release is no key, since without that flag a key is a press.
+ */
+fn csi_u_key($parameters) {
+    $fields = split($parameters, ";");
+    if (len($fields) > 3) {
+        return null;
+    }
+    $code = to_int(split($fields[0], ":")[0], null);
+    $modifier = 1;
+    if (len($fields) > 1 && $fields[1] != "") {
+        $parts = split($fields[1], ":");
+        $modifier = to_int($parts[0], null);
+        $event = len($parts) > 1 ? to_int($parts[1], null) : 1;
+        if ($event == null || $event == KEY_RELEASED) {
+            return null;
+        }
+    }
+    if ($code == null || $modifier == null || $modifier < 1) {
+        return null;
+    }
+    $key = csi_u_name($code);
+    return $key == null ? null : modified($key, $modifier);
+}
+
+/*
+ * The key a CSI u code names: one of CSI_U_KEYS, or the character of that code point; null for
+ * a control character, a surrogate, a code past the last or a key the protocol numbers that
+ * nothing here does
+ */
+fn csi_u_name($code) {
+    if (has_key(CSI_U_KEYS, $code)) {
+        return CSI_U_KEYS[$code];
+    }
+    if ($code == 32) {
+        return "space";
+    }
+    if ($code < 32 || $code > CODE_POINT_LAST) {
+        return null;
+    }
+    if ($code >= DELETE_CONTROL_FIRST && $code <= C1_CONTROL_LAST) {
+        return null;
+    }
+    if ($code >= SURROGATE_FIRST && $code <= SURROGATE_LAST) {
+        return null;
+    }
+    if ($code >= PRIVATE_USE_FIRST && $code <= PRIVATE_USE_LAST) {
+        return null;
+    }
+    return utf8($code);
+}
+
+/*
+ * The key "ESC [", $parameters and $final make, or null for a sequence this doesn't read: a
+ * report of the cursor's position, a mouse report in the old form, a key the protocol numbers
+ * that nothing here does
+ */
+fn csi_named($parameters, $final) {
+    if (starts_with($parameters, "<")) {
+        return mouse_key(slice($parameters, 1), $final);
+    }
+    if ($final == "u") {
+        return csi_u_key($parameters);
+    }
+    if ($parameters == "" && has_key(FOCUS_KEYS, $final)) {
+        return make_key(FOCUS_KEYS[$final]);
+    }
+    $params = split($parameters, ";");
+    $first = to_int($params[0], null);
+    $modifier = len($params) > 1 ? to_int($params[1], null) : null;
+
+    /*
+     * A modifier is 1 to 16 (1, plus 1 shift, 2 alt, 4 ctrl, 8 meta). A bigger number is not one:
+     * "ESC [ 1 ; 80 R" is a cursor position report from row 1, not ctrl+alt+shift+f3. Small
+     * numbers are the same bytes as a key (ctrl+f3 is "ESC [ 1 ; 5 R", as is a report from column
+     * 5), which no reading of the bytes can tell apart.
+     */
+    if ($modifier != null && ($modifier < 1 || $modifier > 16)) {
+        return null;
+    }
+    if ($final == "Z") {
+        return make_key("tab", false, false, true);
+    }
+    if ($final == "~" && $first != null && has_key(TILDE_KEYS, $first)) {
+        return modified(TILDE_KEYS[$first], $modifier ?? 1);
+    }
+    /* "ESC [ 1 ; 5 A" is ctrl+up, and plain "ESC [ A" is up */
+    if (has_key(FINAL_KEYS, $final) && ($first == null || $first == 1)) {
+        return modified(FINAL_KEYS[$final], $modifier ?? 1);
+    }
+    return null;
 }
 
 /*
@@ -369,33 +821,9 @@ fn csi_key($bytes, $i) {
         /* something else cut the sequence short: what came before it is unknown, and it is a key of its own */
         return [unknown_key(slice($bytes, $i, $j - $i)), $j - $i];
     }
-    $final = $bytes[$j];
     $length = $j + 1 - $i;
-    $params = split(slice($bytes, $i + 2, $j - $i - 2), ";");
-    $first = to_int($params[0], null);
-    $modifier = len($params) > 1 ? to_int($params[1], null) : null;
-    $raw = slice($bytes, $i, $length);
-
-    /*
-     * A modifier is 1 to 16 (1, plus 1 shift, 2 alt, 4 ctrl, 8 meta). A bigger number is not one:
-     * "ESC [ 1 ; 80 R" is a cursor position report from row 1, not ctrl+alt+shift+f3. Small
-     * numbers are the same bytes as a key (ctrl+f3 is "ESC [ 1 ; 5 R", as is a report from column
-     * 5), which no reading of the bytes can tell apart.
-     */
-    if ($modifier != null && ($modifier < 1 || $modifier > 16)) {
-        return [unknown_key($raw), $length];
-    }
-    if ($final == "Z") {
-        return [make_key("tab", false, false, true), $length];
-    }
-    if ($final == "~" && $first != null && has_key(TILDE_KEYS, $first)) {
-        return [modified(TILDE_KEYS[$first], $modifier ?? 1), $length];
-    }
-    /* "ESC [ 1 ; 5 A" is ctrl+up, and plain "ESC [ A" is up */
-    if (has_key(FINAL_KEYS, $final) && ($first == null || $first == 1)) {
-        return [modified(FINAL_KEYS[$final], $modifier ?? 1), $length];
-    }
-    return [unknown_key($raw), $length];
+    $key = csi_named(slice($bytes, $i + 2, $j - $i - 2), $bytes[$j]);
+    return [$key ?? unknown_key(slice($bytes, $i, $length)), $length];
 }
 
 /*
@@ -413,6 +841,9 @@ fn one_key($bytes, $i, $flush) {
         }
         $next = $bytes[$i + 1];
         if ($next == "[") {
+            if (slice($bytes, $i, len(PASTE_START)) == PASTE_START) {
+                return paste_key($bytes, $i, $flush);
+            }
             $found = csi_key($bytes, $i);
             if ($found == null && $flush) {
                 return [make_key("[", false, true), 2];
@@ -455,6 +886,8 @@ fn one_key($bytes, $i, $flush) {
 
     if ($b == 13) { return [make_key("enter"), 1]; }
     if ($b == 9) { return [make_key("tab"), 1]; }
+    /* 8 is backspace too, so ctrl+h can't be bound by its byte; the kitty keyboard protocol
+       sends it as "ESC [ 104 ; 5 u", which is ctrl+h */
     if ($b == 127 || $b == 8) { return [make_key("backspace"), 1]; }
     if ($b == 32) { return [make_key("space"), 1]; }
     if ($b == 0) { return [make_key("space", true), 1]; }
@@ -472,8 +905,27 @@ fn one_key($bytes, $i, $flush) {
 /**
  * The keys in $bytes, as {"keys" => [key, ...], "rest" => "..."}: rest is the start of a key
  * the bytes stop in the middle of ("\e" or "\e[1;" may be the escape key or the start of an
- * arrow), to put before whatever arrives next. With $flush nothing more is coming, so rest is
- * "" and a cut-off sequence is taken for what it looks like.
+ * arrow; a paste whose end hasn't come is all of it so far), to put before whatever arrives
+ * next. With $flush nothing more is coming, so rest is "" and a cut-off sequence is taken for
+ * what it looks like (a lone ESC is the escape key, and a paste's text so far is the paste).
+ *
+ * Besides typed characters and named keys there are the reports a terminal sends when asked to
+ * (fullscreen()'s options): a "paste" key holds the pasted text as "text", its newlines as "\n"
+ * however the terminal sent them, since a terminal sends a pasted newline as the enter key's
+ * "\r" and a program inserting lines wants "\n"; a "mouse" key holds the "button" ("left",
+ * "middle", "right" or "none"), the "action" ("press", "release", "drag", "move", "scroll_up"
+ * or "scroll_down") and the "col" and "row" it was over, from 1, with ctrl, alt and shift as a
+ * key's; "focus_in" and "focus_out" say the window gained or lost the keyboard. The kitty
+ * keyboard protocol's keys ("\e[13;2u") decode to the same names as the terminal's usual
+ * sequences, so a `match` never knows which it spoke. A byte 8 is backspace, as 127 is, so
+ * ctrl+h is only ever the protocol's "\e[104;5u". A sequence it doesn't read (a cursor position
+ * report, a mouse report in the old form) is "unknown", with the bytes as "raw".
+ *
+ * An ESC with a byte after it in the same bytes is alt and that key, since a terminal sends
+ * alt+j as ESC j in one go: what every terminal program does, and the one trap in it, since an
+ * escape typed ahead of a j while the program was busy arrives the same way and is alt+j too.
+ * The kitty keyboard protocol closes it (fullscreen()'s "keys" => "kitty"): under it alt+j is
+ * "\e[106;3u" and the escape key "\e[27u", so an ESC byte is only ever the start of a sequence.
  */
 pub fn decode($bytes, $flush = false) {
     $keys = [];
@@ -490,8 +942,18 @@ pub fn decode($bytes, $flush = false) {
     return {"keys" => $keys, "rest" => slice($bytes, $i)};
 }
 
+/*
+ * Whether $rest, what decode() couldn't finish, is a paste still arriving: one starts at the
+ * start of what is kept, since everything before it was decoded
+ */
+fn unfinished_paste($rest) {
+    return starts_with($rest, PASTE_START);
+}
+
 /**
- * $key as text that a `match` can take: "a", "enter", "ctrl+c", "ctrl+alt+up", "shift+tab"
+ * $key as text that a `match` can take: "a", "enter", "ctrl+c", "ctrl+alt+up", "shift+tab". A
+ * paste is "paste", a mouse report "mouse" and focus "focus_in" or "focus_out", each after its
+ * modifiers as any key is ("shift+mouse"); the button, action and place are the key's own fields.
  */
 pub fn name($key) {
     $text = $key["key"];
@@ -502,7 +964,8 @@ pub fn name($key) {
 }
 
 /**
- * The character $key types, for a text field, or null when it isn't one (ctrl, alt, enter, up)
+ * The character $key types, for a text field, or null when it isn't one (ctrl, alt, enter, up,
+ * a mouse report; a paste too, which isn't one character: a program inserts $key["text"] itself)
  */
 pub fn text($key) {
     if ($key["ctrl"] || $key["alt"]) {
@@ -522,23 +985,32 @@ pub fn text($key) {
 // ---- Reading keys ----------------------------------------------------------------------------
 
 /*
- * How long a lone ESC waits for the rest of a sequence: a terminal sends one whole, so anything
- * that follows is there within this
+ * How long a lone ESC waits for the rest of a sequence unless an Input is told otherwise: a
+ * terminal sends one whole, so anything that follows is there within this
  */
 const ESCAPE_WAIT = 0.05;
 
 /**
  * Reads keys from standard input through term_read(). It keeps what a read left over (a
- * sequence cut in two by the reads, several keys in one read), so make one and keep using it.
- * Under gaz --tty the keys come from the script on standard input instead (see Script), which
- * every Input shares, so a program that makes a new one for each screen goes on where the last
- * one stopped.
+ * sequence cut in two by the reads, several keys in one read, a paste still arriving), so make
+ * one and keep using it. Under gaz --tty the keys come from the script on standard input instead
+ * (see Script), which every Input shares, so a program that makes a new one for each screen goes
+ * on where the last one stopped.
  */
 pub kind Input {
     static #keys = null;
     #queue = [];
     #rest = "";
     #ended = false;
+
+    /**
+     * $escape_wait is how long a lone ESC waits for the rest of a sequence before it is the
+     * escape key, in seconds (Vim's ttimeoutlen): a terminal sends a sequence whole, so 0.05 is
+     * enough unless a slow connection cuts them up, and a longer wait makes every escape key
+     * that much later. A terminal sends alt+j as ESC j in one go, so an ESC and a byte in one
+     * read are alt and the key however long the wait (decode() says more).
+     */
+    fn _(#escape_wait = ESCAPE_WAIT);
 
     /**
      * The next key, waiting up to $timeout seconds for one (null: as long as it takes). null when
@@ -552,9 +1024,10 @@ pub kind Input {
             if (#ended) {
                 return make_key("eof");
             }
-            $chunk = term_read(#rest == "" ? $timeout : ESCAPE_WAIT);
+            $chunk = term_read(#wait_for($timeout));
             if ($chunk == null) {
-                if (#rest == "") {
+                if (#rest == "" || unfinished_paste(#rest)) {
+                    // the time ran out; a paste still arriving is kept for the next call
                     return null;
                 }
                 // it was a lone ESC, or a sequence that never finished
@@ -569,6 +1042,18 @@ pub kind Input {
         $key = #queue[0];
         delete #queue[0];
         return $key;
+    }
+
+    /*
+     * How long the next read waits: $timeout for a key, and for the rest of a paste, which comes
+     * as fast as the terminal sends it and is never given up on; only the escape wait for the
+     * rest of a sequence, which is there or never coming
+     */
+    fn wait_for($timeout) {
+        if (#rest == "" || unfinished_paste(#rest)) {
+            return $timeout;
+        }
+        return #escape_wait;
     }
 
     // Queue what a decode found and keep what it left
@@ -605,9 +1090,11 @@ pub kind Input {
 const KEY_NAMES = [
     "enter", "tab", "backspace", "space", "escape", "up", "down", "left", "right", "home", "end",
     "insert", "delete", "page_up", "page_down", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8",
-    "f9", "f10", "f11", "f12",
+    "f9", "f10", "f11", "f12", "focus_in", "focus_out",
 ];
 const MODIFIERS = ["ctrl", "alt", "shift"];
+const MOUSE_ACTIONS = ["press", "release", "drag", "move", "scroll_up", "scroll_down"];
+const MOUSE_WORDS = 4;      // what follows `mouse`: the button, the action, the column and the row
 const SPACES = " \t\r\n";
 
 /* One step of a script: a key to press, time to let pass, or a screen to show */
@@ -620,6 +1107,10 @@ kind Step {
  * as name() writes it (j, J, 2, enter, escape, ctrl+c, alt+x, shift+tab, page_up, f5); text in
  * double quotes is typed a character at a time ("hello world", with \" and \\ for a quote and a
  * backslash), which is also how to type a word that is a key's name or a command ("snap").
+ * `paste "text"` is one paste key holding the text, as bracketed paste gives it; `mouse BUTTON
+ * ACTION COL ROW` one mouse report (mouse left press 10 5; mouse shift+none scroll_down 1 1):
+ * the button left, middle, right or none after ctrl+ alt+ or shift+ if held, the action press,
+ * release, drag, move, scroll_up or scroll_down, then the column and row from 1.
  * `wait SECONDS` lets that much time pass on the clock gaz --tty keeps, which moves only then, so
  * a program run by a beat (a clock, a live match) does the same every time; `snap` shows the
  * screen. A mistake stops the program before it runs a step, naming the word.
@@ -646,6 +1137,10 @@ kind Script {
                 }
                 $i++;
                 $script.add(Step("wait", "wait " .. $words[$i][0], null, $seconds));
+            } else if ($word == "paste") {
+                $i = $script.paste($words, $i);
+            } else if ($word == "mouse") {
+                $i = $script.mouse($words, $i);
             } else {
                 $script.add(Step("press", $word, key_named($word)));
             }
@@ -668,6 +1163,30 @@ kind Script {
             #add(Step("press", $word, $key));
             $word = null;
         }
+    }
+
+    /* `paste "text"` at $i: one paste key holding the text; gives where its last word is */
+    fn paste($words, $i) {
+        if ($i + 1 >= len($words) || !$words[$i + 1][1]) {
+            refuse("'paste' needs its text in double quotes after it: paste \"...\"");
+        }
+        $text = $words[$i + 1][0];
+        #add(Step("press", "paste " .. quote($text), make_paste($text)));
+        return $i + 1;
+    }
+
+    /* `mouse BUTTON ACTION COL ROW` at $i: one mouse report; gives where its last word is */
+    fn mouse($words, $i) {
+        $given = plain_words($words, $i + 1, MOUSE_WORDS);
+        $key = $given == null ? null : mouse_named($given[0], $given[1], $given[2], $given[3]);
+        if ($key == null) {
+            $written = $given == null ? "mouse" : "mouse " .. join($given, " ");
+            refuse("'" .. $written .. "' isn't a mouse report: 'mouse' needs a button, an action, a column "
+                .. "and a row after it (mouse left press 10 5): left, middle, right or none, after ctrl+ alt+ or "
+                .. "shift+ if held; press, release, drag, move, scroll_up or scroll_down; and the column and the row, from 1");
+        }
+        #add(Step("press", "mouse " .. join($given, " "), $key));
+        return $i + MOUSE_WORDS;
     }
 
     /*
@@ -754,25 +1273,67 @@ fn quoted($text, $i) {
     refuse("a quote in the keys is never closed");
 }
 
-// The key a script's word names, as decode() would give it: modifiers first, then the key
-fn key_named($word) {
+// The $count words from $i that aren't quoted, or null when there aren't that many
+fn plain_words($words, $i, $count) {
+    $taken = [];
+    for ($j = $i; $j < $i + $count; $j++) {
+        if ($j >= len($words) || $words[$j][1]) {
+            return null;
+        }
+        $taken[] = $words[$j][0];
+    }
+    return $taken;
+}
+
+/*
+ * $word split at its pluses into the modifiers held and the key, as name() writes them:
+ * [["ctrl", "alt"], "x"]; "ctrl++" is ctrl and the plus
+ */
+fn split_held($word) {
     $parts = split($word, "+");
     $key = last($parts);
     delete $parts[len($parts) - 1];
     if ($key == "" && len($parts) > 0) {
-        // "ctrl++": the key is the plus
         $key = "+";
         delete $parts[len($parts) - 1];
     }
-    foreach ($parts as $modifier) {
+    return [$parts, $key];
+}
+
+// Whether every word of $held is a modifier
+fn all_modifiers($held) {
+    foreach ($held as $modifier) {
         if (!in_array($modifier, MODIFIERS)) {
-            refuse(unknown_word($word));
+            return false;
         }
+    }
+    return true;
+}
+
+// The key a script's word names, as decode() would give it: modifiers first, then the key
+fn key_named($word) {
+    [$held, $key] = split_held($word);
+    if (!all_modifiers($held)) {
+        refuse(unknown_word($word));
     }
     if (len(chars($key)) != 1 && !in_array($key, KEY_NAMES)) {
         refuse(unknown_word($word));
     }
-    return make_key($key, in_array("ctrl", $parts), in_array("alt", $parts), in_array("shift", $parts));
+    return make_key($key, in_array("ctrl", $held), in_array("alt", $held), in_array("shift", $held));
+}
+
+// The mouse report a script's words name, as decode() would give it, or null when they don't
+fn mouse_named($button, $action, $col, $row) {
+    [$held, $name] = split_held($button);
+    $col = to_int($col, null);
+    $row = to_int($row, null);
+    if (!all_modifiers($held) || !in_array($name, MOUSE_BUTTON_NAMES) || !in_array($action, MOUSE_ACTIONS)) {
+        return null;
+    }
+    if ($col == null || $col < 1 || $row == null || $row < 1) {
+        return null;
+    }
+    return make_mouse($name, $action, $col, $row, in_array("ctrl", $held), in_array("alt", $held), in_array("shift", $held));
 }
 
 fn unknown_word($word) {

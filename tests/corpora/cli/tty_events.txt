@@ -1,0 +1,4 @@
+paste "one
+two \"quoted\"" mouse left press 3 2
+mouse shift+none scroll_down 1 1 mouse ctrl+alt+right release 120 40
+focus_in j focus_out paste ""

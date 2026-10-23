@@ -79,7 +79,7 @@ expect("alt and a sequence", names("\e\e[A"), "escape up");
 expect("utf-8", names("é→✓😀"), "é → ✓ 😀");
 expect("alt utf-8", names("\eé"), "alt+é");
 expect("unknown: a cursor position report", names("\e[12;40R"), "unknown");
-expect("unknown: a mouse report", names("\e[<0;10;5M"), "unknown");
+expect("unknown: a mouse report in the old form", names("\e[M"), "unknown");
 expect("unknown: a cursor report from row 1, whose column is no modifier", names("\e[1;80R"), "unknown");
 expect("a modifier of 16 is still one", names("\e[1;16A"), "ctrl+alt+shift+up");
 expect("a modifier of 17 is not", names("\e[1;17A"), "unknown");
@@ -87,7 +87,7 @@ expect("ctrl+f3 is what its bytes say", names("\e[1;5R"), "ctrl+f3");
 expect("a control byte ends a sequence, and is a key", names("\e[\nx"), "unknown ctrl+j x");
 expect("a bad UTF-8 byte doesn't eat the next key", [term::decode("\xc3a")["keys"][0]["key"], term::decode("\xc3a")["keys"][1]["key"]], ["\xc3", "a"]);
 expect("half a character still waits for the rest", term::decode("\xe2\x9c")["rest"], "\xe2\x9c");
-expect("unknown is kept", term::decode("\e[<0;10;5M")["keys"][0]["raw"], "\e[<0;10;5M");
+expect("unknown is kept", term::decode("\e[12;40R")["keys"][0]["raw"], "\e[12;40R");
 expect("a mix", names("ab\e[Acd\r"), "a b up c d enter");
 
 // A sequence cut off waits for the rest, unless nothing more is coming
@@ -107,3 +107,80 @@ foreach ([["a", "a"], ["Z", "Z"], [" ", " "], ["é", "é"], ["\x03", null], ["\e
     expect("text of " .. to_string([$bytes]), term::text(term::decode($bytes)["keys"][0]), $typed);
 }
 expect("name of a plain key", term::name({"key" => "x", "ctrl" => false, "alt" => false, "shift" => false}), "x");
+
+// What the terminal reports when asked to (fullscreen()'s options): a paste is one key
+$paste = term::decode("\e[200~abc\e[201~x")["keys"];
+expect("paste: one key holding the text, and the key after it", $paste, [
+    {"key" => "paste", "ctrl" => false, "alt" => false, "shift" => false, "text" => "abc"},
+    {"key" => "x", "ctrl" => false, "alt" => false, "shift" => false},
+]);
+expect("paste: a newline is \\n however the terminal sent it", term::decode("\e[200~a\rb\r\nc\nd\e[201~")["keys"][0]["text"], "a\nb\nc\nd");
+expect("paste: sequences inside it are text", term::decode("\e[200~\e[A\x03\e\e[201~")["keys"][0]["text"], "\e[A\x03\e");
+expect("paste: nothing", term::decode("\e[200~\e[201~")["keys"][0]["text"], "");
+expect("paste: cut across reads, it waits for its end", term::decode("\e[200~abc"), {"keys" => [], "rest" => "\e[200~abc"});
+expect("paste: its end cut in two waits too", term::decode("\e[200~abc\e[20")["rest"], "\e[200~abc\e[20");
+expect("paste: its start cut off waits as any sequence does", term::decode("\e[20")["rest"], "\e[20");
+expect("paste: joined with the next read", term::decode("\e[200~abc" .. "def\e[201~")["keys"][0]["text"], "abcdef");
+expect("paste: never ended, flushed as its text", term::decode("\e[200~abc", true), {"keys" => [{"key" => "paste", "ctrl" => false, "alt" => false, "shift" => false, "text" => "abc"}], "rest" => ""});
+expect("paste: an escape before it is a key of its own", names("\e\e[200~a\e[201~"), "escape paste");
+expect("paste: name and text", [term::name($paste[0]), term::text($paste[0])], ["paste", null]);
+
+// A mouse report: the button, what it did, and where
+fn mouse($bytes) {
+    $key = term::decode($bytes)["keys"][0];
+    return [term::name($key), $key["button"] ?? null, $key["action"] ?? null, $key["col"] ?? null, $key["row"] ?? null];
+}
+expect("mouse: a press", term::decode("\e[<0;10;5M")["keys"][0], {"key" => "mouse", "ctrl" => false, "alt" => false, "shift" => false, "button" => "left", "action" => "press", "col" => 10, "row" => 5});
+expect("mouse: the buttons", [mouse("\e[<1;1;1M")[1], mouse("\e[<2;1;1M")[1]], ["middle", "right"]);
+expect("mouse: a release names its button", mouse("\e[<2;7;8m"), ["mouse", "right", "release", 7, 8]);
+expect("mouse: dragging", mouse("\e[<32;3;4M"), ["mouse", "left", "drag", 3, 4]);
+expect("mouse: moving with no button held", mouse("\e[<35;2;2M"), ["mouse", "none", "move", 2, 2]);
+expect("mouse: the wheel", [mouse("\e[<64;1;1M"), mouse("\e[<65;9;9M")], [["mouse", "none", "scroll_up", 1, 1], ["mouse", "none", "scroll_down", 9, 9]]);
+expect("mouse: the modifier bits", [mouse("\e[<4;1;1M")[0], mouse("\e[<8;1;1M")[0], mouse("\e[<16;1;1M")[0], mouse("\e[<28;1;1M")[0]], ["shift+mouse", "alt+mouse", "ctrl+mouse", "ctrl+alt+shift+mouse"]);
+expect("mouse: modifiers with the wheel and a drag", [mouse("\e[<68;1;1M"), mouse("\e[<50;5;6M")], [["shift+mouse", "none", "scroll_up", 1, 1], ["ctrl+mouse", "right", "drag", 5, 6]]);
+expect("mouse: a wide screen", mouse("\e[<0;223;58M"), ["mouse", "left", "press", 223, 58]);
+expect("mouse: the buttons past the third are unknown", names("\e[<128;1;1M\e[<130;1;1m"), "unknown unknown");
+expect("mouse: the wheel sideways is unknown", names("\e[<66;1;1M\e[<67;1;1M"), "unknown unknown");
+expect("mouse: a press of no button is unknown", names("\e[<3;1;1M"), "unknown");
+expect("mouse: a report short of a field, or with a bad one, is unknown", names("\e[<0;10M\e[<0;;5M\e[<0;1;1;1M"), "unknown unknown unknown");
+expect("mouse: the old form is unknown, and its bytes are keys", names("\e[M !!"), "unknown space ! !");
+expect("mouse: cut off waits", term::decode("\e[<0;10")["rest"], "\e[<0;10");
+expect("mouse: text", term::text(term::decode("\e[<0;10;5M")["keys"][0]), null);
+
+// Focus
+expect("focus", names("\e[I\e[O"), "focus_in focus_out");
+expect("focus: with parameters it is something else", names("\e[1;2I\e[2O"), "unknown unknown");
+expect("focus: text", [term::text(term::decode("\e[I")["keys"][0]), term::text(term::decode("\e[O")["keys"][0])], [null, null]);
+
+// The kitty keyboard protocol's keys decode to the same names
+expect("csi u: the keys it numbers by their control character", names("\e[13u\e[9u\e[27u\e[127u\e[32u"), "enter tab escape backspace space");
+expect("csi u: shift+enter, and ctrl+i and ctrl+h told from tab and backspace", names("\e[13;2u\e[105;5u\e[104;5u"), "shift+enter ctrl+i ctrl+h");
+expect("csi u: a letter with its modifiers", names("\e[97;2u\e[97;3u\e[97;5u\e[97;6u\e[97;7u\e[97;8u"), "shift+a alt+a ctrl+a ctrl+shift+a ctrl+alt+a ctrl+alt+shift+a");
+expect("csi u: the names the terminal's own sequences give", [names("\e[106;3u"), names("\e[57419;5u"), names("\e[27u"), names("\e[97;5u"), names("\e[9;2u")], [names("\ej"), names("\e[1;5A"), names("\e", true), names("\x01"), names("\e[Z")]);
+expect("csi u: unicode", names("\e[233u\e[8594u\e[128512u"), "é → 😀");
+expect("csi u: the keypad", names("\e[57414u\e[57417u\e[57418u\e[57419u\e[57420u\e[57421u\e[57422u\e[57423u\e[57424u\e[57425u\e[57426u"), "enter left right up down page_up page_down home end insert delete");
+expect("csi u: the modifier's higher bits (super, caps lock) are passed over", names("\e[97;9u\e[97;65u\e[97;129u"), "a a a");
+expect("csi u: an alternate key, a repeat and a release", names("\e[97:65;2u\e[97;1:2u\e[97;1:3u"), "shift+a a unknown");
+expect("csi u: text as code points is passed over", names("\e[97;1;97u"), "a");
+expect("csi u: an empty modifier is none", names("\e[97;u"), "a");
+expect("csi u: what it doesn't read is unknown", names("\e[57358u\e[7u\e[128u\e[55296u\e[1114112u\e[-1u\e[u\e[97;0u\e[97;1;2;3u\e[97;1:u\e[;u"), "unknown unknown unknown unknown unknown unknown unknown unknown unknown unknown unknown");
+expect("csi u: cut off waits", term::decode("\e[13;")["rest"], "\e[13;");
+expect("csi u: text", [term::text(term::decode("\e[97;2u")["keys"][0]), term::text(term::decode("\e[233u")["keys"][0]), term::text(term::decode("\e[97;5u")["keys"][0])], ["a", "é", null]);
+
+// Asking the terminal for them
+expect("paste on and off", term::enable_paste() .. term::disable_paste(), "\e[?2004h\e[?2004l");
+expect("mouse on and off", term::enable_mouse() .. term::disable_mouse(), "\e[?1000h\e[?1006h\e[?1006l\e[?1000l");
+expect("mouse with every movement", term::enable_mouse(true) .. term::disable_mouse(true), "\e[?1003h\e[?1006h\e[?1006l\e[?1003l");
+expect("focus on and off", term::enable_focus() .. term::disable_focus(), "\e[?1004h\e[?1004l");
+expect("the kitty keyboard protocol pushed and popped", term::enable_kitty_keys() .. term::disable_kitty_keys(), "\e[>1u\e[<u");
+expect("enable: nothing by default", term::enable({}) .. term::disable({}), "");
+expect("enable: everything, in order", term::enable({"paste" => true, "mouse" => "all", "focus" => true, "keys" => "kitty"}), "\e[?2004h\e[?1003h\e[?1006h\e[?1004h\e[>1u");
+expect("disable: in the other order", term::disable({"paste" => true, "mouse" => true, "focus" => true, "keys" => "kitty"}), "\e[<u\e[?1004l\e[?1006l\e[?1000l\e[?2004l");
+expect("enable: off is off", term::enable({"paste" => false, "mouse" => null, "focus" => false, "keys" => false}), "");
+throws("enable: an unknown option", () -> term::enable({"mice" => true}), "term: unknown option \"mice\" (the options are paste, mouse, focus and keys)");
+throws("enable: a flag that isn't one", () -> term::enable({"paste" => "yes"}), "term: option \"paste\" is true or false");
+throws("enable: a mouse option that isn't one", () -> term::enable({"mouse" => "yes"}), "term: option \"mouse\" is true, false or \"all\"");
+throws("enable: a keys option that isn't one", () -> term::enable({"keys" => "xterm"}), "term: option \"keys\" is \"kitty\", or false for the terminal's own sequences");
+throws("fullscreen checks its options before it needs a terminal", () -> term::fullscreen(() -> null, {"focus" => "always"}), "term: option \"focus\" is true or false");
+expect("cursor shapes", [term::cursor_block(), term::cursor_block(true), term::cursor_underline(), term::cursor_underline(true), term::cursor_bar(), term::cursor_bar(true), term::cursor_default()], ["\e[2 q", "\e[1 q", "\e[4 q", "\e[3 q", "\e[6 q", "\e[5 q", "\e[0 q"]);
+expect("an Input with its own escape wait", kind_of(term::Input(0.2)), term::Input);

@@ -2916,9 +2916,24 @@ compose with `..`; nothing in it needs a terminal but raw mode.
 - **Moving**: `move_to($col, $row)` (the top left is 1, 1), `up`, `down`, `left`, `right`
   (`$n = 1`), `column`, `hide_cursor`, `show_cursor`, `save_cursor`, `restore_cursor`, `clear`,
   `clear_line`, `clear_to_end_of_line`, `clear_below`, `enter_screen` and `leave_screen` (a second
-  screen that leaves the terminal as it was), `title`.
-- **`term::fullscreen($f)`** runs `$f` on a screen of its own in raw mode with the cursor hidden,
-  and puts everything back however `$f` ends, an error included. It gives what `$f` gives.
+  screen that leaves the terminal as it was), `title`. `cursor_block($blink = false)`,
+  `cursor_underline($blink = false)` and `cursor_bar($blink = false)` set the cursor's shape (a
+  modal editor shows a bar in insert mode and a block in normal mode) and `cursor_default()` puts
+  back the one the terminal's user chose; the shape stays after the program ends, so print that
+  before it does.
+- **`term::fullscreen($f, $options = {})`** runs `$f` on a screen of its own in raw mode with the
+  cursor hidden, and puts everything back however `$f` ends, an error included. It gives what `$f`
+  gives. `$options` asks the terminal to report more than keys, each off unless asked for, so a
+  program that asks for nothing is as it was: `"paste" => true` (pasted text as one key),
+  `"mouse" => true` (clicks, releases, dragging and the wheel; `"all"` for every movement of the
+  pointer too), `"focus" => true` (the window gaining and losing the keyboard) and
+  `"keys" => "kitty"` (the kitty keyboard protocol, under which shift+enter, ctrl+i and ctrl+h are
+  keys of their own and a lone escape is never taken for alt). Each is turned on after the screen
+  is entered and off, in the other order, before it is left; a key that isn't one of those is an
+  error. `term::enable($options)` and `term::disable($options)` are those sequences themselves,
+  and `enable_paste()`/`disable_paste()`, `enable_mouse($all = false)`/`disable_mouse($all = false)`,
+  `enable_focus()`/`disable_focus()` and `enable_kitty_keys()`/`disable_kitty_keys()` each one's,
+  for a program that draws its own screen.
 - **Measuring**: `term::chars($text)` is the list of its characters (`split()` splits bytes),
   `term::strip($text)` the text without its escape sequences, and
   `term::width($text)` the columns it takes, counting characters rather than bytes. A wide
@@ -2927,15 +2942,29 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   `{"keys" => [...], "rest" => "..."}`. A key is `{"key", "ctrl", "alt", "shift"}`, where `"key"`
   is the character typed (`"a"`, `"é"`, `"space"`) or a name: `enter tab backspace escape up down
   left right home end insert delete page_up page_down f1` to `f12`, and `unknown` (with the
-  sequence as `"raw"`) for one it doesn't know, such as a mouse report. `rest` is the start of a
-  key the bytes stop in the middle of, to put before the next read; with `$flush`, nothing more
-  is coming and it is taken for what it looks like (a lone `ESC` is `escape`).
-  `term::name($key)` writes a key as `"ctrl+alt+up"`, in the order ctrl, alt, shift, which a
-  `match` can take, and `term::text($key)` is the character it types, or `null`.
-- **`term::Input`** keeps what a read left over, so make one and keep using it:
-  `$input.read($timeout = null)` is the next key, `null` when the time runs out, and
-  `{"key" => "eof"}` when the input ends (again on every call after). A lone `ESC` waits 50ms for
-  the rest of a sequence before it is `escape`.
+  sequence as `"raw"`) for one it doesn't know, such as a cursor position report. When the
+  terminal was asked to (`fullscreen()`'s options) there are also `paste`, holding the pasted text
+  as `"text"`, its newlines as `"\n"` however the terminal sent them (a pasted newline comes as
+  the enter key's `"\r"`); `mouse`, with `"button"` (`left`, `middle`, `right` or `none`),
+  `"action"` (`press`, `release`, `drag`, `move`, `scroll_up` or `scroll_down`) and the `"col"`
+  and `"row"` it was over, from 1; and `focus_in` and `focus_out`. The kitty keyboard protocol's
+  keys (`"\e[13;2u"`, shift+enter) decode to the same names as the terminal's usual sequences, so
+  a `match` never knows which it spoke; byte 8 is `backspace` as 127 is, so `ctrl+h` is only the
+  protocol's. `rest` is the start of a key the bytes stop in the middle of (a paste whose end
+  hasn't come is all of it so far), to put before the next read; with `$flush`, nothing more is
+  coming and it is taken for what it looks like (a lone `ESC` is `escape`, a paste's text so far
+  the paste). `term::name($key)` writes a key as `"ctrl+alt+up"`, in the order ctrl, alt, shift,
+  which a `match` can take (`"paste"`, `"shift+mouse"`, `"focus_in"`), and `term::text($key)` is
+  the character it types, or `null` (a paste too: a program inserts `$key["text"]` itself).
+- **`term::Input($escape_wait = 0.05)`** keeps what a read left over, so make one and keep using
+  it: `$input.read($timeout = null)` is the next key, `null` when the time runs out, and
+  `{"key" => "eof"}` when the input ends (again on every call after). A lone `ESC` waits
+  `$escape_wait` seconds (Vim's `ttimeoutlen`) for the rest of a sequence before it is `escape`:
+  a terminal sends a sequence whole, so the wait is only for a slow connection, and a longer one
+  makes every escape key that much later. An `ESC` and a byte in one read are alt and that key,
+  since that is how a terminal sends alt+j, so an escape typed ahead of a `j` while the program
+  was busy is alt+j too: the one trap in reading keys, which `"keys" => "kitty"` closes. A paste
+  arriving in pieces is waited for as a key is, never given up on.
 
 ```gaz
 import "std/term.gaz";
@@ -3053,10 +3082,14 @@ The keys are words, separated by spaces or lines, so a longer script can be a fi
 
 - A key is written as `term::name()` writes it: a character (`j`, `J`, `2`, `?`), or `enter`,
   `tab`, `backspace`, `space`, `escape`, `up`, `down`, `left`, `right`, `home`, `end`, `insert`,
-  `delete`, `page_up`, `page_down`, `f1` to `f12`, after `ctrl+`, `alt+` or `shift+` when held
-  (`ctrl+c`, `shift+tab`).
+  `delete`, `page_up`, `page_down`, `f1` to `f12`, `focus_in`, `focus_out`, after `ctrl+`, `alt+`
+  or `shift+` when held (`ctrl+c`, `shift+tab`).
 - `"text"` in double quotes is typed a character at a time, `\"` and `\\` in it for a quote and
   a backslash; it is also how to type a word that means something else (`"snap"`, `"enter"`).
+- `paste "text"` is one paste key holding the text, as bracketed paste gives it, so an editor's
+  paste path can be driven; `mouse left press 10 5` is one mouse report: the button (`left`,
+  `middle`, `right` or `none`, after `ctrl+`, `alt+` or `shift+` when held), the action (`press`,
+  `release`, `drag`, `move`, `scroll_up` or `scroll_down`), then the column and the row, from 1.
 - `wait 1.5` lets that many seconds pass. The pretend terminal keeps its own clock, which moves
   only then, so a screen run by a beat (a clock, a match being played) moves exactly as far
   every time, and the same program with the same keys prints the same screens.

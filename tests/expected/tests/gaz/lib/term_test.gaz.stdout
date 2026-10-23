@@ -70,7 +70,7 @@ ok alt and a sequence
 ok utf-8
 ok alt utf-8
 ok unknown: a cursor position report
-ok unknown: a mouse report
+ok unknown: a mouse report in the old form
 ok unknown: a cursor report from row 1, whose column is no modifier
 ok a modifier of 16 is still one
 ok a modifier of 17 is not
@@ -100,3 +100,62 @@ ok text of ["\r"]
 ok text of ["\e[A"]
 ok text of ["\e[15~"]
 ok name of a plain key
+ok paste: one key holding the text, and the key after it
+ok paste: a newline is \n however the terminal sent it
+ok paste: sequences inside it are text
+ok paste: nothing
+ok paste: cut across reads, it waits for its end
+ok paste: its end cut in two waits too
+ok paste: its start cut off waits as any sequence does
+ok paste: joined with the next read
+ok paste: never ended, flushed as its text
+ok paste: an escape before it is a key of its own
+ok paste: name and text
+ok mouse: a press
+ok mouse: the buttons
+ok mouse: a release names its button
+ok mouse: dragging
+ok mouse: moving with no button held
+ok mouse: the wheel
+ok mouse: the modifier bits
+ok mouse: modifiers with the wheel and a drag
+ok mouse: a wide screen
+ok mouse: the buttons past the third are unknown
+ok mouse: the wheel sideways is unknown
+ok mouse: a press of no button is unknown
+ok mouse: a report short of a field, or with a bad one, is unknown
+ok mouse: the old form is unknown, and its bytes are keys
+ok mouse: cut off waits
+ok mouse: text
+ok focus
+ok focus: with parameters it is something else
+ok focus: text
+ok csi u: the keys it numbers by their control character
+ok csi u: shift+enter, and ctrl+i and ctrl+h told from tab and backspace
+ok csi u: a letter with its modifiers
+ok csi u: the names the terminal's own sequences give
+ok csi u: unicode
+ok csi u: the keypad
+ok csi u: the modifier's higher bits (super, caps lock) are passed over
+ok csi u: an alternate key, a repeat and a release
+ok csi u: text as code points is passed over
+ok csi u: an empty modifier is none
+ok csi u: what it doesn't read is unknown
+ok csi u: cut off waits
+ok csi u: text
+ok paste on and off
+ok mouse on and off
+ok mouse with every movement
+ok focus on and off
+ok the kitty keyboard protocol pushed and popped
+ok enable: nothing by default
+ok enable: everything, in order
+ok disable: in the other order
+ok enable: off is off
+ok enable: an unknown option
+ok enable: a flag that isn't one
+ok enable: a mouse option that isn't one
+ok enable: a keys option that isn't one
+ok fullscreen checks its options before it needs a terminal
+ok cursor shapes
+ok an Input with its own escape wait
