@@ -661,6 +661,7 @@ void net_close(Socket *s);
 void net_prepare(int fd, double timeout);  /* a connection accepted for another process: its options, as socket_accept() sets them */
 Value net_adopt(int fd, double timeout);   /* a connection given to this process, net_prepare()d, as a socket */
 double monotonic_seconds(void);            /* seconds on a clock that never goes back, for a deadline */
+int net_listeners(int *fds, int most);     /* this process's listeners, oldest first, which a reload hands down */
 
 /* ---- workers.c ------------------------------------------------------------------------- */
 
@@ -669,10 +670,13 @@ extern int vm_process;   /* which process this is, for a handle's owner: 0 until
 bool refuse_inherited(const char *builtin, const char *type);   /* the error for using another process's handle */
 void abandon_fd(int fd);       /* point fd at /dev/null, so what is written to it on closing goes nowhere */
 bool start_workers(int64_t count, Value *out);
-/* At the start: the listener (LISTEN_FDS) and hand-off (GAZ_RELOAD_FD) a reloading master handed
+/* At the start: the listeners (LISTEN_FDS) and hand-off (GAZ_RELOAD_FD) a reloading master handed
    down, taken from the environment so nothing the program starts inherits them */
 void inherit_descriptors(void);
-int take_inherited_listener(void);   /* the listener handed down, once, or -1 */
+#define MOST_LISTENERS 64              /* listeners a reload hands down, and a program takes */
+int handed_down_listeners(void);       /* how many were handed down */
+int handed_down_listener(int i);       /* the i-th's descriptor, -1 once taken */
+void take_handed_down(int i);          /* socket_listen() has it now */
 bool workers_stopping(void);   /* a worker has been asked to stop, or its master has gone: socket_accept() gives null */
 void worker_accepted(void);    /* a worker has taken a connection, so it did start */
 void worker_listening(void);   /* a worker waits for connections, so it can take over from one retiring */

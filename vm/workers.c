@@ -49,8 +49,8 @@
  * behave alike.
  *
  * SIGUSR2 to the master reloads: it starts the program again, with the same command line, beside the
- * pool, and hands it the listener, so new code is served without a connection refused (see
- * "Reloading" below). A worker ignores it, so `pkill -USR2 gaz` reaches only masters.
+ * pool, and hands it the listeners, so new code is served without a connection refused (see
+ * "Reloading" below). A worker ignores it, so signalling a pool's processes reloads it once.
  *
  * ponytail: the grace is fixed.
  */
@@ -62,6 +62,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
+#include <stddef.h>
 #include <pthread.h>
 #include <signal.h>
 #include <spawn.h>
@@ -72,6 +73,7 @@
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -116,30 +118,70 @@ void abandon_fd(int fd) {
 
 extern char **environ;
 
-/* Where a reloading master puts the listener and the hand-off in the new program: systemd's first
-   socket-activation descriptor, so a systemd socket unit's listener is taken the same way */
-#define LISTENER_FD 3
-#define HANDOFF_FD 4
+/* Where a reloading master puts the listeners in the new program, the hand-off after them:
+   systemd's first socket-activation descriptor, so a systemd socket unit's listeners are taken the
+   same way */
+#define FIRST_LISTENER_FD 3
 
-/* What was handed down (inherit_descriptors()): the listener, until socket_listen() takes it, and
-   the hand-off socket, until workers() takes it; -1 when none */
-static int inherited_listener = -1;
+/* A listener handed down (inherit_descriptors()): its descriptor until a socket_listen() on its
+   address takes it, -1 after, and the address it was on, which a reload's ready byte asks about */
+typedef struct {
+    int fd;
+    struct sockaddr_storage at;
+    socklen_t at_len;
+} HandedDown;
+
+static HandedDown handed_down[MOST_LISTENERS];
+static int handed_down_count;
+/* The hand-off socket, until workers() takes it; -1 when none */
 static int inherited_handoff = -1;
+/* The working directory gaz started in, where a reload starts the program again (a later chdir()
+   would have its relative paths name other files); empty if it couldn't be read */
+static char start_dir[PATH_MAX];
 
 void inherit_descriptors(void) {
+    if (!getcwd(start_dir, sizeof start_dir)) start_dir[0] = '\0';
     const char *fds = getenv("LISTEN_FDS"), *pid = getenv("LISTEN_PID"), *handoff = getenv("GAZ_RELOAD_FD");
     bool ours = !pid || atoll(pid) == (long long)getpid();
-    if (fds && ours && atoi(fds) >= 1 && fcntl(LISTENER_FD, F_SETFD, FD_CLOEXEC) == 0) inherited_listener = LISTENER_FD;
-    if (handoff && atoi(handoff) == HANDOFF_FD && fcntl(HANDOFF_FD, F_SETFD, FD_CLOEXEC) == 0) inherited_handoff = HANDOFF_FD;
+    int count = fds && ours ? atoi(fds) : 0;
+    /* ponytail: past MOST_LISTENERS the rest aren't taken, and socket_listen() binds those itself */
+    for (int i = 0; i < count && i < MOST_LISTENERS; i++) {
+        HandedDown *h = &handed_down[handed_down_count];
+        h->fd = FIRST_LISTENER_FD + i;
+        h->at_len = sizeof h->at;
+        if (fcntl(h->fd, F_SETFD, FD_CLOEXEC) == 0 && getsockname(h->fd, (struct sockaddr *)&h->at, &h->at_len) == 0) handed_down_count++;
+    }
+    int at = FIRST_LISTENER_FD + count;
+    if (handoff && count > 0 && atoi(handoff) == at && fcntl(at, F_SETFD, FD_CLOEXEC) == 0) inherited_handoff = at;
     unsetenv("LISTEN_FDS");
     unsetenv("LISTEN_PID");
     unsetenv("GAZ_RELOAD_FD");
 }
 
-int take_inherited_listener(void) {
-    int fd = inherited_listener;
-    inherited_listener = -1;
-    return fd;
+int handed_down_listeners(void) { return handed_down_count; }
+
+int handed_down_listener(int i) { return handed_down[i].fd; }
+
+void take_handed_down(int i) { handed_down[i].fd = -1; }
+
+/* Whether a listener is on an address one was handed down on: a port can be bound only once, so
+   the same one */
+static bool was_handed_down(int listener) {
+    struct sockaddr_storage at;
+    socklen_t at_len = sizeof at;
+    if (getsockname(listener, (struct sockaddr *)&at, &at_len) != 0) return false;
+    for (int i = 0; i < handed_down_count; i++) {
+        if (handed_down[i].at_len == at_len && memcmp(&handed_down[i].at, &at, at_len) == 0) return true;
+    }
+    return false;
+}
+
+/* What no socket_listen() took by workers(): nobody would accept on it */
+static void close_handed_down(void) {
+    for (int i = 0; i < handed_down_count; i++) {
+        if (handed_down[i].fd >= 0) close(handed_down[i].fd);
+        handed_down[i].fd = -1;
+    }
 }
 
 static const int STOP_SIGNALS[] = {SIGINT, SIGTERM, SIGHUP};
@@ -392,6 +434,7 @@ bool worker_deadline(int fd, double seconds, Str *answer, Str *line) {
 #define HAND_TIMED_OUT 'T'
 #define HAND_CLOSED 'E'
 #define RELOAD_READY 'R'              /* new master -> old, one byte: it serves from here (see "Reloading") */
+#define RELOAD_ELSEWHERE 'L'          /* or: it serves another listener than the one handed down */
 #define MSG_HANDOFF 'H'               /* old master -> new: a connection from its table, with what it sent */
 #define FLAG_IDLE 1                   /* on an H: it waits for its next request */
 #define CHANNEL_BUFFER (256 * 1024)   /* bytes each end of a channel holds: more than a message, so a send doesn't wait */
@@ -891,8 +934,11 @@ bool worker_release(Socket *s, Value bytes, int64_t served, Value *out) {
 /* What the master had before it took the signals over, which a worker gets back */
 static struct sigaction saved_stop[NSTOP];
 
+static struct sigaction saved_reload;
+
 static void restore_signals(void) {
     for (int i = 0; i < NSTOP; i++) sigaction(STOP_SIGNALS[i], &saved_stop[i], NULL);
+    sigaction(SIGUSR2, &saved_reload, NULL);
 }
 
 /* How a worker ended, for the master's message, and the exit code that stands for it */
@@ -988,6 +1034,9 @@ typedef struct {
     int from_old;           /* a reload's new master: its end of the hand-off from the old one, until that ends */
     bool draining;          /* the new master serves: this one forwards and finishes */
     double drain_since;
+    int paused_listener;    /* draining: the listener, kept in case the new master dies; -1 otherwise */
+    bool *drained;          /* worker i was asked to leave by a drain, so is started again if it is undone */
+    bool taking_back;       /* the new master died while this one drained: refill what the drain ended */
 } Pool;
 
 /* Room for need bytes in a growing buffer */
@@ -1026,9 +1075,11 @@ static void pool_free(Pool *pool) {
         if (pool->conns[k].fd >= 0) conn_close(pool, k);
     }
     if (pool->listener >= 0) close(pool->listener);
+    if (pool->paused_listener >= 0) close(pool->paused_listener);
     if (pool->to_new >= 0) close(pool->to_new);
     if (pool->from_old >= 0) close(pool->from_old);
     free(pool->channels);
+    free(pool->drained);
     free(pool->conns);
     free(pool->queue);
     free(pool->watch.fds);
@@ -1036,6 +1087,18 @@ static void pool_free(Pool *pool) {
     free(pool->pids);
     free(pool->started);
     free(pool->relieved);
+}
+
+/* A channel's two ends, close-on-exec, each holding CHANNEL_BUFFER: 0, or -1 as socketpair() fails */
+static int channel_pair(int ends[2]) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, ends) != 0) return -1;
+    int size = CHANNEL_BUFFER;
+    for (int e = 0; e < 2; e++) {
+        fcntl(ends[e], F_SETFD, FD_CLOEXEC);
+        setsockopt(ends[e], SOL_SOCKET, SO_SNDBUF, &size, sizeof size);
+        setsockopt(ends[e], SOL_SOCKET, SO_RCVBUF, &size, sizeof size);
+    }
+    return 0;
 }
 
 /* Fork worker i + 1, with its channel: its pid in the master, 0 in the worker, -1 if it couldn't.
@@ -1048,13 +1111,7 @@ static pid_t fork_worker(Pool *pool, int i, Value *out) {
     own->listening = 0;
     own->retiring = 0;
     int ends[2];
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, ends) != 0) return -1;
-    int size = CHANNEL_BUFFER;
-    for (int e = 0; e < 2; e++) {
-        fcntl(ends[e], F_SETFD, FD_CLOEXEC);
-        setsockopt(ends[e], SOL_SOCKET, SO_SNDBUF, &size, sizeof size);
-        setsockopt(ends[e], SOL_SOCKET, SO_RCVBUF, &size, sizeof size);
-    }
+    if (channel_pair(ends) != 0) return -1;
     sigset_t stops, before;
     sigemptyset(&stops);
     for (int k = 0; k < NSTOP; k++) sigaddset(&stops, STOP_SIGNALS[k]);
@@ -1115,7 +1172,15 @@ static void first_byte(Pool *pool, Conn *c, double t) {
 
 /* A connection to the new master (see "Reloading"), and closed here; closed only, if it has gone */
 static void forward_conn(Pool *pool, int fd, const char *data, size_t len, bool idle, double at, uint32_t served) {
-    if (pool->to_new >= 0 && !send_message(pool->to_new, MSG_HANDOFF, idle ? FLAG_IDLE : 0, at, served, data, len, fd)) {
+    /* Linux refuses a descriptor past what may be in flight at once (ETOOMANYREFS) until the new
+       master has taken some; nothing of the message went, so it is sent again */
+    bool sent = pool->to_new < 0;
+    for (int tries = 0; !sent && tries < 100; tries++) {
+        sent = send_message(pool->to_new, MSG_HANDOFF, idle ? FLAG_IDLE : 0, at, served, data, len, fd);
+        if (!sent && errno != ETOOMANYREFS) break;
+        if (!sent) pause_briefly();
+    }
+    if (!sent) {
         close(pool->to_new);
         pool->to_new = -1;
     }
@@ -1133,9 +1198,8 @@ static int conn_add(Pool *pool, int fd, const char *data, size_t len, bool idle,
     int k = 0;
     while (k < (int)pool->rule.max_connections && pool->conns[k].fd >= 0) k++;
     if (k == (int)pool->rule.max_connections) {
-        /* Can't happen: an entry is kept for every connection a worker holds. ponytail: except
-           just after a reload, when connections forwarded by the old master come on top of those
-           this one has accepted already; a forwarded one is then closed. */
+        /* Can't happen: an entry is kept for every connection a worker holds, and neither the
+           listener nor the hand-off from an old master is read while the table is full */
         close(fd);
         return -1;
     }
@@ -1247,8 +1311,10 @@ static bool take_rule(Pool *pool, const char *payload, int fd) {
     pool->queue = xmalloc((size_t)entries * sizeof *pool->queue);
     pool->registered = true;
     if (pool->from_old >= 0) {
-        /* A reload's new master, serving from now on: the old one stops accepting and hands over */
-        char ready = RELOAD_READY;
+        /* A reload's new master, serving from now on: the old one stops accepting and hands over,
+           unless this one serves another listener than the one handed down, which would leave that
+           one answered by nobody */
+        char ready = was_handed_down(pool->listener) ? RELOAD_READY : RELOAD_ELSEWHERE;
         if (write(pool->from_old, &ready, 1) != 1) {
             close(pool->from_old);
             pool->from_old = -1;
@@ -1480,44 +1546,83 @@ static void drop_listener(Pool *pool) {
 /* ---- Reloading ----
  *
  * SIGUSR2 to a master whose workers serve through it (registered) starts the program again
- * (start_reload()): the same command line, posix_spawnp()'d as a child, with the listener as
- * descriptor 3 and LISTEN_FDS=1 (systemd's convention, so socket_listen() takes it as it would a
- * socket unit's), and one end of a socket pair, the hand-off, as descriptor 4 and GAZ_RELOAD_FD=4.
- * The new program runs its set-up, its socket_listen() takes the listener, and its workers() starts
- * its pool; once a worker of it registers, its master accepts from the shared listener and writes
- * one byte, RELOAD_READY, on the hand-off. The old master then stops listening, sends every
- * connection in its table to the new one (an H each: the bytes read so far, when its head began,
- * the requests served on it, and the descriptor), as it does every kept-open connection a worker
- * gives back from then on, asks each worker to stop as it goes idle, and exits 0 once they all
- * have. Nothing changes before the byte, so a new program that fails to start (the hand-off ends,
- * or it is reaped, first) costs nothing: the old pool serves on and says why. A second SIGUSR2
- * while one is starting ends that one and starts another, the way out of a start that hangs.
+ * (start_reload()): the same command line, from the directory gaz started in, posix_spawnp()'d as
+ * a child, with every listener this process has (net_listeners()) as descriptors 3 on and
+ * LISTEN_FDS saying how many (systemd's convention, so socket_listen() takes one as it would a
+ * socket unit's, by its address), and one end of a socket pair, the hand-off, as the descriptor
+ * after them, which GAZ_RELOAD_FD names. The new program runs its set-up, its socket_listen()s take
+ * the listeners, and its workers() starts its pool; once a worker of it registers, its master
+ * accepts from the shared listener and writes one byte on the hand-off: RELOAD_READY, or
+ * RELOAD_ELSEWHERE when the listener it serves isn't one handed down (a changed port is a restart,
+ * and reloading to it would leave the old port answered by nobody). On RELOAD_READY the old master
+ * stops listening, sends every connection in its table to the new one (an H each: the bytes read so
+ * far, when its head began, the requests served on it, and the descriptor), as it does every
+ * kept-open connection a worker gives back from then on, asks each worker to stop as it goes idle,
+ * and exits 0 once they all have and SETTLE seconds have passed. Nothing changes before the byte,
+ * so a new program that fails to start (the hand-off ends, or it is reaped, first) costs nothing:
+ * the old pool serves on and says why. A second SIGUSR2 while one is starting ends that one and
+ * starts another, the way out of a start that hangs.
+ *
+ * A new master that ends other than cleanly or by a stop signal while the old one is still there
+ * (a pool failing in its first second, a crash, the OOM killer) has the old master take the pool
+ * back (take_back()): it listens again and starts what the drain ended. The connections the new
+ * one held go with it, as a worker's do.
  *
  * SIGHUP stays a stop, so a server in a terminal still ends with it, and nohup's ignoring it keeps
- * meaning what it does. The pid changes, as nginx's and unicorn's does. ponytail: under a
- * supervisor that watches the pid, a socket unit and a restart keep connections in the backlog
- * instead; a MAINPID notify would lift it. ponytail: ready means a worker reached worker_accept();
- * a new pool that dies in its first second after that ends with the old one already draining.
- * ponytail: TLS connections a worker keeps, and the session ticket key, don't move: those clients
- * handshake again once.
+ * meaning what it does. The pid changes, as nginx's and unicorn's does; under systemd
+ * (NOTIFY_SOCKET) the old master says MAINPID= of the new one as it takes over, and its own again
+ * if it takes the pool back, so a unit with NotifyAccess=main follows it. TLS connections a worker
+ * keeps can't move, and a new program draws its own session ticket key, so those clients handshake
+ * again once (which rotates the key at every reload).
  */
 
-/* The new program's byte: it serves, so this one drains; or the hand-off's end, which the new
-   program's being reaped reports */
+/* Seconds an old master stays after it hands over, ready to take back a new pool that fails in its
+   first second, as a worker that fails in its first second stops a pool */
+#define SETTLE 1.0
+
+/* Under systemd, which process is the service's main one now: so a reload doesn't read as the
+   service ending when the old master exits. A datagram to NOTIFY_SOCKET, sd_notify()'s protocol; a
+   name starting with @ is in Linux's abstract namespace. */
+static void notify_main_pid(pid_t pid) {
+    const char *path = getenv("NOTIFY_SOCKET");
+    struct sockaddr_un to = {.sun_family = AF_UNIX};
+    size_t len = path ? strlen(path) : 0;
+    if (len == 0 || len >= sizeof to.sun_path) return;
+    memcpy(to.sun_path, path, len);
+    if (to.sun_path[0] == '@') to.sun_path[0] = '\0';
+    int s = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (s < 0) return;
+    char message[32];
+    int n = snprintf(message, sizeof message, "MAINPID=%d\n", (int)pid);
+    sendto(s, message, (size_t)n, 0, (struct sockaddr *)&to, (socklen_t)(offsetof(struct sockaddr_un, sun_path) + len));
+    close(s);
+}
+
+/* The new program's byte, if it has come: it serves, so this one drains; it serves elsewhere, so it
+   is ended; or the hand-off's end, which the new program's being reaped reports */
 static void read_ready(Pool *pool) {
     char ready = 0;
     ssize_t n;
-    while ((n = read(pool->to_new, &ready, 1)) < 0 && errno == EINTR) {}
+    while ((n = recv(pool->to_new, &ready, 1, MSG_DONTWAIT)) < 0 && errno == EINTR) {}
     if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+    if (n == 1 && ready == RELOAD_ELSEWHERE) {
+        fprintf(stderr, "gaz: reload failed: the new program serves another address than this one; still serving the old code\n");
+        kill(pool->new_pid, SIGTERM);
+        /* Reaped without a word, as one a second reload ends */
+        pool->new_pid = 0;
+    }
     if (n != 1 || ready != RELOAD_READY) {
         close(pool->to_new);
         pool->to_new = -1;
         return;
     }
     fprintf(stderr, "gaz: reloaded: pid %d serves from here; these workers finish and leave\n", (int)pool->new_pid);
+    notify_main_pid(pool->new_pid);
     pool->draining = true;
     pool->drain_since = pool->now;
-    drop_listener(pool);
+    /* Not watched, but kept: the new master shares it, and this one may yet take it back */
+    pool->paused_listener = pool->listener;
+    pool->listener = -1;
     for (int k = pool->top - 1; k >= 0; k--) {
         Conn *c = &pool->conns[k];
         if (c->fd < 0) continue;
@@ -1575,9 +1680,22 @@ static void take_forwarded(Pool *pool) {
     }
 }
 
+/* Whether the table has room for one more connection */
+static bool has_room(Pool *pool) {
+    return connections_open(pool) < pool->rule.max_connections;
+}
+
+/* Every H waiting, while the table has room: the old master sends its whole table at once, and one
+   at a time each wake would leave it waiting on a full hand-off */
+static void take_all_forwarded(Pool *pool) {
+    do take_forwarded(pool);
+    while (pool->from_old >= 0 && has_room(pool) && poll(&(struct pollfd){.fd = pool->from_old, .events = POLLIN}, 1, 0) == 1);
+}
+
 /*
  * Wait up to ms (less if a connection's deadline is sooner) for the workers' channels, the listener
- * (while the table has room: past it the kernel's backlog holds the rest) and the connections being
+ * and the hand-off from an old master (while the table has room: past it the kernel's backlog, or
+ * the old master's waiting to send, holds the rest) and the connections being
  * read, and take what came
  */
 static void master_wait(Pool *pool, int ms) {
@@ -1588,8 +1706,8 @@ static void master_wait(Pool *pool, int ms) {
     }
     if (pool->to_new >= 0 && !pool->draining) watch_add(w, pool->to_new, TO_NEW_TAG);
     if (pool->registered) {
-        if (pool->from_old >= 0) watch_add(w, pool->from_old, FROM_OLD_TAG);
-        if (pool->listener >= 0 && connections_open(pool) < pool->rule.max_connections && pool->now >= pool->listener_rest) {
+        if (pool->from_old >= 0 && has_room(pool)) watch_add(w, pool->from_old, FROM_OLD_TAG);
+        if (pool->listener >= 0 && has_room(pool) && pool->now >= pool->listener_rest) {
             watch_add(w, pool->listener, LISTENER_TAG);
         }
         for (int k = 0; k < pool->top; k++) {
@@ -1607,7 +1725,7 @@ static void master_wait(Pool *pool, int ms) {
         int tag = w->tags[e];
         if (tag == LISTENER_TAG) accept_some(pool);
         else if (tag == TO_NEW_TAG) read_ready(pool);
-        else if (tag == FROM_OLD_TAG) take_forwarded(pool);
+        else if (tag == FROM_OLD_TAG) take_all_forwarded(pool);
         else if (tag >= 0) read_conn(pool, tag);
         else read_channel(pool, -2 - tag);
     }
@@ -1727,8 +1845,10 @@ static void stop_all(Pool *pool, int count) {
     }
 }
 
-/* Start the program again beside this pool, handing it the listener (see "Reloading") */
+/* Start the program again beside this pool, handing it the listeners (see "Reloading") */
 static void start_reload(Pool *pool) {
+    /* A byte already come is a new master serving: a second reload mustn't end it */
+    if (pool->to_new >= 0 && !pool->draining) read_ready(pool);
     if (pool->draining) {
         fprintf(stderr, "gaz: reload asked while handing over; send it to pid %d\n", (int)pool->new_pid);
         return;
@@ -1745,25 +1865,28 @@ static void start_reload(Pool *pool) {
     }
     if (pool->to_new >= 0) close(pool->to_new);
     pool->to_new = -1;
+    int listeners[MOST_LISTENERS];
+    int count = net_listeners(listeners, MOST_LISTENERS - 1);
+    bool served = false;
+    for (int i = 0; i < count; i++) served = served || same_listener(listeners[i], pool->listener);
+    /* The program closed its own: the master's copy, then */
+    if (!served) listeners[count++] = pool->listener;
     int ends[2];
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, ends) != 0) {
+    if (channel_pair(ends) != 0) {
         fprintf(stderr, "gaz: reload failed: %s; still serving the old code\n", strerror(errno));
         return;
     }
-    int size = CHANNEL_BUFFER;
-    for (int e = 0; e < 2; e++) {
-        fcntl(ends[e], F_SETFD, FD_CLOEXEC);
-        setsockopt(ends[e], SOL_SOCKET, SO_SNDBUF, &size, sizeof size);
-        setsockopt(ends[e], SOL_SOCKET, SO_RCVBUF, &size, sizeof size);
+    /* Each copied above the numbers they go to, so no dup2() overwrites another's source */
+    int handoff_at = FIRST_LISTENER_FD + count, err = 0;
+    int copies[MOST_LISTENERS + 1];
+    for (int i = 0; i <= count; i++) {
+        copies[i] = fcntl(i < count ? listeners[i] : ends[1], F_DUPFD_CLOEXEC, handoff_at + 1);
+        if (copies[i] < 0 && err == 0) err = errno;
     }
-    /* Above the numbers they go to, so one dup2() can't overwrite the other's source */
-    int listener = fcntl(pool->listener, F_DUPFD_CLOEXEC, HANDOFF_FD + 1);
-    int handoff = fcntl(ends[1], F_DUPFD_CLOEXEC, HANDOFF_FD + 1);
     close(ends[1]);
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_adddup2(&actions, listener, LISTENER_FD);
-    posix_spawn_file_actions_adddup2(&actions, handoff, HANDOFF_FD);
+    for (int i = 0; i <= count; i++) posix_spawn_file_actions_adddup2(&actions, copies[i], FIRST_LISTENER_FD + i);
     /* SIGPIPE back at its default, which the master ignores; a stop signal ignored when this
        program started stays ignored in the next, as it would have started */
     posix_spawnattr_t attr;
@@ -1773,20 +1896,35 @@ static void start_reload(Pool *pool) {
     sigaddset(&defaults, SIGPIPE);
     posix_spawnattr_setsigdefault(&attr, &defaults);
     posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF);
+    char listen_fds[32], reload_fd[32];
+    snprintf(listen_fds, sizeof listen_fds, "LISTEN_FDS=%d", count);
+    snprintf(reload_fd, sizeof reload_fd, "GAZ_RELOAD_FD=%d", handoff_at);
     size_t vars = 0;
     while (environ[vars]) vars++;
     char **env = xmalloc((vars + 3) * sizeof *env);
     memcpy(env, environ, vars * sizeof *env);
-    env[vars] = "LISTEN_FDS=1";
-    env[vars + 1] = "GAZ_RELOAD_FD=4";
+    env[vars] = listen_fds;
+    env[vars + 1] = reload_fd;
     env[vars + 2] = NULL;
-    pid_t pid;
-    int err = listener < 0 || handoff < 0 ? errno : posix_spawnp(&pid, program_exe, &actions, &attr, command_argv, env);
+    /* From where gaz started, so a relative program or file names what it did then: the master is
+       this thread alone now, so moving the process there and back is safe */
+    int here = start_dir[0] && err == 0 ? open(".", O_RDONLY | O_CLOEXEC) : -1;
+    if (here >= 0 && chdir(start_dir) != 0) {
+        close(here);
+        here = -1;
+    }
+    pid_t pid = 0;
+    if (err == 0) err = posix_spawnp(&pid, program_exe, &actions, &attr, command_argv, env);
+    if (here >= 0) {
+        if (fchdir(here) != 0) fprintf(stderr, "gaz: reloading: cannot go back to the working directory: %s\n", strerror(errno));
+        close(here);
+    }
     free(env);
     posix_spawnattr_destroy(&attr);
     posix_spawn_file_actions_destroy(&actions);
-    if (listener >= 0) close(listener);
-    if (handoff >= 0) close(handoff);
+    for (int i = 0; i <= count; i++) {
+        if (copies[i] >= 0) close(copies[i]);
+    }
     if (err != 0) {
         close(ends[0]);
         fprintf(stderr, "gaz: reload failed: cannot start %s: %s; still serving the old code\n", program_exe, strerror(err));
@@ -1797,12 +1935,36 @@ static void start_reload(Pool *pool) {
     fprintf(stderr, "gaz: reloading: starting the new program (pid %d)\n", (int)pid);
 }
 
-/* The new master has ended: before it was ready, which leaves this pool as it was, or after */
+/* Whether a signal is one that stops a pool, which a master that ends by it was asked to do */
+static bool is_stop_signal(int sig) {
+    for (int i = 0; i < NSTOP; i++) {
+        if (STOP_SIGNALS[i] == sig) return true;
+    }
+    return false;
+}
+
+/* The new master died after taking over: this one listens again, tells systemd, and has the main
+   loop start what the drain ended */
+static void take_back(Pool *pool) {
+    fprintf(stderr, "gaz: taking the pool back; serving the old code again\n");
+    pool->draining = false;
+    pool->listener = pool->paused_listener;
+    pool->paused_listener = -1;
+    if (pool->to_new >= 0) close(pool->to_new);
+    pool->to_new = -1;
+    pool->taking_back = true;
+    notify_main_pid(getpid());
+}
+
+/* The new master has ended: before it was ready, which leaves this pool as it was, or after, when
+   an end other than a clean one or a stop is taken back */
 static void new_master_ended(Pool *pool, int status) {
     char how[64];
     describe(status, how, sizeof how);
     if (pool->draining) {
         fprintf(stderr, "gaz: the new program (pid %d) %s after taking over\n", (int)pool->new_pid, how);
+        bool ended_well = (WIFEXITED(status) && WEXITSTATUS(status) == 0) || (WIFSIGNALED(status) && is_stop_signal(WTERMSIG(status)));
+        if (!ended_well) take_back(pool);
     } else {
         fprintf(stderr, "gaz: reload failed: the new program %s before it was ready; still serving the old code\n", how);
         if (pool->to_new >= 0) close(pool->to_new);
@@ -1815,7 +1977,17 @@ static void new_master_ended(Pool *pool, int status) {
    finishing a request is asked once it gives its connection back (forwarded) and waits */
 static void drain_idle_workers(Pool *pool) {
     for (int i = 0; i < 2 * pool->count; i++) {
-        if (pool->pids[i] > 0 && pool->channels[i].wants) kill(pool->pids[i], SIGTERM);
+        if (pool->pids[i] <= 0 || !pool->channels[i].wants) continue;
+        kill(pool->pids[i], SIGTERM);
+        if (i < pool->count) pool->drained[i] = true;
+    }
+}
+
+/* What the drain's grace left running: killed now, as a stop kills after its grace, not given a
+   second grace by stop_all() */
+static void end_drain(Pool *pool) {
+    for (int i = 0; i < 2 * pool->count; i++) {
+        if (pool->pids[i] > 0) kill(pool->pids[i], SIGKILL);
     }
 }
 
@@ -1849,12 +2021,14 @@ bool start_workers(int64_t count, Value *out) {
 
     struct sigaction reload = {.sa_handler = on_reload};
     sigemptyset(&reload.sa_mask);
-    sigaction(SIGUSR2, &reload, NULL);
+    sigaction(SIGUSR2, &reload, &saved_reload);
+    /* A listener handed down that the program didn't take: nobody would accept on it */
+    close_handed_down();
 
     master_pid = getpid();
     int n = (int)count;
     /* A reload's new master: the old one hands over on this, once this pool serves */
-    Pool pool = {.count = n, .listener = -1, .to_new = -1, .from_old = inherited_handoff};
+    Pool pool = {.count = n, .listener = -1, .to_new = -1, .from_old = inherited_handoff, .paused_listener = -1};
     inherited_handoff = -1;
     pool.slots = mmap(NULL, (size_t)n * sizeof(Slot), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
     if (pool.slots == MAP_FAILED) {
@@ -1864,6 +2038,7 @@ bool start_workers(int64_t count, Value *out) {
     pool.pids = xcalloc(2 * (size_t)n, sizeof *pool.pids);
     pool.started = xcalloc((size_t)n, sizeof *pool.started);
     pool.relieved = xcalloc((size_t)n, sizeof *pool.relieved);
+    pool.drained = xcalloc((size_t)n, sizeof *pool.drained);
     pool.channels = xmalloc(2 * (size_t)n * sizeof *pool.channels);
     for (int i = 0; i < 2 * n; i++) pool.channels[i] = (Channel){.fd = -1, .sent = -1};
     /* The master and its workers write lines to standard error (http::serve's access log, the
@@ -1899,7 +2074,9 @@ bool start_workers(int64_t count, Value *out) {
     /* The master, from here to its end */
     int alive = n, failed = -1;
     double looked = 0;   /* when the master last looked at its workers */
-    while (alive > 0 && failed < 0 && !stop_signal) {
+    /* Draining, it stays SETTLE seconds even once its workers have gone, to take the pool back from
+       a new one that fails in its first second */
+    while ((alive > 0 || (pool.draining && pool.now - pool.drain_since < SETTLE)) && failed < 0 && !stop_signal) {
         /*
          * ponytail: the master looks at its workers (waitpid(), the slots, hand-overs) every
          * POLL_MS, which is how long a restart, a stop or noticing a hand-over can wait (it can't
@@ -1910,7 +2087,10 @@ bool start_workers(int64_t count, Value *out) {
          */
         double cadence = (handing_over(&pool) ? HAND_OVER_POLL_MS : POLL_MS) / 1000.0;
         pool.now = now();
-        if (pool.draining && pool.now - pool.drain_since > STOP_GRACE) break;
+        if (pool.draining && pool.now - pool.drain_since > STOP_GRACE) {
+            end_drain(&pool);
+            break;
+        }
         bool look = pool.now - looked >= cadence;
         if (look) looked = pool.now;
         if (reload_signal) {
@@ -1934,9 +2114,20 @@ bool start_workers(int64_t count, Value *out) {
                 retired(i - n, status);
                 continue;
             }
+            /* Asked to leave by a drain that has since been undone (take_back()) */
+            bool undrained = pool.drained[i] && !pool.draining;
             /* Draining, nothing is started again: the new pool serves */
-            if ((WIFEXITED(status) && WEXITSTATUS(status) == 0) || pool.draining) {
+            if (!undrained && ((WIFEXITED(status) && WEXITSTATUS(status) == 0) || pool.draining)) {
                 alive--;
+                continue;
+            }
+            if (undrained) {
+                pool.drained[i] = false;
+                if (start_replacement(&pool, i, out, &failed, &alive)) {
+                    pool_free(&pool);
+                    return true;
+                }
+                if (failed >= 0) break;
                 continue;
             }
             if (WIFSIGNALED(status) && WTERMSIG(status) == SIGUSR2) {
@@ -1964,6 +2155,17 @@ bool start_workers(int64_t count, Value *out) {
             }
             if (failed >= 0) break;
         }
+        /* Taken back: each worker the drain had already ended is started again */
+        for (int i = 0; pool.taking_back && i < n && failed < 0; i++) {
+            if (pool.pids[i] != 0 || !pool.drained[i]) continue;
+            pool.drained[i] = false;
+            alive++;
+            if (start_replacement(&pool, i, out, &failed, &alive)) {
+                pool_free(&pool);
+                return true;
+            }
+        }
+        pool.taking_back = false;
         for (int i = 0; look && !pool.draining && i < n && failed < 0; i++) {
             if (hand_over(&pool, i, out, &failed, &alive)) {
                 pool_free(&pool);
@@ -1971,7 +2173,7 @@ bool start_workers(int64_t count, Value *out) {
             }
         }
         /* Between looks it waits on its channels, the listener and the connections */
-        if (alive > 0 && failed < 0 && !stop_signal) {
+        if ((alive > 0 || pool.draining) && failed < 0 && !stop_signal) {
             expire(&pool, pool.now);
             dispatch(&pool);
             master_wait(&pool, ms_until(pool.now, looked + cadence, POLL_MS));

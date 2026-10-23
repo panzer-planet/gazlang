@@ -670,46 +670,59 @@ static bool same_address(const struct sockaddr_storage *bound, const struct sock
     return false;
 }
 
-/*
- * The listener handed down (LISTEN_FDS: a reloading master's, or systemd's socket activation) as
- * the one socket_listen() asked for, when it is on the host's address and the port (0: any). One
- * on another address is an error naming both, since a changed address or port is a restart, not a
- * reload, and quietly listening on a second one would leave the first answered by nobody.
- */
-static bool adopt_listener(int fd, Str *host, int64_t port, struct addrinfo *found, Value *out) {
+/* Whether fd is a stream socket bound and not connected: a listener, as far as can be asked
+   everywhere (SO_ACCEPTCONN isn't) */
+static bool is_listener(int fd, struct sockaddr_storage *bound) {
     int type = 0;
-    socklen_t type_len = sizeof type;
-    struct sockaddr_storage bound, peer;
-    socklen_t bound_len = sizeof bound, peer_len = sizeof peer;
-    bool listening = getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &type_len) == 0 && type == SOCK_STREAM
-        && getsockname(fd, (struct sockaddr *)&bound, &bound_len) == 0
+    socklen_t type_len = sizeof type, bound_len = sizeof *bound;
+    struct sockaddr_storage peer;
+    socklen_t peer_len = sizeof peer;
+    return getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &type_len) == 0 && type == SOCK_STREAM
+        && getsockname(fd, (struct sockaddr *)bound, &bound_len) == 0
         && getpeername(fd, (struct sockaddr *)&peer, &peer_len) != 0 && errno == ENOTCONN;
-    if (!listening) {
-        freeaddrinfo(found);
-        close(fd);
-        return raisef("socket_listen(): descriptor 3, handed down by LISTEN_FDS, isn't a listening socket");
-    }
-    bool same = false;
-    for (struct addrinfo *ai = found; ai && !same; ai = ai->ai_next) same = same_address(&bound, ai->ai_addr, port);
-    freeaddrinfo(found);
-    if (!same) {
-        char address[NI_MAXHOST], service[NI_MAXSERV];
-        if (getnameinfo((struct sockaddr *)&bound, bound_len, address, sizeof address, service, sizeof service, NI_NUMERICHOST | NI_NUMERICSERV) != 0) {
-            snprintf(address, sizeof address, "?");
-            snprintf(service, sizeof service, "?");
+}
+
+/*
+ * A listener handed down (LISTEN_FDS: a reloading master's, or systemd's socket activation) on one
+ * of the host's addresses and the port (0: any), taken: its descriptor, or -1, and socket_listen()
+ * binds one itself. A reload whose new program listens elsewhere is refused by the ready byte (see
+ * "Reloading" in workers.c), not here, so a new version may add a listener.
+ */
+static int take_listener_handed_down(struct addrinfo *found, int64_t port) {
+    for (int i = 0; i < handed_down_listeners(); i++) {
+        int fd = handed_down_listener(i);
+        struct sockaddr_storage bound;
+        if (fd < 0 || !is_listener(fd, &bound)) continue;
+        for (struct addrinfo *ai = found; ai; ai = ai->ai_next) {
+            if (!same_address(&bound, ai->ai_addr, port)) continue;
+            take_handed_down(i);
+            return fd;
         }
-        close(fd);
-        return raisef("socket_listen(): the listener handed down by LISTEN_FDS is on %s port %s, not %s port %lld",
-                      address, service, host->data, (long long)port);
     }
-    *out = v_socket(socket_new(fd, true, 0));
-    return true;
+    return -1;
+}
+
+/* This process's listeners, which a reload hands down: their descriptors, oldest first */
+static int listeners[MOST_LISTENERS];
+static int listeners_len;
+
+static void listener_made(int fd) {
+    if (listeners_len < MOST_LISTENERS) listeners[listeners_len++] = fd;
+}
+
+int net_listeners(int *fds, int most) {
+    int n = 0;
+    struct sockaddr_storage bound;
+    for (int i = 0; i < listeners_len && n < most; i++) {
+        if (is_listener(listeners[i], &bound)) fds[n++] = listeners[i];
+    }
+    return n;
 }
 
 /* socket_listen($host, $port, $backlog): a listener on the first of the host's addresses that
    binds, port 0 being one the system picks (socket_port() says which). SO_REUSEADDR, so a server
-   restarted at once can have its port back while the old connections time out. The first call
-   takes the listener handed down instead, when there is one (adopt_listener()). */
+   restarted at once can have its port back while the old connections time out. One handed down on
+   that address is taken instead (take_listener_handed_down()). */
 bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
     if (host->len == 0 || memchr(host->data, '\0', host->len)) return raisef("socket_listen() expects a host name or address");
     if (port < 0 || port > 65535) return raisef("socket_listen() expects a port from 0 to 65535, got %lld", (long long)port);
@@ -719,9 +732,7 @@ bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
     struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_PASSIVE}, *found;
     int gai = getaddrinfo(host->data, service, &hints, &found);
     if (gai != 0) return raisef("Cannot find host %s: %s", host->data, gai_strerror(gai));
-    int inherited = take_inherited_listener();
-    if (inherited >= 0) return adopt_listener(inherited, host, port, found, out);
-    int fd = -1, err = 0;
+    int fd = take_listener_handed_down(found, port), err = 0;
     for (struct addrinfo *ai = found; ai && fd < 0; ai = ai->ai_next) {
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (fd < 0) {
@@ -739,6 +750,7 @@ bool net_listen(Str *host, int64_t port, int64_t backlog, Value *out) {
     }
     freeaddrinfo(found);
     if (fd < 0) return raisef("Cannot listen on %s port %lld: %s", host->data, (long long)port, strerror(err));
+    listener_made(fd);
     *out = v_socket(socket_new(fd, true, 0));
     return true;
 }
@@ -1064,6 +1076,14 @@ void net_close(Socket *s) {
         s->tls = NULL;
     }
 #endif
+    if (s->listening) {
+        for (int i = 0; i < listeners_len; i++) {
+            if (listeners[i] != s->fd) continue;
+            memmove(&listeners[i], &listeners[i + 1], (size_t)(listeners_len - i - 1) * sizeof *listeners);
+            listeners_len--;
+            break;
+        }
+    }
     close(s->fd);
     s->fd = -1;
     sigpipe_restore();

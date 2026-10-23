@@ -1650,9 +1650,8 @@ A server listens and accepts:
 
 - `socket_listen($host, $port, $backlog = 128)` — a listening `socket` on the first of the host's
   addresses that binds (`"127.0.0.1"` for this machine only, `"0.0.0.0"` or `"::"` for every
-  interface). Port 0 is one the system picks. The first call takes a listener handed down instead,
-  when there is one (`LISTEN_FDS`, from a reloading server or a systemd socket unit), if it is on
-  the host's address and the port (0: any); one elsewhere is an error naming both.
+  interface). Port 0 is one the system picks. A listener handed down on the host's address and the
+  port (0: any) is taken instead (`LISTEN_FDS`, from a reloading server or a systemd socket unit).
 - `socket_accept($listener, $timeout = 30)` — waits for the next connection, as long as it takes,
   and gives it as a `socket`; `$timeout` bounds each read and write on it. In a worker that has been
   asked to stop (see `workers()`), `null`.
@@ -1764,12 +1763,15 @@ SIGHUP). Workers share nothing after the call, a
 Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
 
 SIGUSR2 reloads a server under `http::serve()`: the master runs the same command line again, which
-reads the program's files afresh, and hands it the listener. The new program runs its set-up, its
-`socket_listen()` takes the listener, and once its first worker waits for connections the old
-master stops accepting, passes it every connection it holds, and asks its workers to leave as each
-finishes the request in hand. So no connection is refused or dropped, and the new master has a pid
-of its own (each says it on standard error). If the new code can't start, the old pool serves on
-and the error says so: send SIGUSR2 again once it is fixed. A worker ignores SIGUSR2.
+reads the program's files afresh, from the directory it was first started in, and hands it every
+listener. The new program runs its set-up, its `socket_listen()`s take the listeners on their
+addresses, and once its first worker waits for connections the old master stops accepting, passes
+it every connection it holds, and asks its workers to leave as each finishes the request in hand.
+So no connection is refused or dropped, and the new master has a pid of its own (each says it on
+standard error; under systemd it tells the unit, which needs `NotifyAccess=main`). If the new code
+can't start, or serves another port, the old pool serves on and the error says so: send SIGUSR2
+again once it is fixed. If the new master dies in its first second, the old one takes the pool
+back. A pool's workers ignore SIGUSR2; any other gaz program ends by it, as by default.
 
 A database connection, a socket connection or a file made before `workers()` can't be used in a
 worker, since every worker would share the one connection or file position under it: their queries

@@ -6,7 +6,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Reloading a workers() server: SIGUSR2 to its master starts the program again beside the pool and
- * hands it the listener, so new code is served without a connection refused (workers.c,
+ * hands it the listeners, so new code is served without a connection refused (workers.c,
  * "Reloading"). Each test writes a small server to a directory of its own, changes the file, and
  * signals; the new masters are found by the pid their "reloading" line names.
  */
@@ -98,7 +98,7 @@ class HttpReloadTest extends GazLangTestCase
         return [
             'an error before workers()' => ['workers(2);', 'throw "the new code is broken";', 'reload failed: the new program exited with code 1 before it was ready'],
             'a worker that dies at once' => ['workers(2);', "workers(2);\nexit(7);", 'reload failed: the new program exited with code 7 before it was ready'],
-            'another port' => ['socket_listen("127.0.0.1", 0)', 'socket_listen("127.0.0.1", 1)', 'the listener handed down by LISTEN_FDS is on 127.0.0.1 port '],
+            'another port' => ['socket_listen("127.0.0.1", 0)', 'socket_listen("127.0.0.1", FREE)', 'reload failed: the new program serves another address than this one'],
         ];
     }
 
@@ -106,7 +106,7 @@ class HttpReloadTest extends GazLangTestCase
     public function test_a_reload_to_code_that_fails_to_start_keeps_the_old_pool_serving(string $from, string $to, string $logged): void
     {
         [$master, $port] = $this->start('v1');
-        $broken = str_replace(['VERSION', 'SETUP', $from], ['v2', '', $to], self::SERVER);
+        $broken = str_replace(['VERSION', 'SETUP', $from], ['v2', '', str_replace('FREE', (string) self::freePort(), $to)], self::SERVER);
         file_put_contents($this->dir.'/server.gaz', $broken);
         posix_kill(proc_get_status($master)['pid'], SIGUSR2);
         $this->waitForLog('still serving the old code');
@@ -142,6 +142,63 @@ class HttpReloadTest extends GazLangTestCase
         $this->assertFalse(posix_kill($second, 0), 'the second master is still running');
     }
 
+    public function test_a_reload_hands_down_every_listener(): void
+    {
+        [$master, $port] = $this->start('v1', '$admin = socket_listen("127.0.0.1", 0); echo "admin on " .. socket_port($admin); flush_output();');
+        preg_match('/^admin on (\d+)$/m', (string) file_get_contents($this->dir.'/out'), $m);
+        posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+        $this->waitForLog('gaz: reloaded: pid ');
+        $this->assertSame([$m[0], $m[0]], array_values(array_filter(explode("\n", (string) file_get_contents($this->dir.'/out')), fn ($l) => str_starts_with($l, 'admin on '))));
+        $this->assertSame('v1', self::body(self::exchange($port, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")));
+    }
+
+    public function test_a_reload_starts_the_program_from_where_it_was_started(): void
+    {
+        [$master, $port] = $this->start('v1', 'chdir("/");', relative: true);
+        $this->write('v2', 'chdir("/");');
+        posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+        $this->waitForLog('gaz: reloaded: pid ');
+        $this->assertSame('v2', self::body(self::exchange($port, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")));
+    }
+
+    public function test_a_new_master_that_dies_after_taking_over_gives_the_pool_back(): void
+    {
+        [$master, $port] = $this->start('v1');
+        $this->write('v2');
+        posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+        $this->waitForLog('gaz: reloaded: pid ');
+        posix_kill($this->pids()[0], SIGKILL);
+        $this->waitForLog('gaz: taking the pool back');
+        for ($i = 0; $i < 10; $i++) {
+            $this->assertSame('v1', self::body(self::exchange($port, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")));
+        }
+        $this->assertTrue(proc_get_status($master)['running']);
+
+        // And it can be reloaded again
+        posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+        $this->waitForLog('gaz: reloaded: pid ', 2);
+        $this->assertSame('v2', self::body(self::exchange($port, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")));
+    }
+
+    public function test_systemd_is_told_the_new_main_pid(): void
+    {
+        $path = '/tmp/gaz-notify-'.getmypid().'-'.bin2hex(random_bytes(4));
+        $notify = socket_create(AF_UNIX, SOCK_DGRAM, 0);
+        $this->assertNotFalse($notify);
+        $this->assertTrue(socket_bind($notify, $path));
+        try {
+            [$master] = $this->start('v1', env: ['NOTIFY_SOCKET' => $path]);
+            $this->write('v2');
+            posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+            $this->waitForLog('gaz: reloaded: pid ');
+            socket_set_option($notify, SOL_SOCKET, SO_RCVTIMEO, ['sec' => 5, 'usec' => 0]);
+            $this->assertSame('MAINPID='.$this->pids()[0]."\n", socket_read($notify, 64));
+        } finally {
+            socket_close($notify);
+            @unlink($path);
+        }
+    }
+
     public function test_a_stop_while_the_new_program_starts_ends_both(): void
     {
         [$master, $port] = $this->start('v1');
@@ -175,45 +232,71 @@ class HttpReloadTest extends GazLangTestCase
     }
 
     /**
-     * A listener handed down by its environment, as a systemd socket unit hands one: the first
-     * socket_listen() on its address takes it
+     * A listener handed down by its environment, as a systemd socket unit hands one: a
+     * socket_listen() on its address takes it, and one on another binds its own
      *
-     * @return array<string, array{string, string}>
+     * @return array<string, array{string, bool}>
      */
     public static function handedDown(): array
     {
         return [
-            'the same address' => ['0', 'PORT'],
-            'another port' => ['1', 'socket_listen(): the listener handed down by LISTEN_FDS is on 127.0.0.1 port PORT, not 127.0.0.1 port 1'],
-            'not a socket' => ['0', "socket_listen(): descriptor 3, handed down by LISTEN_FDS, isn't a listening socket"],
+            'the same address' => ['0', true],
+            'another port' => ['FREE', false],
+            'not a socket' => ['0', false],
         ];
     }
 
     #[DataProvider('handedDown')]
-    public function test_socket_listen_takes_a_listener_handed_down_by_its_environment(string $port, string $expected): void
+    public function test_socket_listen_takes_a_listener_handed_down_by_its_environment(string $port, bool $taken): void
     {
         $server = stream_socket_server('tcp://127.0.0.1:0');
         $this->assertNotFalse($server);
-        $handed = str_contains($expected, 'descriptor 3') ? fopen('/dev/null', 'r') : $server;
+        $handed = $taken || $port !== '0' ? $server : fopen('/dev/null', 'r');
         $given = (int) substr((string) strrchr((string) stream_socket_get_name($server, false), ':'), 1);
+        $port = str_replace('FREE', (string) self::freePort(), $port);
         file_put_contents($this->dir.'/listen.gaz', 'echo socket_port(socket_listen("127.0.0.1", '.$port.'));');
         $out = $this->dir.'/out';
         $process = proc_open([self::binary(), $this->dir.'/listen.gaz'], [['file', '/dev/null', 'r'], ['file', $out, 'w'], ['file', $out, 'a'], 3 => $handed], $pipes, self::ROOT, ['LISTEN_FDS' => '1'] + getenv());
         $this->assertNotFalse($process);
         proc_close($process);
         fclose($server);
-        $this->assertStringContainsString(str_replace('PORT', (string) $given, $expected), (string) file_get_contents($out));
+        $printed = trim((string) file_get_contents($out));
+        $this->assertMatchesRegularExpression('/^\d+$/', $printed);
+        if ($taken) {
+            $this->assertSame((string) $given, $printed);
+        } else {
+            $this->assertNotSame((string) $given, $printed);
+        }
+        if ($port !== '0') {
+            $this->assertSame($port, $printed);
+        }
+    }
+
+    /** A port nothing listens on just now */
+    private static function freePort(): int
+    {
+        $probe = stream_socket_server('tcp://127.0.0.1:0');
+        if ($probe === false) {
+            throw new \RuntimeException('Cannot find a free port');
+        }
+        $port = (int) substr((string) strrchr((string) stream_socket_get_name($probe, false), ':'), 1);
+        fclose($probe);
+
+        return $port;
     }
 
     /**
-     * Start the server at a version, and give it and its port
+     * Start the server at a version, with set-up before workers(), from its own directory by a
+     * relative path if asked, and give it and its port
      *
+     * @param  array<string, string>  $env
      * @return array{resource, int}
      */
-    private function start(string $version): array
+    private function start(string $version, string $setup = '', bool $relative = false, array $env = []): array
     {
-        $this->write($version);
-        $process = proc_open([self::binary(), $this->dir.'/server.gaz'], [['file', '/dev/null', 'r'], ['file', $this->dir.'/out', 'w'], ['file', $this->dir.'/log', 'w']], $pipes, self::ROOT);
+        $this->write($version, $setup);
+        $command = [self::binary(), $relative ? 'server.gaz' : $this->dir.'/server.gaz'];
+        $process = proc_open($command, [['file', '/dev/null', 'r'], ['file', $this->dir.'/out', 'w'], ['file', $this->dir.'/log', 'w']], $pipes, $relative ? $this->dir : self::ROOT, $env + getenv());
         if ($process === false) {
             throw new \RuntimeException('Cannot start the server');
         }
