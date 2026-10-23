@@ -725,6 +725,9 @@ bool term_read(double timeout, Value *out);
 bool term_size(Value *out);
 bool term_is_tty(int64_t stream, Value *out);
 bool term_is_virtual(Value *out);
+bool term_resized(Value *out);
+bool term_resize(int64_t cols, int64_t rows);
+bool term_suspend(void);
 extern int tty_cols, tty_rows;   /* gaz --tty's pretend terminal, 0 by 0 when there is none */
 extern double tty_clock;         /* its clock: monotonic_time(), moved on by sleep() */
 

@@ -1712,7 +1712,10 @@ worker (see `workers()`); a listener can.
 | `term_read($timeout = null)` | What has arrived on standard input, up to 4KB, or `null` after `$timeout` seconds |
 | `term_size()` | The terminal's columns and rows |
 | `term_is_tty($stream)` | Whether standard input (0), output (1) or error (2) is a terminal |
+| `term_resized()` | Whether the window changed size since this was last asked, true once per change |
+| `term_suspend()` | Stops the program for its shell, as Ctrl-Z would, and returns when the shell continues it |
 | `term_is_virtual()` | Whether this is `gaz --tty`'s pretend terminal |
+| `term_resize($cols, $rows)` | Under `gaz --tty` only: the pretend terminal is that size from now on |
 
 The terminal builtins are what a program needs to be interactive and GazLang can't do itself. Drawing
 is escape sequences through `print`, and turning bytes into keys is GazLang's too (`lib/term.gaz`):
@@ -1721,20 +1724,36 @@ is escape sequences through `print`, and turning bytes into keys is GazLang's to
   key arrives as it is typed. Ctrl-C and Ctrl-Z arrive as the bytes 3 and 26 instead of ending or
   stopping the program, so the program decides. `false` puts the terminal back. Anything that ends
   the program (`exit()`, an uncaught error, SIGINT, SIGTERM, SIGHUP, SIGQUIT) puts it back too,
-  so a crash doesn't leave the shell typing nothing. Standard input that isn't a terminal is an
-  error.
+  so a crash doesn't leave the shell typing nothing, and a stop from outside (`kill -TSTP`) puts
+  it back for the shell and takes it again when the program goes on. Standard input that isn't a
+  terminal is an error.
 - `term_read($timeout = null)` — what has arrived on standard input, up to 4KB, waiting for
   something to. `$timeout` (seconds, an int or a float) gives `null` when it runs out; `""` means
-  the input ended. Output is flushed first, so a prompt is on the screen before the wait. It reads
+  the input ended. It also gives `null` the moment the window changes size, before any key typed
+  after that (`term_resized()` says which it was), so a program waiting with no timeout can draw
+  again at once. Output is flushed first, so a prompt is on the screen before the wait. It reads
   a pipe too, which is how programs that use it are tested.
 - `term_size()` — `{"cols" => 80, "rows" => 24}` for the terminal standard output is, and 80 by 24
-  when it isn't one. Call it each time it matters; nothing tells a program the window changed.
+  when it isn't one. Call it again when `term_resized()` says to.
+- `term_resized()` — whether the window changed size since the last call (or the start), `true`
+  once for each change, so a program that draws in a loop asks it each time round and one that
+  never asks pays nothing. `term::Input` asks it for you and gives the key `"resize"`.
+- `term_suspend()` — stops the program as Ctrl-Z would have (raw mode makes Ctrl-Z the byte 26,
+  so the program decides): the terminal is put back for the shell, the program's whole job stops,
+  and when the shell continues it (`fg`) raw mode is on again and the call returns, so the program
+  has only to draw its screen again (`$screen.invalidate()`, then a render). Without a terminal
+  on standard input it is an error, there being no shell to go back to; under `gaz --tty` it
+  returns at once.
 - `term_is_tty($stream)` — whether standard input (0), output (1) or error (2) is a terminal.
 - `term_is_virtual()` — whether the program runs on `gaz --tty`'s pretend terminal (see
   [Without a terminal](#without-a-terminal-gaz---tty)). There, `term_is_tty()` is true for input
   and output, `term_size()` is the pretend terminal's, `term_raw()` does nothing, `term_read()` is
-  an error (the keys are `term::Input`'s to read), and `monotonic_time()` starts at 0.0 and moves
-  only when the program sleeps, which `sleep()` does at once.
+  an error (the keys are `term::Input`'s to read), `term_resized()` is false (the script's `resize`
+  is a key), and `monotonic_time()` starts at 0.0 and moves only when the program sleeps, which
+  `sleep()` does at once.
+- `term_resize($cols, $rows)` — under `gaz --tty`, the pretend terminal is `$cols` by `$rows`
+  from now on, as dragging a window would make it; it is what the script's `resize COLSxROWS`
+  does. On a real terminal it is an error: that one is its user's to resize.
 
 `term_read` reads the descriptor, not the buffer `read_stdin()` and `read_line()` fill, so use one
 or the other.
@@ -2933,9 +2952,11 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   `term::name($key)` writes a key as `"ctrl+alt+up"`, in the order ctrl, alt, shift, which a
   `match` can take, and `term::text($key)` is the character it types, or `null`.
 - **`term::Input`** keeps what a read left over, so make one and keep using it:
-  `$input.read($timeout = null)` is the next key, `null` when the time runs out, and
-  `{"key" => "eof"}` when the input ends (again on every call after). A lone `ESC` waits 50ms for
-  the rest of a sequence before it is `escape`.
+  `$input.read($timeout = null)` is the next key, `null` when the time runs out,
+  `{"key" => "eof"}` when the input ends (again on every call after), and `{"key" => "resize"}`
+  the moment the window changes size, before any key typed after it (under `gaz --tty`, where the
+  script says `resize`): draw again to `term_size()`. A lone `ESC` waits 50ms for the rest of a
+  sequence before it is `escape`.
 
 ```gaz
 import "std/term.gaz";
@@ -2964,8 +2985,9 @@ with no terminal.
   $width, $height, $char = " ", $style = "")`, `clear()`, `cursor($col, $row)` (where the
   terminal's cursor goes after a render, shown only then), `render()`, `lines()` and
   `cell($col, $row)` (`[character, style]`), `resize($cols, $rows)`, `fit()` (take the terminal's
-  size, `true` when it changed; nothing tells a program the window changed, so poll it each frame)
-  and `invalidate()` (draw everything at the next render). Drawing outside the screen is clipped.
+  size, `true` when it changed; call it when a read gives the key `"resize"`, which `interact()`
+  does itself) and `invalidate()` (draw everything at the next render: after `term_suspend()`,
+  or anything else that drew on the terminal). Drawing outside the screen is clipped.
   A wide character (CJK, emoji) takes two columns but one cell.
 - **Drawing**: `tui::label($screen, $col, $row, $width, $text, $style = "", $align = "left")` (cut
   off or padded to `$width`; `"left"`, `"center"`, `"right"`), `tui::box($screen, $col, $row,
@@ -3061,6 +3083,9 @@ The keys are words, separated by spaces or lines, so a longer script can be a fi
   only then, so a screen run by a beat (a clock, a match being played) moves exactly as far
   every time, and the same program with the same keys prints the same screens.
 - `snap` prints the screen as it is, headed by the keys that led to it.
+- `resize 40x10` makes the terminal that size from then on (columns by rows, each 1 to 1000), as
+  dragging the window would, and reaches the program as the key `resize`, which `tui::interact()`
+  answers by fitting its screen and drawing again.
 
 A word that isn't one of these stops the program before it runs, with exit code 2. A full-screen
 program run without a terminal says to use `--tty`; `tui::interact()` does all of this, so a

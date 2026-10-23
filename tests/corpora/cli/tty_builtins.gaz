@@ -18,3 +18,21 @@ if (term_is_virtual()) {
         echo "a clock past what a float holds: " .. $e.message;
     }
 }
+try {
+    term_resize(0, 1);
+} catch ($e) {
+    echo $e.message;
+}
+if (term_is_virtual()) {
+    term_resize(50, 12);
+    echo "resized: " .. term_size();
+    echo "resized? " .. term_resized();
+    term_suspend();
+    echo "a suspend returns at once";
+} else {
+    try {
+        term_suspend();
+    } catch ($e) {
+        echo $e.message;
+    }
+}

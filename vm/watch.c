@@ -225,7 +225,8 @@ static pid_t start_program(const char *self, char **argv) {
 }
 
 /* Whether the program has ended by itself, reaping it if so. One stopped for using the terminal
-   (see the ponytail above) is told so and ended, or it would wait there for ever. */
+   (see the ponytail above), or stopping itself for its shell (term_suspend(), whose shell is this
+   supervisor), is told so and ended, or it would wait there for ever. */
 static bool program_ended(pid_t pid) {
     int status;
     pid_t done;
@@ -233,7 +234,7 @@ static bool program_ended(pid_t pid) {
     if (done != pid) return false;
     if (!WIFSTOPPED(status)) return true;
     int sig = WSTOPSIG(status);
-    if (sig != SIGTTIN && sig != SIGTTOU) return false;
+    if (sig != SIGTTIN && sig != SIGTTOU && sig != SIGTSTP) return false;
     fputs("gaz: the program wanted the terminal, which it can't have under --watch; ending it\n", stderr);
     kill(-pid, SIGKILL);
     while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}

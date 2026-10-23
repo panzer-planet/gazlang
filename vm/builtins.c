@@ -79,6 +79,7 @@ const BuiltinInfo builtin_info[] = {
     {"main_dir", 0, 0},
     {"utf8_upper", 1, 1}, {"utf8_lower", 1, 1}, {"utf8_fold", 1, 1}, {"utf8_slice", 2, 3},
     {"socket_tls_server", 1, 1}, {"socket_tls_accept", 2, 3}, {"socket_tls_protocol", 1, 1},
+    {"term_resized", 0, 0}, {"term_resize", 2, 2}, {"term_suspend", 0, 0},
 };
 const int nbuiltins = sizeof builtin_info / sizeof builtin_info[0];
 
@@ -115,6 +116,7 @@ enum {
     B_MAIN_DIR,
     B_UTF8_UPPER, B_UTF8_LOWER, B_UTF8_FOLD, B_UTF8_SLICE,
     B_SOCKET_TLS_SERVER, B_SOCKET_TLS_ACCEPT, B_SOCKET_TLS_PROTOCOL,
+    B_TERM_RESIZED, B_TERM_RESIZE, B_TERM_SUSPEND,
 };
 
 int builtin_find(const char *name, size_t len) {
@@ -2308,6 +2310,17 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         return term_is_tty(a.i, out);
     case B_TERM_IS_VIRTUAL:
         return term_is_virtual(out);
+    case B_TERM_RESIZED:
+        return term_resized(out);
+    case B_TERM_RESIZE:
+        if (!want(index, a, INT) || !want(index, b, INT)) return false;
+        if (!term_resize(a.i, b.i)) return false;
+        *out = v_null();
+        return true;
+    case B_TERM_SUSPEND:
+        if (!term_suspend()) return false;
+        *out = v_null();
+        return true;
     case B_STD_SOURCE: {
         /* The text of a standard library file, or null: what `import "std/name.gaz"` reads. GAZLIB, a
            directory, is read instead of the built-in copy, so the library can be edited without a

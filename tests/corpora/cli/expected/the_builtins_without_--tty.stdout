@@ -1,3 +1,5 @@
 virtual: false
 input and output: false false
 size: {"cols" => 80, "rows" => 24}
+term_resize() is gaz --tty's: a real terminal is resized by its user, which term_resized() and term::Input say
+term_suspend() needs a terminal on standard input; without one, there is no shell to go back to

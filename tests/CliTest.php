@@ -103,6 +103,8 @@ class CliTest extends GazLangTestCase
         'the builtins without --tty' => [['tty_builtins.gaz']],
         '--tty: a key with no name' => [['--tty', 'tty.gaz'], 'tty_bad_key.txt'],
         '--tty: a wait without its seconds' => [['--tty', 'tty.gaz'], 'tty_bad_wait.txt'],
+        '--tty: resize makes the terminal that size, and is a key the screen fits to' => [['--tty=60x8', 'tty.gaz'], 'tty_resize.txt'],
+        '--tty: a resize without a size' => [['--tty', 'tty.gaz'], 'tty_bad_resize.txt'],
         '--tty: a quote never closed' => [['--tty', 'tty.gaz'], 'tty_open_quote.txt'],
         '--tty needs a file' => [['--tty'], 'tty_keys.txt'],
         '--tty needs a file, not piped source' => [['--tty', '-'], 'tty.gaz'],

@@ -542,7 +542,10 @@ pub kind Input {
 
     /**
      * The next key, waiting up to $timeout seconds for one (null: as long as it takes). null when
-     * the time runs out. When the input ends, {"key" => "eof"}, again on every call after.
+     * the time runs out. When the input ends, {"key" => "eof"}, again on every call after. When
+     * the window changes size, {"key" => "resize"}, at once, before any key typed after it
+     * (term_read() wakes for it; under gaz --tty the script's `resize COLSxROWS` is one): draw
+     * again to term_size().
      */
     pub fn read($timeout = null) {
         if (term_is_virtual()) {
@@ -554,6 +557,10 @@ pub kind Input {
             }
             $chunk = term_read(#rest == "" ? $timeout : ESCAPE_WAIT);
             if ($chunk == null) {
+                if (term_resized()) {
+                    // the window changed, which woke the read; a sequence cut short waits again next time
+                    return make_key("resize");
+                }
                 if (#rest == "") {
                     return null;
                 }
@@ -610,9 +617,9 @@ const KEY_NAMES = [
 const MODIFIERS = ["ctrl", "alt", "shift"];
 const SPACES = " \t\r\n";
 
-/* One step of a script: a key to press, time to let pass, or a screen to show */
+/* One step of a script: a key to press, time to let pass, a screen to show, or a new size */
 kind Step {
-    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0);
+    fn _(pub #action, pub #word, pub #key = null, pub #seconds = 0, pub #size = null);
 }
 
 /*
@@ -622,7 +629,9 @@ kind Step {
  * backslash), which is also how to type a word that is a key's name or a command ("snap").
  * `wait SECONDS` lets that much time pass on the clock gaz --tty keeps, which moves only then, so
  * a program run by a beat (a clock, a live match) does the same every time; `snap` shows the
- * screen. A mistake stops the program before it runs a step, naming the word.
+ * screen; `resize COLSxROWS` makes the terminal that big from then on, as dragging the window
+ * would, and is the key "resize". A mistake stops the program before it runs a step, naming the
+ * word.
  */
 kind Script {
     #steps = [];
@@ -646,6 +655,13 @@ kind Script {
                 }
                 $i++;
                 $script.add(Step("wait", "wait " .. $words[$i][0], null, $seconds));
+            } else if ($word == "resize") {
+                $size = $i + 1 < len($words) && !$words[$i + 1][1] ? size_named($words[$i + 1][0]) : null;
+                if ($size == null) {
+                    refuse("'resize' needs a size after it, as COLSxROWS with each 1 to 1000 (resize 80x24)");
+                }
+                $i++;
+                $script.add(Step("resize", "resize " .. $words[$i][0], null, 0, $size));
             } else {
                 $script.add(Step("press", $word, key_named($word)));
             }
@@ -672,7 +688,8 @@ kind Script {
 
     /*
      * The next key, letting the script's waits pass as Input.read() would wait. A snap is the key
-     * "snap" when $snaps says so, and passed over when not.
+     * "snap" when $snaps says so, and passed over when not. A resize makes the terminal its size
+     * (term_resize()) and is the key "resize", as a window changing is on a real terminal.
      */
     pub fn read($timeout, $snaps) {
         while (#at < len(#steps)) {
@@ -680,6 +697,11 @@ kind Script {
             if ($step.action == "press") {
                 #next($step);
                 return $step.key;
+            }
+            if ($step.action == "resize") {
+                term_resize($step.size[0], $step.size[1]);
+                #next($step);
+                return make_key("resize");
             }
             if ($step.action == "snap") {
                 #at++;
@@ -773,6 +795,20 @@ fn key_named($word) {
         refuse(unknown_word($word));
     }
     return make_key($key, in_array("ctrl", $parts), in_array("alt", $parts), in_array("shift", $parts));
+}
+
+// The size a script's word names, as --tty takes one (COLSxROWS, each 1 to 1000): [cols, rows], or null
+fn size_named($word) {
+    $parts = split($word, "x");
+    if (len($parts) != 2) {
+        return null;
+    }
+    $cols = to_int($parts[0], null);
+    $rows = to_int($parts[1], null);
+    if ($cols == null || $rows == null || $cols < 1 || $cols > 1000 || $rows < 1 || $rows > 1000) {
+        return null;
+    }
+    return [$cols, $rows];
 }
 
 fn unknown_word($word) {

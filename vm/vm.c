@@ -1968,8 +1968,9 @@ static const char *HELP =
     "                 made with std/tui without one: standard input is its keys, and each screen is\n"
     "                 printed as numbered lines and the styles on them, when a 'snap' comes and at\n"
     "                 the end. The keys are words, as term::name() writes them: j enter escape\n"
-    "                 ctrl+c page_up f5, \"text to type\", and 'wait 1.5' to let that many seconds\n"
-    "                 pass (the clock moves only then). gaz --tty app.gaz <<< \"2 j snap enter\"\n"
+    "                 ctrl+c page_up f5, \"text to type\", 'wait 1.5' to let that many seconds\n"
+    "                 pass (the clock moves only then) and 'resize 80x24' to change the window.\n"
+    "                 gaz --tty app.gaz <<< \"2 j snap enter\"\n"
     "  -S, --serve    Serve static files: gaz -S host:port [--docroot DIR] [--cert FILE --key FILE]\n"
     "                 (see std/devserver.gaz)\n";
 
