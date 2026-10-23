@@ -37,4 +37,7 @@ ok nor a trailing slash's redirect
 ok a prefix ending in /
 ok or not starting with one
 ok middleware that isn't a function
+ok for the router's own too
+ok a prefix of / alone
+ok a prefix's segments are checked when it is given
 ok a pattern in a group is checked as the router checks one

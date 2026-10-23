@@ -688,6 +688,16 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   `$request["params"]`, so a handler keeps one argument and tests with a plain map. First match
   wins (Express's rule: nothing to rank). The 308 is so a link works either way and a page has one
   URL. Tested by `tests/gaz/lib/router_test.gaz`.
+  - **A group (`http::Group`) adds to the router's one list**, each handler wrapped in the group's
+    middleware and each pattern after its prefix, so a group changes no rule of matching: its
+    routes win or lose by the order they were added among the router's own, and a 404, a 405 or a
+    spelling redirect never reaches a group's middleware, which runs only once its route matched (a
+    login check doesn't send a misspelt URL to log in). `use()` stays around everything. A group
+    is made by chaining, `middleware()` and `prefix()` each giving a new one, so nesting needs no
+    stack of "the current group", and `group($routes)` only calls `$routes` with it, for the
+    indentation. `/` under a prefix is the prefix itself, as `/admin` is the group's first page; a
+    prefix ending in `/` or of `/` alone is refused rather than read two ways. Middleware is
+    checked to be a function when it is added, by `use()` too.
 - **`http::client_address()` reads `X-Forwarded-For` only when `remote_address` is a trusted
   proxy**, so the default (none) can't be spoofed by a client's own header, and it walks the header
   from the right, since every entry left of the last trusted hop is the client's to write; an entry

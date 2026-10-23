@@ -2704,21 +2704,26 @@ pub kind Router {
      * what was added before it
      */
     pub fn use($middleware) {
-        #around[] = $middleware;
+        #around[] = checked_middleware($middleware);
     }
 
     /**
      * A group whose routes $middleware wraps, once one of them matched: add them to the group
      */
     pub fn middleware($middleware): Group {
-        return Group(#add, [], "").middleware($middleware);
+        return #root().middleware($middleware);
     }
 
     /**
      * A group whose routes' paths start with $prefix ("/admin"): add them to the group
      */
     pub fn prefix($prefix): Group {
-        return Group(#add, [], "").prefix($prefix);
+        return #root().prefix($prefix);
+    }
+
+    // A group with nothing of its own, whose routes are the router's as they are
+    fn root() {
+        return Group(#add, [], "");
     }
 
     /**
@@ -2793,7 +2798,6 @@ pub kind Router {
     }
 }
 
-// One route: a method, a pattern cut into segments, and its handler
 /**
  * Routes added through a group go into its Router, each handler wrapped in the group's middleware
  * (the first given outermost) and each pattern after its prefix, so they match in the order they
@@ -2818,19 +2822,21 @@ pub kind Group {
      * This group with $middleware too, inside what it has
      */
     pub fn middleware($middleware): Group {
-        if (type_of($middleware) != "function") {
-            throw "A group's middleware is a function, not " .. type_of($middleware);
-        }
-        return Group(#add, [...#wrappers, $middleware], #path);
+        return Group(#add, [...#wrappers, checked_middleware($middleware)], #path);
     }
 
     /**
      * This group with its paths under $prefix too, after the prefix it has
      */
     pub fn prefix($prefix): Group {
+        if ($prefix == "/") {
+            throw "A group's prefix of / adds nothing: give the group middleware() alone";
+        }
         if (type_of($prefix) != "string" || !starts_with($prefix, "/") || ends_with($prefix, "/")) {
             throw "A group's prefix starts with / and doesn't end with one, got " .. quote($prefix);
         }
+        // Its segments are checked as a pattern's, here rather than at the first route under it
+        pattern_segments($prefix);
         return Group(#add, #wrappers, #path .. $prefix);
     }
 
@@ -2900,6 +2906,7 @@ pub kind Group {
     }
 }
 
+// One route: a method, a pattern cut into segments, and its handler
 kind Route {
     #segments;
     #handler;
@@ -2999,6 +3006,14 @@ fn other_spelling($path) {
     }
 
     return $path .. "/";
+}
+
+// Middleware, checked when it is added rather than at the first request it would wrap
+fn checked_middleware($middleware) {
+    if (type_of($middleware) != "function") {
+        throw "Middleware is a function of a request and the next handler, not " .. type_of($middleware);
+    }
+    return $middleware;
 }
 
 fn wrap($middleware, $next) {
