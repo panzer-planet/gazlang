@@ -8,7 +8,8 @@
 // one would flatter gaz, and without one the column is left out. Every run is a whole
 // process, timed in CPU seconds (user + system), and the runs are interleaved, so a machine
 // that gets busier halfway slows all of them alike; the best of the rounds is reported. PHP
-// runs with its JIT on (opcache.jit=1235, the fastest setting for this kind of code).
+// runs twice: with its JIT on (opcache.jit=1235, the fastest setting for this kind of code)
+// and without it (opcache on, which most PHP runs with, and opcache.jit=0).
 
 chdir(dirname(__DIR__));
 require 'vendor/autoload.php';
@@ -21,6 +22,7 @@ if ($code !== 0) {
 }
 
 $php = [PHP_BINARY, '-d', 'pcov.enabled=0', '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit_buffer_size=16M', '-d', 'opcache.jit=1235'];
+$phpWithoutJit = [PHP_BINARY, '-d', 'pcov.enabled=0', '-d', 'opcache.enable_cli=1', '-d', 'opcache.jit=0'];
 $compile = function (string $file, string $gzb): void {
     exec(implode(' ', array_map('escapeshellarg', ['bin/gaz', '-c', '-f', $file])).' > '.escapeshellarg($gzb), $out, $code);
     if ($code !== 0) {
@@ -46,6 +48,7 @@ foreach (glob('tools/bench/gaz/*.gaz') as $file) {
     // The same program in PHP, for the ones that have one
     if (is_file("tools/bench/php/{$name}.php")) {
         $cases[$name]['php'] = [...$php, "tools/bench/php/{$name}.php"];
+        $cases[$name]['php0'] = [...$phpWithoutJit, "tools/bench/php/{$name}.php"];
     }
     if ($python !== null && is_file("tools/bench/python/{$name}.py")) {
         $cases[$name]['py'] = [$python, "tools/bench/python/{$name}.py"];
@@ -88,8 +91,8 @@ if ($python !== null) {
 }
 $seconds = fn (?float $t) => $t === null ? '' : sprintf('%.3fs', $t);
 $ratio = fn (float $a, ?float $b) => $b === null ? '' : sprintf('%.1fx', $a / $b);
-printf("%-48s %9s %9s %9s %9s %9s\n", '', 'gaz', 'PHP', 'Python', 'gaz / PHP', 'Py / gaz');
+printf("%-48s %9s %9s %11s %9s %9s %9s\n", '', 'gaz', 'PHP JIT', 'PHP no JIT', 'Python', 'gaz / PHP', 'Py / gaz');
 foreach ($best as $name => $t) {
-    printf("%-48s %9s %9s %9s %9s %9s\n", $name, $seconds($t['c']), $seconds($t['php'] ?? null), $seconds($t['py'] ?? null),
-        $ratio($t['c'], $t['php'] ?? null), isset($t['py']) ? $ratio($t['py'], $t['c']) : '');
+    printf("%-48s %9s %9s %11s %9s %9s %9s\n", $name, $seconds($t['c']), $seconds($t['php'] ?? null), $seconds($t['php0'] ?? null),
+        $seconds($t['py'] ?? null), $ratio($t['c'], $t['php'] ?? null), isset($t['py']) ? $ratio($t['py'], $t['c']) : '');
 }
