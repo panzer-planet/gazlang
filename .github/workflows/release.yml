@@ -1,7 +1,7 @@
 name: Release
 
-# Pushing a tag vX.Y.Z (X.Y.Z being what VERSION says) builds gaz for Linux (x86_64) and macOS
-# (Apple silicon and Intel), and publishes them as a GitHub release:
+# Pushing a tag vX.Y.Z (X.Y.Z being what VERSION says) builds gaz for Linux (x86_64 and arm64)
+# and macOS (Apple silicon and Intel), and publishes them as a GitHub release:
 #
 #   git tag v0.1.0 && git push origin v0.1.0
 #
@@ -28,6 +28,10 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux-x86_64
+          # No ubuntu-latest-arm alias exists; 24.04 is what ubuntu-latest is today, so the two
+          # Linux builds need the same glibc
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
           - os: macos-15-intel
             target: macos-x86_64
           # macos-15, not macos-latest (macOS 26): a binary runs on the macOS it was built on

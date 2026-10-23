@@ -408,8 +408,8 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   never the end of the process: one bad message shouldn't cost the whole session.
 - **Releases**: `VERSION` holds the version, which the Makefile compiles in and
   `gaz --version` prints. Pushing a tag `vX.Y.Z` matching it runs `.github/workflows/release.yml`,
-  which builds and tries gaz on Linux (the latest Ubuntu, x86_64) and macOS (Apple silicon and
-  Intel), and publishes the three `.tar.gz` and their `SHA256SUMS` as a GitHub release
+  which builds and tries gaz on Linux (the latest Ubuntu, x86_64 and arm64) and macOS (Apple
+  silicon and Intel), and publishes the four `.tar.gz` and their `SHA256SUMS` as a GitHub release
   with notes from the commits; `gh workflow run release.yml` is a dry run that publishes nothing.
   To release: change `VERSION`, re-record the CLI's `version` row (`GAZLANG_RECORD=1 vendor/bin/phpunit
   --filter CliTest`), commit, then tag and push the tag. The binaries have TLS, SQLite and
@@ -420,12 +420,12 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   is linked in, so they need nothing but the system, and `net.c` trusts the system's
   `/etc/ssl/cert.pem` too (unless `SSL_CERT_FILE` says otherwise), since a linked-in OpenSSL looks
   for certificates where Homebrew keeps them; without it https fails on a Mac without Homebrew. No promise about what changes between releases yet.
-- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest) and on macOS, Apple silicon and
-  Intel, for every push: it builds gaz without TLS or databases (the bootstrap needs only a C
-  compiler), then with them, and rebuilds its compiler before PHP is even installed, then the
-  suite, in two jobs per platform (`pest --parallel --shard=N/2`, each building gaz for itself),
-  with `gaz test` and the minute of fuzzing on the second Linux one only. phpstan and
-  pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
+- **CI** (`.github/workflows/ci.yml`) runs on Ubuntu (the latest, x86_64 and arm64) and on macOS,
+  Apple silicon and Intel, for every push: it builds gaz without TLS or databases (the bootstrap
+  needs only a C compiler), then with them, and rebuilds its compiler before PHP is even
+  installed, then the suite, in two jobs per platform (`pest --parallel --shard=N/2`, each building
+  gaz for itself), with `gaz test` and the minute of fuzzing on each Linux second half only.
+  phpstan and pint are a job of their own on Ubuntu, which needs no build and so reports first; phpstan runs
   cold there (no result cache) at a 1G limit, as `composer ci` does locally, since a warm local cache can hide a table that needs a gigabyte. LeakSanitizer runs in the sanitized build on
   Linux only: Apple's clang has none, and Homebrew's LLVM gave only system-library noise.
   Development is on an Intel Mac.

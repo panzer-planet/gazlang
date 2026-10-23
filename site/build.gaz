@@ -56,6 +56,7 @@ const LIBRARY_INDEX = "library/index.html";
 // The builds a release publishes, as its workflow names them, and what to call each
 const RELEASE_TARGETS = [
     ["linux-x86_64", "Linux (x86_64)"],
+    ["linux-arm64", "Linux (arm64)"],
     ["macos-arm64", "macOS (Apple silicon)"],
     ["macos-x86_64", "macOS (Intel)"],
 ];

@@ -3,9 +3,10 @@ unit: Getting started
 title: Installing gaz
 ---
 Every release on the [releases page](https://github.com/panzer-planet/gazlang/releases) has a
-ready-made `gaz` for three systems:
+ready-made `gaz` for four systems:
 
 - `gaz-VERSION-linux-x86_64.tar.gz` for Linux on Intel or AMD
+- `gaz-VERSION-linux-arm64.tar.gz` for Linux on ARM (a Raspberry Pi, or an ARM server)
 - `gaz-VERSION-macos-arm64.tar.gz` for a Mac with Apple silicon
 - `gaz-VERSION-macos-x86_64.tar.gz` for an Intel Mac
 
