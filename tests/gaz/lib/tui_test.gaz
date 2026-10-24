@@ -27,12 +27,6 @@ fn rtrim($text) {
     return $text;
 }
 
-/* [column, descending] a Table is sorted by, or null */
-fn sort_of($table) {
-    $sort = $table.sorted_by();
-    return $sort == null ? null : [$sort.column, $sort.descending];
-}
-
 /* The screen's rows with the trailing blanks off, joined with "|" */
 fn rows($screen) {
     return join(map($screen.lines(), $line -> rtrim($line)), "|");
@@ -610,7 +604,7 @@ $table.draw($s, $s.bounds());
 expect("table: header and rows", rows($s), "Name    Age   Rating|Ann      31     71.5|Bob      24     80.0|Cy       27    65.25|Dee      24     90.0||");
 expect("table: the header is bold", [$s.cell(1, 1).style.spec, $s.cell(10, 1).style.spec], ["bold", "bold"]);
 expect("table: the selected row is inverse", [$s.cell(1, 2).style.spec, $s.cell(1, 3).style.spec], ["inverse", ""]);
-expect("table: nothing is sorted", sort_of($table), null);
+expect("table: nothing is sorted", $table.sorted_by(), null);
 expect("table: the first row is selected", [$table.selected_index(), $table.selected_row()], [0, ["Ann", 31, 71.5]]);
 $table.draw($s, $s.bounds(), false);
 expect("table: unfocused, the selected row is only bold", $s.cell(1, 2).style.spec, "bold");
@@ -634,7 +628,7 @@ $table.sort_by(1, true);
 expect("table: by age, the oldest first, ties still in the order given", names_in($table, $people), "Ann Cy Bob Dee");
 $table.sort_by(2);
 expect("table: by rating, numbers compare as numbers", names_in($table, $people), "Cy Ann Bob Dee");
-expect("table: what it is sorted by", sort_of($table), [2, false]);
+expect("table: what it is sorted by", $table.sorted_by(), tui::Sort(2, false));
 throws("table: no such column", () -> $table.sort_by(3), "tui::Table has no column 3");
 $s = tui::Screen(30, 7);
 $table.draw($s, $s.bounds());
@@ -660,23 +654,23 @@ $press = ($key) -> $table.handle(term::key($key));
 expect("table: enter selects", $press("enter"), tui::Outcome::Select);
 expect("table: other keys are ignored", $press("z"), tui::Outcome::Ignored);
 $press(".");
-expect("table: . sorts by the first column", sort_of($table), [0, false]);
+expect("table: . sorts by the first column", $table.sorted_by(), tui::Sort(0, false));
 $press(".");
 $press(".");
 $press(".");
-expect("table: . stops at the last column", sort_of($table), [2, false]);
+expect("table: . stops at the last column", $table.sorted_by(), tui::Sort(2, false));
 $press(",");
-expect("table: , goes back", sort_of($table), [1, false]);
+expect("table: , goes back", $table.sorted_by(), tui::Sort(1, false));
 $press("o");
-expect("table: o turns the order round", sort_of($table), [1, true]);
+expect("table: o turns the order round", $table.sorted_by(), tui::Sort(1, true));
 $press("o");
-expect("table: and back", sort_of($table), [1, false]);
+expect("table: and back", $table.sorted_by(), tui::Sort(1, false));
 $press("x");
-expect("table: x is unsorted again", [sort_of($table), names_in($table, $people)], [null, "Ann Bob Cy Dee"]);
+expect("table: x is unsorted again", [$table.sorted_by(), names_in($table, $people)], [null, "Ann Bob Cy Dee"]);
 $press("o");
-expect("table: o does nothing unsorted", sort_of($table), null);
+expect("table: o does nothing unsorted", $table.sorted_by(), null);
 $press(",");
-expect("table: , unsorted starts at the first column", sort_of($table), [0, false]);
+expect("table: , unsorted starts at the first column", $table.sorted_by(), tui::Sort(0, false));
 $press("j");
 $press("j");
 expect("table: j moves down", $table.selected_index(), 2);
@@ -743,7 +737,7 @@ expect("table: no rows is a header", rows($s), "Name   Age||");
 expect("table: nothing to select", [$table.selected_index(), $table.selected_row(), $table.handle(term::key("enter"))], [null, null, null]);
 $table.handle(term::key("j"));
 $table.sort_by(1);
-expect("table: nothing to move or sort", [$table.selected_index(), sort_of($table)], [null, [1, false]]);
+expect("table: nothing to move or sort", [$table.selected_index(), $table.sorted_by()], [null, tui::Sort(1, false)]);
 $table.set_rows([["A", 1]]);
 expect("table: rows arriving", $table.selected_row(), ["A", 1]);
 
@@ -873,14 +867,14 @@ expect("table: select on nothing is nothing", tui::Table(["a"], []).selected_ind
 $fixed = tui::Table(["Name", "Age", "Rating"], $people).sortable(false);
 expect("table: sortable(false) gives the table", kind_of($fixed), tui::Table);
 press($fixed, ". . , o x < >");
-expect("table: and the sort keys do nothing", [sort_of($fixed), names_in($fixed, $people)], [null, "Ann Bob Cy Dee"]);
+expect("table: and the sort keys do nothing", [$fixed.sorted_by(), names_in($fixed, $people)], [null, "Ann Bob Cy Dee"]);
 press($fixed, "j");
 expect("table: movement and enter still work", [$fixed.selected_index(), press($fixed, "enter")], [1, tui::Outcome::Select]);
 $fixed.sort_by(1);
-expect("table: sort_by still sorts", sort_of($fixed), [1, false]);
+expect("table: sort_by still sorts", $fixed.sorted_by(), tui::Sort(1, false));
 $fixed.sortable();
 press($fixed, "o");
-expect("table: sortable() turns them on again", sort_of($fixed), [1, true]);
+expect("table: sortable() turns them on again", $fixed.sorted_by(), tui::Sort(1, true));
 
 /* ---- Stage 3: Ignored, Sort, and every draw the same ---- */
 $ig = tui::Outcome::Ignored;
@@ -1002,9 +996,9 @@ $narrow.draw($tight, $tight.bounds());
 $tap = ($key) -> $narrow.handle(term::key($key));
 $tap(".");
 $tap(".");
-expect("table: . goes past a column left out", sort_of($narrow), [2, false]);
+expect("table: . goes past a column left out", $narrow.sorted_by(), tui::Sort(2, false));
 $tap(",");
-expect("table: and so does ,", sort_of($narrow), [0, false]);
+expect("table: and so does ,", $narrow.sorted_by(), tui::Sort(0, false));
 $tiny = tui::Screen(9, 3);
 $narrow.draw($tiny, $tiny.bounds());
 expect("table: past what leaving out saves, the rest are squeezed", trim($tiny.lines()[1]), "Ann  71.5");
