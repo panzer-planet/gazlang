@@ -609,10 +609,10 @@ pub kind MatchView extends GameView {
     const COMMENTARY_ROWS = 5;
     #speed = 0;
     #paused = false;
-    /* A substitution being made: null, or the player going off once chosen, and where in the list the cursor is */
+    /* A substitution being made: null, or the player going off once chosen, and the players to choose from */
     #making = null;
     #off = null;
-    #cursor = 0;
+    #choice = null;
 
     pub fn title() { return "Match day"; }
 
@@ -680,7 +680,7 @@ pub kind MatchView extends GameView {
                 }
                 #making = true;
                 #off = null;
-                #cursor = 0;
+                #list_candidates();
             }
             "[" => { return Mentality(#game.club.mentality - 1); }
             "]" => { return Mentality(#game.club.mentality + 1); }
@@ -706,40 +706,50 @@ pub kind MatchView extends GameView {
         return null;
     }
 
+    /* The players to choose from now, as a list to move in */
+    fn list_candidates() {
+        #choice = tui::List(map(#candidates(), $player -> $player.profile() .. ($player.status() == "" ? "" : "  " .. $player.status())));
+        #choice.marked("▸ ", "  ");
+    }
+
     /* A key while choosing a substitution: two lists in turn, who goes off and who comes on */
     fn choose($key) {
-        $list = #candidates();
-        match (term::name($key)) {
-            "escape" => { #making = null; #off = null; }
-            "down", "j" => { #cursor = min(#cursor + 1, len($list) - 1); }
-            "up", "k" => { #cursor = max(#cursor - 1, 0); }
-            "enter" => {
-                if ($list == []) {
-                    #making = null;
-                    #off = null;
+        if (term::name($key) == "escape") {
+            #making = null;
+            #off = null;
 
-                    return Notice("There is nobody on the bench who can play");
-                }
-                if (#off == null) {
-                    if (#game.club.substitutes($list[#cursor]) == []) {
-                        return Notice("Nobody on the bench can come on for {$list[#cursor]}: they are hurt, banned or only goalkeepers");
-                    }
-                    #off = $list[#cursor];
-                    #cursor = 0;
+            return null;
+        }
+        if (term::name($key) == "enter" && #choice.selected_index() == null) {
+            #making = null;
+            #off = null;
 
-                    return null;
-                }
-                $off = #off;
-                $on = $list[#cursor];
-                #making = null;
-                #off = null;
-
-                return Substitute($off, $on);
-            }
-            default => {}
+            return Notice("There is nobody on the bench who can play");
+        }
+        if (#choice.handle($key) == tui::Outcome::Select) {
+            return #choose_selected();
         }
 
         return null;
+    }
+
+    /* Enter on a player: going off, which asks who comes on, or coming on, which makes the change */
+    fn choose_selected() {
+        $chosen = #candidates()[#choice.selected_index()];
+        if (#off == null) {
+            if (#game.club.substitutes($chosen) == []) {
+                return Notice("Nobody on the bench can come on for {$chosen}: they are hurt, banned or only goalkeepers");
+            }
+            #off = $chosen;
+            #list_candidates();
+
+            return null;
+        }
+        $off = #off;
+        #making = null;
+        #off = null;
+
+        return Substitute($off, $chosen);
     }
 
     pub fn draw($screen, $rect, $focused) {
@@ -792,11 +802,7 @@ pub kind MatchView extends GameView {
     /* The substitution being chosen: the question, then the players to choose from with the cursor on one */
     fn draw_choice($screen, $rect, $club) {
         tui::label($screen, $rect.line(0), #off == null ? "Substitution ({$club.substitutions} of 3 used): who goes off?" : "Who comes on for {#off}?", "bold cyan");
-        $below = $rect.without_top(1);
-        $list = $below.without_left(2);
-        foreach (slice(#candidates(), 0, $list.height) as $i => $player) {
-            tui::label($screen, $list.line($i), ($i == #cursor ? "▸ " : "  ") .. $player.profile() .. ($player.status() == "" ? "" : "  " .. $player.status()), $i == #cursor ? "bold cyan" : "");
-        }
+        #choice.draw($screen, $rect.without_top(1).without_left(2));
     }
 
     /* The commentary as drawn in $rect: newest first, each under its minute and wrapped to the pane, so a long line keeps its score */

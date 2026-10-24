@@ -695,6 +695,20 @@ behind them:
     split's job (`without_left()` and the others cut the rest), and a `Pane` doesn't change it.
     `Screen.text($rect)` is `lines()` for a part of the screen, by cells (a wide character once, a
     continuation never) with the blanks at the end trimmed.
+  - **`List`, `Table` and `Menu` share one `Selection`** (a private kind: how many items, which is
+    selected, the first showing, and how far a page moves), which holds the movement keys and the
+    scroll rule once; before, `Table` and `Menu` each had a copy and they had drifted in how they
+    treated an empty one. `List` is the widget with nothing else in it (no header, no box, only
+    movement and enter), `Table` adds columns and sorting, and `Menu` is a `List` in a box with
+    keys that cancel, not a third copy. **A `List` claims only movement and enter**, so a program
+    that wants `q`, `x` or `d` takes them without asking the list to let go; this is why
+    `Table.sortable(false)` exists (`x` and `o` are the table's), and why `Menu`'s cancel keys are an
+    argument (`["escape"]` for a program that quits on `q`). `handle()` still gives `null` both for
+    a key it moved on and for one it ignores, since the caller's rule is the same: take your own
+    keys first or after, they never overlap. `marked()` keeps `Menu`'s `> ` and the football
+    shell's `▸ ` without a second draw routine. `TacticsView`'s three settings stay as they were:
+    each is two rows with its effect under it and a left-right value, which isn't a list of
+    one-line items.
   - **A widget's `handle()` answers with `tui::Outcome`** (`Select`, `Cancel`, `Submit`) or `null`,
     not `"select"`: a misspelt `"cancle"` in a caller was silently never matched, and an enum case
     is checked when the program is read (`tui.gaz` predates enums). `null` stays "the widget dealt

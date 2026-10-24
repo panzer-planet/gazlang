@@ -16,7 +16,7 @@
  *
  * Everything that draws takes a Rect, a part of the screen, and a view cuts the one it is given
  * into parts with the split_ methods, so only Screen.put() and Screen.cursor() speak in columns.
- * Interactive widgets (Table, Menu, TextField) take keys from term::Input, answer with an Outcome
+ * Interactive widgets (List, Table, Menu, TextField) take keys from term::Input, answer with an Outcome
  * or null, and draw themselves; choose() and ask() are each one of them run as a screen of its
  * own. A View is what a full-screen program's shell asks of each section it shows. Screen.put()
  * clips only to the screen; a Pane (screen.pane($rect)) is a part of it that nothing drawn into
@@ -820,13 +820,13 @@ pub fn table($screen, $rect, $headers, $rows, $style = "") {
 /**
  * What a widget's handle($key) gives when a key ends something, so a caller matches on a case
  * (tui::Outcome::Select) and a misspelling is an error when the program is read: Select for
- * enter on a Table or a Menu, Cancel for escape, q or ctrl+c on a Menu or escape or ctrl+c on a
+ * enter on a List, a Table or a Menu, Cancel for escape, q or ctrl+c on a Menu or escape or ctrl+c on a
  * TextField, Submit for enter on a TextField. A key the widget dealt with itself (moving,
  * typing) gives null.
  */
 pub enum Outcome {
     /**
-     * Enter on a Table or a Menu: the row or item selected is the answer
+     * Enter on a List, a Table or a Menu: the row or item selected is the answer
      */
     Select;
     /**
@@ -1052,6 +1052,180 @@ pub fn key_help($screen, $groups, $title = "Keys") {
     }
 }
 
+/*
+ * A selection in a scrolling window of items: how many there are, which is selected, which is the
+ * first showing, and how far a page moves. List, Table and Menu each keep one and give it the
+ * keys that move, so the three move alike and scroll alike.
+ */
+kind Selection {
+    // Rows a page moves before a draw has said how many show
+    const FIRST_PAGE = 10;
+
+    #selected = 0;
+    #top = 0;
+    #page = #FIRST_PAGE;
+
+    fn _(#count = 0);
+
+    /* Which item is selected, from 0 (0 when there are none) */
+    pub fn index() {
+        return #selected;
+    }
+
+    /* Whether there is anything to select */
+    pub fn has_any() {
+        return #count > 0;
+    }
+
+    /* The number of items is now $count: the selection stays where it was, or on the last item */
+    pub fn set_count($count) {
+        #count = $count;
+        #selected = max(min(#selected, #count - 1), 0);
+    }
+
+    /* Select item $index, or the nearest one there is */
+    pub fn select($index) {
+        #selected = max(min($index, #count - 1), 0);
+    }
+
+    /*
+     * Move for $key if it is a key that moves (the arrows or j and k, home and end or g and G,
+     * page up and down) and say whether it was one. An empty selection stays on 0.
+     */
+    pub fn move($key) {
+        $last = max(#count - 1, 0);
+        match (term::name($key)) {
+            "up", "k" => { #selected = max(#selected - 1, 0); }
+            "down", "j" => { #selected = min(#selected + 1, $last); }
+            "home", "g" => { #selected = 0; }
+            "end", "G" => { #selected = $last; }
+            "page_up" => { #selected = max(#selected - #page, 0); }
+            "page_down" => { #selected = min(#selected + #page, $last); }
+            default => { return false; }
+        }
+        return true;
+    }
+
+    /*
+     * $visible items fit where it is drawn: a page is one less, and the first showing is moved
+     * only as far as the selection needs. Gives the index of the first item showing.
+     */
+    pub fn scroll($visible) {
+        if ($visible < 1) {
+            return #top;
+        }
+        #page = max($visible - 1, 1);
+        if (#selected < #top) {
+            #top = #selected;
+        }
+        if (#selected >= #top + $visible) {
+            #top = #selected - $visible + 1;
+        }
+        return #top;
+    }
+}
+
+/**
+ * A scrolling list of items with a selection, drawn on a Rect with no box or header: the selected
+ * item is inverse when the list has the focus and bold when not, as a Table's row is. $items are
+ * strings, or values printed as to_string() prints them. $style_of($item, $index), if given, says
+ * what style an item is drawn in ($index is where it is in the items).
+ *
+ * handle() claims only movement (the arrows or j and k, home and end or g and G, page up and
+ * down) and gives Outcome::Select for enter; any other key is not its business, and does
+ * nothing, so a program takes the keys it wants for itself.
+ */
+pub kind List {
+    #items;
+    #style_of;
+    #at;
+    #on = "";
+    #off = "";
+
+    /**
+     * A list of $items, the first selected
+     */
+    fn _($items, $style_of = null) {
+        #items = $items;
+        #style_of = $style_of;
+        #at = Selection(len($items));
+    }
+
+    /**
+     * Mark the selected item with $on and the others with $off, in front of each (two spaces
+     * wide each is usual: "> " and "  "), for where inverse or bold alone is too little. Gives the
+     * list, so it can follow the constructor.
+     */
+    pub fn marked($on = "> ", $off = "  ") {
+        #on = $on;
+        #off = $off;
+        return #;
+    }
+
+    /**
+     * Which item is selected, as its index in the items, or null when there are none
+     */
+    pub fn selected_index() {
+        return #at.has_any() ? #at.index() : null;
+    }
+
+    /**
+     * The selected item as it was given, or null when there are none
+     */
+    pub fn selected_item() {
+        return #at.has_any() ? #items[#at.index()] : null;
+    }
+
+    /**
+     * Select item $index, or the nearest one there is
+     */
+    pub fn select($index) {
+        #at.select($index);
+    }
+
+    /**
+     * Show other items, keeping the selection on the same index where there still is one (and on
+     * the last item where there are fewer than that)
+     */
+    pub fn set_items($items) {
+        #items = $items;
+        #at.set_count(len($items));
+    }
+
+    /**
+     * Take a key: Outcome::Select for enter, null for anything else (a movement key has moved the
+     * selection; any other does nothing)
+     */
+    pub fn handle($key) {
+        if (#at.move($key)) {
+            return null;
+        }
+        if (term::name($key) == "enter" && #at.has_any()) {
+            return Outcome::Select;
+        }
+        return null;
+    }
+
+    /**
+     * Draw it in $rect, scrolled so the selected item shows, the selected item showing as such
+     * only when $focused
+     */
+    pub fn draw($screen, $rect, $focused = true) {
+        $top = #at.scroll($rect.height);
+        $style_of = #style_of;
+        for ($line = 0; $line < $rect.height && $top + $line < len(#items); $line++) {
+            $index = $top + $line;
+            $item = #items[$index];
+            $style = term::Style::of($style_of == null ? "" : $style_of($item, $index));
+            $on = $index == #at.index();
+            if ($on) {
+                $style = $style.with($focused ? "inverse" : "bold");
+            }
+            label($screen, $rect.line($line), ($on ? #on : #off) .. to_string($item), $style);
+        }
+    }
+}
+
 /**
  * A table you move about in: a header, rows that scroll, a selected row, and columns that sort.
  * $headers are the column names and $rows a list of lists of cells; a column whose cells are all
@@ -1078,11 +1252,10 @@ pub kind Table {
     /* Columns to leave out when there isn't room, the first first; and those left out last drawn */
     #droppable = [];
     #hidden = [];
-    /* Indexes into #rows in the order shown, and where in that order the selection is */
+    /* Indexes into #rows in the order shown; the selection is a position in that order */
     #order = [];
-    #cursor = 0;
-    #top = 0;
-    #page = 10;
+    #at = Selection();
+    #keys_sort = true;
     #column = null;
     #descending = false;
 
@@ -1133,21 +1306,21 @@ pub kind Table {
                 ? sort(#order, ($a, $b) -> $rows[$b][$column] <=> $rows[$a][$column])
                 : sort(#order, ($a, $b) -> $rows[$a][$column] <=> $rows[$b][$column]);
         }
+        #at.set_count(len(#order));
         if ($keep != null) {
             foreach (#order as $position => $index) {
                 if ($index == $keep) {
-                    #cursor = $position;
+                    #at.select($position);
                 }
             }
         }
-        #cursor = max(min(#cursor, len(#order) - 1), 0);
     }
 
     /**
      * Which of the rows is selected, as its index in the rows given, or null when there are none
      */
     pub fn selected_index() {
-        return len(#order) == 0 ? null : #order[#cursor];
+        return len(#order) == 0 ? null : #order[#at.index()];
     }
 
     /**
@@ -1156,6 +1329,23 @@ pub kind Table {
     pub fn selected_row() {
         $index = #selected_index();
         return $index == null ? null : #rows[$index];
+    }
+
+    /**
+     * Select the row at $index in the rows given (however they are sorted now), or the nearest
+     * one there is
+     */
+    pub fn select($index) {
+        #reorder(max(min($index, len(#rows) - 1), 0));
+    }
+
+    /**
+     * Whether the keys that sort (. , o x < >) do: on by default. Off, they do nothing, so a
+     * program can take them for its own. Gives the table, so it can follow the constructor.
+     */
+    pub fn sortable($on = true) {
+        #keys_sort = $on;
+        return #;
     }
 
     /**
@@ -1193,14 +1383,22 @@ pub kind Table {
      * with itself (see the keys above)
      */
     pub fn handle($key) {
-        $last = max(len(#order) - 1, 0);
-        match (term::name($key)) {
-            "up", "k" => { #cursor = max(#cursor - 1, 0); }
-            "down", "j" => { #cursor = min(#cursor + 1, $last); }
-            "home", "g" => { #cursor = 0; }
-            "end", "G" => { #cursor = $last; }
-            "page_up" => { #cursor = max(#cursor - #page, 0); }
-            "page_down" => { #cursor = min(#cursor + #page, $last); }
+        if (#at.move($key)) {
+            return null;
+        }
+        $name = term::name($key);
+        if ($name == "enter") {
+            return len(#order) > 0 ? Outcome::Select : null;
+        }
+        if (#keys_sort) {
+            #sort_key($name);
+        }
+        return null;
+    }
+
+    /* The sorting keys; any other does nothing */
+    fn sort_key($name) {
+        match ($name) {
             ".", ">" => { #sort_by(#shown_column(#column == null ? 0 : #column + 1, 1), #descending); }
             ",", "<" => { #sort_by(#shown_column(#column == null ? 0 : #column - 1, -1), #descending); }
             "o" => {
@@ -1214,14 +1412,8 @@ pub kind Table {
                 #descending = false;
                 #reorder($keep);
             }
-            "enter" => {
-                if (len(#order) > 0) {
-                    return Outcome::Select;
-                }
-            }
             default => {}
         }
-        return null;
     }
 
     /*
@@ -1294,13 +1486,7 @@ pub kind Table {
             }
         }
         $visible = $rect.height - 1;
-        #page = max($visible - 1, 1);
-        if (#cursor < #top) {
-            #top = #cursor;
-        }
-        if (#cursor >= #top + $visible) {
-            #top = #cursor - $visible + 1;
-        }
+        $top = #at.scroll($visible);
 
         $rest = $rect.line(0);
         foreach (#headers as $i => $header) {
@@ -1315,8 +1501,8 @@ pub kind Table {
         }
 
         $style_of = #style_of;
-        for ($line = 0; $line < $visible && #top + $line < len(#order); $line++) {
-            $position = #top + $line;
+        for ($line = 0; $line < $visible && $top + $line < len(#order); $line++) {
+            $position = $top + $line;
             $index = #order[$position];
             $row = #rows[$index];
             $cells = [];
@@ -1326,7 +1512,7 @@ pub kind Table {
                 }
             }
             $style = term::Style::of($style_of == null ? "" : $style_of($row, $index));
-            if ($position == #cursor) {
+            if ($position == #at.index()) {
                 $style = $style.with($focused ? "inverse" : "bold");
             }
             label($screen, $rect.line(1 + $line), join($cells, repeat(" ", #COLUMN_GAP)), $style);
@@ -1335,58 +1521,47 @@ pub kind Table {
 }
 
 /**
- * A list to choose from, in a box. handle() takes a key, and gives Outcome::Select for enter,
- * Outcome::Cancel for escape, q or ctrl+c, and null for anything else, which it has dealt with
- * itself (the arrows, j and k, home and end, page up and down).
+ * A list to choose from, in a box: a List with a title, and keys that cancel. handle() gives
+ * Outcome::Select for enter, Outcome::Cancel for one of the cancel keys (escape, q or ctrl+c
+ * unless the menu is given others) or the end of the input, and null for anything else (the
+ * arrows, j and k, home and end, page up and down have moved the selection).
  */
 pub kind Menu {
-    #items;
+    #list;
     #title;
-    #selected = 0;
-    #top = 0;
-    #page = 10;
+    #cancel_keys;
 
     /**
-     * A menu of $items, strings, with $title on its box, the first selected
+     * A menu of $items, strings, with $title on its box, the first selected. $cancel_keys are the
+     * keys (as term::name() writes them) that cancel: a program that quits on q gives it
+     * ["escape"] and takes q itself.
      */
-    fn _($items, $title = "") {
-        #items = $items;
+    fn _($items, $title = "", $cancel_keys = ["escape", "q", "ctrl+c"]) {
+        #list = List($items).marked();
         #title = $title;
+        #cancel_keys = $cancel_keys;
     }
 
     /**
      * Which item is selected, as an index
      */
-    pub fn index() { return #selected; }
+    pub fn index() { return #list.selected_index() ?? 0; }
 
     /**
      * The selected item
      */
-    pub fn item() { return #items[#selected]; }
+    pub fn item() { return #list.selected_item(); }
 
     /**
-     * Take a key: Outcome::Select for enter, Outcome::Cancel for escape, q or ctrl+c, and null
-     * for anything else, which the menu has dealt with itself
+     * Take a key: Outcome::Select for enter, Outcome::Cancel for a cancel key, and null for
+     * anything else, which the menu has dealt with itself
      */
     pub fn handle($key) {
-        /* an empty menu has nothing to move to, and nothing to select */
-        $last = max(len(#items) - 1, 0);
-        match (term::name($key)) {
-            "up", "k" => { #selected = max(#selected - 1, 0); }
-            "down", "j" => { #selected = min(#selected + 1, $last); }
-            "home", "g" => { #selected = 0; }
-            "end", "G" => { #selected = $last; }
-            "page_up" => { #selected = max(#selected - #page, 0); }
-            "page_down" => { #selected = min(#selected + #page, $last); }
-            "enter" => {
-                if (len(#items) > 0) {
-                    return Outcome::Select;
-                }
-            }
-            "escape", "q", "ctrl+c", "eof" => { return Outcome::Cancel; }
-            default => {}
+        $name = term::name($key);
+        if ($name == "eof" || in_array($name, #cancel_keys)) {
+            return Outcome::Cancel;
         }
-        return null;
+        return #list.handle($key);
     }
 
     /**
@@ -1394,18 +1569,7 @@ pub kind Menu {
      */
     pub fn draw($screen, $rect) {
         box($screen, $rect, #title);
-        $inside = $rect.inset(1);
-        #page = max($inside.height - 1, 1);
-        if (#selected < #top) {
-            #top = #selected;
-        }
-        if (#selected >= #top + $inside.height) {
-            #top = #selected - $inside.height + 1;
-        }
-        for ($i = 0; $i < $inside.height && #top + $i < len(#items); $i++) {
-            $on = #top + $i == #selected;
-            label($screen, $inside.line($i), ($on ? "> " : "  ") .. #items[#top + $i], $on ? "inverse" : "");
-        }
+        #list.draw($screen, $rect.inset(1), true);
     }
 }
 

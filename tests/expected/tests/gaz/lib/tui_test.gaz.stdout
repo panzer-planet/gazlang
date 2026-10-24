@@ -276,6 +276,57 @@ ok table: squeezed to fit
 ok table: squeezed as far as it goes, then cut off
 ok table: no room draws nothing
 ok table: drawn in a rect of the screen
+ok menu: q is not a cancel key when the program says so
+ok menu: escape still cancels
+ok menu: ctrl+c does not cancel it either
+ok menu: the end of the input always cancels
+ok menu: any keys can cancel
+ok menu: no cancel keys but the end of the input
+ok list: starts on the first
+ok list: down and j
+ok list: stops at the last
+ok list: up and k
+ok list: end
+ok list: home
+ok list: G
+ok list: g
+ok list: stops at the first
+ok list: enter selects
+ok list: it claims nothing else: escape, q, x, ctrl+c and a letter
+ok list: nor the sort keys of a table
+ok list: draw, no box and no header
+ok list: the selected item is inverse when focused
+ok list: and bold when not
+ok list: scrolls to show the selection
+ok list: and not further than it needs
+ok list: back up
+ok list: page down is the rows showing less one
+ok list: page up
+ok list: select
+ok list: select past the end is the last
+ok list: select before the start is the first
+ok list: new items keep the selection on its index
+ok list: fewer than that, the last
+ok list: none, nothing selected, nothing to select, nothing to move
+ok list: items arriving
+ok list: items print as to_string prints them
+ok list: a style for each item, and the selection added to it
+ok list: marked
+ok list: marked with others
+ok list: no room draws nothing
+ok list: cut by columns
+ok list: draws into a Pane
+ok table: select picks the row by its index in the rows
+ok table: the same row after sorting
+ok table: select is by the rows as given, however sorted
+ok table: past the end is the last row
+ok table: before the start is the first
+ok table: select on nothing is nothing
+ok table: sortable(false) gives the table
+ok table: and the sort keys do nothing
+ok table: movement and enter still work
+ok table: sort_by still sorts
+ok table: sortable() turns them on again
 ok centered: a Rect that size in the middle
 ok centered: too big starts at the corner
 ok metronome: not due at the start

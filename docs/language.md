@@ -2414,7 +2414,7 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::key` and `term::keys` (the keys a --tty script's words name), `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
 | `syntax.gaz` | GazLang's own lexer, the one the compiler reads every program with: `syntax::Lexer($text)`, whose `get_next_token()` gives each `syntax::Token` (its `type`, `value` and `line`) until one of type `"EOF"`, and whose `span()` says where in the text the last one lies; `syntax::LexError` for source it refuses, and `syntax::Lexer::KEYWORDS` |
 | `highlight.gaz` | Code as the GazLang website shows it: `highlight::to_html($language, $source)`, an `Html` of `<span>`s with a class for each sort of token (`kw`, `str`, `com` and so on, for a stylesheet to colour), every piece escaped; `highlight::pieces($language, $source)` the same as `highlight::Piece`s, each on one line (`line`) and their text joined the source back, and `highlight::lines($language, $source)` the pieces of each line, for an editor. GazLang (`"gaz"`) is read by `std/syntax.gaz`, source it refuses pieced up to the refused token and plain from there; bytecode, templates and shell commands have highlighters of their own |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect` (the part of the screen every drawing function takes), `tui::Pane` (a part nothing drawn into leaves), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::Hint`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (the `Rect` that size in the middle), `tui::Outcome` (what a widget's `handle()` gives), `tui::View` (what a shell asks of a section), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect` (the part of the screen every drawing function takes), `tui::Pane` (a part nothing drawn into leaves), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::List`, `tui::wrap`, `tui::paragraph`, `tui::Hint`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (the `Rect` that size in the middle), `tui::Outcome` (what a widget's `handle()` gives), `tui::View` (what a shell asks of a section), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -3101,13 +3101,25 @@ with no terminal.
 - **`tui::Outcome`** is what a widget's `handle($key)` gives when a key ends something, `Select`,
   `Cancel` or `Submit`, so a caller matches on `tui::Outcome::Select` and a misspelling is an error
   when the program is read; `null` means the widget dealt with the key itself.
+- **`tui::List($items, $style_of = null)`** is a scrolling list of strings (or values printed as
+  `to_string()` prints them) with a selection, drawn on a `Rect` with no box and no header:
+  `draw($screen, $rect, $focused = true)` shows the selected item inverse when focused and bold
+  when not, as a `Table` does; `$style_of($item, $index)` gives an item's style. `handle($key)`
+  claims only movement (the arrows or `j`/`k`, home and end or `g`/`G`, page up and down) and gives
+  `Outcome::Select` for enter; any other key does nothing, so a program takes the keys it wants.
+  `selected_index()`, `selected_item()` (both `null` when there are none), `select($index)` (the
+  nearest there is) and `set_items($items)` (the selection stays on its index where there still is
+  one, else the last item). `marked($on = "> ", $off = "  ")` puts a marker before each item and
+  gives the list.
 - **`tui::Table($headers, $rows, $style_of = null)`** is a table you move about in: `draw($screen,
   $rect, $focused = true)`, scrolling rows, a selected row and columns that sort. `handle($key)` gives
   `Outcome::Select` for enter and `null` otherwise (the arrows or `j`/`k`, home and end or `g`/`G`,
   page up and down; `.` and `,`, or `>` and `<`, sort by the next or previous column, `o` turns the
   order round and `x` goes back to the order given). `selected_index()` is the selected row's index in
   `$rows` however they are sorted now, `selected_row()` the row, `sort_by($column, $descending)` and
-  `sorted_by()` say and set the sort, and `set_rows($rows)` shows others, keeping the selection on
+  `sorted_by()` say and set the sort, `select($index)` selects a row by its index in `$rows`,
+  `sortable($on)` turns the sort keys (`.` `,` `o` `x` `<` `>`) off, so a program can take them
+  for its own (it gives the table), and `set_rows($rows)` shows others, keeping the selection on
   its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
   style, for marking the user's own club. The cells of a column must be alike, or sorting on it is
   an error. A table too wide leaves out the columns `drop_when_narrow($columns)` names (indexes,
@@ -3136,10 +3148,12 @@ with no terminal.
   is the model.
 - **`tui::Metronome($interval, $now)`** is a steady beat: `due($now)`, `wait($now)` (seconds to the
   next, 0 if due) and `beat($now)` after taking one; a late beat isn't made up for with two.
-- **`tui::Menu($items, $title = "")`** and **`tui::TextField($value = "")`** take keys
+- **`tui::Menu($items, $title = "", $cancel_keys = ["escape", "q", "ctrl+c"])`** is a `List` in a
+  box, and **`tui::TextField($value = "")`** takes keys
   (`handle($key)`) and draw themselves (`$menu.draw($screen, $rect)`, a box on the `Rect`'s edges;
   `$field.draw($screen, $rect, $style = "underline")`, across its first row). `handle` gives
-  `Outcome::Select` or `Outcome::Cancel` for a menu and `Outcome::Submit` or `Outcome::Cancel` for a
+  `Outcome::Select` or `Outcome::Cancel` (for the `$cancel_keys`, and always for the end of the
+  input) for a menu and `Outcome::Submit` or `Outcome::Cancel` for a
   field, and `null` for a key it dealt with itself: the arrows, `j`/`k`, home and end, page up and
   down; typing, backspace, delete, the arrows, home and end or ctrl+a and ctrl+e, ctrl+u and ctrl+k.
   `$menu.index()` and `$menu.item()` say what is selected and `$field.value()` what was typed.
