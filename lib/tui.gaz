@@ -93,6 +93,7 @@ kind Caret {
 pub kind Screen {
     #cells = [];
     #blank = [];
+    #whole = null;
     #shown = null;
     #caret = null;
 
@@ -105,6 +106,7 @@ pub kind Screen {
 
     /* Every cell blank and nothing known about what the terminal shows */
     fn reset() {
+        #whole = Rect(1, 1, #cols, #rows);
         #blank = [];
         for ($c = 0; $c < #cols; $c++) {
             #blank[] = Cell::blank();
@@ -172,7 +174,7 @@ pub kind Screen {
      * expand tabs before drawing, and give a style as $style, not as escape sequences in $text.
      */
     pub fn put($col, $row, $text, $style = "") {
-        #put_within($col, $row, $text, $style, 1, #cols, 1, #rows);
+        #put_within($col, $row, $text, $style, #whole);
     }
 
     /**
@@ -182,16 +184,18 @@ pub kind Screen {
      * views their own, from its top left, and calls this.
      */
     pub fn put_in($rect, $col, $row, $text, $style = "") {
-        $clip = $rect.within(#bounds());
+        $clip = $rect.within(#whole);
         if ($clip.is_empty()) {
             return null;
         }
-        #put_within($col, $row, $text, $style, $clip.col, $clip.col + $clip.width - 1, $clip.row, $clip.row + $clip.height - 1);
+        #put_within($col, $row, $text, $style, $clip);
     }
 
-    /* put() inside columns $first to $last and rows $top to $bottom, all on the screen */
-    fn put_within($col, $row, $text, $style, $first, $last, $top, $bottom) {
-        if ($row < $top || $row > $bottom) {
+    /* put() inside $clip, a Rect already on the screen and not empty */
+    fn put_within($col, $row, $text, $style, $clip) {
+        $first = $clip.col;
+        $last = $clip.col + $clip.width - 1;
+        if ($row < $clip.row || $row >= $clip.row + $clip.height) {
             return null;
         }
         $style = term::Style::of($style);
