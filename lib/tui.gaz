@@ -120,7 +120,8 @@ pub kind Screen {
     }
 
     /**
-     * Blank every cell
+     * Blank every cell and forget the cursor, for the next frame to be drawn on: what the
+     * terminal shows is kept, so render() still sends only what changed
      */
     pub fn clear() {
         #cells = [];
@@ -131,7 +132,8 @@ pub kind Screen {
     }
 
     /**
-     * The size to be $cols by $rows: blank, and the terminal to be drawn again in full
+     * Become $cols by $rows, blank and with nothing known about the terminal, so the next render
+     * draws everything: for a size a program chooses (fit() is for the terminal's)
      */
     pub fn resize($cols, $rows) {
         #cols = $cols;
@@ -140,8 +142,8 @@ pub kind Screen {
     }
 
     /**
-     * Take the terminal's size (term_size()). True when it was different, and the screen is
-     * blank and to be drawn in full. interact() calls it on every pass, and term::Input.read()
+     * Resize to the terminal's size (term_size()), only if that differs from the screen's. True
+     * when it did, and the screen is then blank and to be drawn in full. interact() calls it on every pass, and term::Input.read()
      * gives the key "resize" when the window changes, so a program on it needs nothing more.
      */
     pub fn fit() {
@@ -154,7 +156,8 @@ pub kind Screen {
     }
 
     /**
-     * Forget what the terminal shows, so the next render draws everything (after something else drew)
+     * Keep every cell but forget what the terminal shows, so the next render draws them all:
+     * after something else drew on the terminal (clear() is the cells, this is the terminal)
      */
     pub fn invalidate() {
         #shown = null;
@@ -818,11 +821,19 @@ pub fn table($screen, $rect, $headers, $rows, $style = "") {
 /* ---- Widgets that take keys -------------------------------------------------------------- */
 
 /**
- * What a widget's handle($key) gives when a key ends something, so a caller matches on a case
- * (tui::Outcome::Select) and a misspelling is an error when the program is read: Select for
- * enter on a List, a Table or a Menu, Cancel for escape, q or ctrl+c on a Menu or escape or ctrl+c on a
- * TextField, Submit for enter on a TextField. A key the widget dealt with itself (moving,
- * typing) gives null.
+ * What a widget's handle($key) gives, so a caller matches on a case (tui::Outcome::Select) and a
+ * misspelling is an error when the program is read. The cases a widget ends with:
+ *
+ *  - Select: enter on a List, a Table or a Menu (when there is something selected)
+ *  - Cancel: a Menu's cancel keys (escape, q and ctrl+c unless it is given others) and the end
+ *    of the input; escape, ctrl+c and the end of the input on a TextField
+ *  - Submit: enter on a TextField
+ *
+ * and the two that say whether the key was the widget's: Ignored for a key that isn't its
+ * business (a List's or Menu's letters that don't move it, a Table's sort keys when it is not
+ * sortable(), a TextField's keys that don't edit), and null for a key it took with nothing to
+ * report (moving, typing, sorting). So a program gives its focused widget the key first and takes
+ * Ignored for itself, which is how a prompt line, a buffer and a list share the keyboard.
  */
 pub enum Outcome {
     /**
@@ -830,13 +841,17 @@ pub enum Outcome {
      */
     Select;
     /**
-     * Escape, ctrl+c or the end of the input (and q on a Menu): no answer
+     * A Menu's cancel keys, escape or ctrl+c on a TextField, or the end of the input: no answer
      */
     Cancel;
     /**
      * Enter on a TextField: its text is the answer
      */
     Submit;
+    /**
+     * The key is not the widget's business, and it did nothing with it
+     */
+    Ignored;
 }
 
 /* $text cut to $width columns and padded to it, on the left when $right */
@@ -1132,8 +1147,8 @@ kind Selection {
  * what style an item is drawn in ($index is where it is in the items).
  *
  * handle() claims only movement (the arrows or j and k, home and end or g and G, page up and
- * down) and gives Outcome::Select for enter; any other key is not its business, and does
- * nothing, so a program takes the keys it wants for itself.
+ * down) and gives Outcome::Select for enter; any other key is not its business, and handle()
+ * gives Outcome::Ignored for it, so a program takes the keys it wants for itself.
  */
 pub kind List {
     #items;
@@ -1193,17 +1208,17 @@ pub kind List {
     }
 
     /**
-     * Take a key: Outcome::Select for enter, null for anything else (a movement key has moved the
-     * selection; any other does nothing)
+     * Take a key: null for movement, which has moved the selection; Outcome::Select for enter
+     * (null on an empty list, which has nothing to select); Outcome::Ignored for any other key
      */
     pub fn handle($key) {
         if (#at.move($key)) {
             return null;
         }
-        if (term::name($key) == "enter" && #at.has_any()) {
-            return Outcome::Select;
+        if (term::name($key) == "enter") {
+            return #at.has_any() ? Outcome::Select : null;
         }
-        return null;
+        return Outcome::Ignored;
     }
 
     /**
@@ -1227,13 +1242,24 @@ pub kind List {
 }
 
 /**
+ * How a Table is sorted: the column (from 0) and whether the greatest comes first
+ */
+pub readonly kind Sort {
+    /**
+     * Sorted on $column, the greatest first when $descending
+     */
+    fn _(pub #column, pub #descending);
+}
+
+/**
  * A table you move about in: a header, rows that scroll, a selected row, and columns that sort.
  * $headers are the column names and $rows a list of lists of cells; a column whose cells are all
  * numbers is aligned on the right. $style_of($row, $index), if given, says what style a row is
  * drawn in ($index is where it is in $rows, however they are sorted now), so a table can mark
  * the user's own club. Cells in a column must be alike, or sorting on it is an error.
  *
- * handle() gives Outcome::Select for enter and null for anything else. Keys: the arrows or j and
+ * handle() gives Outcome::Select for enter, null for a key it took and Outcome::Ignored for any
+ * other. Keys: the arrows or j and
  * k, home and end or g and G, page up and down; "." and "," (or > and <) sort by the next or
  * previous column shown, "o" turns the order round and "x" goes back to the order the rows came
  * in.
@@ -1372,15 +1398,16 @@ pub kind Table {
     }
 
     /**
-     * [column, descending] it is sorted by, or null
+     * The Sort it is sorted by, or null when the rows are in the order given
      */
     pub fn sorted_by() {
-        return #column == null ? null : [#column, #descending];
+        return #column == null ? null : Sort(#column, #descending);
     }
 
     /**
-     * Take a key: Outcome::Select for enter, null for anything else, which the table has dealt
-     * with itself (see the keys above)
+     * Take a key: null for movement and sorting, which the table has dealt with itself (see the
+     * keys above); Outcome::Select for enter (null with no rows); Outcome::Ignored for any other
+     * key, the sort keys included when it is not sortable()
      */
     pub fn handle($key) {
         if (#at.move($key)) {
@@ -1390,13 +1417,13 @@ pub kind Table {
         if ($name == "enter") {
             return len(#order) > 0 ? Outcome::Select : null;
         }
-        if (#keys_sort) {
-            #sort_key($name);
+        if (#keys_sort && #sort_key($name)) {
+            return null;
         }
-        return null;
+        return Outcome::Ignored;
     }
 
-    /* The sorting keys; any other does nothing */
+    /* Sort for $name if it is a sorting key, and say whether it was one */
     fn sort_key($name) {
         match ($name) {
             ".", ">" => { #sort_by(#shown_column(#column == null ? 0 : #column + 1, 1), #descending); }
@@ -1412,8 +1439,9 @@ pub kind Table {
                 #descending = false;
                 #reorder($keep);
             }
-            default => {}
+            default => { return false; }
         }
+        return true;
     }
 
     /*
@@ -1523,8 +1551,8 @@ pub kind Table {
 /**
  * A list to choose from, in a box: a List with a title, and keys that cancel. handle() gives
  * Outcome::Select for enter, Outcome::Cancel for one of the cancel keys (escape, q or ctrl+c
- * unless the menu is given others) or the end of the input, and null for anything else (the
- * arrows, j and k, home and end, page up and down have moved the selection).
+ * unless the menu is given others) or the end of the input, null for movement, and
+ * Outcome::Ignored for any other key.
  */
 pub kind Menu {
     #list;
@@ -1543,18 +1571,18 @@ pub kind Menu {
     }
 
     /**
-     * Which item is selected, as an index
+     * Which item is selected, as its index in the items, or null when there are none
      */
-    pub fn index() { return #list.selected_index() ?? 0; }
+    pub fn selected_index() { return #list.selected_index(); }
 
     /**
-     * The selected item
+     * The selected item, or null when there are none
      */
-    pub fn item() { return #list.selected_item(); }
+    pub fn selected_item() { return #list.selected_item(); }
 
     /**
-     * Take a key: Outcome::Select for enter, Outcome::Cancel for a cancel key, and null for
-     * anything else, which the menu has dealt with itself
+     * Take a key: Outcome::Select for enter, Outcome::Cancel for a cancel key, null for movement,
+     * and Outcome::Ignored for any other key
      */
     pub fn handle($key) {
         $name = term::name($key);
@@ -1565,11 +1593,12 @@ pub kind Menu {
     }
 
     /**
-     * Draw it in a box on $rect, scrolled so the selected item shows
+     * Draw it in a box on $rect, scrolled so the selected item shows, the selection showing as
+     * such only when $focused
      */
-    pub fn draw($screen, $rect) {
+    pub fn draw($screen, $rect, $focused = true) {
         box($screen, $rect, #title);
-        #list.draw($screen, $rect.inset(1), true);
+        #list.draw($screen, $rect.inset(1), $focused);
     }
 }
 
@@ -1582,6 +1611,7 @@ pub kind Menu {
  */
 pub kind TextField {
     #chars;
+    #style = "underline";
     /* The cursor, as the index of the character it is before; and the first character shown */
     #at;
     #left = 0;
@@ -1595,13 +1625,22 @@ pub kind TextField {
     }
 
     /**
+     * Draw in $style (a term::style() spec or a term::Style; "underline" unless said) from now
+     * on. Gives the field, so it can follow the constructor.
+     */
+    pub fn styled($style) {
+        #style = $style;
+        return #;
+    }
+
+    /**
      * The text in the field
      */
     pub fn value() { return join(#chars, ""); }
 
     /**
-     * Take a key: Outcome::Submit for enter, Outcome::Cancel for escape or ctrl+c, and null for
-     * anything else, which edits the text (see above)
+     * Take a key: Outcome::Submit for enter, Outcome::Cancel for escape, ctrl+c or the end of the
+     * input, null for a key that edits the text (see above), and Outcome::Ignored for any other
      */
     pub fn handle($key) {
         $typed = term::text($key);
@@ -1629,22 +1668,25 @@ pub kind TextField {
             "ctrl+k" => { #chars = slice(#chars, 0, #at); }
             "enter" => { return Outcome::Submit; }
             "escape", "ctrl+c", "eof" => { return Outcome::Cancel; }
-            default => {}
+            default => { return Outcome::Ignored; }
         }
         return null;
     }
 
     /**
      * Draw it across the first row of $rect, scrolled sideways to keep the cursor in view, and
-     * put the cursor there
+     * put the cursor there when $focused: an unfocused field shows its text and leaves the
+     * cursor to the view that has the keys
      */
-    pub fn draw($screen, $rect, $style = "underline") {
+    pub fn draw($screen, $rect, $focused = true) {
         if ($rect.is_empty()) {
             return null;
         }
         #scroll($rect.width);
-        label($screen, $rect, join(slice(#chars, #left), ""), $style);
-        $screen.cursor($rect.col + #columns(#left, #at), $rect.row);
+        label($screen, $rect, join(slice(#chars, #left), ""), #style);
+        if ($focused) {
+            $screen.cursor($rect.col + #columns(#left, #at), $rect.row);
+        }
     }
 
     /* The columns the characters from index $from up to $to take */
@@ -1677,7 +1719,10 @@ pub kind TextField {
  * a Rect, what a key does to it and what its keys are. The shell cuts the screen up, draws the
  * frame and routes each key to the view it belongs to; a view only answers. A view changes
  * nothing outside itself: handle() gives null, or a value the shell carries out (an action of
- * the program's own, a kind for each), so what a key does to the program is in one place.
+ * the program's own, a kind for each), so what a key does to the program is in one place. A
+ * View is the shell's unit, not a widget's, so its handle() keeps that contract and has no
+ * Ignored of its own: one built on a widget decides what to do with the widget's
+ * Outcome::Ignored (nothing, usually, which is null, or a key of its own to take).
  *
  *     kind Inbox extends tui::View {
  *         fn _(#messages);
@@ -1754,7 +1799,9 @@ pub kind Metronome {
 
 /**
  * Run $draw($screen) and $handle($key) on a screen of its own until $handle gives something
- * other than null, which is what this gives; input that ends gives null. Keys come from $input
+ * other than null (or Outcome::Ignored, which a widget's handle() gives for a key that isn't its
+ * business, so one can be passed straight in), which is what this gives; input that ends gives
+ * null. Keys come from $input
  * (a term::Input), or from a new one. A program that shows one screen after another passes the
  * same one to each: keys that arrived together (typed ahead) are in it, and would be lost with a
  * new Input made for each screen.
@@ -1806,7 +1853,7 @@ pub fn interact($draw, $handle, $input = null, $tick = null, $interval = 0.25) {
                 return null;
             }
             $result = $handle($key);
-            if ($result != null) {
+            if ($result != null && $result != Outcome::Ignored) {
                 return leave($screen, $input, $result);
             }
         }
@@ -1894,7 +1941,7 @@ pub fn choose($items, $title = "", $input = null) {
         $key -> $menu.handle($key),
         $input
     );
-    return $picked == Outcome::Select ? $menu.index() : null;
+    return $picked == Outcome::Select ? $menu.selected_index() : null;
 }
 
 // The rows of ask()'s box: the question in the top edge, a blank row, the field, the bottom edge

@@ -703,9 +703,14 @@ behind them:
     keys that cancel, not a third copy. **A `List` claims only movement and enter**, so a program
     that wants `q`, `x` or `d` takes them without asking the list to let go; this is why
     `Table.sortable(false)` exists (`x` and `o` are the table's), and why `Menu`'s cancel keys are an
-    argument (`["escape"]` for a program that quits on `q`). `handle()` still gives `null` both for
-    a key it moved on and for one it ignores, since the caller's rule is the same: take your own
-    keys first or after, they never overlap. `marked()` keeps `Menu`'s `> ` and the football
+    argument (`["escape"]` for a program that quits on `q`). `handle()` says whose
+    the key was: `Outcome::Ignored` for one that isn't the widget's business, `null` for one it
+    took with nothing to report (`Selection.move()`'s answer is the signal underneath). A program
+    gives its focused widget the key first and takes `Ignored` for itself, which is how an editor
+    composes a prompt line, a buffer and a list; `interact()` treats `Ignored` as `null`, so a
+    widget's `handle()` can be passed to it as it is. `View.handle()` keeps its contract (`null`
+    when dealt with, a value for the shell), since a `View` is the shell's unit, not a widget's: one
+    built on a widget decides what the widget's `Ignored` means for the shell. `marked()` keeps `Menu`'s `> ` and the football
     shell's `▸ ` without a second draw routine. `TacticsView`'s three settings stay as they were:
     each is two rows with its effect under it and a left-right value, which isn't a list of
     one-line items.

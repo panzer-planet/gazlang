@@ -27,6 +27,12 @@ fn rtrim($text) {
     return $text;
 }
 
+/* [column, descending] a Table is sorted by, or null */
+fn sort_of($table) {
+    $sort = $table.sorted_by();
+    return $sort == null ? null : [$sort.column, $sort.descending];
+}
+
 /* The screen's rows with the trailing blanks off, joined with "|" */
 fn rows($screen) {
     return join(map($screen.lines(), $line -> rtrim($line)), "|");
@@ -311,31 +317,31 @@ expect("table: no rows", [rows($s), $height], ["x|─||", 2]);
 
 /* ---- Menu ---- */
 $menu = tui::Menu(["one", "two", "three", "four"], "Pick");
-expect("menu: starts on the first", [$menu.index(), $menu.item()], [0, "one"]);
-expect("menu: down", [press($menu, "down"), $menu.index()], [null, 1]);
+expect("menu: starts on the first", [$menu.selected_index(), $menu.selected_item()], [0, "one"]);
+expect("menu: down", [press($menu, "down"), $menu.selected_index()], [null, 1]);
 press($menu, "j");
-expect("menu: j is down too", $menu.index(), 2);
+expect("menu: j is down too", $menu.selected_index(), 2);
 press($menu, "down down down");
-expect("menu: stops at the last", $menu.index(), 3);
+expect("menu: stops at the last", $menu.selected_index(), 3);
 press($menu, "up");
-expect("menu: up", $menu.index(), 2);
+expect("menu: up", $menu.selected_index(), 2);
 press($menu, "k");
 press($menu, "k");
 press($menu, "k");
-expect("menu: stops at the first", $menu.index(), 0);
+expect("menu: stops at the first", $menu.selected_index(), 0);
 press($menu, "end");
-expect("menu: end", $menu.index(), 3);
+expect("menu: end", $menu.selected_index(), 3);
 press($menu, "home");
-expect("menu: home", $menu.index(), 0);
+expect("menu: home", $menu.selected_index(), 0);
 press($menu, "G");
-expect("menu: G", $menu.index(), 3);
+expect("menu: G", $menu.selected_index(), 3);
 press($menu, "g");
-expect("menu: g", $menu.index(), 0);
+expect("menu: g", $menu.selected_index(), 0);
 expect("menu: enter selects", press($menu, "enter"), tui::Outcome::Select);
 expect("menu: escape cancels", press($menu, "escape"), tui::Outcome::Cancel);
 expect("menu: q cancels", press($menu, "q"), tui::Outcome::Cancel);
 expect("menu: ctrl+c cancels", press($menu, "ctrl+c"), tui::Outcome::Cancel);
-expect("menu: a key it doesn't know is nothing", press($menu, "x"), null);
+expect("menu: a key it doesn't know is nothing", press($menu, "x"), tui::Outcome::Ignored);
 expect("menu: the end of the input cancels", $menu.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), tui::Outcome::Cancel);
 
 $s = tui::Screen(12, 5);
@@ -347,17 +353,17 @@ press($menu, "down down down");
 $menu.draw($s, tui::Rect(1, 1, 12, 5));
 expect("menu: scrolls to keep the selection in view", $s.lines()[1] .. $s.lines()[2] .. $s.lines()[3], "│  two     ││  three   ││> four    │");
 press($menu, "page_down");
-expect("menu: page down goes to the last", $menu.index(), 4);
+expect("menu: page down goes to the last", $menu.selected_index(), 4);
 $menu.draw($s, tui::Rect(1, 1, 12, 5));
 expect("menu: scrolled to the end", $s.lines()[3], "│> five    │");
 press($menu, "page_up");
-expect("menu: page up is a page (the rows showing, less one)", $menu.index(), 2);
+expect("menu: page up is a page (the rows showing, less one)", $menu.selected_index(), 2);
 $off = tui::Screen(16, 6);
 $menu.draw($off, tui::Rect(3, 2, 12, 4));
 expect("menu: drawn in its Rect, the box on its edges", rows($off), "|  ┌─ Pick ───┐|  │> three   │|  │  four    │|  └──────────┘|");
 $empty = tui::Menu([]);
-expect("menu: no items, nothing to move", [press($empty, "down"), press($empty, "end"), $empty.index()], [null, null, 0]);
-expect("menu: j and page down on nothing", [press($empty, "j"), press($empty, "page_down"), $empty.index()], [null, null, 0]);
+expect("menu: no items, nothing to move", [press($empty, "down"), press($empty, "end"), $empty.selected_index()], [null, null, null]);
+expect("menu: j and page down on nothing", [press($empty, "j"), press($empty, "page_down"), $empty.selected_index()], [null, null, null]);
 expect("menu: nothing to select", press($empty, "enter"), null);
 $one = tui::Menu(["only"]);
 expect("menu: one item can still be selected", press($one, "j enter"), tui::Outcome::Select);
@@ -400,7 +406,7 @@ press($f, "ctrl+u");
 expect("field: ctrl+u deletes to the start", $f.value(), "");
 press($f, "\"a b\"");
 expect("field: a space is typed", $f.value(), "a b");
-expect("field: alt and ctrl keys don't type", [press($f, "alt+x ctrl+x"), $f.value()], [null, "a b"]);
+expect("field: alt and ctrl keys don't type", [press($f, "alt+x ctrl+x"), $f.value()], [tui::Outcome::Ignored, "a b"]);
 expect("field: enter submits", press($f, "enter"), tui::Outcome::Submit);
 expect("field: escape cancels", press($f, "escape"), tui::Outcome::Cancel);
 expect("field: ctrl+c cancels", press($f, "ctrl+c"), tui::Outcome::Cancel);
@@ -440,7 +446,7 @@ press($f, "ctrl+a");
 $f.draw($s, tui::Rect(1, 1, 6, 1));
 expect("field: scrolls back", $s.lines()[0], "abcdef    ");
 $s.clear();
-$f.draw($s, tui::Rect(1, 2, 6, 1), "bold");
+$f.styled("bold").draw($s, tui::Rect(1, 2, 6, 1));
 expect("field: a style", $s.cell(1, 2).style.spec, "bold");
 
 /* The cursor is drawn by columns, two along after a wide character, and scrolling is by columns */
@@ -604,7 +610,7 @@ $table.draw($s, $s.bounds());
 expect("table: header and rows", rows($s), "Name    Age   Rating|Ann      31     71.5|Bob      24     80.0|Cy       27    65.25|Dee      24     90.0||");
 expect("table: the header is bold", [$s.cell(1, 1).style.spec, $s.cell(10, 1).style.spec], ["bold", "bold"]);
 expect("table: the selected row is inverse", [$s.cell(1, 2).style.spec, $s.cell(1, 3).style.spec], ["inverse", ""]);
-expect("table: nothing is sorted", $table.sorted_by(), null);
+expect("table: nothing is sorted", sort_of($table), null);
 expect("table: the first row is selected", [$table.selected_index(), $table.selected_row()], [0, ["Ann", 31, 71.5]]);
 $table.draw($s, $s.bounds(), false);
 expect("table: unfocused, the selected row is only bold", $s.cell(1, 2).style.spec, "bold");
@@ -628,7 +634,7 @@ $table.sort_by(1, true);
 expect("table: by age, the oldest first, ties still in the order given", names_in($table, $people), "Ann Cy Bob Dee");
 $table.sort_by(2);
 expect("table: by rating, numbers compare as numbers", names_in($table, $people), "Cy Ann Bob Dee");
-expect("table: what it is sorted by", $table.sorted_by(), [2, false]);
+expect("table: what it is sorted by", sort_of($table), [2, false]);
 throws("table: no such column", () -> $table.sort_by(3), "tui::Table has no column 3");
 $s = tui::Screen(30, 7);
 $table.draw($s, $s.bounds());
@@ -652,25 +658,25 @@ expect("table: and after sorting again", $table.selected_row()[0], "Cy");
 $table = tui::Table(["Name", "Age", "Rating"], $people);
 $press = ($key) -> $table.handle(term::key($key));
 expect("table: enter selects", $press("enter"), tui::Outcome::Select);
-expect("table: other keys are nothing", $press("z"), null);
+expect("table: other keys are ignored", $press("z"), tui::Outcome::Ignored);
 $press(".");
-expect("table: . sorts by the first column", $table.sorted_by(), [0, false]);
+expect("table: . sorts by the first column", sort_of($table), [0, false]);
 $press(".");
 $press(".");
 $press(".");
-expect("table: . stops at the last column", $table.sorted_by(), [2, false]);
+expect("table: . stops at the last column", sort_of($table), [2, false]);
 $press(",");
-expect("table: , goes back", $table.sorted_by(), [1, false]);
+expect("table: , goes back", sort_of($table), [1, false]);
 $press("o");
-expect("table: o turns the order round", $table.sorted_by(), [1, true]);
+expect("table: o turns the order round", sort_of($table), [1, true]);
 $press("o");
-expect("table: and back", $table.sorted_by(), [1, false]);
+expect("table: and back", sort_of($table), [1, false]);
 $press("x");
-expect("table: x is unsorted again", [$table.sorted_by(), names_in($table, $people)], [null, "Ann Bob Cy Dee"]);
+expect("table: x is unsorted again", [sort_of($table), names_in($table, $people)], [null, "Ann Bob Cy Dee"]);
 $press("o");
-expect("table: o does nothing unsorted", $table.sorted_by(), null);
+expect("table: o does nothing unsorted", sort_of($table), null);
 $press(",");
-expect("table: , unsorted starts at the first column", $table.sorted_by(), [0, false]);
+expect("table: , unsorted starts at the first column", sort_of($table), [0, false]);
 $press("j");
 $press("j");
 expect("table: j moves down", $table.selected_index(), 2);
@@ -737,7 +743,7 @@ expect("table: no rows is a header", rows($s), "Name   Age||");
 expect("table: nothing to select", [$table.selected_index(), $table.selected_row(), $table.handle(term::key("enter"))], [null, null, null]);
 $table.handle(term::key("j"));
 $table.sort_by(1);
-expect("table: nothing to move or sort", [$table.selected_index(), $table.sorted_by()], [null, [1, false]]);
+expect("table: nothing to move or sort", [$table.selected_index(), sort_of($table)], [null, [1, false]]);
 $table.set_rows([["A", 1]]);
 expect("table: rows arriving", $table.selected_row(), ["A", 1]);
 
@@ -758,14 +764,14 @@ expect("table: drawn in a rect of the screen", [trim($s.lines()[0]), trim($s.lin
 
 /* ---- Menu: its own cancel keys ---- */
 $quitter = tui::Menu(["one", "two"], "Pick", ["escape"]);
-expect("menu: q is not a cancel key when the program says so", [press($quitter, "q"), $quitter.index()], [null, 0]);
+expect("menu: q is not a cancel key when the program says so", [press($quitter, "q"), $quitter.selected_index()], [tui::Outcome::Ignored, 0]);
 expect("menu: escape still cancels", press($quitter, "escape"), tui::Outcome::Cancel);
-expect("menu: ctrl+c does not cancel it either", press($quitter, "ctrl+c"), null);
+expect("menu: ctrl+c does not cancel it either", press($quitter, "ctrl+c"), tui::Outcome::Ignored);
 expect("menu: the end of the input always cancels", $quitter.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), tui::Outcome::Cancel);
 $custom = tui::Menu(["one", "two"], "", ["x", "ctrl+g"]);
-expect("menu: any keys can cancel", [press($custom, "x"), press($custom, "ctrl+g"), press($custom, "escape")], [tui::Outcome::Cancel, tui::Outcome::Cancel, null]);
+expect("menu: any keys can cancel", [press($custom, "x"), press($custom, "ctrl+g"), press($custom, "escape")], [tui::Outcome::Cancel, tui::Outcome::Cancel, tui::Outcome::Ignored]);
 $none = tui::Menu(["one"], "", []);
-expect("menu: no cancel keys but the end of the input", [press($none, "escape"), press($none, "q")], [null, null]);
+expect("menu: no cancel keys but the end of the input", [press($none, "escape"), press($none, "q")], [tui::Outcome::Ignored, tui::Outcome::Ignored]);
 
 /* ---- List ---- */
 $list = tui::List(["one", "two", "three", "four", "five"]);
@@ -786,8 +792,8 @@ expect("list: g", $list.selected_index(), 0);
 press($list, "up k");
 expect("list: stops at the first", $list.selected_index(), 0);
 expect("list: enter selects", press($list, "enter"), tui::Outcome::Select);
-expect("list: it claims nothing else: escape, q, x, ctrl+c and a letter", [press($list, "escape"), press($list, "q"), press($list, "x"), press($list, "ctrl+c"), press($list, "\"a\""), $list.selected_index()], [null, null, null, null, null, 0]);
-expect("list: nor the sort keys of a table", [press($list, ". , o < >"), $list.selected_index()], [null, 0]);
+expect("list: it ignores what is not its business: escape, q, x, ctrl+c and a letter", [press($list, "escape"), press($list, "q"), press($list, "x"), press($list, "ctrl+c"), press($list, "\"a\""), $list.selected_index()], [tui::Outcome::Ignored, tui::Outcome::Ignored, tui::Outcome::Ignored, tui::Outcome::Ignored, tui::Outcome::Ignored, 0]);
+expect("list: nor the sort keys of a table", [press($list, ". , o < >"), $list.selected_index()], [tui::Outcome::Ignored, 0]);
 $s = tui::Screen(10, 3);
 $list.draw($s, tui::Rect(1, 1, 10, 3));
 expect("list: draw, no box and no header", $s.lines(), ["one       ", "two       ", "three     "]);
@@ -867,14 +873,51 @@ expect("table: select on nothing is nothing", tui::Table(["a"], []).selected_ind
 $fixed = tui::Table(["Name", "Age", "Rating"], $people).sortable(false);
 expect("table: sortable(false) gives the table", kind_of($fixed), tui::Table);
 press($fixed, ". . , o x < >");
-expect("table: and the sort keys do nothing", [$fixed.sorted_by(), names_in($fixed, $people)], [null, "Ann Bob Cy Dee"]);
+expect("table: and the sort keys do nothing", [sort_of($fixed), names_in($fixed, $people)], [null, "Ann Bob Cy Dee"]);
 press($fixed, "j");
 expect("table: movement and enter still work", [$fixed.selected_index(), press($fixed, "enter")], [1, tui::Outcome::Select]);
 $fixed.sort_by(1);
-expect("table: sort_by still sorts", $fixed.sorted_by(), [1, false]);
+expect("table: sort_by still sorts", sort_of($fixed), [1, false]);
 $fixed.sortable();
 press($fixed, "o");
-expect("table: sortable() turns them on again", $fixed.sorted_by(), [1, true]);
+expect("table: sortable() turns them on again", sort_of($fixed), [1, true]);
+
+/* ---- Stage 3: Ignored, Sort, and every draw the same ---- */
+$ig = tui::Outcome::Ignored;
+$t3 = tui::Table(["Name", "Age", "Rating"], $people);
+expect("ignored: a table takes its sort keys, and movement", [press($t3, "."), press($t3, "j"), press($t3, "o")], [null, null, null]);
+expect("ignored: and ignores the rest", [press($t3, "z"), press($t3, "q"), press($t3, "escape"), press($t3, "ctrl+c")], [$ig, $ig, $ig, $ig]);
+$fixed = tui::Table(["Name", "Age", "Rating"], $people).sortable(false);
+expect("ignored: with sorting off, the sort keys too, so a program can take x", [press($fixed, "x"), press($fixed, "o"), press($fixed, "."), press($fixed, ","), press($fixed, "<"), press($fixed, ">")], [$ig, $ig, $ig, $ig, $ig, $ig]);
+expect("ignored: enter on a table with no rows is taken, and nothing", press(tui::Table(["a"], []), "enter"), null);
+expect("ignored: a list takes movement and enter, ignores a letter", [press($list, "j"), press($list, "enter"), press($list, "d")], [null, tui::Outcome::Select, $ig]);
+expect("ignored: enter on an empty list is taken, and nothing", press(tui::List([]), "enter"), null);
+expect("ignored: a menu takes movement, enter and its cancel keys, and ignores the rest", [press($menu, "j"), press($menu, "enter"), press($menu, "escape"), press($menu, "d")], [null, tui::Outcome::Select, tui::Outcome::Cancel, $ig]);
+$tx = tui::TextField("ab");
+expect("ignored: a field takes typing and editing, and ignores a key that edits nothing", [press($tx, "\"c\""), press($tx, "left"), press($tx, "backspace"), press($tx, "up"), press($tx, "f5"), press($tx, "tab"), press($tx, "ctrl+x"), press($tx, "page_down"), $tx.value()], [null, null, null, $ig, $ig, $ig, $ig, $ig, "ac"]);
+expect("ignored: a field's end keys are not ignored", [press($tx, "enter"), press($tx, "escape")], [tui::Outcome::Submit, tui::Outcome::Cancel]);
+$taken_first = ($widget, $key) -> $widget.handle($key) == $ig ? "mine" : "theirs";
+expect("ignored: a program gives the widget the key first and takes what it ignores", [$taken_first(tui::List(["a"]), term::key("j")), $taken_first(tui::List(["a"]), term::key("d"))], ["theirs", "mine"]);
+expect("sort: a Table says how it is sorted with a kind", [kind_of($t3.sorted_by()), $t3.sorted_by().column, $t3.sorted_by().descending], [tui::Sort, 0, true]);
+$by = tui::Table(["a", "b"], [[1, 2]]);
+expect("sort: none, null", $by.sorted_by(), null);
+$by.sort_by(1);
+expect("sort: Sort has its column and order", [$by.sorted_by().column, $by.sorted_by().descending], [1, false]);
+throws("sort: it is read-only", () -> { $by.sorted_by().column = 0; }, "tui::Sort #column is read-only: only tui::Sort's constructor sets it");
+$unf = tui::Screen(8, 3);
+$field = tui::TextField("ab");
+$field.draw($unf, tui::Rect(1, 1, 8, 1), false);
+expect("draw: an unfocused field shows its text and leaves the cursor alone", [$unf.lines()[0], contains($unf.snapshot(), "cursor")], ["ab      ", false]);
+$field.draw($unf, tui::Rect(1, 1, 8, 1));
+expect("draw: a focused one puts it after the text", contains($unf.snapshot(), "cursor: column 3, row 1"), true);
+expect("draw: a field is drawn in the style it is given", [$unf.cell(1, 1).style.spec, tui::TextField("x").styled("bold red").draw($unf, tui::Rect(1, 2, 8, 1)), $unf.cell(1, 2).style.spec], ["underline", null, "bold red"]);
+$fm = tui::Screen(12, 4);
+$fmenu = tui::Menu(["one", "two"], "M");
+$fmenu.draw($fm, tui::Rect(1, 1, 12, 4), false);
+expect("draw: an unfocused menu's selection is bold, not inverse", [$fm.cell(2, 2).style.spec, $fm.cell(2, 3).style.spec], ["bold", ""]);
+$fmenu.draw($fm, tui::Rect(1, 1, 12, 4));
+expect("draw: and a focused one's inverse", $fm.cell(2, 2).style.spec, "inverse");
+expect("menu: names as List's and Table's", [$fmenu.selected_index(), $fmenu.selected_item(), tui::Menu([]).selected_index(), tui::Menu([]).selected_item()], [0, "one", null, null]);
 
 /* ---- centered ---- */
 $s = tui::Screen(20, 10);
@@ -959,9 +1002,9 @@ $narrow.draw($tight, $tight.bounds());
 $tap = ($key) -> $narrow.handle(term::key($key));
 $tap(".");
 $tap(".");
-expect("table: . goes past a column left out", $narrow.sorted_by(), [2, false]);
+expect("table: . goes past a column left out", sort_of($narrow), [2, false]);
 $tap(",");
-expect("table: and so does ,", $narrow.sorted_by(), [0, false]);
+expect("table: and so does ,", sort_of($narrow), [0, false]);
 $tiny = tui::Screen(9, 3);
 $narrow.draw($tiny, $tiny.bounds());
 expect("table: past what leaving out saves, the rest are squeezed", trim($tiny.lines()[1]), "Ann  71.5");
@@ -1020,7 +1063,7 @@ expect("key_help: a box in the middle, each group's keys under its title, prompt
 expect("key_help: centred, the keys in cyan and the titles bold", [$help.cell(12, 2).character, $help.cell(14, 4).style.spec, $help.cell(14, 3).style.spec], ["┌", "cyan", "bold"]);
 
 /* ---- Outcome, and a View for a shell ---- */
-expect("outcome: the cases a widget answers with", tui::Outcome::cases(), [tui::Outcome::Select, tui::Outcome::Cancel, tui::Outcome::Submit]);
+expect("outcome: the cases a widget answers with", tui::Outcome::cases(), [tui::Outcome::Select, tui::Outcome::Cancel, tui::Outcome::Submit, tui::Outcome::Ignored]);
 kind Plain extends tui::View {
     pub fn title() { return "Plain"; }
     pub fn draw($screen, $rect, $focused) { tui::label($screen, $rect, $focused ? "focused" : "idle"); }

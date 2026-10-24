@@ -527,8 +527,12 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   draw takes a `tui::Rect`, and only `Screen.put()` and `Screen.cursor()` take a column and a row,
   since a cell is addressed by its column and nothing else is; a function that draws one row draws
   on the Rect's first and nothing on one of no height, so a view writes `$rect.line($n)` and never
-  checks. A widget's `handle()` answers with `tui::Outcome` (`Select`, `Cancel`, `Submit`) or null,
-  never a string a caller could misspell; `tui::View` (`title()`, `draw($screen, $rect, $focused)`,
+  checks. A widget's `handle()` answers with `tui::Outcome` (`Select`, `Cancel`, `Submit`,
+  `Ignored` for a key that isn't the widget's, so a program offers its focused widget the key first)
+  or null for a key it took, never a string a caller could misspell; every widget draws with
+  `draw($screen, $rect, $focused = true)`, `List`, `Table` and `Menu` share one private `Selection`
+  for movement and scrolling, and a `tui::Pane` (`$screen.pane($rect)`) is a part of the screen
+  nothing drawn into it leaves, which the drawing functions take as they take a `Screen`; `tui::View` (`title()`, `draw($screen, $rect, $focused)`,
   `handle($key)`, `hints()` as `tui::Hint`s) is what a shell asks of a section, the shell routing
   keys by hand, with no widget tree or focus model. The column shapes are gone, not kept as twins.
   `games/football/ui.gaz` is the model of a shell, its actions a kind per verb; the reasons are in

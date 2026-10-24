@@ -244,7 +244,7 @@ ok table: selecting the third
 ok table: the same row is selected after sorting
 ok table: and after sorting again
 ok table: enter selects
-ok table: other keys are nothing
+ok table: other keys are ignored
 ok table: . sorts by the first column
 ok table: . stops at the last column
 ok table: , goes back
@@ -292,7 +292,7 @@ ok list: G
 ok list: g
 ok list: stops at the first
 ok list: enter selects
-ok list: it claims nothing else: escape, q, x, ctrl+c and a letter
+ok list: it ignores what is not its business: escape, q, x, ctrl+c and a letter
 ok list: nor the sort keys of a table
 ok list: draw, no box and no header
 ok list: the selected item is inverse when focused
@@ -327,6 +327,26 @@ ok table: and the sort keys do nothing
 ok table: movement and enter still work
 ok table: sort_by still sorts
 ok table: sortable() turns them on again
+ok ignored: a table takes its sort keys, and movement
+ok ignored: and ignores the rest
+ok ignored: with sorting off, the sort keys too, so a program can take x
+ok ignored: enter on a table with no rows is taken, and nothing
+ok ignored: a list takes movement and enter, ignores a letter
+ok ignored: enter on an empty list is taken, and nothing
+ok ignored: a menu takes movement, enter and its cancel keys, and ignores the rest
+ok ignored: a field takes typing and editing, and ignores a key that edits nothing
+ok ignored: a field's end keys are not ignored
+ok ignored: a program gives the widget the key first and takes what it ignores
+ok sort: a Table says how it is sorted with a kind
+ok sort: none, null
+ok sort: Sort has its column and order
+ok sort: it is read-only
+ok draw: an unfocused field shows its text and leaves the cursor alone
+ok draw: a focused one puts it after the text
+ok draw: a field is drawn in the style it is given
+ok draw: an unfocused menu's selection is bold, not inverse
+ok draw: and a focused one's inverse
+ok menu: names as List's and Table's
 ok centered: a Rect that size in the middle
 ok centered: too big starts at the corner
 ok metronome: not due at the start

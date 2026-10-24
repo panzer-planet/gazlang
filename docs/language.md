@@ -3066,6 +3066,11 @@ with no terminal.
   which `interact()` does itself) and `invalidate()` (draw everything at the next render: after
   `term_suspend()`, or anything else that drew on the terminal). Drawing outside the screen is
   clipped. A wide character (CJK, emoji) takes two columns, its own cell and a continuation.
+  The four that reset: `clear()` blanks the cells for the next frame (the terminal's state is kept,
+  so `render()` still sends only what changed), `invalidate()` keeps the cells and forgets what the
+  terminal shows (so `render()` sends them all), `resize()` makes the screen a size the program
+  chooses, blank and to be drawn in full, and `fit()` does that to the terminal's size only if it
+  differs.
   `put()` and `cursor()` are the only places columns are spoken: everything else takes a `Rect`.
 - **`tui::Pane`** (`$screen.pane($rect)`, or `tui::Pane($screen, $rect)`) is a part of a screen that
   nothing drawn into it leaves. It has `put()`, `fill()`, `cursor()`, `bounds()`, `cols`, `rows` and
@@ -3098,28 +3103,34 @@ with no terminal.
   $style = "green")` (across the first row) and `tui::table($screen, $rect, $headers, $rows, $style =
   "")` (columns as wide as their widest cell, numbers on the right, as many rows as fit the height
   and each cut at the width; gives the rows it took).
-- **`tui::Outcome`** is what a widget's `handle($key)` gives when a key ends something, `Select`,
-  `Cancel` or `Submit`, so a caller matches on `tui::Outcome::Select` and a misspelling is an error
-  when the program is read; `null` means the widget dealt with the key itself.
+- **`tui::Outcome`** is what a widget's `handle($key)` gives, so a caller matches on
+  `tui::Outcome::Select` and a misspelling is an error when the program is read. `Select` is enter
+  on a `List`, `Table` or `Menu`; `Cancel` a `Menu`'s cancel keys or escape and ctrl+c on a
+  `TextField` (and the end of the input on either); `Submit` enter on a `TextField`. Two say whose
+  the key was: `Ignored` for a key that isn't the widget's business, and `null` for a key it took
+  with nothing to report (moving, typing, sorting). So a program gives its focused widget the key
+  first and takes `Ignored` for itself, which is how a prompt line, a buffer and a list share the
+  keyboard. Every widget draws with `draw($screen, $rect, $focused = true)`, the selection (or the
+  cursor, for a `TextField`) showing only when focused, so a `View` can pass its `$focused` on.
 - **`tui::List($items, $style_of = null)`** is a scrolling list of strings (or values printed as
   `to_string()` prints them) with a selection, drawn on a `Rect` with no box and no header:
   `draw($screen, $rect, $focused = true)` shows the selected item inverse when focused and bold
   when not, as a `Table` does; `$style_of($item, $index)` gives an item's style. `handle($key)`
   claims only movement (the arrows or `j`/`k`, home and end or `g`/`G`, page up and down) and gives
-  `Outcome::Select` for enter; any other key does nothing, so a program takes the keys it wants.
+  `Outcome::Select` for enter; any other key is `Outcome::Ignored`, so a program takes the keys it wants.
   `selected_index()`, `selected_item()` (both `null` when there are none), `select($index)` (the
   nearest there is) and `set_items($items)` (the selection stays on its index where there still is
   one, else the last item). `marked($on = "> ", $off = "  ")` puts a marker before each item and
   gives the list.
 - **`tui::Table($headers, $rows, $style_of = null)`** is a table you move about in: `draw($screen,
   $rect, $focused = true)`, scrolling rows, a selected row and columns that sort. `handle($key)` gives
-  `Outcome::Select` for enter and `null` otherwise (the arrows or `j`/`k`, home and end or `g`/`G`,
+  `Outcome::Select` for enter, `null` for the keys it took and `Outcome::Ignored` for the rest (the arrows or `j`/`k`, home and end or `g`/`G`,
   page up and down; `.` and `,`, or `>` and `<`, sort by the next or previous column, `o` turns the
   order round and `x` goes back to the order given). `selected_index()` is the selected row's index in
   `$rows` however they are sorted now, `selected_row()` the row, `sort_by($column, $descending)` and
-  `sorted_by()` say and set the sort, `select($index)` selects a row by its index in `$rows`,
-  `sortable($on)` turns the sort keys (`.` `,` `o` `x` `<` `>`) off, so a program can take them
-  for its own (it gives the table), and `set_rows($rows)` shows others, keeping the selection on
+  `sorted_by()` (a `tui::Sort` with `column` and `descending`, or `null`) say and set the sort, `select($index)` selects a row by its index in `$rows`,
+  `sortable($on)` turns the sort keys (`.` `,` `o` `x` `<` `>`) off, so they are `Ignored` and a
+  program can take them for its own (it gives the table), and `set_rows($rows)` shows others, keeping the selection on
   its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
   style, for marking the user's own club. The cells of a column must be alike, or sorting on it is
   an error. A table too wide leaves out the columns `drop_when_narrow($columns)` names (indexes,
@@ -3150,16 +3161,21 @@ with no terminal.
   next, 0 if due) and `beat($now)` after taking one; a late beat isn't made up for with two.
 - **`tui::Menu($items, $title = "", $cancel_keys = ["escape", "q", "ctrl+c"])`** is a `List` in a
   box, and **`tui::TextField($value = "")`** takes keys
-  (`handle($key)`) and draw themselves (`$menu.draw($screen, $rect)`, a box on the `Rect`'s edges;
-  `$field.draw($screen, $rect, $style = "underline")`, across its first row). `handle` gives
+  (`handle($key)`) and draw themselves (`$menu.draw($screen, $rect, $focused = true)`, a box on the
+  `Rect`'s edges; `$field.draw($screen, $rect, $focused = true)`, across its first row, putting the
+  cursor there only when focused, in the style `styled($style)` set, `"underline"` to begin with,
+  which gives the field). `handle` gives
   `Outcome::Select` or `Outcome::Cancel` (for the `$cancel_keys`, and always for the end of the
   input) for a menu and `Outcome::Submit` or `Outcome::Cancel` for a
-  field, and `null` for a key it dealt with itself: the arrows, `j`/`k`, home and end, page up and
-  down; typing, backspace, delete, the arrows, home and end or ctrl+a and ctrl+e, ctrl+u and ctrl+k.
-  `$menu.index()` and `$menu.item()` say what is selected and `$field.value()` what was typed.
+  field, `null` for a key it dealt with itself: the arrows, `j`/`k`, home and end, page up and
+  down; typing, backspace, delete, the arrows, home and end or ctrl+a and ctrl+e, ctrl+u and ctrl+k,
+  and `Outcome::Ignored` for any other. `$menu.selected_index()` and `$menu.selected_item()` (as a
+  `List`'s and `Table`'s) say what is selected, `null` when there is nothing, and `$field.value()`
+  what was typed.
 - **`tui::interact($draw, $handle, $input = null, $tick = null, $interval = 0.25)`** runs
   `$draw($screen)` and `$handle($key)` on a screen of its own until `$handle` gives something
-  other than `null`, which is what it gives (`null` too when the input ends). Keys come from
+  other than `null` or `Outcome::Ignored` (so a widget's `handle()` can be passed straight in),
+  which is what it gives (`null` too when the input ends). Keys come from
   `$input`, a `term::Input`, or a new one; a program that shows one screen after another passes the
   same one to each, since keys typed ahead are in it and a new one for each screen would lose them.
   With `$tick`, time passes: when no key has been pressed for `$interval` seconds `$tick()` is called
