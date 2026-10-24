@@ -2411,10 +2411,10 @@ makes `std/` read that directory instead of the built-in copy, so an edit needs 
 | `date.gaz` | Three kinds of int, which the table under "Dates and times" below tells apart. Dates as whole numbers of days: `date::days($year, $month, $day)` (day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (a `date::Weekday`, an enum from `Monday`, value 0, to `Sunday`, 6), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). Times as whole seconds since 1970 in UTC, as `time()` gives them, and the zones that show them: `date::utc()`, `date::fixed($seconds)` and `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone database, daylight saving time and all), or `date::tzif($name, $bytes)`; `$zone.at($time)` is a `date::Moment` (its date, time of day, offset and abbreviation there, with `rfc3339()`, `format()` and `short()` for its date, `clock()`, `short_clock()`, `offset_text()`, `weekday()` and `reading()`), `$zone.date($time)` the day number its clocks show, and `$zone.time($days, $seconds, $resolve = date::Resolution::Reject)` the time its clocks show a date and `date::time_of_day($hour, $minute, $second = 0)` (`$zone.occurrences($days, $seconds)` every such time: none, one or two); `date::parse($text, $default)` reads RFC 3339, `date::parse_date($text, $default)` a `2026-08-08` and `date::parse_reading($text, $default)` a `2026-08-08T14:02` with no offset (a `date::Reading`, its `#days` and `#seconds`, which `iso()` writes back). Nothing reads the clock: a program that needs today works it out (`$zone.date(time())`), which also keeps date code testable with fixed times; see below |
 | `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
 | `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with`: a string where `$0` is the whole match, `$1`, `$2`, ... a group (`""` if it took no part) and `$$` a `$`, a missing group or any other `$` an error before anything is replaced; or a function given the match's groups as `regex::groups` gives them and returning a string; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`; `\d` (a digit), `\w` (a letter, digit or `_`), `\s` (space, tab, newline, carriage return) and their negations `\D \W \S`, also inside `[...]`, ASCII bytes as `chars.gaz` classifies them; `\t \n \r`; `\` before any other byte that isn't a letter or digit is that byte, and before a letter or digit an error; `{` and `}` are literal bytes, not repetition (`regex::matches("aaa", "a{3}")` is false); the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking, so time is linear in the string for a given pattern; a pattern compiling to more than 2000 instructions (each entry of a `[...]` counting one more) or with more than 100 groups is an error before anything is matched, so a pattern's size alone can't make each byte expensive |
-| `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
+| `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::key` and `term::keys` (the keys a --tty script's words name), `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
 | `syntax.gaz` | GazLang's own lexer, the one the compiler reads every program with: `syntax::Lexer($text)`, whose `get_next_token()` gives each `syntax::Token` (its `type`, `value` and `line`) until one of type `"EOF"`, and whose `span()` says where in the text the last one lies; `syntax::LexError` for source it refuses, and `syntax::Lexer::KEYWORDS` |
 | `highlight.gaz` | Code as the GazLang website shows it: `highlight::to_html($language, $source)`, an `Html` of `<span>`s with a class for each sort of token (`kw`, `str`, `com` and so on, for a stylesheet to colour), every piece escaped; `highlight::pieces($language, $source)` the same as `highlight::Piece`s, each on one line (`line`) and their text joined the source back, and `highlight::lines($language, $source)` the pieces of each line, for an editor. GazLang (`"gaz"`) is read by `std/syntax.gaz`, source it refuses pieced up to the refused token and plain from there; bytecode, templates and shell commands have highlighters of their own |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect` (the part of the screen every drawing function takes), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::Hint`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (the `Rect` that size in the middle), `tui::Outcome` (what a widget's `handle()` gives), `tui::View` (what a shell asks of a section), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
+| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect` (the part of the screen every drawing function takes), `tui::Pane` (a part nothing drawn into leaves), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::wrap`, `tui::paragraph`, `tui::Hint`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (the `Rect` that size in the middle), `tui::Outcome` (what a widget's `handle()` gives), `tui::View` (what a shell asks of a section), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
 
 `http.gaz` returns
 `{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
@@ -3059,20 +3059,38 @@ with no terminal.
 - **`tui::Screen($cols, $rows)`**: `put($col, $row, $text, $style = "")`, `fill($rect, $char = " ",
   $style = "")`, `clear()`, `cursor($col, $row)` (where the
   terminal's cursor goes after a render, shown only then), `render()`, `lines()` and
-  `cell($col, $row)` (a `tui::Cell`: `character`, `width`, `style`), `resize($cols, $rows)`, `fit()`
+  `cell($col, $row)` (a `tui::Cell`: `character`, `width`, `style`), `text($rect)` (the text in a
+  `Rect` as a list of its rows, by cells, a wide character once and the blanks at the end of each
+  row trimmed: what a test reads instead of slicing `lines()`), `pane($rect)` (see below), `resize($cols, $rows)`, `fit()`
   (take the terminal's size, `true` when it changed; call it when a read gives the key `"resize"`,
   which `interact()` does itself) and `invalidate()` (draw everything at the next render: after
   `term_suspend()`, or anything else that drew on the terminal). Drawing outside the screen is
   clipped. A wide character (CJK, emoji) takes two columns, its own cell and a continuation.
   `put()` and `cursor()` are the only places columns are spoken: everything else takes a `Rect`.
+- **`tui::Pane`** (`$screen.pane($rect)`, or `tui::Pane($screen, $rect)`) is a part of a screen that
+  nothing drawn into it leaves. It has `put()`, `fill()`, `cursor()`, `bounds()`, `cols`, `rows` and
+  `pane()` as a `Screen` has, but counted from its own top left, `(1, 1)`, so a view given one
+  draws as it would into a whole screen of that size: `$pane = $screen.pane($rect);
+  $view.draw($pane, $pane.bounds());`. `Screen.put()` clips only to the screen, so a widget given a
+  small `Rect` of a `Screen` can draw over its neighbour; one given a `Pane` can't. The drawing
+  functions and the widgets' `draw()` only call those methods, so they take a `Screen` or a `Pane`
+  alike (nothing says `Screen` but the constructor), and a `Pane`'s `Rect`s are its own: give
+  `label($pane, $pane.bounds().line(0), ...)`, not the screen's. A wide character half in a `Pane`
+  is a blank in the half that is, as at the screen's edge. A `Pane`'s cursor outside it is not set.
 - **`tui::Rect($col, $row, $width, $height)`** is a part of the screen (`$screen.bounds()` is all of
   it, `tui::centered($screen, $width, $height)` one that size in the middle). Every drawing function
   and widget takes one, and a view is given one to draw in and cuts it up with `inset($cols = 1,
   $rows = $cols)`, `split_left($width)`, `split_right`, `split_top($height)` and `split_bottom`
-  (each of the four giving `[a, b]`), and `line($n)` (row `$n` of it, from 0, one row high), so it
+  (each of the four giving `[a, b]`), `without_left($n)`, `without_right`, `without_top` and
+  `without_bottom` (the rest after taking that much off a side: `$rest.without_left(GAP)` for
+  `[, $bar] = $rest.split_left(GAP)`; the last `$n` columns are `split_right($n)[1]`),
+  `within($outer)` (where two overlap), and `line($n)` (row `$n` of it, from 0, one row high), so it
   does no column arithmetic of its own; a part that doesn't fit is smaller, never negative, and one
   of no width or height (`is_empty()`, which a `line()` past the last row is) draws nothing. A
   function that draws one row draws on the `Rect`'s first.
+  **`label()` fills the whole width of its `Rect`** with its text and blanks, so a second `label()`
+  on the same `Rect` erases the first: two things on one row need a `split_` first (the status on
+  the left, the hints on the right), each label on its own part.
 - **Drawing**: `tui::label($screen, $rect, $text, $style = "", $align = "left")` (on the first row,
   cut off or padded to the width; `"left"`, `"center"`, `"right"`), `tui::box($screen, $rect, $title
   = "", $style = "", $border = "single")` (on the edges; `single`, `double`, `round`, `heavy`,
@@ -3185,7 +3203,14 @@ The keys are words, separated by spaces or lines, so a longer script can be a fi
   dragging the window would, and reaches the program as the key `resize`, which `tui::interact()`
   answers by fitting its screen and drawing again.
 
-A word that isn't one of these stops the program before it runs, with exit code 2. A full-screen
+A test drives a widget with the same words: `term::key("shift+tab")` is the one key a word names
+(`$table.handle(term::key("j"))`; an error if the word isn't exactly one key), and
+`term::keys("j j enter")` the list of keys a whole script gives, `"text"`, `paste` and `mouse`
+included. `snap`, `wait` and `resize` are commands of the pretend terminal, not keys, so `keys()`
+refuses them with a sentence saying what to use instead, rather than skip them.
+
+A word that isn't one of these stops the program before it runs, with exit code 2; to
+`term::key()` and `term::keys()` it is an error with the same message. A full-screen
 program run without a terminal says to use `--tty`; `tui::interact()` does all of this, so a
 program made with it needs nothing of its own, and one that draws its own escape sequences gets
 the keys and the clock but no screens.

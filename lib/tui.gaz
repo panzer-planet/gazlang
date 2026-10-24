@@ -18,7 +18,9 @@
  * into parts with the split_ methods, so only Screen.put() and Screen.cursor() speak in columns.
  * Interactive widgets (Table, Menu, TextField) take keys from term::Input, answer with an Outcome
  * or null, and draw themselves; choose() and ask() are each one of them run as a screen of its
- * own. A View is what a full-screen program's shell asks of each section it shows.
+ * own. A View is what a full-screen program's shell asks of each section it shows. Screen.put()
+ * clips only to the screen; a Pane (screen.pane($rect)) is a part of it that nothing drawn into
+ * it leaves, which every drawing function takes as it would a Screen.
  */
 namespace tui;
 
@@ -170,7 +172,26 @@ pub kind Screen {
      * expand tabs before drawing, and give a style as $style, not as escape sequences in $text.
      */
     pub fn put($col, $row, $text, $style = "") {
-        if ($row < 1 || $row > #rows) {
+        #put_within($col, $row, $text, $style, 1, #cols, 1, #rows);
+    }
+
+    /**
+     * put() clipped to $rect instead of the screen: nothing outside $rect is drawn, a wide
+     * character with a column in it and a column out of it being a blank in the one in it, as at
+     * the screen's edge. The columns and rows are the screen's, as put()'s: a Pane gives its
+     * views their own, from its top left, and calls this.
+     */
+    pub fn put_in($rect, $col, $row, $text, $style = "") {
+        $clip = $rect.within(#bounds());
+        if ($clip.is_empty()) {
+            return null;
+        }
+        #put_within($col, $row, $text, $style, $clip.col, $clip.col + $clip.width - 1, $clip.row, $clip.row + $clip.height - 1);
+    }
+
+    /* put() inside columns $first to $last and rows $top to $bottom, all on the screen */
+    fn put_within($col, $row, $text, $style, $first, $last, $top, $bottom) {
+        if ($row < $top || $row > $bottom) {
             return null;
         }
         $style = term::Style::of($style);
@@ -193,7 +214,7 @@ pub kind Screen {
                 /* a one-column character on the screen, the common case, is placed here rather
                    than by place() and set(): a frame drawn in full is twelve thousand of these,
                    and each call is a frame of its own */
-                if ($pending_width == 1 && $at >= 1 && $at <= #cols) {
+                if ($pending_width == 1 && $at >= $first && $at <= $last) {
                     $old = #cells[$r][$at - 1];
                     if ($old.width != 1) {
                         #free_half($r, $at - 1, $old);
@@ -201,7 +222,7 @@ pub kind Screen {
                     #cells[$r][$at - 1] = Cell($pending, 1, $style);
                     $at++;
                 } else {
-                    $at = #place($r, $at, $pending, $pending_width, $style);
+                    $at = #place($r, $at, $pending, $pending_width, $style, $first, $last);
                 }
             }
             if ($width == 0) {
@@ -212,27 +233,27 @@ pub kind Screen {
             $pending_width = $width;
         }
         if ($pending != null) {
-            #place($r, $at, $pending, $pending_width, $style);
+            #place($r, $at, $pending, $pending_width, $style, $first, $last);
         }
     }
 
     /*
-     * $char, $width columns wide, at column $at of row index $r in $style, or clipped: gives the
-     * column after it. A wide character that doesn't fit at an edge is a blank in the column it
+     * $char, $width columns wide, at column $at of row index $r in $style, or clipped to columns
+     * $first to $last: gives the column after it. A wide character that doesn't fit at an edge is a blank in the column it
      * has on the screen, in the style, so a styled field keeps its background to its edge.
      */
-    fn place($r, $at, $char, $width, $style) {
+    fn place($r, $at, $char, $width, $style, $first, $last) {
         $end = $at + $width - 1;
-        if ($at >= 1 && $end <= #cols) {
+        if ($at >= $first && $end <= $last) {
             if ($width == WIDE) {
                 #set_wide($r, $at - 1, $char, $style);
             } else {
                 #set($r, $at - 1, Cell($char, 1, $style));
             }
-        } else if ($width == WIDE && $at == #cols) {
+        } else if ($width == WIDE && $at == $last) {
             #set($r, $at - 1, Cell(" ", 1, $style));
-        } else if ($width == WIDE && $end == 1) {
-            #set($r, 0, Cell(" ", 1, $style));
+        } else if ($width == WIDE && $end == $first) {
+            #set($r, $first - 1, Cell(" ", 1, $style));
         }
         return $end + 1;
     }
@@ -312,6 +333,33 @@ pub kind Screen {
             $lines[] = $line;
         }
         return $lines;
+    }
+
+    /**
+     * The text inside $rect (clipped to the screen) as a list of its rows, for a test to read
+     * without slicing bytes: by cells, so a wide character is there once and a continuation never
+     * (a wide character cut in two by the Rect's left edge is left out, and one cut by its right
+     * edge is kept whole), and without the blanks at the end of each row. A box's edges are
+     * text like any other.
+     */
+    pub fn text($rect) {
+        $inside = $rect.within(#bounds());
+        $rows = [];
+        for ($i = 0; $i < $inside.height; $i++) {
+            $line = "";
+            foreach (slice(#cells[$inside.row + $i - 1], $inside.col - 1, $inside.width) as $cell) {
+                $line ..= $cell.character;
+            }
+            $rows[] = trim_end($line);
+        }
+        return $rows;
+    }
+
+    /**
+     * A Pane on $rect: what a part of the screen is given to draw in, never leaving it
+     */
+    pub fn pane($rect) {
+        return Pane(#, $rect);
     }
 
     /**
@@ -503,6 +551,45 @@ pub kind Rect {
     }
 
     /**
+     * The part of it in $outer: where the two overlap, of no size if they don't
+     */
+    pub fn within($outer) {
+        $left = max(#col, $outer.col);
+        $top = max(#row, $outer.row);
+        $right = min(#col + #width, $outer.col + $outer.width);
+        $bottom = min(#row + #height, $outer.row + $outer.height);
+        return Rect($left, $top, max($right - $left, 0), max($bottom - $top, 0));
+    }
+
+    /**
+     * What is left after taking $n columns off its left side (all of them at the most)
+     */
+    pub fn without_left($n) {
+        return #split_left($n)[1];
+    }
+
+    /**
+     * What is left after taking $n columns off its right side
+     */
+    pub fn without_right($n) {
+        return #split_right($n)[0];
+    }
+
+    /**
+     * What is left after taking $n rows off its top
+     */
+    pub fn without_top($n) {
+        return #split_top($n)[1];
+    }
+
+    /**
+     * What is left after taking $n rows off its bottom
+     */
+    pub fn without_bottom($n) {
+        return #split_bottom($n)[0];
+    }
+
+    /**
      * [the first $width columns, the rest]
      */
     pub fn split_left($width) {
@@ -532,6 +619,85 @@ pub kind Rect {
     pub fn split_bottom($height) {
         $bottom = min(max($height, 0), #height);
         return [Rect(#col, #row, #width, #height - $bottom), Rect(#col, #row + #height - $bottom, #width, $bottom)];
+    }
+}
+
+/**
+ * A part of a Screen to draw in, whose edges nothing drawn into it crosses. It has Screen's
+ * drawing methods (put(), fill(), cursor(), bounds(), cols, rows, pane()), but counted from its
+ * own top left, (1, 1), so a view given a Pane draws as it would into a whole Screen of that
+ * size: `$pane = $screen.pane($rect); $view.draw($pane, $pane.bounds());`. The drawing functions
+ * (label(), box(), table(), ...) and the widgets' draw() only call those methods, so they take a
+ * Screen or a Pane alike. Clipping is by columns as the screen's is: a wide character half in
+ * the Pane is a blank in the half that is.
+ */
+pub kind Pane {
+    #screen;
+    #rect;
+
+    /**
+     * Its width in columns
+     */
+    pub #cols;
+
+    /**
+     * Its height in rows
+     */
+    pub #rows;
+
+    /**
+     * The part of $screen (a Screen) in $rect, in the screen's own columns and rows; what of
+     * $rect is off the screen is not in the Pane
+     */
+    fn _($screen, $rect) {
+        #screen = $screen;
+        #rect = $rect.within($screen.bounds());
+        #cols = #rect.width;
+        #rows = #rect.height;
+    }
+
+    /**
+     * All of it as a Rect, (1, 1) to its size, for a view to cut up
+     */
+    pub fn bounds() {
+        return Rect(1, 1, #rect.width, #rect.height);
+    }
+
+    /**
+     * $text from column $col of row $row, counted from the Pane's top left, as Screen.put() draws
+     * it, and clipped to the Pane
+     */
+    pub fn put($col, $row, $text, $style = "") {
+        #screen.put_in(#rect, #rect.col + $col - 1, #rect.row + $row - 1, $text, $style);
+    }
+
+    /**
+     * $rect (the Pane's own columns and rows) filled as Screen.fill() fills, clipped to the Pane
+     */
+    pub fn fill($rect, $char = " ", $style = "") {
+        #screen.fill(#absolute($rect).within(#rect), $char, $style);
+    }
+
+    /**
+     * Where the terminal's cursor goes: column $col of row $row of the Pane. A place outside the
+     * Pane is not set, so the cursor stays where it was.
+     */
+    pub fn cursor($col, $row) {
+        if ($col >= 1 && $col <= #rect.width && $row >= 1 && $row <= #rect.height) {
+            #screen.cursor(#rect.col + $col - 1, #rect.row + $row - 1);
+        }
+    }
+
+    /**
+     * A Pane on $rect (this Pane's own columns and rows), which is inside this one
+     */
+    pub fn pane($rect) {
+        return Pane(#screen, #absolute($rect).within(#rect));
+    }
+
+    /* $rect, counted from the Pane's top left, in the screen's columns and rows */
+    fn absolute($rect) {
+        return Rect(#rect.col + $rect.col - 1, #rect.row + $rect.row - 1, $rect.width, $rect.height);
     }
 }
 
@@ -875,7 +1041,7 @@ pub fn key_help($screen, $groups, $title = "Keys") {
             label($screen, $at, $line.what(), "bold");
         } else {
             [$keys, $rest] = $at.split_left($keys_width);
-            [, $what] = $rest.split_left(HELP_GAP);
+            $what = $rest.without_left(HELP_GAP);
             label($screen, $keys, $line.keys(), "cyan");
             label($screen, $what, $line.what());
         }
@@ -1141,7 +1307,7 @@ pub kind Table {
             $text = fitted(to_string($header) .. $mark, $widths[$i], #numeric[$i]);
             [$cell, $rest] = $rest.split_left($widths[$i]);
             label($screen, $cell, $text, #column == $i ? "bold underline" : "bold");
-            [, $rest] = $rest.split_left(#COLUMN_GAP);
+            $rest = $rest.without_left(#COLUMN_GAP);
         }
 
         $style_of = #style_of;

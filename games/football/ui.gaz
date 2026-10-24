@@ -516,12 +516,12 @@ pub kind TacticsView extends GameView {
             $names = map(filter($club.eleven(), $p -> $p.position() == $position), $p -> $p.number .. " " .. $p);
             tui::label($screen, $rect.line($i * 2), join($names, "   "), match ($position) { "GK" => "yellow", "DF" => "blue", "MF" => "green", default => "red" }, "center");
         }
-        [, $settings] = $rect.split_top(#PITCH_ROWS);
+        $settings = $rect.without_top(#PITCH_ROWS);
         foreach (#settings() as $i => $setting) {
             $selected = $i == #row;
             $line = $settings.line($i * #ROWS_A_SETTING);
             tui::label($screen, $line, ($selected ? "▸ " : "  ") .. pad_right($setting.name, 10) .. "◂ " .. $setting.value .. " ▸", $selected && $focused ? "bold cyan" : ($selected ? "bold" : ""));
-            [, $effect] = $settings.line($i * #ROWS_A_SETTING + 1).split_left(2);
+            $effect = $settings.line($i * #ROWS_A_SETTING + 1).without_left(2);
             tui::label($screen, $effect, $setting.effect, "dim");
         }
         if (#game.live != null) {
@@ -792,8 +792,8 @@ pub kind MatchView extends GameView {
     /* The substitution being chosen: the question, then the players to choose from with the cursor on one */
     fn draw_choice($screen, $rect, $club) {
         tui::label($screen, $rect.line(0), #off == null ? "Substitution ({$club.substitutions} of 3 used): who goes off?" : "Who comes on for {#off}?", "bold cyan");
-        [, $below] = $rect.split_top(1);
-        [, $list] = $below.split_left(2);
+        $below = $rect.without_top(1);
+        $list = $below.without_left(2);
         foreach (slice(#candidates(), 0, $list.height) as $i => $player) {
             tui::label($screen, $list.line($i), ($i == #cursor ? "▸ " : "  ") .. $player.profile() .. ($player.status() == "" ? "" : "  " .. $player.status()), $i == #cursor ? "bold cyan" : "");
         }
@@ -816,11 +816,11 @@ pub kind MatchView extends GameView {
 
     // The other matches of the matchday, in full where they fit and by the clubs' short names where not
     fn draw_others($screen, $rect, $day, $mine) {
-        [, $inner] = $rect.split_left(2);
+        $inner = $rect.without_left(2);
         tui::label($screen, $inner.line(0), "Other matches", "bold");
         $others = filter($day.matches, $match -> $match != $mine);
         $fits = reduce($others, ($fits, $match) -> $fits && term::width(to_string($match)) <= $inner.width, true);
-        [, $list] = $inner.split_top(2);
+        $list = $inner.without_top(2);
         foreach (slice($others, 0, $list.height) as $i => $match) {
             tui::label($screen, $list.line($i), $fits ? to_string($match) : short_result($match));
         }
@@ -916,7 +916,7 @@ pub kind Shell {
             $shown = $i == #current && !$live;
             tui::label($screen, $inside.line($i), " " .. ($i + 1) .. " " .. $section.name, $live ? "dim" : ($shown ? ($in_menu ? "inverse" : "bold") : ""));
         }
-        [, $below] = $inside.split_top(len(#sections) + 1);
+        $below = $inside.without_top(len(#sections) + 1);
         #draw_board($screen, $below);
 
         $view = #current_view();
@@ -934,7 +934,7 @@ pub kind Shell {
         $screen.fill($rect, " ", "inverse");
         [$club, $rest] = $rect.split_left(term::width(#game.club.name) + 2);
         [$rest, $next] = $rest.split_right(#NEXT_WIDTH);
-        [, $status] = $rest.split_left(1);
+        $status = $rest.without_left(1);
         tui::label($screen, $club, " " .. #game.club.name, "bold inverse");
         tui::label($screen, $status, #status(), "inverse", "center");
         $key = match {

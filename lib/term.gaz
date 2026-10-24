@@ -1156,12 +1156,48 @@ pub kind Input {
 
     // The script gaz --tty was given, read the first time it is asked for
     fn script() {
-        #keys ??= Script::parse(read_stdin());
+        if (#keys == null) {
+            #keys = Script::parse_or_exit(read_stdin());
+        }
         return #keys;
     }
 }
 
 // ---- The keys gaz --tty is given --------------------------------------------------------------
+
+/**
+ * The key a word of gaz --tty's script names, as Input.read() gives it, for a test to hand to a
+ * widget's handle(): key("j"), key("enter"), key("ctrl+c"), key("shift+tab"), key("page_up"), a
+ * mouse report (key("mouse left press 10 5")) or a paste (key("paste \"text\"")). Exactly one
+ * key; several are keys()'s. A word that is no key is an error with the message --tty gives.
+ */
+pub fn key($name) {
+    $keys = keys($name);
+    if (len($keys) != 1) {
+        throw "term::key() takes one key, and " .. quote($name) .. " is " .. len($keys) .. ": write keys() for a script of several";
+    }
+    return $keys[0];
+}
+
+/**
+ * The list of keys a whole script of gaz --tty's words gives, for a test to hand to a widget one
+ * after another: keys("j j enter"), text in double quotes typed a character at a time
+ * (keys("\"hello\" enter")), `paste "..."` and `mouse BUTTON ACTION COL ROW`. `snap`, `wait
+ * SECONDS` and `resize COLSxROWS` are commands of gaz --tty, not keys, and are an error here
+ * rather than skipped: a test that wrote one expects something to happen at it, and nothing
+ * would. A mistake is an error with the message --tty gives for it.
+ */
+pub fn keys($script) {
+    $keys = [];
+    foreach (Script::parse($script).all() as $step) {
+        if ($step.action != "press") {
+            throw "'" .. $step.word .. "' is no key: it is a command of gaz --tty. A test reads a screen with Screen.lines() or Screen.text(), "
+                .. "waits by calling the program's own tick, and resizes with Screen.resize()";
+        }
+        $keys[] = $step.key;
+    }
+    return $keys;
+}
 
 // The names a key can have beyond the character it types, as decode() gives them
 const KEY_NAMES = [
@@ -1200,6 +1236,16 @@ kind Script {
     #waited = 0;    // how much of the wait at #at has passed
     #done = [];
 
+    /* The script in $text; a mistake in it ends the program as gaz --tty's usage error (exit 2) */
+    pub static fn parse_or_exit($text) {
+        try {
+            return Script::parse($text);
+        } catch (Error $e) {
+            print_error("Error: gaz --tty: " .. $e.message .. "\n");
+            exit(2);
+        }
+    }
+
     pub static fn parse($text) {
         $script = Script();
         $words = words($text);
@@ -1236,6 +1282,11 @@ kind Script {
 
     fn add($step) {
         #steps[] = $step;
+    }
+
+    /* Every step, in order */
+    pub fn all() {
+        return #steps;
     }
 
     /*
@@ -1448,8 +1499,11 @@ fn unknown_word($word) {
         .. "a key is a character or " .. join(KEY_NAMES, " ") .. ", after ctrl+ alt+ or shift+ if held)";
 }
 
-/* A mistake in the keys gaz --tty was given: the user's, not the program's, so no trace, and the exit a usage error has */
+/*
+ * A mistake in the keys of a script: thrown as the message alone, which gaz --tty prints after
+ * its own name with the exit a usage error has (Script::parse_or_exit()), and which a program
+ * calling key() or keys() can catch
+ */
 fn refuse($message) {
-    print_error("Error: gaz --tty: " .. $message .. "\n");
-    exit(2);
+    throw $message;
 }

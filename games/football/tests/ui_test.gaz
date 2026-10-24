@@ -17,10 +17,10 @@ fn count_where($list, $test) {
     return len(filter($list, $test));
 }
 
-/* Press keys, given as the bytes a terminal sends, and give what the shell said last */
-fn press($shell, $bytes) {
+/* Press the keys of a gaz --tty script ("j enter"), and give what the shell said last */
+fn press($shell, $script) {
     $said = null;
-    foreach (term::decode($bytes, true)["keys"] as $key) {
+    foreach (term::keys($script) as $key) {
         $said = $shell.handle($key) ?? $said;
     }
     return $said;
@@ -171,17 +171,17 @@ press($shell, "1");
 expect("1 is back at the inbox", $shell.section(), "Inbox");
 
 /* ---- Where the keys go ---- */
-expect("tab moves to the section", [press($shell, "\t"), $shell.focus()], [null, "content"]);
+expect("tab moves to the section", [press($shell, "tab"), $shell.focus()], [null, "content"]);
 $screen = look($shell);
 expect("and the section's border shows it", [$screen.cell(17, 2).style.spec, $screen.cell(1, 2).style.spec], ["cyan", ""]);
-press($shell, "\t");
+press($shell, "tab");
 expect("tab again is back to the menu", $shell.focus(), "menu");
 press($shell, "j");
 expect("j in the menu is the next section", $shell.section(), "Squad");
-press($shell, "\e[B");
+press($shell, "down");
 expect("as is the down arrow", $shell.section(), "Tactics");
 press($shell, "k");
-press($shell, "\e[A");
+press($shell, "up");
 expect("k and up go back", $shell.section(), "Inbox");
 press($shell, "k");
 expect("and stop at the first", $shell.section(), "Inbox");
@@ -190,12 +190,12 @@ foreach ([1, 2, 3, 4, 5, 6, 7, 8] as $_) {
 }
 expect("and at the last", $shell.section(), "Transfers");
 press($shell, "1");
-press($shell, "\r");
+press($shell, "enter");
 expect("enter goes into the section", $shell.focus(), "content");
-press($shell, "\e");
+press($shell, "escape");
 expect("escape comes back out", $shell.focus(), "menu");
 press($shell, "2");
-press($shell, "\t");
+press($shell, "tab");
 $screen = look($shell);
 expect("in the squad, the first player is selected", [$screen.cell(19, 4).style.spec, $screen.cell(19, 5).style.spec], ["inverse", ""]);
 press($shell, "j");
@@ -204,7 +204,7 @@ expect("j moves down the squad, not the menu", [$shell.section(), $screen.cell(1
 press($shell, ".");
 $screen = look($shell);
 expect("and . sorts it", shows($screen, "#▲"), true);
-press($shell, "\e");
+press($shell, "escape");
 press($shell, "5");
 expect("keys in the menu don't touch the sections", $shell.section(), "Table");
 
@@ -215,7 +215,7 @@ fn on_the_squad($seed) {
     $game = Game::start($seed);
     $shell = Shell::for_game($game);
     press($shell, "2");
-    press($shell, "\t");
+    press($shell, "tab");
     return [$game, $shell];
 }
 
@@ -224,7 +224,7 @@ fn enter_at($shell, $from, $to) {
     for ($i = $from; $i != $to; $i += $to > $from ? 1 : -1) {
         press($shell, $to > $from ? "j" : "k");
     }
-    press($shell, "\r");
+    press($shell, "enter");
 }
 
 /* Which row of the table, from 0, the first reserve who isn't a goalkeeper is on, and who he is */
@@ -244,11 +244,11 @@ expect("the eleven's names come before the bench's", row_of($screen, to_string($
 expect("with the formation and the rating below, and the help for picking", [shows($screen, $club.formation() .. "   Team rating {$club.rating()}"), shows($screen, "Enter picks a player to swap")], [true, true]);
 
 $first = $club.eleven()[0];
-press($squad_shell, "\r");
+press($squad_shell, "enter");
 $screen = look($squad_shell);
 expect("enter picks the selected player: marked, and the help says who to swap with", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Swap {$first} with:")], [true, true]);
 expect("in colour", contains(style_at($screen, row_of($screen, "▸ ", 3), "▸ ") ?? "", "cyan"), true);
-press($squad_shell, "\r");
+press($squad_shell, "enter");
 $screen = look($squad_shell);
 expect("enter again puts him down, and says nothing about it", [shows($screen, "▸ " .. to_string($first)), shows($screen, "Enter picks a player"), $squad_shell.notice()], [false, true, ""]);
 
@@ -312,14 +312,14 @@ press($shell, "o");
 $screen = look($shell);
 expect("sorted by rating, the best player is at the top", [trim($screen.lines()[2]) != "", contains($screen.lines()[3], to_string($highest))], [true, true]);
 press($shell, "g");
-press($shell, "\r");
+press($shell, "enter");
 $screen = look($shell);
 expect("and enter on the top row picks the player on that row, not the one who was there before the sort", [shows($screen, "▸ " .. to_string($highest)), count_where($club.players, $p -> shows($screen, "▸ " .. to_string($p)))], [true, 1]);
 
 /* the match shows who is playing: the eleven, and a substitute for an injured player */
 [$game, $shell] = on_the_squad(2);
 $club = $game.club;
-press($shell, "\e");
+press($shell, "escape");
 press($shell, "c");
 $day = $game.live;
 for ($minute = 1; $minute <= 20; $minute++) {
@@ -436,12 +436,12 @@ $screen = look($shell, 100, 60);
 expect("at forty-five it is half time", [$day.clock(), contains($screen.lines()[2], "45'"), shows($screen, "Half time")], [45, true, true]);
 expect("and every match has got there", count_where($day.matches, $m -> $m.elapsed == 45), len($day.matches));
 
-press($shell, " ");
+press($shell, "space");
 $shell.tick();
 $shell.tick();
 $screen = look($shell);
 expect("paused, time stops", [$day.clock(), contains($screen.lines()[2], "Paused")], [45, true]);
-press($shell, " ");
+press($shell, "space");
 $shell.tick();
 expect("and space starts it again", $day.clock(), 46);
 
@@ -484,10 +484,10 @@ expect("q doesn't quit", [press($other, "q"), $other.notice()], [null, "Finish t
 expect("nor c continue: the match isn't over", [press($other, "c"), $other.notice(), $other_game.live != null], [null, "The match isn't over: s skips to the end", true]);
 $before = $other.section();
 press($other, "3");
-press($other, "\t");
-press($other, "\e[B");
+press($other, "tab");
+press($other, "down");
 expect("and the sections stay where they were", $other.section(), $before);
-expect("ctrl+c does quit", press($other, "\x03"), "quit");
+expect("ctrl+c does quit", press($other, "ctrl+c"), "quit");
 expect("and so does the end of the input", $other.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
 
 /* skipping */
@@ -500,12 +500,12 @@ expect("and it is full time, and nothing is in the table yet", [contains($screen
 /* going on: and the next matchday starts afresh, whatever speed and pause this one ended at */
 press($shell, "+");
 press($shell, "+");
-press($shell, " ");
+press($shell, "space");
 press($shell, "c");
 expect("c at full time goes on to the inbox", [$game.live, $game.league.matchdays_played(), $shell.section(), len($game.inbox)], [null, 1, "Inbox", len($game.inbox)]);
 $screen = look($shell);
 expect("with the results", [shows($screen, "Matchday 1 results"), contains($screen.lines()[0], "Matchday 1 of 38")], [true, true]);
-press($other, "\r");
+press($other, "enter");
 expect("enter does the same", [$other_game.live, $other.section()], [null, "Inbox"]);
 press($shell, "c");
 $shell.tick();
@@ -550,7 +550,7 @@ expect("goals are green for the club and red against, cards yellow and red, ever
 $game = Game::start(6);
 $shell = Shell::for_game($game);
 press($shell, "3");
-press($shell, "\t");
+press($shell, "tab");
 $club = $game.club;
 $screen = look($shell);
 $keeper = filter($club.eleven(), $p -> $p.position() == "GK")[0];
@@ -583,7 +583,7 @@ expect("intensity too", [$club.intensity, $shell.notice(), shows($screen, "High"
 press($shell, "j");
 press($shell, "h");
 expect("j stops at the last setting", $club.intensity, 1);
-press($shell, "\x1b");
+press($shell, "escape");
 expect("escape goes back to the menu", $shell.focus(), "menu");
 
 /* ---- Tactics and substitutions in a match ---- */
@@ -627,7 +627,7 @@ press($shell, "j");
 $off = $club.eleven()[1];
 $screen = look($shell);
 expect("j moves it", contains($screen.lines()[row_of($screen, $off.profile()) - 1], "▸"), true);
-press($shell, "\x1b");
+press($shell, "escape");
 $screen = look($shell);
 expect("escape cancels: nothing changed, and time runs again", [$club.substitutions, shows($screen, "who goes off?")], [0, false]);
 $shell.tick();
@@ -635,14 +635,14 @@ expect("the clock is going", $day.clock() > $clock, true);
 
 press($shell, "w");
 press($shell, "j");
-press($shell, "\r");
+press($shell, "enter");
 $screen = look($shell);
 $off = $club.eleven()[1];
 expect("enter chooses who goes off, and then who comes on", [shows($screen, "Who comes on for {$off}?")], [true]);
 $options = $club.substitutes($off);
 expect("the choices are the bench who can play", count_where($options, $p -> shows($screen, $p.profile())), len($options));
 $on = $options[0];
-press($shell, "\r");
+press($shell, "enter");
 expect("enter makes the change, and says so", [in_array($on, $club.eleven()), in_array($off, $club.eleven()), $club.substitutions, $shell.notice()], [true, false, 1, "{$on} on for {$off}"]);
 expect("and the commentary has it", shows(look($shell), "Substitution for {$club}: {$on} replaces {$off}"), true);
 $shell.tick();
@@ -651,8 +651,8 @@ expect("and the clock goes on", $day.clock() > $clock, true);
 /* the limit */
 foreach ([2, 3] as $again) {
     press($shell, "w");
-    press($shell, "\r");
-    press($shell, "\r");
+    press($shell, "enter");
+    press($shell, "enter");
 }
 expect("three in all", $club.substitutions, 3);
 press($shell, "w");
@@ -671,7 +671,7 @@ expect("C plays a matchday without watching it", [$quick_game.live, $quick_game.
 /* ---- Leaving ---- */
 $shell = Shell::for_game(Game::start(1));
 expect("q quits", press($shell, "q"), "quit");
-expect("so does ctrl+c", press($shell, "\x03"), "quit");
+expect("so does ctrl+c", press($shell, "ctrl+c"), "quit");
 expect("and the end of the input", $shell.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), "quit");
 expect("other keys don't", [press($shell, "j"), press($shell, "x"), press($shell, "z")], [null, null, null]);
 
@@ -702,7 +702,7 @@ expect("after a matchday the books have entries: television and wages, in green 
 expect("and the balance is what the ledger says", $club.balance, money::starting_balance($club) + sum(map($game.ledger, $e -> $e["amount"])));
 
 press($shell, "7");
-press($shell, "\t");
+press($shell, "tab");
 $screen = look($shell);
 $offer = $game.market()[0];
 expect("the market lists the best players at other clubs, with prices", [shows($screen, to_string($offer[0])), shows($screen, to_string($offer[1])), shows($screen, money::pounds(money::price($offer[0])))], [true, true, true]);
@@ -720,7 +720,7 @@ for ($i = 0; $i < $where; $i++) {
     press($shell, "j");
 }
 $owner_balance = $offer[1].balance;
-press($shell, "\r");
+press($shell, "enter");
 expect("enter buys the one picked: he is in the squad, and paid for", [in_array($offer[0], $club.players), in_array($offer[0], $offer[1].players), $club.balance, $offer[1].balance, $shell.notice()], [true, false, 100000000 - money::price($offer[0]), $owner_balance + money::price($offer[0]), "Signed {$offer[0]}"]);
 expect("with the news in the inbox, and the ledger", [$game.inbox[len($game.inbox) - 1]["subject"], $game.ledger[len($game.ledger) - 1]["text"]], ["Signed: {$offer[0]}", "Signed {$offer[0]}"]);
 press($shell, "t");
@@ -738,11 +738,11 @@ for ($i = 0; $i < $at; $i++) {
     press($shell, "j");
 }
 $before = $club.balance;
-press($shell, "\r");
+press($shell, "enter");
 expect("enter sells the one picked, for what the squad list said", [in_array($leaving, $club.players), len($club.players), $club.balance, $shell.notice()], [false, 17, $before + money::sale_price($leaving), "Sold {$leaving}"]);
 $club.balance = 0;
 press($shell, "t");
-press($shell, "\r");
+press($shell, "enter");
 expect("a player too dear is refused, saying why, and nothing changes", [starts_with($shell.notice(), "You can't afford"), len($club.players), $club.balance], [true, 17, 0]);
 
 /* ---- Saving, and the next season ---- */
@@ -786,7 +786,7 @@ $ninth = $game.league.table()[19].team.name;
 $eighth = $game.league.table()[18].team.name;
 $seventh = $game.league.table()[17].team.name;
 expect("the last two are red, the one above is not", [style_at($screen, row_of($screen, $ninth, 3), $ninth), style_at($screen, row_of($screen, $eighth, 3), $eighth), style_at($screen, row_of($screen, $seventh, 3), $seventh)], [$ninth == $game.club.name ? "bold cyan" : "red", $eighth == $game.club.name ? "bold cyan" : "red", $seventh == $game.club.name ? "bold cyan" : ""]);
-press($shell, "\t");
+press($shell, "tab");
 press($shell, "d");
 $screen = look($shell);
 $other = $game.other_league.table();
@@ -819,10 +819,10 @@ foreach ($game.club.eleven() as $i => $p) {
         }
     }
 }
-press($shell, "\r");
+press($shell, "enter");
 $screen = look($shell);
 expect("with only injured players and a goalkeeper on the bench, choosing an outfielder to take off says why instead of showing an empty list", [contains($shell.notice(), "Nobody on the bench can come on for {$outfielder}"), shows($screen, "who goes off?"), shows($screen, "Who comes on for")], [true, true, false]);
-press($shell, "\x1b");
+press($shell, "escape");
 press($shell, "w");
 $keeper = filter($game.club.eleven(), $p -> $p.position() == "GK")[0];
 expect("but a goalkeeper can be replaced by the one on the bench", [len($game.club.substitutes($keeper)) > 0], [true]);
@@ -842,13 +842,13 @@ expect("the bar shows the day of the match", [contains(look($shell).lines()[0], 
 press($shell, "s");
 press($shell, "c");
 press($shell, "7");
-press($shell, "\t");
+press($shell, "tab");
 $game.club.balance = 1000000000;
 $game.date = date::days(2026, 9, 15);
-press($shell, "\r");
+press($shell, "enter");
 expect("in September a signing is refused, and the note says when the window opens", $shell.notice(), "The transfer window is closed until 1 January");
 $game.date = date::days(2027, 1, 5);
-press($shell, "\r");
+press($shell, "enter");
 expect("in January it goes through", starts_with($shell.notice(), "Signed "), true);
 
 /* ---- Contracts on screen ---- */
@@ -858,7 +858,7 @@ $club = $game.club;
 press($shell, "2");
 $screen = look($shell);
 expect("the squad has a Contract column, with the year each one runs to", [shows($screen, "Contract"), count_where($club.eleven(), $p -> contains($screen.lines()[row_of($screen, to_string($p), 3) - 1], "" .. date::year($p.contract_until))) == 11], [true, true]);
-press($shell, "\t");
+press($shell, "tab");
 $row_player = $club.eleven()[0];
 $row_player.contract_until = date::days(2027, 6, 30);
 $club.balance = 1000000000;

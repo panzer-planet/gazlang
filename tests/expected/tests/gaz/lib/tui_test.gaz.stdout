@@ -188,6 +188,40 @@ ok rect: splitting off less than nothing takes nothing
 ok rect: the halves make the whole
 ok rect: a screen's bounds
 ok rect: a sidebar and the rest
+ok rect: without_left
+ok rect: without_right
+ok rect: without_top
+ok rect: without_bottom
+ok rect: without more than there is leaves nothing
+ok rect: without nothing, or less, leaves it all
+ok rect: within is where two overlap
+ok rect: within what it doesn't touch is empty
+ok text: the rows of a Rect, box edges and all
+ok text: trailing blanks are trimmed, inside the Rect and out
+ok text: a wide character once, and no continuation
+ok text: a wide character cut by the left edge is left out, by the right edge kept
+ok text: styled blanks are blank
+ok text: clipped to the screen
+ok text: a Rect with no size has no rows
+ok text: lines() stays, a row of the screen's width in cells
+ok pane: its size and its bounds start at 1, 1
+ok pane: put is counted from its top left
+ok pane: text past its right edge is cut
+ok pane: text before its left edge is cut
+ok pane: nothing above or below it
+ok pane: nor wholly right or left of it
+ok pane: a wide character half out is a blank in the half in, and the cell outside is untouched
+ok pane: wide characters whole inside are drawn whole, the one at the right edge is a blank
+ok pane: fill is clipped to it
+ok pane: fill partly outside
+ok pane: the cursor is counted from its top left
+ok pane: a cursor outside it is not set
+ok pane: a pane in a pane is inside it
+ok pane: and clips to both
+ok pane: what is off the screen is not in it
+ok pane: the drawing functions take it
+ok pane: a label fills its own Rect only, so two on one row need a split
+ok pane: a widget draws into it
 ok table: header and rows
 ok table: the header is bold
 ok table: the selected row is inverse

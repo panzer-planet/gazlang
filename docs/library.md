@@ -443,6 +443,15 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
     press 10 5`, since neither is a key a word could name, and `focus_in` and `focus_out` as keys.
     Tested in `term_test.gaz`, every shape with its cut-across-reads case, and by `CliTest`
     running `tests/corpora/cli/tty_events.gaz`.
+  - **`term::key($word)` and `term::keys($script)` are the script's parser made public**, so a
+    test says `$table.handle(term::key("j"))` and `term::keys("j j enter")` where it wrote the
+    bytes a terminal sends (`"\e[B"`) and decoded them. The same `Script::parse()` runs under
+    `gaz --tty`, so a test and a script can't disagree about what a word means. A mistake is
+    thrown as the message alone (`refuse()`); `--tty` prints it after `Error: gaz --tty: ` and exits
+    2 (`Script::parse_or_exit()`), a test's `throws()` matches it. **`keys()` refuses `snap`,
+    `wait` and `resize`** rather than skip them: a test that wrote one expects something at that
+    point, and a silent skip would hide that nothing happened; the message says what to use
+    (`Screen.text()`, the program's own tick, `Screen.resize()`).
 - Random numbers: `xoshiro256**` through SplitMix64, as PHP's `Xoshiro256StarStar` does; the range
   mapping is `random_between()`, pinned for several seeds by `StdlibTest` against an independent
   port. The state is per program, reseeded by `run_program()`, since the compiler runs first.
@@ -672,6 +681,20 @@ behind them:
     `Rect`'s edges and `inset()` is their inside. No compatibility twins: a program written to the
     column shapes changes, as there is no compatibility promise yet and two spellings of one thing
     is the first thing a style guide would have to settle.
+  - **`Screen.put()` clips to the screen; a `Pane` clips to a `Rect`.** A view that is given a small
+    `Rect` of the screen used to be able to draw over its neighbour (the style review's status
+    label erased by the hints drawn after it on the same `Rect`). `Pane` is the smallest honest
+    answer: `$screen.pane($rect)` has the methods the drawing functions call (`put`, `fill`,
+    `cursor`, `bounds`, `cols`, `rows`), counted from its own top left, and clips by the same rule
+    as the screen (`Screen.put_in()` is `put()` with the clip a Rect, sharing its code and
+    `place()`'s wide-character rule). **The drawing functions take either, by what they call, not
+    by a check**: a `Pane` only for them would make every caller wrap a whole screen, and a
+    `Screen` only would leave the clip to each widget; a view drawn into a `Pane` is told so by its
+    `Rect` being `$pane.bounds()`. Nothing drawn into a `Pane` leaves it. `label()` fills the
+    `Rect` it is given, so two labels on one `Rect` are the second erasing the first: that is a
+    split's job (`without_left()` and the others cut the rest), and a `Pane` doesn't change it.
+    `Screen.text($rect)` is `lines()` for a part of the screen, by cells (a wide character once, a
+    continuation never) with the blanks at the end trimmed.
   - **A widget's `handle()` answers with `tui::Outcome`** (`Select`, `Cancel`, `Submit`) or `null`,
     not `"select"`: a misspelt `"cancle"` in a caller was silently never matched, and an enum case
     is checked when the program is read (`tui.gaz` predates enums). `null` stays "the widget dealt

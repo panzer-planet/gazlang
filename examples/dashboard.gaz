@@ -69,7 +69,7 @@ fn draw_board(tui::Screen $screen, Board $board): null {
 // One task on $line: its name, then its progress bar in the rest of the row
 fn draw_task(tui::Screen $screen, tui::Rect $line, Task $task, bool $selected): null {
     [$name, $rest] = $line.split_left(NAME_WIDTH);
-    [, $bar] = $rest.split_left(GAP);
+    $bar = $rest.without_left(GAP);
     $marker = $selected ? "> " : "  ";
     tui::label($screen, $name, $marker .. $task.name, $selected ? "bold" : "");
     tui::progress($screen, $bar, $task.progress(), $selected ? "cyan" : "blue");

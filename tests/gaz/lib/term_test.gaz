@@ -203,3 +203,34 @@ throws("enable: a keys option that isn't one", () -> term::enable({"keys" => "xt
 throws("fullscreen checks its options before it needs a terminal", () -> term::fullscreen(() -> null, {"focus" => "always"}), "term: option \"focus\" is true or false");
 expect("cursor shapes", [term::cursor_block(), term::cursor_block(true), term::cursor_underline(), term::cursor_underline(true), term::cursor_bar(), term::cursor_bar(true), term::cursor_default()], ["\e[2 q", "\e[1 q", "\e[4 q", "\e[3 q", "\e[6 q", "\e[5 q", "\e[0 q"]);
 expect("an Input with its own escape wait", kind_of(term::Input(0.2)), term::Input);
+
+// The keys a gaz --tty script's words name
+expect("key: a character", term::key("j"), term::decode("j")["keys"][0]);
+expect("key: a capital, a digit and a punctuation mark", [term::name(term::key("J")), term::name(term::key("2")), term::name(term::key("+")), term::name(term::key("."))], ["J", "2", "+", "."]);
+expect("key: a named key", term::name(term::key("enter")), "enter");
+expect("key: as decode gives it", [term::key("enter"), term::key("page_up"), term::key("f5"), term::key("space")], [term::decode("\r")["keys"][0], term::decode("\e[5~")["keys"][0], term::decode("\e[15~")["keys"][0], term::decode(" ")["keys"][0]]);
+expect("key: with modifiers", [term::key("ctrl+c"), term::key("alt+x"), term::key("shift+tab"), term::key("ctrl+alt+up")], [term::decode("\x03")["keys"][0], term::decode("\ex")["keys"][0], term::decode("\e[Z")["keys"][0], term::decode("\e[1;7A")["keys"][0]]);
+expect("key: a modified plus", term::name(term::key("ctrl++")), "ctrl++");
+expect("key: a quoted character", term::name(term::key("\"é\"")), "é");
+expect("key: a mouse report", term::key("mouse left press 10 5"), term::decode("\e[<0;10;5M")["keys"][0]);
+expect("key: a paste", term::key("paste \"two words\"")["text"], "two words");
+expect("keys: several, in order", join(map(term::keys("j down  ctrl+c\nenter"), $k -> term::name($k)), " "), "j down ctrl+c enter");
+expect("keys: text typed a character at a time", join(map(term::keys("\"héy\" enter"), $k -> term::name($k)), " "), "h é y enter");
+expect("keys: a space, a newline and a quote typed", join(map(term::keys("\"a b\\\"\""), $k -> term::name($k)), "|"), "a|space|b|\"");
+expect("keys: a word that is a command's name, typed", join(map(term::keys("\"snap\""), $k -> term::name($k)), ""), "snap");
+expect("keys: a paste and a mouse report among keys", join(map(term::keys("a paste \"x\" mouse right release 3 4 b"), $k -> term::name($k)), " "), "a paste mouse b");
+expect("keys: none", term::keys("  "), []);
+$refusal = "no key is called \"entr\" (text to type goes in double quotes: \"...\"; a key is a character or enter tab backspace space escape up down left right home end insert delete page_up page_down f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 focus_in focus_out, after ctrl+ alt+ or shift+ if held)";
+throws("key: a word that is no key, in --tty's words", () -> term::key("entr"), $refusal);
+throws("keys: the same, among good ones", () -> term::keys("j entr enter"), $refusal);
+throws("key: a modifier that isn't one", () -> term::key("super+x"), "no key is called \"super+x\" (text to type goes in double quotes: \"...\"; a key is a character or enter tab backspace space escape up down left right home end insert delete page_up page_down f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 focus_in focus_out, after ctrl+ alt+ or shift+ if held)");
+throws("keys: a quote never closed", () -> term::keys("\"abc"), "a quote in the keys is never closed");
+throws("keys: a mouse report that isn't one", () -> term::keys("mouse left press 0 5"), "'mouse left press 0 5' isn't a mouse report: 'mouse' needs a button, an action, a column and a row after it (mouse left press 10 5): left, middle, right or none, after ctrl+ alt+ or shift+ if held; press, release, drag, move, scroll_up or scroll_down; and the column and the row, from 1");
+throws("keys: a paste without text", () -> term::keys("paste"), "'paste' needs its text in double quotes after it: paste \"...\"");
+$command = "is no key: it is a command of gaz --tty. A test reads a screen with Screen.lines() or Screen.text(), waits by calling the program's own tick, and resizes with Screen.resize()";
+throws("keys: snap is a command, not a key", () -> term::keys("j snap"), "'snap' " .. $command);
+throws("keys: nor is wait", () -> term::keys("wait 0.5 j"), "'wait 0.5' " .. $command);
+throws("keys: nor resize", () -> term::keys("resize 80x24"), "'resize 80x24' " .. $command);
+throws("keys: a wait without its seconds is --tty's own error", () -> term::keys("wait"), "'wait' needs a number of seconds after it, 0 or more");
+throws("key: none", () -> term::key(""), "term::key() takes one key, and \"\" is 0: write keys() for a script of several");
+throws("key: two", () -> term::key("j k"), "term::key() takes one key, and \"j k\" is 2: write keys() for a script of several");

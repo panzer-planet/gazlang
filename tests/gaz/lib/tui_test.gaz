@@ -10,10 +10,10 @@ fn trim_end_of($line) {
     return $line;
 }
 
-/* Type $bytes at $widget, key by key, and give what its handle() said last that wasn't null */
-fn press($widget, $bytes) {
+/* Press the keys of a gaz --tty script ("j enter") at $widget, and give what its handle() said last that wasn't null */
+fn press($widget, $script) {
     $said = null;
-    foreach (term::decode($bytes, true)["keys"] as $key) {
+    foreach (term::keys($script) as $key) {
         $said = $widget.handle($key) ?? $said;
     }
     return $said;
@@ -312,29 +312,29 @@ expect("table: no rows", [rows($s), $height], ["x|─||", 2]);
 /* ---- Menu ---- */
 $menu = tui::Menu(["one", "two", "three", "four"], "Pick");
 expect("menu: starts on the first", [$menu.index(), $menu.item()], [0, "one"]);
-expect("menu: down", [press($menu, "\e[B"), $menu.index()], [null, 1]);
+expect("menu: down", [press($menu, "down"), $menu.index()], [null, 1]);
 press($menu, "j");
 expect("menu: j is down too", $menu.index(), 2);
-press($menu, "\e[B\e[B\e[B");
+press($menu, "down down down");
 expect("menu: stops at the last", $menu.index(), 3);
-press($menu, "\e[A");
+press($menu, "up");
 expect("menu: up", $menu.index(), 2);
 press($menu, "k");
 press($menu, "k");
 press($menu, "k");
 expect("menu: stops at the first", $menu.index(), 0);
-press($menu, "\e[F");
+press($menu, "end");
 expect("menu: end", $menu.index(), 3);
-press($menu, "\e[H");
+press($menu, "home");
 expect("menu: home", $menu.index(), 0);
 press($menu, "G");
 expect("menu: G", $menu.index(), 3);
 press($menu, "g");
 expect("menu: g", $menu.index(), 0);
-expect("menu: enter selects", press($menu, "\r"), tui::Outcome::Select);
-expect("menu: escape cancels", press($menu, "\e"), tui::Outcome::Cancel);
+expect("menu: enter selects", press($menu, "enter"), tui::Outcome::Select);
+expect("menu: escape cancels", press($menu, "escape"), tui::Outcome::Cancel);
 expect("menu: q cancels", press($menu, "q"), tui::Outcome::Cancel);
-expect("menu: ctrl+c cancels", press($menu, "\x03"), tui::Outcome::Cancel);
+expect("menu: ctrl+c cancels", press($menu, "ctrl+c"), tui::Outcome::Cancel);
 expect("menu: a key it doesn't know is nothing", press($menu, "x"), null);
 expect("menu: the end of the input cancels", $menu.handle({"key" => "eof", "ctrl" => false, "alt" => false, "shift" => false}), tui::Outcome::Cancel);
 
@@ -343,67 +343,67 @@ $menu = tui::Menu(["one", "two", "three", "four", "five"], "Pick");
 $menu.draw($s, tui::Rect(1, 1, 12, 5));
 expect("menu: draw", $s.lines(), ["┌─ Pick ───┐", "│> one     │", "│  two     │", "│  three   │", "└──────────┘"]);
 expect("menu: the selected item is inverse", [$s.cell(3, 2).style.spec, $s.cell(3, 3).style.spec], ["inverse", ""]);
-press($menu, "\e[B\e[B\e[B");
+press($menu, "down down down");
 $menu.draw($s, tui::Rect(1, 1, 12, 5));
 expect("menu: scrolls to keep the selection in view", $s.lines()[1] .. $s.lines()[2] .. $s.lines()[3], "│  two     ││  three   ││> four    │");
-press($menu, "\e[6~");
+press($menu, "page_down");
 expect("menu: page down goes to the last", $menu.index(), 4);
 $menu.draw($s, tui::Rect(1, 1, 12, 5));
 expect("menu: scrolled to the end", $s.lines()[3], "│> five    │");
-press($menu, "\e[5~");
+press($menu, "page_up");
 expect("menu: page up is a page (the rows showing, less one)", $menu.index(), 2);
 $off = tui::Screen(16, 6);
 $menu.draw($off, tui::Rect(3, 2, 12, 4));
 expect("menu: drawn in its Rect, the box on its edges", rows($off), "|  ┌─ Pick ───┐|  │> three   │|  │  four    │|  └──────────┘|");
 $empty = tui::Menu([]);
-expect("menu: no items, nothing to move", [press($empty, "\e[B"), press($empty, "\e[F"), $empty.index()], [null, null, 0]);
-expect("menu: j and page down on nothing", [press($empty, "j"), press($empty, "\e[6~"), $empty.index()], [null, null, 0]);
-expect("menu: nothing to select", press($empty, "\r"), null);
+expect("menu: no items, nothing to move", [press($empty, "down"), press($empty, "end"), $empty.index()], [null, null, 0]);
+expect("menu: j and page down on nothing", [press($empty, "j"), press($empty, "page_down"), $empty.index()], [null, null, 0]);
+expect("menu: nothing to select", press($empty, "enter"), null);
 $one = tui::Menu(["only"]);
-expect("menu: one item can still be selected", press($one, "j\r"), tui::Outcome::Select);
+expect("menu: one item can still be selected", press($one, "j enter"), tui::Outcome::Select);
 expect("tui::choose of nothing is nothing", tui::choose([]), null);
 
 /* ---- TextField ---- */
 $f = tui::TextField();
 expect("field: starts empty", $f.value(), "");
-press($f, "abc");
+press($f, "\"abc\"");
 expect("field: typing", $f.value(), "abc");
-press($f, "\e[D\e[D");
+press($f, "left left");
 press($f, "X");
 expect("field: inserting in the middle", $f.value(), "aXbc");
-press($f, "\x7f");
+press($f, "backspace");
 expect("field: backspace", $f.value(), "abc");
-press($f, "\e[3~");
+press($f, "delete");
 expect("field: delete", $f.value(), "ac");
-press($f, "\x7f\x7f\x7f");
+press($f, "backspace backspace backspace");
 expect("field: backspace at the start does nothing", $f.value(), "c");
-press($f, "\e[F");
-press($f, "é→");
+press($f, "end");
+press($f, "\"é→\"");
 expect("field: characters", $f.value(), "cé→");
-press($f, "\x7f");
+press($f, "backspace");
 expect("field: backspace removes a whole character", $f.value(), "cé");
-press($f, "\e[H");
-press($f, "\e[3~");
+press($f, "home");
+press($f, "delete");
 expect("field: delete removes a whole character", $f.value(), "é");
-press($f, "\e[C\e[C\e[C");
+press($f, "right right right");
 press($f, "b");
 expect("field: right stops at the end", $f.value(), "éb");
-press($f, "\x01");
+press($f, "ctrl+a");
 press($f, ">");
-press($f, "\x05");
+press($f, "ctrl+e");
 press($f, "<");
 expect("field: ctrl+a and ctrl+e", $f.value(), ">éb<");
-press($f, "\e[D\e[D");
-press($f, "\x0b");
+press($f, "left left");
+press($f, "ctrl+k");
 expect("field: ctrl+k deletes to the end", $f.value(), ">é");
-press($f, "\x15");
+press($f, "ctrl+u");
 expect("field: ctrl+u deletes to the start", $f.value(), "");
-press($f, "a b");
+press($f, "\"a b\"");
 expect("field: a space is typed", $f.value(), "a b");
-expect("field: alt and ctrl keys don't type", [press($f, "\ex\x18"), $f.value()], [null, "a b"]);
-expect("field: enter submits", press($f, "\r"), tui::Outcome::Submit);
-expect("field: escape cancels", press($f, "\e"), tui::Outcome::Cancel);
-expect("field: ctrl+c cancels", press($f, "\x03"), tui::Outcome::Cancel);
+expect("field: alt and ctrl keys don't type", [press($f, "alt+x ctrl+x"), $f.value()], [null, "a b"]);
+expect("field: enter submits", press($f, "enter"), tui::Outcome::Submit);
+expect("field: escape cancels", press($f, "escape"), tui::Outcome::Cancel);
+expect("field: ctrl+c cancels", press($f, "ctrl+c"), tui::Outcome::Cancel);
 $f = tui::TextField("hi");
 press($f, "!");
 expect("field: initial value", $f.value(), "hi!");
@@ -413,10 +413,10 @@ $s = tui::Screen(10, 2);
 $f = tui::TextField("abcdefgh");
 $f.draw($s, tui::Rect(1, 1, 5, 1));
 expect("field: scrolled to the end", $s.lines()[0], "efgh      ");
-press($f, "\x7f\x7f\x7f");
+press($f, "backspace backspace backspace");
 $f.draw($s, tui::Rect(1, 1, 5, 1));
 expect("field: five characters and the cursor after them need six columns, so one is off", $s.lines()[0], "bcde      ");
-press($f, "\x7f");
+press($f, "backspace");
 $f.draw($s, tui::Rect(1, 1, 5, 1));
 expect("field: after deleting, what fits is shown from the start", $s.lines()[0], "abcd      ");
 expect("field: the cursor is after it", ends_with($s.render(), "\e[1;5H\e[?25h"), true);
@@ -436,7 +436,7 @@ $f = tui::TextField("abcdefghij");
 $f.draw($s, tui::Rect(1, 1, 6, 1));
 expect("field: scrolls to keep the cursor in view", $s.lines()[0], "fghij     ");
 $s.render();
-press($f, "\x01");
+press($f, "ctrl+a");
 $f.draw($s, tui::Rect(1, 1, 6, 1));
 expect("field: scrolls back", $s.lines()[0], "abcdef    ");
 $s.clear();
@@ -448,21 +448,21 @@ $ts = tui::Screen(10, 1);
 $tf = tui::TextField("a中b");
 $tf.draw($ts, tui::Rect(1, 1, 10, 1));
 expect("field: the cursor column is the width of the characters before it", [$ts.lines()[0], ends_with($ts.render(), "\e[1;5H\e[?25h")], ["a中b      ", true]);
-press($tf, "\e[D\e[D");
+press($tf, "left left");
 $tf.draw($ts, tui::Rect(1, 1, 10, 1));
 expect("field: left moves by a character, and the cursor by its columns", ends_with($ts.render(), "\e[1;2H\e[?25h"), true);
-press($tf, "\e[C");
+press($tf, "right");
 $tf.draw($ts, tui::Rect(1, 1, 10, 1));
 expect("field: after the wide character the cursor is two along", ends_with($ts.render(), "\e[1;4H\e[?25h"), true);
-press($tf, "\x7f");
+press($tf, "backspace");
 expect("field: backspace removes the whole wide character", $tf.value(), "ab");
 $tf = tui::TextField("中文中文");
 $tf.draw($ts, tui::Rect(1, 1, 5, 1));
 expect("field: scrolled by columns so the cursor is in view, never through a wide character", [$ts.lines()[0], ends_with($ts.render(), "\e[1;5H\e[?25h")], ["中文      ", true]);
-press($tf, "\e[H");
+press($tf, "home");
 $tf.draw($ts, tui::Rect(1, 1, 5, 1));
 expect("field: home scrolls back, and only what fits is shown", [$ts.lines()[0], ends_with($ts.render(), "\e[1;1H\e[?25h")], ["中文      ", true]);
-press($tf, "\e[C\e[C\e[C");
+press($tf, "right right right");
 $tf.draw($ts, tui::Rect(1, 1, 5, 1));
 expect("field: a wide character under the cursor scrolls another whole character off", [$ts.lines()[0], ends_with($ts.render(), "\e[1;5H\e[?25h")], ["文中      ", true]);
 $tf = tui::TextField("e\u{301}x");
@@ -493,17 +493,108 @@ expect("rect: a screen's bounds", dims(tui::Screen(20, 5).bounds()), [1, 1, 20, 
 [$sidebar, $main] = tui::Screen(20, 5).bounds().split_left(6);
 expect("rect: a sidebar and the rest", [dims($sidebar), dims($main)], [[1, 1, 6, 5], [7, 1, 14, 5]]);
 
+/* ---- Rect: the rest after taking a side off ---- */
+expect("rect: without_left", dims($r.without_left(4)), [7, 2, 6, 6]);
+expect("rect: without_right", dims($r.without_right(4)), [3, 2, 6, 6]);
+expect("rect: without_top", dims($r.without_top(2)), [3, 4, 10, 4]);
+expect("rect: without_bottom", dims($r.without_bottom(2)), [3, 2, 10, 4]);
+expect("rect: without more than there is leaves nothing", [dims($r.without_left(99)), dims($r.without_right(99)), dims($r.without_top(99)), dims($r.without_bottom(99))], [[13, 2, 0, 6], [3, 2, 0, 6], [3, 8, 10, 0], [3, 2, 10, 0]]);
+expect("rect: without nothing, or less, leaves it all", [dims($r.without_left(0)), dims($r.without_top(-3))], [[3, 2, 10, 6], [3, 2, 10, 6]]);
+expect("rect: within is where two overlap", [dims($r.within(tui::Rect(5, 4, 20, 20))), dims($r.within(tui::Rect(1, 1, 4, 3))), dims($r.within(tui::Rect(1, 1, 99, 99)))], [[5, 4, 8, 4], [3, 2, 2, 2], [3, 2, 10, 6]]);
+expect("rect: within what it doesn't touch is empty", [$r.within(tui::Rect(50, 50, 5, 5)).is_empty(), $r.within(tui::Rect(50, 50, 5, 5)).width], [true, 0]);
+
+/* ---- Screen.text: the text in a Rect ---- */
+$t = tui::Screen(10, 4);
+tui::box($t, tui::Rect(1, 1, 10, 3), "Hi");
+$t.put(2, 2, "ab中cd");
+$t.put(2, 4, "inverse", "inverse");
+expect("text: the rows of a Rect, box edges and all", $t.text(tui::Rect(1, 1, 10, 3)), ["┌─ Hi ───┐", "│ab中cd  │", "└────────┘"]);
+expect("text: trailing blanks are trimmed, inside the Rect and out", [$t.text(tui::Rect(1, 4, 10, 1)), $t.text(tui::Rect(2, 2, 3, 1)), $t.text(tui::Rect(6, 2, 4, 1))], [[" inverse"], ["ab中"], ["cd"]]);
+expect("text: a wide character once, and no continuation", $t.text(tui::Rect(2, 2, 6, 1)), ["ab中cd"]);
+expect("text: a wide character cut by the left edge is left out, by the right edge kept", [$t.text(tui::Rect(5, 2, 3, 1)), $t.text(tui::Rect(2, 2, 3, 1))], [["cd"], ["ab中"]]);
+expect("text: styled blanks are blank", $t.text(tui::Rect(9, 4, 2, 1)), [""]);
+expect("text: clipped to the screen", $t.text(tui::Rect(9, 3, 9, 9)), ["─┘", ""]);
+expect("text: a Rect with no size has no rows", [$t.text(tui::Rect(1, 1, 0, 3)), $t.text(tui::Rect(1, 1, 5, 0))], [["", "", ""], []]);
+expect("text: lines() stays, a row of the screen's width in cells", len($t.lines()), 4);
+
+/* ---- Pane: a part of the screen that nothing leaves ---- */
+$p = tui::Screen(12, 5);
+$p.put(1, 1, "............");
+$p.put(1, 2, "............");
+$p.put(1, 3, "............");
+$p.put(1, 4, "............");
+$p.put(1, 5, "............");
+$pane = $p.pane(tui::Rect(4, 2, 5, 3));
+expect("pane: its size and its bounds start at 1, 1", [$pane.cols, $pane.rows, dims($pane.bounds())], [5, 3, [1, 1, 5, 3]]);
+$pane.put(1, 1, "ab");
+expect("pane: put is counted from its top left", $p.lines()[1], "...ab.......");
+$pane.put(4, 2, "WXYZ");
+expect("pane: text past its right edge is cut", $p.lines()[2], "......WX....");
+$pane.put(-1, 3, "abcdefgh");
+expect("pane: text before its left edge is cut", $p.lines()[3], "...cdefg....");
+$pane.put(1, 0, "above");
+$pane.put(1, 4, "below");
+$pane.put(1, -9, "far");
+expect("pane: nothing above or below it", [$p.lines()[0], $p.lines()[4]], ["............", "............"]);
+$pane.put(9, 1, "gone");
+$pane.put(-9, 1, "gone");
+expect("pane: nor wholly right or left of it", $p.lines()[1], "...ab.......");
+$p.clear();
+$p.put(1, 2, "............");
+$pane.put(5, 1, "中");
+$pane.put(0, 1, "中");
+expect("pane: a wide character half out is a blank in the half in, and the cell outside is untouched", $p.lines()[1], "... ... ....");
+$p.put(1, 2, "............");
+$pane.put(1, 1, "中中中");
+expect("pane: wide characters whole inside are drawn whole, the one at the right edge is a blank", [$p.lines()[1], $p.cell(9, 2).character], ["...中中 ....", "."]);
+$p.clear();
+$p.put(1, 1, "............");
+$pane.fill(tui::Rect(1, 1, 99, 99), "#");
+expect("pane: fill is clipped to it", $p.lines(), ["............", "   #####    ", "   #####    ", "   #####    ", "            "]);
+$p.clear();
+$pane.fill(tui::Rect(-3, 0, 5, 2), "#");
+expect("pane: fill partly outside", $p.lines()[1], "   #        ");
+$pane.fill(tui::Rect(50, 50, 5, 5), "#");
+$p.clear();
+$pane.cursor(2, 3);
+expect("pane: the cursor is counted from its top left", contains($p.snapshot(), "cursor: column 5, row 4"), true);
+$p.clear();
+$pane.cursor(6, 1);
+$pane.cursor(0, 1);
+$pane.cursor(1, 4);
+expect("pane: a cursor outside it is not set", contains($p.snapshot(), "cursor"), false);
+$inner = $pane.pane(tui::Rect(2, 2, 9, 9));
+expect("pane: a pane in a pane is inside it", [$inner.cols, $inner.rows], [4, 2]);
+$p.clear();
+$inner.put(1, 1, "123456");
+expect("pane: and clips to both", $p.lines()[2], "    1234    ");
+$off = $p.pane(tui::Rect(10, 4, 9, 9));
+expect("pane: what is off the screen is not in it", [$off.cols, $off.rows], [3, 2]);
+$p.clear();
+tui::label($pane, $pane.bounds().line(0), "a long status line", "bold");
+tui::box($pane, $pane.bounds(), "T");
+expect("pane: the drawing functions take it", $p.text(tui::Rect(1, 1, 12, 5)), ["", "   ┌─ T┐", "   │   │", "   └───┘", ""]);
+$p.clear();
+$left = $p.pane(tui::Rect(1, 1, 6, 2));
+tui::label($left, $left.bounds(), "left pane overflows", "");
+tui::label($p.pane(tui::Rect(7, 1, 6, 2)), tui::Rect(1, 1, 6, 1), "right", "");
+expect("pane: a label fills its own Rect only, so two on one row need a split", $p.text(tui::Rect(1, 1, 12, 1)), ["left pright"]);
+$menu_pane = $p.pane(tui::Rect(2, 2, 8, 4));
+$pm = tui::Menu(["one", "two"], "M");
+$pm.draw($menu_pane, $menu_pane.bounds());
+expect("pane: a widget draws into it", $p.text(tui::Rect(1, 2, 12, 3)), [" ┌─ M ──┐", " │> one │", " │  two │"]);
+
 /* ---- Table: the people below, by name, age and rating ---- */
 $people = [["Ann", 31, 71.5], ["Bob", 24, 80.0], ["Cy", 27, 65.25], ["Dee", 24, 90.0]];
 fn names_in($table, $people) {
     /* the names in the order shown: select each row in turn from the top */
-    $table.handle(term::decode("g")["keys"][0]);
+    $table.handle(term::key("g"));
     $shown = [];
     foreach ($people as $_) {
         $shown[] = $table.selected_row()[0];
-        $table.handle(term::decode("j")["keys"][0]);
+        $table.handle(term::key("j"));
     }
-    $table.handle(term::decode("g")["keys"][0]);
+    $table.handle(term::key("g"));
     return join($shown, " ");
 }
 
@@ -522,7 +613,7 @@ $table = tui::Table(["Name", "Age", "Rating"], $people, ($row, $index) -> $row[0
 $s = tui::Screen(30, 7);
 $table.draw($s, $s.bounds());
 expect("table: a row style", [$s.cell(1, 2).style.spec, $s.cell(1, 3).style.spec, $s.cell(1, 4).style.spec], ["inverse", "green", ""]);
-$table.handle(term::decode("j")["keys"][0]);
+$table.handle(term::key("j"));
 $table.draw($s, $s.bounds());
 expect("table: a row style and the selection together", $s.cell(1, 3).style.spec, "green inverse");
 
@@ -549,8 +640,8 @@ expect("table: the sorted column's header is underlined", [$s.cell(20, 1).style.
 
 /* The selection follows its row through a sort */
 $table = tui::Table(["Name", "Age", "Rating"], $people);
-$table.handle(term::decode("j")["keys"][0]);
-$table.handle(term::decode("j")["keys"][0]);
+$table.handle(term::key("j"));
+$table.handle(term::key("j"));
 expect("table: selecting the third", $table.selected_row()[0], "Cy");
 $table.sort_by(2, true);
 expect("table: the same row is selected after sorting", [$table.selected_row()[0], $table.selected_index()], ["Cy", 2]);
@@ -559,8 +650,8 @@ expect("table: and after sorting again", $table.selected_row()[0], "Cy");
 
 /* Keys */
 $table = tui::Table(["Name", "Age", "Rating"], $people);
-$press = ($key) -> $table.handle(term::decode($key)["keys"][0]);
-expect("table: enter selects", $press("\r"), tui::Outcome::Select);
+$press = ($key) -> $table.handle(term::key($key));
+expect("table: enter selects", $press("enter"), tui::Outcome::Select);
 expect("table: other keys are nothing", $press("z"), null);
 $press(".");
 expect("table: . sorts by the first column", $table.sorted_by(), [0, false]);
@@ -600,7 +691,7 @@ $table = tui::Table(["Name"], $long);
 $s = tui::Screen(10, 4);
 $table.draw($s, $s.bounds());
 expect("table: only what fits, from the top", rows($s), "Name|row 1|row 2|row 3");
-$press = ($key) -> $table.handle(term::decode($key)["keys"][0]);
+$press = ($key) -> $table.handle(term::key($key));
 $press("j");
 $press("j");
 $press("j");
@@ -615,7 +706,7 @@ $table.draw($s, $s.bounds());
 expect("table: and back up", rows($s), "Name|row 2|row 3|row 4");
 $press("g");
 $table.draw($s, $s.bounds());
-$press("\e[6~");
+$press("page_down");
 expect("table: page down is the rows showing, less one", $table.selected_index(), 2);
 $press("G");
 $table.draw($s, $s.bounds());
@@ -623,7 +714,7 @@ expect("table: the end shows the end", rows($s), "Name|row 8|row 9|row 10");
 
 /* New rows */
 $table = tui::Table(["Name", "Age", "Rating"], $people);
-$press = ($key) -> $table.handle(term::decode($key)["keys"][0]);
+$press = ($key) -> $table.handle(term::key($key));
 $press("j");
 $press("j");
 $table.sort_by(1);
@@ -643,8 +734,8 @@ $table = tui::Table(["Name", "Age"], []);
 $s = tui::Screen(20, 3);
 $table.draw($s, $s.bounds());
 expect("table: no rows is a header", rows($s), "Name   Age||");
-expect("table: nothing to select", [$table.selected_index(), $table.selected_row(), $table.handle(term::decode("\r")["keys"][0])], [null, null, null]);
-$table.handle(term::decode("j")["keys"][0]);
+expect("table: nothing to select", [$table.selected_index(), $table.selected_row(), $table.handle(term::key("enter"))], [null, null, null]);
+$table.handle(term::key("j"));
 $table.sort_by(1);
 expect("table: nothing to move or sort", [$table.selected_index(), $table.sorted_by()], [null, [1, false]]);
 $table.set_rows([["A", 1]]);
@@ -745,7 +836,7 @@ $roomy = tui::Screen(30, 3);
 $narrow.draw($roomy, $roomy.bounds());
 expect("table: and shown again when there is room", trim($roomy.lines()[1]), "Ann      31     71.5");
 $narrow.draw($tight, $tight.bounds());
-$tap = ($key) -> $narrow.handle(term::decode($key)["keys"][0]);
+$tap = ($key) -> $narrow.handle(term::key($key));
 $tap(".");
 $tap(".");
 expect("table: . goes past a column left out", $narrow.sorted_by(), [2, false]);

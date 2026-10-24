@@ -175,3 +175,30 @@ ok enable: a keys option that isn't one
 ok fullscreen checks its options before it needs a terminal
 ok cursor shapes
 ok an Input with its own escape wait
+ok key: a character
+ok key: a capital, a digit and a punctuation mark
+ok key: a named key
+ok key: as decode gives it
+ok key: with modifiers
+ok key: a modified plus
+ok key: a quoted character
+ok key: a mouse report
+ok key: a paste
+ok keys: several, in order
+ok keys: text typed a character at a time
+ok keys: a space, a newline and a quote typed
+ok keys: a word that is a command's name, typed
+ok keys: a paste and a mouse report among keys
+ok keys: none
+ok key: a word that is no key, in --tty's words
+ok keys: the same, among good ones
+ok key: a modifier that isn't one
+ok keys: a quote never closed
+ok keys: a mouse report that isn't one
+ok keys: a paste without text
+ok keys: snap is a command, not a key
+ok keys: nor is wait
+ok keys: nor resize
+ok keys: a wait without its seconds is --tty's own error
+ok key: none
+ok key: two
