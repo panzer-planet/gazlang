@@ -82,13 +82,14 @@ the program runs (`Undefined function or constant: WDITH`), which is the reason 
 Nothing can change one: `X = 2` and `X[0] = 2` are syntax errors, and since lists and maps are
 values, `$copy = KINDS; $copy[] = 1;` changes the copy.
 
-A top level constant shares the namespace of functions and kinds. A kind's constant shares
-the one its fields and methods are in, is inherited, and can't be declared again by a child.
-Like every member it is the kind's own unless `pub` (or `kin`, for the kinds that extend it), so
-`Token::EOF` outside `Token` needs `pub const EOF`. It is reached by name, `Token::EOF` or `#EOF`, not through a value: `$kind.EOF` and `$token.EOF`
-are not constants. `::` resolves a name and `.` goes through a value, so `Token.EOF` is an error
-that says to write `Token::EOF`. A `:` followed by a `:` is always `::`, so a ternary needs a
-space: `$c ? Token::EOF : $x`.
+- A top level constant shares the namespace of functions and kinds.
+- A kind's constant shares the one its fields and methods are in, is inherited, and can't be
+  declared again by a child. Like every member it is the kind's own unless `pub` (or `kin`, for
+  the kinds that extend it), so `Token::EOF` outside `Token` needs `pub const EOF`.
+- It is reached by name, `Token::EOF` or `#EOF`, not through a value: `$kind.EOF` and
+  `$token.EOF` are not constants. `::` resolves a name and `.` goes through a value, so
+  `Token.EOF` is an error that says to write `Token::EOF`.
+- A `:` followed by a `:` is always `::`, so a ternary needs a space: `$c ? Token::EOF : $x`.
 
 ## Strings
 
@@ -114,18 +115,20 @@ echo "at most {LIMIT} items";
 at most 20 items
 ```
 
-A name in braces that isn't a constant is an error when the program is read, so a misspelt
-constant can't print as text: `Undefined constant LIMT in "{LIMT}": declare it, or write \{LIMT}
-for the text`, and a function, kind or static field there says to put it in a `$variable` first
-or join it with `..`. Anything else is literal, so `{round($n, 2)}` prints as written; assign it
-to a variable first, or start the expression with a sigil and call from there
-(`{$o.shout() .. to_string($n)}`). A lone `$`, `$5`, `me@example.com`, `{ $x}`, `{ X}`, `{3}`,
-`{X:1}` and `{}` are all literal too, and `\{NAME}` is the text `{NAME}`.
-
-The index after a bare name is `[0]`, `[-1]`, `[$i]` or `[key]`, read as the string `"key"`
-(`[01]` is the string `"01"`). `#` and a property path interpolate only inside braces, so
-`"#fff"` and `"$file.txt"` stay text, but `{#` starts an expression anywhere: outside a method,
-write `\{#` or use single quotes.
+- A name in braces that isn't a constant is an error when the program is read, so a misspelt
+  constant can't print as text: `Undefined constant LIMT in "{LIMT}": declare it, or write
+  \{LIMT} for the text`. A function, kind or static field there says to put it in a `$variable`
+  first or join it with `..`.
+- Anything else is literal, so `{round($n, 2)}` prints as written. Assign it to a variable
+  first, or start the expression with a sigil and call from there
+  (`{$o.shout() .. to_string($n)}`).
+- A lone `$`, `$5`, `me@example.com`, `{ $x}`, `{ X}`, `{3}`, `{X:1}` and `{}` are all literal
+  too, and `\{NAME}` is the text `{NAME}`.
+- The index after a bare name is `[0]`, `[-1]`, `[$i]` or `[key]`, read as the string `"key"`
+  (`[01]` is the string `"01"`).
+- `#` and a property path interpolate only inside braces, so `"#fff"` and `"$file.txt"` stay
+  text, but `{#` starts an expression anywhere: outside a method, write `\{#` or use single
+  quotes.
 
 The reason: `{` has to stay literal so a string holding JSON, CSS or braces needs no escaping,
 so only `{$`, `{@` and `{#` start an expression, and a name only when the `}` follows it at once:
@@ -278,15 +281,17 @@ and the right side of `??`, and its operand runs as far right as it can.
 - `+ - * /` are numbers only. `/` **always** gives a float (`6 / 2` is `3.0`); `intdiv()`
   divides ints. `%` is ints only, and its sign follows the left operand.
 - `**` raises to a power, by multiplying (square-and-multiply), never a library's `pow`, so every
-  platform gives the same bits. An int to an int of 0 or more is an exact int, and `Integer
-  overflow` when it doesn't fit, never a float. Otherwise the result is a float: a negative
-  exponent is one divided by the power (`2 ** -1` is `0.5`, a power too small to hold is `0.0`,
-  and `0 ** -1` is `Division by zero`), and a float on either side works if
-  the exponent is a whole number (`2 ** 3.0` is `8.0`); `4 ** 0.5` is an error, since a fractional
-  power needs a defined algorithm GazLang doesn't have yet (`sqrt()` is the square root). It
-  binds tighter than a unary operator on its left and looser than one on its right, and is right
-  associative: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is
-  `512`.
+  platform gives the same bits.
+  - An int to an int of 0 or more is an exact int, and `Integer overflow` when it doesn't fit,
+    never a float.
+  - Otherwise the result is a float. A negative exponent is one divided by the power
+    (`2 ** -1` is `0.5`, a power too small to hold is `0.0`, and `0 ** -1` is
+    `Division by zero`), and a float on either side works if the exponent is a whole number
+    (`2 ** 3.0` is `8.0`).
+  - `4 ** 0.5` is an error, since a fractional power needs a defined algorithm GazLang doesn't
+    have yet (`sqrt()` is the square root).
+  - It binds tighter than a unary operator on its left and looser than one on its right, and is
+    right associative: `-2 ** 2` is `-4`, `2 ** -1` needs no parentheses, `2 ** 3 ** 2` is `512`.
 - `==` never converts between types. `"5" == 5` is false, `"1" != "01"`, `1 == 1.0` is true.
   There is no `===`. Ordering a string against a number is an error. Strings compare byte by
   byte (`"10" < "9"`), and numbers by their exact value, so `9007199254740993 !=
@@ -302,8 +307,9 @@ and the right side of `??`, and its operand runs as far right as it can.
 - `&& || !` short-circuit and return real booleans. A number is true unless it is zero, and a
   string is true unless empty — so `"0"` is true. An empty list or map and `null` are false;
   functions and objects are always true.
-- `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, so `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63.
-  `>>` keeps the sign, `~$x` is `-$x - 1`, and bits shifted off the top by `<<` are gone (`1 << 63`
+- `& | ^ << >> ~` are ints only. They bind tighter than the comparisons, so
+  `$flags & MASK == 0` means `($flags & MASK) == 0`. A shift count must be 0 to 63. `>>` keeps
+  the sign, `~$x` is `-$x - 1`, and bits shifted off the top by `<<` are gone (`1 << 63`
   is the smallest int). There is no `>>>`.
 - `$a ?? $b` gives `$a` unless it is null or missing; an undefined variable or a missing key on
   its left is `null` rather than an error, and so is indexing something missing. `0`, `false` and
@@ -321,14 +327,16 @@ and the right side of `??`, and its operand runs as far right as it can.
       |> replace(" ", "-");
   ```
 
-  It binds looser than `..` and arithmetic and tighter than comparisons, so
-  `"Hello " .. $name |> upper` uppercases the whole greeting and `$items |> len > 3` compares the
-  length. It is exactly the call it stands for: the same checks, errors and order of evaluation.
-  A lambda right after `|>` must be in parentheses, since its body would run on over the rest of
-  the chain, and a method can't follow `|>` yet (`$x |> $obj.m()`). A chain written right after
-  `??` or a ternary's `:` without parentheses is an error, since it would pipe only that operand:
-  write `($x ?? "") |> trim` to pipe the result, or `$x ?? ("" |> trim)` to pipe the default
-  (`($c ? $a : $b) |> f` and `$c ? $a : ($b |> f)` likewise).
+  - It binds looser than `..` and arithmetic and tighter than comparisons, so
+    `"Hello " .. $name |> upper` uppercases the whole greeting and `$items |> len > 3` compares
+    the length.
+  - It is exactly the call it stands for: the same checks, errors and order of evaluation.
+  - A lambda right after `|>` must be in parentheses, since its body would run on over the rest
+    of the chain, and a method can't follow `|>` yet (`$x |> $obj.m()`).
+  - A chain written right after `??` or a ternary's `:` without parentheses is an error, since it
+    would pipe only that operand: write `($x ?? "") |> trim` to pipe the result, or
+    `$x ?? ("" |> trim)` to pipe the default (`($c ? $a : $b) |> f` and `$c ? $a : ($b |> f)`
+    likewise).
 
 ## Control flow
 
@@ -488,14 +496,15 @@ $b = counter(20);
 echo $a() .. " " .. $a() .. " " .. $b();   // 11 12 21
 ```
 
-A named function starts with no shared variables and can't read the top level's, as with any
-variable. A lambda can declare its own. A lambda that assigns itself to a shared variable can
-recurse through it. These are errors, when the file is read: sharing a name that is already
-shared, already used or a parameter; a lambda parameter with the name of a shared variable; and a
-shared variable as a `foreach` or `catch` variable (assign it in the body instead). A shared
-variable holds a value like any other: a list is still copied when passed to a function or
-assigned to another variable. `Shared` is a builtin kind name, as `Error` is, and `shared` is a
-reserved word.
+- A named function starts with no shared variables and can't read the top level's, as with any
+  variable. A lambda can declare its own, and a lambda that assigns itself to a shared variable
+  can recurse through it.
+- These are errors when the file is read: sharing a name that is already shared, already used or
+  a parameter; a lambda parameter with the name of a shared variable; and a shared variable as a
+  `foreach` or `catch` variable (assign it in the body instead).
+- A shared variable holds a value like any other: a list is still copied when passed to a
+  function or assigned to another variable.
+- `Shared` is a builtin kind name, as `Error` is, and `shared` is a reserved word.
 
 ## Objects
 
@@ -530,7 +539,8 @@ echo is_a($c, Shape) .. " " .. $c.radius;
 ```
 
 - **Kinds** are top level only, single inheritance, usable before they are declared, and may
-  implement any number of interfaces (see "Interfaces"). They are values: `type_of(Point)` is `"kind"`, and `kind_of($obj)` gives an object's own kind, so
+  implement any number of interfaces (see "Interfaces"). They are values: `type_of(Point)` is
+  `"kind"`, and `kind_of($obj)` gives an object's own kind, so
   `match (kind_of($node)) { NumAST => ..., AddAST => ... }` dispatches from outside the kinds.
 - **Fields are declared** (`#x;` or `#x = default;`). A default is evaluated per object, so a
   `[]` default is never shared. Reading one never set is an error; `??` reads it as null.
@@ -556,15 +566,18 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   a field never set, which is what sets it apart from `$user.name ?? null` (that one also reads an
   unset field as null). Nothing can be written through it (`$user?.name = 1`, `++`, `delete`).
 - **A member is private unless `pub`**, the same word and the same meaning as a namespace's:
-  this name escapes the thing it is written in. The ladder is unmarked (mine) → `kin` (mine and
-  my children's) → `pub` (anyone's), and it applies to a field, method, constant or static
-  alike: `kin #energy = 100;`, `pub static #tally = 0;`. `#name`, `##name` and a constant or
-  static reached by name (`Limits::MAX`, `Counter::next()`) are checked at parse time,
-  `$obj.name` when it runs, all against the kind the code asking is written in, whichever kind's
-  name reaches the member (a kind reaches its own private static through a child's name too) — a
-  lambda's and a static method's is the kind they sit in, and code outside every kind (the top level, a
-  function, a template) reaches only what is `pub`: `Limits::MAX is not pub, so only Limits can
-  use it`, or `Limits::MAX is kin, so only Limits and what extends it can use it`.
+  this name escapes the thing it is written in.
+  - The ladder is unmarked (mine) → `kin` (mine and my children's) → `pub` (anyone's), and it
+    applies to a field, method, constant or static alike: `kin #energy = 100;`,
+    `pub static #tally = 0;`.
+  - `#name`, `##name` and a constant or static reached by name (`Limits::MAX`,
+    `Counter::next()`) are checked at parse time, `$obj.name` when it runs.
+  - Each is checked against the kind the code asking is written in, whichever kind's name
+    reaches the member (a kind reaches its own private static through a child's name too). A
+    lambda's and a static method's kind is the one they sit in.
+  - Code outside every kind (the top level, a function, a template) reaches only what is `pub`:
+    `Limits::MAX is not pub, so only Limits can use it`, or
+    `Limits::MAX is kin, so only Limits and what extends it can use it`.
 - **`kin` is for what a kind declares on its children's behalf**: a field they set, a method
   they call, a hook they define. `protected` earns a rename where `extends` does not, since it
   famously protects less than the default does, and a level is better named after who can see
@@ -581,34 +594,40 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   `abstract fn` must be `pub` or `kin`, since a child defines what it can see. A constructor
   takes no marker: it is reached by constructing, not by naming.
 - **`final` closes a kind or a method**: no kind extends a `final kind`, and no kind below the one
-  that says it overrides a `final fn`. The marker comes first, as with `abstract` (`pub final
-  kind Receipt`, `kin final fn total()`); `final pub` is an error that says to write `pub final`.
-  Both are checked when the program is read, at the child: `Kind Refund can't extend Receipt: it
-  is final`, `Method Square.area can't override Shape.area: it is final`. Defining an abstract
-  method may close it (`pub final fn area()` in the kind that defines it). `final` is an error
-  wherever it would close nothing: on an abstract kind or method (each is there to be extended or
-  defined), on a method a kind keeps to itself (a child's method of that name is its own, never an
-  override), on a constructor (each kind's `_` is its own), on a method of a final kind (it is
-  closed already), and on a function, field, constant, static member, interface or an interface's
-  method.
-- **`readonly` closes a field once its object is made**: the field is written only while the
+  that says it overrides a `final fn`.
+  - The marker comes first, as with `abstract` (`pub final kind Receipt`, `kin final fn
+    total()`); `final pub` is an error that says to write `pub final`.
+  - Both are checked when the program is read, at the child: `Kind Refund can't extend Receipt: it
+    is final`, `Method Square.area can't override Shape.area: it is final`.
+  - Defining an abstract method may close it (`pub final fn area()` in the kind that defines it).
+  - `final` is an error wherever it would close nothing: on an abstract kind or method (each is
+    there to be extended or defined), on a method a kind keeps to itself (a child's method of that
+    name is its own, never an override), on a constructor (each kind's `_` is its own), on a method
+    of a final kind (it is closed already), and on a function, field, constant, static member,
+    interface or an interface's method.
+- **`readonly` closes a field once its object is made.** The field is written only while the
   object is being constructed, by the constructor of the kind that declares it (a promoted
-  parameter and a field default count), and refused everywhere else, from outside and from the
-  kind's own methods alike, whatever the write (`=`, `+=`, `++`, `??=`, `..=`, `delete` under it,
-  and a write inside a list or map it holds, since that changes the field's value). The marker
-  comes after the visibility, as `final` does: `pub readonly #id;`, `pub readonly int #id = 0;`,
-  `fn _(pub readonly #id);`. `readonly pub` says to write `pub readonly`. A write the parser can
-  see (`#id = 1` in a method, or in a child's constructor, or in a lambda made in the constructor,
-  which may run later) is refused when the program is read, the rest when it runs, with one
-  sentence: `Account #id is read-only: only Account's constructor sets it`. The object a read-only
-  field holds is still a handle anyone can write (`$a.owner.name = "x"`); only the field itself is
-  closed. A `readonly kind` makes every field of its objects read-only, so a shared object nobody
-  can change behaves like a value: money, points, colours, a record read from a request. It
-  extends only a read-only kind and is extended only by one, so what its header says holds for
-  every field an object of it has; `abstract readonly kind` and `final readonly kind` are written
-  in that order. `readonly` is an error where it would close nothing: on a field of a read-only
-  kind (it is read-only already), a static field (a value that never changes is a `const`), a
-  method, a function, a constant, an interface or an enum.
+  parameter and a field default count), and refused everywhere else.
+  - It is refused from outside and from the kind's own methods alike, whatever the write: `=`,
+    `+=`, `++`, `??=`, `..=`, `delete` under it, and a write inside a list or map it holds, since
+    that changes the field's value.
+  - The marker comes after the visibility, as `final` does: `pub readonly #id;`,
+    `pub readonly int #id = 0;`, `fn _(pub readonly #id);`. `readonly pub` says to write
+    `pub readonly`.
+  - A write the parser can see (`#id = 1` in a method, in a child's constructor, or in a lambda
+    made in the constructor, which may run later) is refused when the program is read, the rest
+    when it runs, with one sentence:
+    `Account #id is read-only: only Account's constructor sets it`.
+  - The object a read-only field holds is still a handle anyone can write
+    (`$a.owner.name = "x"`); only the field itself is closed.
+  - A `readonly kind` makes every field of its objects read-only, so a shared object nobody can
+    change behaves like a value: money, points, colours, a record read from a request. It extends
+    only a read-only kind and is extended only by one, so what its header says holds for every
+    field an object of it has. `abstract readonly kind` and `final readonly kind` are written in
+    that order.
+  - `readonly` is an error where it would close nothing: on a field of a read-only kind (it is
+    read-only already), a static field (a value that never changes is a `const`), a method, a
+    function, a constant, an interface or an enum.
 
   ```gaz
   readonly kind Money {
@@ -625,18 +644,21 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   ```
 - **Two objects of the same read-only kind are `==` when their fields are**, since nothing can
   tell them apart afterwards: `Money(1750, "ZAR") == Money(1750, "ZAR")`, and so a screen diff
-  can ask whether a cell changed. The fields are compared in declaration order by `==` itself,
-  stopping at the first that differs, so a read-only object inside compares by its fields, a
-  list or map by its contents, an object of any other kind by identity (it is still a handle),
-  `null` on both sides is equal, and a field never set equals only one never set. The kind must
-  be the same exactly: a child's object is never equal to its parent's, since a child adds
-  fields. `in_array` and `match` follow, being `==`. Anything else is still identity, an enum's
-  cases included (an enum is not a read-only kind), so `match` on cases compares the case
-  itself. A pair of objects met again inside its own comparison (a constructor can store `#` in
-  a field, or in a list in one) is equal at that level, so the other fields decide: two rings of
-  the same cells are equal, two rings differing in a cell are not. Comparing nests as calls do,
-  so a chain of read-only objects deeper than the call depth limit is the catchable `Maximum
-  depth of 100000 exceeded comparing Link`; a list nested that deep compares as ever.
+  can ask whether a cell changed.
+  - The fields are compared in declaration order by `==` itself, stopping at the first that
+    differs. So a read-only object inside compares by its fields, a list or map by its contents,
+    and an object of any other kind by identity (it is still a handle). `null` on both sides is
+    equal, and a field never set equals only one never set.
+  - The kind must be the same exactly: a child's object is never equal to its parent's, since a
+    child adds fields.
+  - `in_array` and `match` follow, being `==`. Anything else is still identity, an enum's cases
+    included (an enum is not a read-only kind), so `match` on cases compares the case itself.
+  - A pair of objects met again inside its own comparison (a constructor can store `#` in a
+    field, or in a list in one) is equal at that level, so the other fields decide: two rings of
+    the same cells are equal, two rings differing in a cell are not.
+  - Comparing nests as calls do, so a chain of read-only objects deeper than the call depth limit
+    is the catchable `Maximum depth of 100000 exceeded comparing Link`. A list nested that deep
+    compares as ever.
 
   ```gaz
   readonly kind Style { fn _(pub #fg, pub #bold = false); }
@@ -1142,20 +1164,26 @@ same (`Straße` and `STRASSE` both fold to `strasse`, every sigma to `σ`), whic
 The mappings are Unicode 17.0's.
 
 `utf8_width` is how many columns a terminal draws the text in, so a table or a box lines up when a
-cell holds CJK or an emoji, where `utf8_length` would be two off and a combining mark one. Each
-character counts 2 when Unicode calls it East Asian Wide or Fullwidth (CJK ideographs, Hangul
-syllables, the fullwidth forms, and the emoji drawn as pictures by default), 0 when it is a
-nonspacing or enclosing mark (`"e\u{301}"` is an `e` and an accent over it: 1), a format character
-(a zero-width joiner or space, a soft hyphen, a byte order mark) or a Hangul vowel or trailing
-consonant written as a jamo after its leading consonant, and 1 otherwise. So a flag's two regional
-indicators are 2 together, and `"👨\u{200D}👩"` is 4, two pictures joined. A control character
-counts 1, a tab too, since what a terminal does with one differs. **A byte that isn't well formed
-UTF-8 counts 1** and reading goes on at the next byte, since the question is asked of text about to
-be drawn and a terminal draws something for every byte: after `utf8_valid`, `utf8_width` is the one
-`utf8_` builtin that doesn't refuse bad text. The rule is GazLang's own, written out from Unicode 17.0's tables,
-never the platform's `wcwidth()`, so a layout worked out on one machine holds on every other; a
-terminal may still draw a sequence its own way (an emoji followed by `\u{FE0F}`, a family joined by
-zero-width joiners).
+cell holds CJK or an emoji, where `utf8_length` would be two off, and a combining mark one. Each
+character counts:
+
+- **2** when Unicode calls it East Asian Wide or Fullwidth: CJK ideographs, Hangul syllables, the
+  fullwidth forms, and the emoji drawn as pictures by default.
+- **0** when it is a nonspacing or enclosing mark (`"e\u{301}"` is an `e` and an accent over it,
+  1 in all), a format character (a zero-width joiner or space, a soft hyphen, a byte order mark),
+  or a Hangul vowel or trailing consonant written as a jamo after its leading consonant.
+- **1** otherwise, including a control character and a tab, since what a terminal does with one
+  differs.
+
+So a flag's two regional indicators are 2 together, and `"👨\u{200D}👩"` is 4, two pictures joined.
+
+A byte that isn't well formed UTF-8 counts 1, and reading goes on at the next byte, since the
+question is asked of text about to be drawn and a terminal draws something for every byte. After
+`utf8_valid`, `utf8_width` is the one `utf8_` builtin that doesn't refuse bad text.
+
+The rule is GazLang's own, written out from Unicode 17.0's tables, never the platform's
+`wcwidth()`, so a layout worked out on one machine holds on every other. A terminal may still draw
+a sequence its own way (an emoji followed by `\u{FE0F}`, a family joined by zero-width joiners).
 
 ### Numbers
 
@@ -1294,34 +1322,47 @@ A program that was itself piped in has read its input already: both find nothing
 **`gaz -e 'code'` runs the code given in place of a file** (`--eval` is the same), so a one-liner
 needs no file, and **standard input stays the program's data**: `read_stdin()` and `read_line()`
 read what is piped in, since the program's own text came from the command line.
-`ls | gaz -e 'while (($name = read_line()) != null) { echo upper($name); }'`. Single-quote the
-code, so the shell leaves the `$` of a variable alone. Given more than once, each `-e` is a line
-of the program, so an error names the line it is on. Everything after the options is the
-program's own `args()`, never a file (`gaz -e 'echo args();' a -x` is `["a", "-x"]`), and `--`
-ends the options as it does elsewhere. It is a complete program as any other is: statements
-end in `;`, a value is printed with `echo`, and nothing is imported for you, so a library is
-`import "std/lists.gaz";` first; its other imports are from the working directory and its
-project, as piped source's are. `-c`, `--tokens` and `--ast` work with it, to see how a one-liner
-was read. It can't be combined with a file, `--watch`, `-S` or `--tty`.
+
+```bash
+ls | gaz -e 'while (($name = read_line()) != null) { echo upper($name); }'
+```
+
+- Single-quote the code, so the shell leaves the `$` of a variable alone.
+- Given more than once, each `-e` is a line of the program, so an error names the line it is on.
+- Everything after the options is the program's own `args()`, never a file
+  (`gaz -e 'echo args();' a -x` is `["a", "-x"]`), and `--` ends the options as it does elsewhere.
+- It is a complete program as any other is: statements end in `;`, a value is printed with
+  `echo`, and nothing is imported for you, so a library is `import "std/lists.gaz";` first. Its
+  other imports are from the working directory and its project, as piped source's are.
+- `-c`, `--tokens` and `--ast` work with it, to see how a one-liner was read. It can't be combined
+  with a file, `--watch`, `-S` or `--tty`.
 
 `file_open($path, $mode = "r")` opens a file as a handle, so a large one needn't be in memory
 whole (`read_file()` gives all of it at once) and a program can read, write and move about in it.
-The mode is `"r"` (read; the file must be there), `"w"` (write, making the file or emptying it),
-`"a"` (write at the end, making the file if it isn't there; every write goes to the end, wherever
-a seek moved to) or `"r+"` (read and write a file that is there, from its start); anything else is
-an error naming the four. A file it makes can be read and written by everyone the umask allows.
+The mode is one of:
 
-`file_read_line($file)` reads a line as `read_line()` reads one, without its `"\n"` or `"\r\n"`
-and with the last needing neither, and `null` is the end: `while (($line = file_read_line($f)) !=
-null)` reads every line. `file_read($file, $length)` reads bytes, any bytes: up to `$length`
-(1 to 16777216, 16 MiB), fewer only at the end of the file, and `""` there. **The end is only where
-the file ends now**: once more has been written to it, by this program or another, the next read
-gets it, so a log can be followed as it grows (`null` or `""`, wait, read again).
-`file_write($file, $string)` writes all of the string and gives `null`. `file_seek($file, $offset,
-$from = "start")` moves to `$offset` bytes from the `"start"`, the `"current"` position or the
-`"end"` (an offset may be negative, and past the end is allowed) and gives the new position from
-the start, so `file_seek($f, 0, "current")` is where the file is. A pipe has no position: seeking
-one is an error.
+- `"r"`: read; the file must be there.
+- `"w"`: write, making the file or emptying it.
+- `"a"`: write at the end, making the file if it isn't there. Every write goes to the end,
+  wherever a seek moved to.
+- `"r+"`: read and write a file that is there, from its start.
+
+Anything else is an error naming the four. A file it makes can be read and written by everyone
+the umask allows.
+
+- `file_read_line($file)` reads a line as `read_line()` reads one, without its `"\n"` or
+  `"\r\n"` and with the last needing neither, and `null` is the end:
+  `while (($line = file_read_line($f)) != null)` reads every line.
+- `file_read($file, $length)` reads bytes, any bytes: up to `$length` (1 to 16777216, 16 MiB),
+  fewer only at the end of the file, and `""` there.
+- **The end is only where the file ends now**: once more has been written to it, by this program
+  or another, the next read gets it, so a log can be followed as it grows (`null` or `""`, wait,
+  read again).
+- `file_write($file, $string)` writes all of the string and gives `null`.
+- `file_seek($file, $offset, $from = "start")` moves to `$offset` bytes from the `"start"`, the
+  `"current"` position or the `"end"` (an offset may be negative, and past the end is allowed),
+  and gives the new position from the start, so `file_seek($f, 0, "current")` is where the file
+  is. A pipe has no position: seeking one is an error.
 
 **Writes wait in a buffer** until it fills, a seek, or `file_close($file)`, which writes out what
 is waiting and closes the file, and **is an error when the writing fails** (`Cannot write
@@ -1812,112 +1853,8 @@ or the other.
 | `worker_recycle()` | Ends this worker on purpose; the master replaces it, keeping the pool `$count` wide |
 | `worker_retire()` | Asks for this worker's replacement now, and serves on until it is ready; `true`, or `false` outside a worker |
 | `worker_deadline($socket, $seconds, $answer = "", $line = "")` | Ends this worker in `$seconds` unless asked again first, writing `$answer` to `$socket` and `$line` to standard error; 0 or `null` seconds clears it; `true`, or `false` outside a worker |
-| `worker_accept($listener, $rule)` | The next connection the master hands this worker once its request's head is in, as `[$socket, $bytes, $state, $served, $first_byte_at]`; `null` once asked to stop, `false` outside a worker |
-| `worker_release($socket, $bytes, $served = 0)` | Gives a connection `worker_accept()` gave back to the master, with `$bytes` read past its requests and how many it has had answered, or closes it with `null`; `true`, or `false` outside a worker |
-
-`workers($count)` turns the program into `$count` processes from that point on, each
-carrying on with a copy of everything, for a server that answers more than one request at a time
-(prefork: a pool of processes started up front). It returns the worker's number, 1 to `$count`, in each of them; the
-process that called it never returns from it, but waits, starts a worker again when one ends with an
-error or a signal, and ends once every worker has ended with code 0. A worker that fails within a
-second of starting, before it has accepted a connection, is a program that can't start: the rest are
-stopped and the program exits with its code. SIGTERM or SIGHUP stops them gracefully: each worker's
-`socket_accept()` or `worker_accept()` gives `null`, so `http::serve()` returns once the request in hand is answered and
-the program ends, and a worker still running after 10 seconds is killed. Ctrl-C reaches the workers
-too and ends them at once. A signal the program was started ignoring stays ignored (`nohup` ignores
-SIGHUP). Workers share nothing after the call, a
-`socket_listen()` listener made before it aside, which is the point: they all accept on one port.
-Each draws its own random numbers. At most 1024, and a worker can't start workers of its own.
-
-SIGUSR2 reloads a server under `http::serve()`: the master runs the same command line again, which
-reads the program's files afresh, from the directory it was first started in, and hands it every
-listener. The new program runs its set-up, its `socket_listen()`s take the listeners on their
-addresses, and once its first worker waits for connections the old master stops accepting, passes
-it every connection it holds, and asks its workers to leave as each finishes the request in hand.
-So no connection is refused or dropped, and the new master has a pid of its own (each says it on
-standard error; under systemd it tells the unit, which needs `NotifyAccess=main`). If the new code
-can't start, or serves another port, the old pool serves on and the error says so: send SIGUSR2
-again once it is fixed. If the new master dies in its first second, the old one takes the pool
-back. A pool's workers ignore SIGUSR2; any other gaz program ends by it, as by default.
-
-A database connection, a socket connection or a file made before `workers()` can't be used in a
-worker, since every worker would share the one connection or file position under it: their queries
-and replies would interleave on one PostgreSQL connection, and SQLite forbids carrying a connection
-into a new process at all. Using one is an error (`db_run(): this db was opened before workers(), and
-workers can't share one: open one after workers()`), so a worker opens its own after `workers()`.
-Letting go of one is fine, by closing it, dropping it or ending: a worker does that without
-disturbing the connection or file for the others. The process that called `workers()` keeps its own
-copy until it ends, so a PostgreSQL connection opened before it stays open, idle, as long as the
-server runs.
-
-On macOS the first SQLite open sets `OS_ACTIVITY_MODE=disable` in the process, which a program
-started with `run()` inherits. Apple's SQLite logs a signpost on every open, and the logging
-library's state does not survive a fork: without this a worker's open crashed now and then when the
-process that started the workers had opened a database first (migrations at start-up).
-
-`worker_recycle()` retires the calling worker on purpose (`http::serve()`'s `max_requests`): it
-flushes standard output, then ends the process, and the master replaces it at once, so the pool
-stays `$count` wide and whatever state the worker built up over its life goes with it. It never returns. The retiring is by a signal (SIGUSR2), not a reserved exit code, since
-`exit($code)` already lets a program choose any code 0 to 255 freely: a reserved one could collide
-with an unrelated `exit()` somewhere and be misread as a happy recycle, where a signal-terminated
-exit can't. A recycle isn't logged as a failure and skips the "died within a second of starting"
-check that guards against a program that can't start, since a low `max_requests` recycling fast is
-deliberate, not a startup bug.
-
-`worker_retire()` retires a worker without leaving a gap, which is how `http::serve()`'s
-`max_requests` does it: the master starts the replacement at once, under the same number, while the
-retiring worker carries on serving, and once the replacement waits for connections the retiring
-one is asked to stop as a stop asks every worker, so its `socket_accept()` or `worker_accept()`
-gives `null` after the request in hand; then it calls `worker_recycle()`, or ends however it likes, and isn't replaced
-again (one still running 10 seconds after it was asked is killed, as on a stop). A worker that left first would leave the pool short for as long as the program takes to
-start after `workers()` (connecting to a database, building an app), and empty when every worker
-retires at once, which an evenly spread load makes them do. For that moment two processes have one
-worker number. It gives `true`, or `false` outside a worker and when asked a second time, when there
-is nothing to hand over.
-
-`worker_deadline($socket, $seconds, $answer, $line)` is how `http::serve()`'s `handler_timeout`
-ends a worker whose handler takes too long: if it is still set `$seconds` later (an int or a float),
-the worker writes `$answer` to the connection `$socket`, `$line` to standard error, and ends, and the
-master reports `gaz: worker N timed out on a request; starting another` and starts another. Calling
-it again sets it afresh, and 0 or `null` seconds clears it. What the worker was doing is never
-finished, and what it printed and hadn't flushed is lost. Outside a worker it does nothing and gives
-`false`, as it does with a `null` socket: in a single process nobody would start another, so the
-deadline needs `workers()`. The socket must be an open connection of this process's (not a
-listener), checked in a single process too. A TLS connection is written nothing (encrypting isn't a
-thing the timer's signal handler may do), so its client sees the connection close.
-
-`worker_accept($listener, $rule, $idle, $seconds)` and `worker_release($socket, $bytes, $served)` are how `http::serve()`
-keeps slow clients off its workers: the master accepts every connection on the listener itself,
-reads each one's request head in one process for all of them, and hands a worker the connection,
-with every byte it read, only once the head is whole, so a client sending slowly or a kept-open
-connection with nothing to say holds no worker. The master knows no HTTP: `$rule` tells it what a
-head is, `{"ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536,
-"within" => 10, "idle" => 5, "max_connections" => 1024, "timeout" => 10}`: a head ends with
-`ready`, after up to `skip_most` (at most 1000) of `skip` (each text 1 to 16 bytes), within `most`
-bytes (at most 65536, so what passes between the processes fits their buffers) and `within`
-seconds (from the connection's accept, or from its first byte after an idle wait); a connection
-given back may wait `idle` seconds for its next request; at most `max_connections` are open at
-once (fewer if the open file limit leaves less room); and `timeout` bounds each read and write on
-a connection. With `"at_accept" => 1` in the rule (it may be left out, and is then 0) the master
-hands each connection over as soon as it is accepted, unread, as `"complete"` with no bytes: a TLS
-stream is for the worker to read, since only the worker that does the handshake has its session.
-The first call gives the master the rule and the listener, every call waits for a
-connection, and every key but `"at_accept"` is required. With `$idle`, a connection the worker
-keeps open itself between requests (TLS, which can't go back to the master), and `$seconds`, it
-waits up to that long for that connection's next request as well: it gives `$idle` back if its
-client speaks first, `false` if `$seconds` pass, or the connection the master handed it, which
-`$idle` gives way to; the master hands one to a worker keeping a connection only when no other
-waits, and then to the one whose client has waited longest. `$state` says why it was handed over: `"complete"`, a whole
-head; `"too_large"`, `most` bytes with no end; `"timed_out"`, `within` passed after something came;
-`"closed"`, the client closed in the middle of one. A connection that sent nothing is closed by the
-master and never handed over. `$served` is how many requests the connection has had answered,
-which comes back as `worker_release()`'s `$served`, for counting `requests_per_connection`.
-`$first_byte_at` is when the head's first byte came, a `monotonic_time()`. `worker_release()`
-takes only the connection `worker_accept()` last gave, `$bytes` holding no whole head and at most
-the rule's cap (a longer one is the reader's to refuse); it closes this worker's copy either way,
-and asks the master for the next connection, as the `worker_accept()` that should follow it would.
-Once the worker is asked to stop it closes the connection rather than give it back. Outside a
-worker both give `false`, after checking their arguments.
+| `worker_accept($listener, $rule, $idle = null, $seconds = null)` | The next connection the master hands this worker once its request's head is in, as `[$socket, $bytes, $state, $served, $first_byte_at]`; `null` once asked to stop, `false` outside a worker |
+| `worker_release($socket, $bytes, $served = 0)` | Gives a connection `worker_accept()` gave back to the master, with `$bytes` read past its requests and how many it has had answered, or closes it when `$bytes` is `null`; `true`, or `false` outside a worker |
 
 ```gaz
 $listener = socket_listen("0.0.0.0", 8080);
@@ -1928,6 +1865,165 @@ while (true) {
     socket_close($connection);
 }
 ```
+
+`workers($count)` turns the program into `$count` processes from that point on, each carrying on
+with a copy of everything, for a server that answers more than one request at a time (prefork: a
+pool of processes started up front). Most programs reach it through `http::serve()`, which uses
+the rest of these builtins itself.
+
+- It returns the worker's number, 1 to `$count`, in each of them.
+- The process that called it, the master, never returns from it. It waits, starts a worker again
+  when one ends with an error or a signal, and ends once every worker has ended with code 0.
+- A worker that fails within a second of starting, before it has accepted a connection, is a
+  program that can't start: the rest are stopped and the program exits with its code.
+- Workers share nothing after the call, except a `socket_listen()` listener made before it, which
+  is the point: they all accept on one port. Each draws its own random numbers.
+- At most 1024, and a worker can't start workers of its own.
+
+#### Stopping and reloading
+
+- SIGTERM or SIGHUP stops the workers gracefully. Each worker's `socket_accept()` or
+  `worker_accept()` gives `null`, so `http::serve()` returns once the request in hand is answered
+  and the program ends. A worker still running after 10 seconds is killed.
+- Ctrl-C reaches the workers too, and ends them at once.
+- A signal the program was started ignoring stays ignored (`nohup` ignores SIGHUP).
+
+SIGUSR2 reloads a server under `http::serve()` without refusing or dropping a connection:
+
+1. The master runs the same command line again, which reads the program's files afresh, from the
+   directory it was first started in, and hands it every listener.
+2. The new program runs its set-up, and its `socket_listen()`s take the listeners on their
+   addresses.
+3. Once its first worker waits for connections, the old master stops accepting, passes it every
+   connection it holds, and asks its workers to leave as each finishes the request in hand.
+
+The new master has a pid of its own. Each says so on standard error, and under systemd the new
+one tells the unit, which needs `NotifyAccess=main`. If the new code can't start, or serves
+another port, the old pool serves on and the error says so: send SIGUSR2 again once it is fixed.
+If the new master dies in its first second, the old one takes the pool back. A pool's workers
+ignore SIGUSR2; any other gaz program ends by it, as by default.
+
+#### Connections and files made before workers()
+
+A database connection, a socket connection or a file made before `workers()` can't be used in a
+worker, since every worker would share the one connection or file position under it: their
+queries and replies would interleave on one PostgreSQL connection, and SQLite forbids carrying a
+connection into a new process at all. Using one is an error:
+
+```
+db_run(): this db was opened before workers(), and workers can't share one: open one after workers()
+```
+
+So a worker opens its own after `workers()`.
+
+- Letting go of one is fine, by closing it, dropping it or ending: a worker does that without
+  disturbing the connection or file for the others.
+- The master keeps its own copy until it ends, so a PostgreSQL connection opened before
+  `workers()` stays open, idle, as long as the server runs.
+- On macOS the first SQLite open sets `OS_ACTIVITY_MODE=disable` in the process, which a program
+  started with `run()` inherits. Apple's SQLite logs a signpost on every open, and the logging
+  library's state doesn't survive a fork: without this, a worker's open crashed now and then when
+  the master had opened a database first (migrations at start-up).
+
+#### Recycling and retiring a worker
+
+`worker_recycle()` ends the calling worker on purpose, and the master replaces it at once, so the
+pool stays `$count` wide and whatever state the worker built up over its life goes with it.
+
+- It flushes standard output first, and never returns.
+- It ends the process by a signal (SIGUSR2), not a reserved exit code, since `exit($code)` lets a
+  program choose any code from 0 to 255: a reserved one could collide with an unrelated `exit()`
+  and be misread as a recycle.
+- A recycle isn't logged as a failure, and skips the check for a worker that dies within a second
+  of starting, since a low `max_requests` recycling fast is deliberate.
+
+`worker_retire()` retires a worker without leaving a gap, which is how `http::serve()`'s
+`max_requests` does it:
+
+1. The master starts the replacement at once, under the same number, while the retiring worker
+   carries on serving. For that moment two processes have one worker number.
+2. Once the replacement waits for connections, the retiring one is asked to stop as a stop asks
+   every worker, so its `socket_accept()` or `worker_accept()` gives `null` after the request in
+   hand.
+3. It then calls `worker_recycle()`, or ends however it likes, and isn't replaced again. One still
+   running 10 seconds after it was asked is killed, as on a stop.
+
+A worker that simply left first would leave the pool short for as long as the program takes to
+start after `workers()` (connecting to a database, building an app), and empty when every worker
+retires at once, which an evenly spread load makes them do. `worker_retire()` gives `true`, or
+`false` outside a worker and when asked a second time, when there is nothing to hand over.
+
+#### Deadlines
+
+`worker_deadline($socket, $seconds, $answer, $line)` is how `http::serve()`'s `handler_timeout`
+ends a worker whose handler takes too long. If the deadline is still set `$seconds` later (an int
+or a float), the worker writes `$answer` to the connection `$socket` and `$line` to standard
+error, and ends. The master reports `gaz: worker N timed out on a request; starting another` and
+starts another.
+
+- Calling it again sets it afresh, and 0 or `null` seconds clears it.
+- What the worker was doing is never finished, and what it printed and hadn't flushed is lost.
+- Outside a worker it does nothing and gives `false`, as it does with a `null` socket: in a single
+  process nobody would start another, so the deadline needs `workers()`.
+- The socket must be an open connection of this process's, not a listener, which is checked in a
+  single process too.
+- A TLS connection is written nothing, since encrypting isn't something the timer's signal handler
+  may do, so its client sees the connection close.
+
+#### Handing connections between master and workers
+
+`worker_accept()` and `worker_release()` are how `http::serve()` keeps slow clients off its
+workers. The master accepts every connection on the listener itself, and reads each one's request
+head, in one process for all of them. It hands a worker the connection, with every byte it read,
+only once the head is whole, so a client sending slowly, or a kept-open connection with nothing to
+say, holds no worker.
+
+`worker_accept($listener, $rule, $idle = null, $seconds = null)` waits for the next connection. The
+first call gives the master the rule and the listener. The master knows no HTTP, so `$rule` tells
+it what a head is:
+
+```gaz
+{"ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536,
+ "within" => 10, "idle" => 5, "max_connections" => 1024, "timeout" => 10}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `"ready"` | The text a head ends with. |
+| `"skip"`, `"skip_most"` | Up to `skip_most` (at most 1000) of `skip` may come before a head. Each text is 1 to 16 bytes. |
+| `"most"` | The longest head, in bytes; at most 65536, so what passes between the processes fits their buffers. |
+| `"within"` | Seconds a head may take, from the connection's accept, or from its first byte after an idle wait. |
+| `"idle"` | Seconds a connection given back may wait for its next request. |
+| `"max_connections"` | Connections open at once; fewer if the open file limit leaves less room. |
+| `"timeout"` | Seconds each read and write on a connection may take. |
+| `"at_accept"` | Optional, 0 by default. With 1 the master hands each connection over as soon as it is accepted, unread, as `"complete"` with no bytes: a TLS stream is for the worker to read, since only the worker that does the handshake has its session. |
+
+Every key but `"at_accept"` is required. It gives `[$socket, $bytes, $state, $served, $first_byte_at]`:
+
+- `$state` says why the connection was handed over: `"complete"`, a whole head; `"too_large"`,
+  `most` bytes with no end; `"timed_out"`, `within` passed after something came; or `"closed"`,
+  the client closed in the middle of one. A connection that sent nothing is closed by the master
+  and never handed over.
+- `$served` is how many requests the connection has had answered, which comes back from
+  `worker_release()`'s `$served`, for counting `requests_per_connection`.
+- `$first_byte_at` is when the head's first byte came, a `monotonic_time()`.
+
+With `$idle`, a connection the worker keeps open itself between requests (TLS, which can't go back
+to the master), and `$seconds`, it also waits up to that long for that connection's next request.
+It gives `$idle` back if its client speaks first, `false` if `$seconds` pass, or the connection the
+master handed it, which `$idle` gives way to. The master hands a connection to a worker that is
+keeping one only when no other worker waits, and then to the one whose client has waited longest.
+
+`worker_release($socket, $bytes, $served = 0)` gives back the connection `worker_accept()` last
+gave, with `$bytes` read past its requests, or closes it when `$bytes` is `null`.
+
+- `$bytes` holds no whole head, and at most the rule's cap (a longer one is the reader's to
+  refuse).
+- It closes this worker's copy either way, and asks the master for the next connection, as the
+  `worker_accept()` that should follow it would.
+- Once the worker is asked to stop, it closes the connection rather than give it back.
+
+Outside a worker both give `false`, after checking their arguments.
 
 ### Time
 
@@ -2355,70 +2451,262 @@ echo web::html"<a href=\"{$url}\">profile</a> <a href=\"/search?q={$tab}\">searc
 <a href="about:invalid#blocked">profile</a> <a href="/search?q=a%20b%26c">search</a>
 ```
 
-A value goes **nowhere else**: in an unquoted attribute, in `<script>`, `<style>`, `<xmp>`,
-`<iframe>`, `<noembed>`, `<noframes>` or `<plaintext>`, in an event handler (`onclick`) or a
-`style`, `srcdoc`, `srcset` or `ping` attribute, in a tag or attribute name or between attributes,
-in an end tag or a declaration, right after a `<`, `</`, `<!` or `<!-`, inside the end tag of a
-`<textarea>` or `<title>`, in a URL whose text already starts with another scheme
-(`href="javascript:{$x}"`), or in a URL that loads code or a document (`<script src>`, an svg
-`<script href>`, `<iframe src>`, `<frame src>`, `<embed src>`, `<object data>`, `<link href>`,
-`<base href>`), anywhere else in a refresh's content (`content="0; {$url}"`, which a browser
-reads as a URL without the `url=`), in a `<meta>`'s `http-equiv`, or in the content of a `<meta>`
-with any other `http-equiv`, is an error that says why, since
-HTML escaping doesn't make a value safe there. So is a value that could be part of a URL's scheme:
-text before it with no `/`, `?`, `#` or `:` between (`href="java{$x}"`), two values side by side at
-the start, or text right after a first value that begins with a `:` or an `&` (`href="{$scheme}:{$rest}"`,
-where two harmless values make `javascript:`). Put the whole URL in one value. Write the text in the program,
-or build an `Html` yourself and pass it in, which is the deliberate way to say a piece of markup is
-trusted. A tagged string is read from the start as text and must end as text, so a tag isn't
-opened in one string and closed in another; an `Html` value is taken to be whole markup.
+A value goes **nowhere else**. Anywhere HTML escaping doesn't make a value safe is an error that
+says why:
 
-A value prints as `echo` prints it (`null`, `true`, `12`, `1.5`, an object's `to_string()`) before it
-is written. A map, or a list inside a list, is an error (`web::html can't put a map in markup:
-interpolate its values one at a time`). The result goes into `{{ }}` and into another
-`web::html"..."` as it is, and is refused by `..` like any `Html`. Templates (`.gazml`) escape text
-and quoted attributes as before and don't read the markup around a value, so a URL in one is
-checked by the program.
+- in an unquoted attribute, an event handler (`onclick`), or a `style`, `srcdoc`, `srcset` or
+  `ping` attribute;
+- in `<script>`, `<style>`, `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` or `<plaintext>`;
+- in a tag or attribute name, between attributes, in an end tag or a declaration, right after a
+  `<`, `</`, `<!` or `<!-`, or inside the end tag of a `<textarea>` or `<title>`;
+- in a URL whose text already starts with another scheme (`href="javascript:{$x}"`);
+- in a URL that loads code or a document: `<script src>`, an svg `<script href>`, `<iframe src>`,
+  `<frame src>`, `<embed src>`, `<object data>`, `<link href>` or `<base href>`;
+- anywhere else in a refresh's content (`content="0; {$url}"`, which a browser reads as a URL
+  without the `url=`), in a `<meta>`'s `http-equiv`, or in the content of a `<meta>` with any
+  other `http-equiv`;
+- where it could be part of a URL's scheme: with text before it and no `/`, `?`, `#` or `:`
+  between (`href="java{$x}"`), two values side by side at the start, or text right after a first
+  value that begins with a `:` or an `&` (`href="{$scheme}:{$rest}"`, where two harmless values
+  make `javascript:`). Put the whole URL in one value.
+
+Write such text in the program, or build an `Html` yourself and pass it in, which is the
+deliberate way to say a piece of markup is trusted.
+
+- A tagged string is read from the start as text and must end as text, so a tag isn't opened in
+  one string and closed in another. An `Html` value is taken to be whole markup.
+- A value prints as `echo` prints it (`null`, `true`, `12`, `1.5`, an object's `to_string()`)
+  before it is written. A map, or a list inside a list, is an error (`web::html can't put a map
+  in markup: interpolate its values one at a time`).
+- The result goes into `{{ }}` and into another `web::html"..."` as it is, and is refused by `..`
+  like any `Html`.
+
+Templates (`.gazml`) escape text and quoted attributes as before and don't read the markup around
+a value, so a URL in one is checked by the program.
 
 ## Libraries
 
-**The standard library is built into `gaz`**, so a program anywhere reaches it by name, with
-no path to this repository: `import "std/json.gaz";`. A path that starts with `std/` is the
-library, not a directory (write `./std/x.gaz` for a directory of your own by that name). Every file
-in `lib/` declares a namespace, so its names are reached with `::`; everything in `lib/` is written in
-GazLang. A file of the library imports its neighbours by their `std/` name (`import "std/chars.gaz";`), so
-a test that loads one by its path shares its imports with the built-in library; under `GAZLIB` a file of that directory is the library's own module however it is imported.
-Errors in it are located as `<std>/json.gaz:83`. While working on the library itself, `GAZLIB=lib`
-makes `std/` read that directory instead of the built-in copy, so an edit needs no rebuild.
+The standard library is built into `gaz`, so a program anywhere reaches it by name, with no path
+to this repository:
 
-| File | What is in it |
+```gaz
+import "std/json.gaz";
+
+echo json::encode({"ok" => true});
+```
+
+- A path that starts with `std/` is the library, not a directory. Write `./std/x.gaz` for a
+  directory of your own by that name.
+- Every file of the library is written in GazLang and declares a namespace, so its names are
+  reached with `::`.
+- An error inside the library is located as `<std>/json.gaz:83`.
+- While working on the library itself, `GAZLIB=lib` makes `std/` read that directory instead of
+  the built-in copy, so an edit needs no rebuild. A file of the library imports its neighbours by
+  their `std/` name (`import "std/chars.gaz";`), so a test that loads one by its path shares its
+  imports with the built-in library, and under `GAZLIB` a file of that directory is the library's
+  own module however it is imported.
+
+| File | What it is for |
 | --- | --- |
-| `sorting.gaz` | `sorting::values`, `sorting::by` |
-| `lists.gaz` | Plain functions over plain lists, the list always first so each reads well after `\|>`; a key or predicate function is called once per element, with the element alone (`map()` and `filter()` pass an index too, these don't). `lists::flatten($lists)` (one level deep), `lists::unique($xs)` (each element once, in the order they first come, compared with `==`), `lists::max_by($xs, $key)` and `lists::min_by` (the element whose `$key($x)` is largest or smallest, the first on a tie; a list of keys breaks ties in order), `lists::group_by($xs, $key)` (a map from each key, an int or a string, to the list of elements with it, in the order the keys first come), `lists::count_by($xs, $key)` (the same with counts), `lists::partition($xs, $predicate)` (`[$matching, $rest]`), `lists::chunk($xs, $size)`, `lists::zip($a, $b)` (pairs, as many as the shorter list has), `lists::take($xs, $n)` and `lists::drop($xs, $n)` (`$n` is 0 or more; more than the list has is fine), `lists::pluck($xs, $key)` (that key of each map), `lists::sum_by($xs, $key)`, `lists::avg($xs)` and `lists::avg_by($xs, $key)` (a float; an error for an empty list), `lists::first($xs)` (an error for an empty list, as `last()` is), `lists::find($xs, $predicate)` (the first element it is true for, or `null`) and `lists::contains_by($xs, $predicate)` |
-| `text.gaz` | `text::quote($value)`: a value as the literal that reads back as it, for a message (a string quoted, so a space or a NUL byte shows); `text::lines($text)`: the lines of a string as `read_line()` reads them (`"\n"` or `"\r\n"` ends one, a last line needs no end), without the empty line `split($text, "\n")` leaves after a final newline; `text::lines(read_stdin())` is a one-liner's whole input; `text::indentation($line)`: how many spaces and tabs a line starts with, and `text::unindented($line)` the line without them; `text::trim_start($s, $chars)` and `text::trim_end($s, $chars)`, `trim()`'s two halves (whitespace unless `$chars` names the bytes) |
-| `json.gaz` | `json::decode`, `json::encode`; JSON is UTF-8, so decoding refuses a document that isn't well formed UTF-8 or that escapes half a surrogate pair, and encoding refuses a string or key that isn't well formed UTF-8; an object is encoded as what its `pub fn to_json()` returns (a map, say: a value, not JSON text), and one without it is an error; a case of an enum with values is its value (see "Enums"), and one without values is an error. Decoding gives maps and lists, never objects: a kind reads itself back with a `static fn from_json($data)` of its own, by convention |
-| `csv.gaz` | `csv::parse`, `csv::records` (RFC 4180) |
-| `db.gaz` | `db::open($url)` (a `Db`), `db::sql"..."`, `db::raw($text)`, `db::ident($name)`, and `db::Failure` with its `db::Problem` for what the database refuses; see "Databases" under Builtins |
-| `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password`, `crypto::needs_rehash`, `crypto::token`, `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies), `crypto::equals`, hex and base64; see [the notes on cryptography](library.md#cryptography) |
-| `chars.gaz` | `chars::char_at`, `chars::is_char` (a one-character string), `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space`, `chars::is_hex_digit`, `chars::span($s, $i, $predicate)` (how many characters from `$i` satisfy the predicate: `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`) |
-| `fs.gaz` | Files and directories for command line tools: `fs::copy($from, $to, $keep_time = false)` (the mode kept, and the modification time with `true`), `fs::copy_tree($from, $to)` (files, directories and their modes, and links as links; gives the paths of what is none of those, a pipe or a socket), `fs::walk($dir)` (every path below, links listed and never followed), `fs::glob($pattern)` (`*`, `?`, `[a-z]`, `**`), `fs::write_atomic($path, $data)` (synced, renamed into place and the directory synced, so it is the old file or the new one even after a power cut), `fs::remove_tree($path)`, `fs::touch($path)`, `fs::temp_dir($prefix)` (its owner's alone) and `fs::parent($path)` |
-| `format.gaz` | `format::number`, `format::pad_left`, `format::pad_right`, and `format::sprintf($template, $args)` with the arguments as a list: `%s` (as echo prints it), `%d` (an int), `%f` (an int or float, 6 decimals or `%.2f`'s, rounded as `round()` does), `%x` (an int of 0 or more, lowercase hex), `%o` (an int of 0 or more, octal, so a mode `0o755` is `755`), `%%`; a width, `-` to pad on the right and `0` to pad a number with zeros after its sign (`%-8s`, `%05.1f`). A count of arguments that isn't the placeholders', a type `%d`, `%f`, `%x` or `%o` can't take, and a placeholder it doesn't know are errors |
-| `cli.gaz` | `cli::Command($name, $summary)`, command line arguments with a generated `--help`; see below |
-| `test.gaz` | `test::expect($label, $actual, $expected)`, `test::throws($label, $thunk, [$kind,] $message)`, `test::snapshot($label, $actual)` and `test::done()`, for `gaz test`; see below |
-| `http.gaz` | `http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})`, `http::request($method, $url, $headers = {}, $body = null)`, HTTP/1.1 on the socket builtins, a server, `http::serve($listener, $handler, $options = {})`, `http::handle($socket, $handler, $options = {})` (one connection), `http::http_date($time)`, `http::redirect($to, $status = 303)` (a response that sends the client elsewhere), `http::Router()` for routing requests to handlers, `http::serve_static($dir, $options = {})`, a handler that serves files under `$dir`, `http::https_redirect($host)`, a handler sending every request on to `https://$host`, and cookies and signed sessions (`http::cookies`, `http::set_cookie`, `http::session`, `http::session_cookie`, `http::csrf_token`, `http::verify_csrf`), with middleware for a web app (`http::security_headers`, `http::sessions`, `http::csrf`, `http::with_session`, `http::flash`); see below |
-| `http2.gaz` | HTTP/2's frames and header compression (RFC 9113, RFC 7541), which `http::serve()` speaks over TLS: `http2::Frame`, `http2::FrameReader`, `http2::frame()`, `http2::Decoder` (a connection's HPACK table, Huffman codes and all) and `http2::encode()`, with each frame type, flag, setting and error code a constant (`http2::HEADERS`, `http2::END_STREAM`, ...) and `http2::ConnectionError` for what a peer gets wrong. A program serves HTTP/2 without it; it is the protocol's arithmetic, apart from the server |
-| `web.gaz` | `web::html"..."`, an `Html` from a tagged string: the text as markup, each value written for where it lands (escaped in text and quoted attributes, checked in a URL, refused where HTML escaping is not enough), and `web::csrf_field($token, $field = "_csrf")`, the hidden field carrying a form's token for `http::csrf()`; see "Templates" |
-| `date.gaz` | Three kinds of int, which the table under "Dates and times" below tells apart. Dates as whole numbers of days: `date::days($year, $month, $day)` (day 0 being 1 January 1970: an impossible date is an error), `date::civil($days)` (`[year, month, day]`), `date::year`/`month`/`day`, `date::weekday` (a `date::Weekday`, an enum from `Monday`, value 0, to `Sunday`, 6), `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`, `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and `date::iso` (`2026-08-08`). Times as whole seconds since 1970 in UTC, as `time()` gives them, and the zones that show them: `date::utc()`, `date::fixed($seconds)` and `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone database, daylight saving time and all), or `date::tzif($name, $bytes)`; `$zone.at($time)` is a `date::Moment` (its date, time of day, offset and abbreviation there, with `rfc3339()`, `format()` and `short()` for its date, `clock()`, `short_clock()`, `offset_text()`, `weekday()` and `reading()`), `$zone.date($time)` the day number its clocks show, and `$zone.time($days, $seconds, $resolve = date::Resolution::Reject)` the time its clocks show a date and `date::time_of_day($hour, $minute, $second = 0)` (`$zone.occurrences($days, $seconds)` every such time: none, one or two); `date::parse($text, $default)` reads RFC 3339, `date::parse_date($text, $default)` a `2026-08-08` and `date::parse_reading($text, $default)` a `2026-08-08T14:02` with no offset (a `date::Reading`, its `#days` and `#seconds`, which `iso()` writes back). Nothing reads the clock: a program that needs today works it out (`$zone.date(time())`), which also keeps date code testable with fixed times; see below |
-| `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or value of a map), `random::key`, `random::chance($p)`, `random::weighted` (from `[item, weight]` pairs) |
-| `regex.gaz` | `regex::matches($s, $pattern)` (full match), `regex::search($s, $pattern)` (found anywhere), `regex::find($s, $pattern)` (the start index, or null), `regex::groups($s, $pattern)` (the first match and what each `(...)` in it took, a group that took no part `null`, or `null` for no match), `regex::replace($s, $pattern, $with)` (every match, left to right, by `$with`: a string where `$0` is the whole match, `$1`, `$2`, ... a group (`""` if it took no part) and `$$` a `$`, a missing group or any other `$` an error before anything is replaced; or a function given the match's groups as `regex::groups` gives them and returning a string; an empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`); literals, `.`, `* + ?` (greedy), `\|` (the first that matches wins), `(...)`, `[...]`/`[^...]` with ranges, `^ $`; `\d` (a digit), `\w` (a letter, digit or `_`), `\s` (space, tab, newline, carriage return) and their negations `\D \W \S`, also inside `[...]`, ASCII bytes as `chars.gaz` classifies them; `\t \n \r`; `\` before any other byte that isn't a letter or digit is that byte, and before a letter or digit an error; `{` and `}` are literal bytes, not repetition (`regex::matches("aaa", "a{3}")` is false); the leftmost match, and there the greedy repetition and the earlier alternative; no backreferences, no backtracking, so time is linear in the string for a given pattern; a pattern compiling to more than 2000 instructions (each entry of a `[...]` counting one more) or with more than 100 groups is an error before anything is matched, so a pattern's size alone can't make each byte expensive |
-| `term.gaz` | `term::style`, `term::RESET`, cursor and screen sequences, `term::decode`, `term::key` and `term::keys` (the keys a --tty script's words name), `term::Input`, `term::fullscreen`, on the terminal builtins; see below |
-| `syntax.gaz` | GazLang's own lexer, the one the compiler reads every program with: `syntax::Lexer($text)`, whose `get_next_token()` gives each `syntax::Token` (its `type`, `value` and `line`) until one of type `"EOF"`, and whose `span()` says where in the text the last one lies; `syntax::LexError` for source it refuses, and `syntax::Lexer::KEYWORDS` |
-| `highlight.gaz` | Code as the GazLang website shows it: `highlight::to_html($language, $source)`, an `Html` of `<span>`s with a class for each sort of token (`kw`, `str`, `com` and so on, for a stylesheet to colour), every piece escaped; `highlight::pieces($language, $source)` the same as `highlight::Piece`s, each on one line (`line`) and their text joined the source back, and `highlight::lines($language, $source)` the pieces of each line, for an editor. GazLang (`"gaz"`) is read by `std/syntax.gaz`, source it refuses pieced up to the refused token and plain from there; bytecode, templates and shell commands have highlighters of their own |
-| `tui.gaz` | `tui::Screen` (a grid of cells that renders only what changed), `tui::Rect` (the part of the screen every drawing function takes), `tui::Pane` (a part nothing drawn into leaves), `tui::box`, `tui::label`, `tui::progress`, `tui::table`, `tui::table_width`, `tui::Table`, `tui::List`, `tui::wrap`, `tui::paragraph`, `tui::Hint`, `tui::hints`, `tui::key_help`, `tui::centered($screen, $width, $height)` (the `Rect` that size in the middle), `tui::Outcome` (what a widget's `handle()` gives), `tui::View` (what a shell asks of a section), `tui::Metronome`, `tui::Menu`, `tui::TextField`, `tui::interact`, `tui::choose`, `tui::ask`; see below |
+| `sorting.gaz` | `sorting::values` and `sorting::by`: sorting values, or rows by a key |
+| `lists.gaz` | Grouping, counting, chunking and searching plain lists: see [Lists](#lists) |
+| `text.gaz` | Quoting values, splitting lines, indentation and trimming: see [Text](#text) |
+| `json.gaz` | `json::decode` and `json::encode`: see [JSON](#json) |
+| `csv.gaz` | `csv::parse` and `csv::records` (RFC 4180) |
+| `db.gaz` | SQLite and PostgreSQL: `db::open($url)`, `db::sql"..."`, `db::raw($text)`, `db::ident($name)`, and `db::Failure` for what the database refuses; see [Databases](#databases) |
+| `crypto.gaz` | `crypto::hash_password`, `crypto::verify_password` and `crypto::needs_rehash`; `crypto::token`; `crypto::sign($value, $secret)` and `crypto::unsign($signed, $secret)` (tamper-evident values, for cookies); `crypto::equals`; hex and base64. See [Cryptography](#cryptography) |
+| `chars.gaz` | Character classes for reading text a byte at a time: see [Characters](#characters) |
+| `fs.gaz` | Copying, walking, globbing and safely writing files: see [Files and directories](#files-and-directories) |
+| `format.gaz` | Numbers with separators, padding, and `format::sprintf`: see [Formatting](#formatting) |
+| `regex.gaz` | Regular expressions that can't hang: see [Regular expressions](#regular-expressions) |
+| `date.gaz` | Dates, times and time zones: see [Dates and times](#dates-and-times) |
+| `random.gaz` | `random::shuffle` (a shuffled copy of a list or string), `random::pick` (an element of a list or a value of a map), `random::key`, `random::chance($p)` and `random::weighted` (from `[item, weight]` pairs) |
+| `cli.gaz` | Command line arguments with a generated `--help`: see [Command line arguments](#command-line-arguments) |
+| `test.gaz` | Checks for `gaz test`: see [Testing](#testing) |
+| `http.gaz` | An HTTP client and server, routing, static files, cookies, sessions and middleware: see [HTTP client](#http-client) and the sections after it |
+| `http2.gaz` | HTTP/2's frames and header compression, which `http::serve()` speaks over TLS: see [HTTP/2](#http2) |
+| `web.gaz` | `web::html"..."`, HTML whose values can't inject markup, and `web::csrf_field($token, $field = "_csrf")`, the hidden field carrying a form's token for `http::csrf()`; see [Templates](#templates) |
+| `syntax.gaz` | GazLang's own lexer, the one the compiler uses: see [Reading and highlighting GazLang](#reading-and-highlighting-gazlang) |
+| `highlight.gaz` | Code as HTML, coloured as the website colours it: see [Reading and highlighting GazLang](#reading-and-highlighting-gazlang) |
+| `term.gaz` | Styles (`term::style`, `term::RESET`), cursor movement and reading keys: see [Terminal styles and keys](#terminal-styles-and-keys) |
+| `tui.gaz` | Full-screen terminal programs: a screen, layout, widgets and a loop to run them; see [Terminal widgets](#terminal-widgets) |
 
-`http.gaz` returns
-`{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}`, with
-header names lowercased and a repeated header's values joined with `", "`.
+### Lists
+
+`lists.gaz` is plain functions over plain lists. The list always comes first, so each reads well
+after `|>`. A key or predicate function is called once per element, with the element alone
+(`map()` and `filter()` pass an index too; these don't).
+
+- `lists::first($xs)`: the first element, an error for an empty list (as `last()` is).
+- `lists::find($xs, $predicate)`: the first element the predicate is true for, or `null`.
+  `lists::contains_by($xs, $predicate)` says whether there is one.
+- `lists::take($xs, $n)` and `lists::drop($xs, $n)`: `$n` is 0 or more, and more than the list
+  has is fine.
+- `lists::chunk($xs, $size)`: the list cut into lists of `$size` elements, the last one shorter
+  when they don't divide evenly.
+- `lists::flatten($lists)`: one level deep.
+- `lists::unique($xs)`: each element once, in the order they first come, compared with `==`.
+- `lists::zip($a, $b)`: pairs, as many as the shorter list has.
+- `lists::partition($xs, $predicate)`: `[$matching, $rest]`.
+- `lists::group_by($xs, $key)`: a map from each key (an int or a string) to the list of elements
+  with it, in the order the keys first come. `lists::count_by($xs, $key)` is the same with counts.
+- `lists::max_by($xs, $key)` and `lists::min_by($xs, $key)`: the element whose `$key($x)` is
+  largest or smallest, the first on a tie. A key that is a list breaks ties in order.
+- `lists::pluck($xs, $key)`: that key of each map.
+- `lists::sum_by($xs, $key)`, `lists::avg($xs)` and `lists::avg_by($xs, $key)`. An average is a
+  float, and an error for an empty list.
+
+### Text
+
+- `text::quote($value)`: a value as the literal that reads back as it, for a message. A string is
+  quoted, so a space or a NUL byte shows.
+- `text::lines($text)`: the lines of a string as `read_line()` reads them. `"\n"` or `"\r\n"` ends
+  a line and the last needs no end, so there is no empty line after a final newline, as
+  `split($text, "\n")` leaves. `text::lines(read_stdin())` is a one-liner's whole input.
+- `text::indentation($line)`: how many spaces and tabs a line starts with.
+  `text::unindented($line)` is the line without them.
+- `text::trim_start($s, $chars)` and `text::trim_end($s, $chars)`: `trim()`'s two halves, trimming
+  whitespace unless `$chars` names the bytes.
+
+### JSON
+
+`json::decode($text)` and `json::encode($value)`.
+
+- JSON is UTF-8. Decoding refuses a document that isn't well formed UTF-8, or that escapes half a
+  surrogate pair. Encoding refuses a string or key that isn't well formed UTF-8.
+- An object is encoded as what its `pub fn to_json()` returns: a value, such as a map, not JSON
+  text. An object without one is an error.
+- A case of an enum with values is encoded as its value (see "Enums"). A case of one without
+  values is an error.
+- Decoding gives maps and lists, never objects. By convention a kind reads itself back with a
+  `static fn from_json($data)` of its own.
+
+### Characters
+
+`chars.gaz` classifies ASCII bytes, for reading text a character at a time.
+
+- `chars::char_at($s, $i)`, and `chars::is_char($c)`: whether a value is a one-character string.
+- `chars::is_digit`, `chars::is_alpha`, `chars::is_alnum`, `chars::is_space` and
+  `chars::is_hex_digit`.
+- `chars::span($s, $i, $predicate)`: how many characters from `$i` satisfy the predicate.
+  `slice($s, $i, chars::span($s, $i, chars::is_digit))` is the number at `$i`.
+
+### Files and directories
+
+`fs.gaz` is what command line tools need beyond the file builtins.
+
+- `fs::copy($from, $to, $keep_time = false)`: copies a file with its mode, and its modification
+  time too with `true`.
+- `fs::copy_tree($from, $to)`: copies files, directories and their modes, and links as links. It
+  gives the paths of anything that is none of those, such as a pipe or a socket.
+- `fs::walk($dir)`: every path below `$dir`. Links are listed and never followed.
+- `fs::glob($pattern)`: the paths matching `*`, `?`, `[a-z]` and `**`.
+- `fs::write_atomic($path, $data)`: writes and syncs the data, renames it into place, and syncs
+  the directory, so the file is the old one or the new one, even after a power cut.
+- `fs::remove_tree($path)`, `fs::touch($path)` and `fs::parent($path)`.
+- `fs::temp_dir($prefix)`: a new directory only its owner can use.
+
+### Formatting
+
+`format::number`, `format::pad_left` and `format::pad_right`, and
+`format::sprintf($template, $args)`, which takes its arguments as a list:
+
+| Placeholder | Takes |
+| --- | --- |
+| `%s` | anything, as `echo` prints it |
+| `%d` | an int |
+| `%f` | an int or float, 6 decimals (or `%.2f`'s), rounded as `round()` rounds |
+| `%x` | an int of 0 or more, in lowercase hex |
+| `%o` | an int of 0 or more, in octal, so a mode `0o755` is `755` |
+| `%%` | nothing: it is a `%` |
+
+A width pads on the left; `-` pads on the right instead, and `0` pads a number with zeros after
+its sign (`%-8s`, `%05.1f`). These are errors: a count of arguments that isn't the count of
+placeholders, a value `%d`, `%f`, `%x` or `%o` can't take, and a placeholder it doesn't know.
+
+### Regular expressions
+
+`regex.gaz` runs a pattern without backtracking, so for a given pattern the time grows in step
+with the length of the string, and no pattern can hang.
+
+- `regex::matches($s, $pattern)`: whether the whole string matches.
+- `regex::search($s, $pattern)`: whether it matches anywhere.
+- `regex::find($s, $pattern)`: the index where the first match starts, or `null`.
+- `regex::groups($s, $pattern)`: the first match and what each `(...)` in it took, or `null` for
+  no match. A group that took no part is `null`.
+- `regex::replace($s, $pattern, $with)`: every match, left to right, replaced by `$with`.
+  - `$with` can be a string, in which `$0` is the whole match, `$1`, `$2` and so on a group (`""`
+    if it took no part), and `$$` a `$`. A missing group, or any other `$`, is an error before
+    anything is replaced.
+  - Or it can be a function, given the match's groups as `regex::groups` gives them and returning
+    a string.
+  - An empty match moves on a byte: `replace("abc", "x*", "-")` is `"-a-b-c-"`.
+
+The syntax:
+
+- Literals, `.`, `*`, `+` and `?` (all greedy), `|` (the first alternative that matches wins),
+  `(...)`, `[...]` and `[^...]` with ranges, `^` and `$`.
+- `\d` (a digit), `\w` (a letter, digit or `_`) and `\s` (space, tab, newline or carriage return),
+  and their negations `\D`, `\W` and `\S`, also inside `[...]`. They are ASCII, as `chars.gaz`
+  classifies bytes.
+- `\t`, `\n` and `\r`. A `\` before any other byte that isn't a letter or digit is that byte, and
+  before a letter or digit it is an error.
+- `{` and `}` are literal bytes, not repetition: `regex::matches("aaa", "a{3}")` is false.
+- No backreferences.
+
+The match found is the leftmost, and there the greedy repetition and the earlier alternative. A
+pattern compiling to more than 2000 instructions (each entry of a `[...]` counting one more), or
+with more than 100 groups, is an error before anything is matched, so a pattern's size alone can't
+make each byte expensive.
+
+### Reading and highlighting GazLang
+
+`syntax.gaz` is GazLang's own lexer, the one the compiler reads every program with:
+
+- `syntax::Lexer($text)`, whose `get_next_token()` gives each `syntax::Token` (its `type`, `value`
+  and `line`) until one of type `"EOF"`, and whose `span()` says where in the text the last one
+  lies.
+- `syntax::LexError` for source it refuses, and `syntax::Lexer::KEYWORDS`.
+
+`highlight.gaz` shows code as the GazLang website does:
+
+- `highlight::to_html($language, $source)`: an `Html` of `<span>`s with a class for each sort of
+  token (`kw`, `str`, `com` and so on) for a stylesheet to colour, every piece escaped.
+- `highlight::pieces($language, $source)`: the same as a list of `highlight::Piece`s, each on one
+  line (`line`), whose text joined is the source again.
+- `highlight::lines($language, $source)`: the pieces of each line, for an editor.
+
+GazLang (`"gaz"`) is read by `std/syntax.gaz`. Source it refuses is pieced up to the refused token
+and plain from there. Bytecode, templates and shell commands have highlighters of their own.
+
+### HTTP/2
+
+`http2.gaz` is HTTP/2's frames and header compression (RFC 9113, RFC 7541), which `http::serve()`
+speaks over TLS. A program serves HTTP/2 without it; it is the protocol's arithmetic, apart from
+the server.
+
+- `http2::Frame`, `http2::FrameReader` and `http2::frame()`.
+- `http2::Decoder`, a connection's HPACK table (Huffman codes and all), and `http2::encode()`.
+- Each frame type, flag, setting and error code as a constant (`http2::HEADERS`,
+  `http2::END_STREAM`, ...), and `http2::ConnectionError` for what a peer gets wrong.
+
+### HTTP client
+
+```gaz
+import "std/http.gaz";
+
+$r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
+echo $r["status"] .. " " .. $r["headers"]["content-type"];
+```
+
+`http::get($url, $headers = {})`, `http::post($url, $body, $headers = {})` and
+`http::request($method, $url, $headers = {}, $body = null)` speak HTTP/1.1 and return a map:
+
+```gaz
+{"status" => 200, "headers" => {"content-type" => "text/html", ...}, "body" => "..."}
+```
+
+Header names are lowercased, and a repeated header's values joined with `", "`.
 
 - Every status is a response, 404 and 500 included. A request that gets none (no such host,
   refused, a certificate that doesn't check out, a response that isn't HTTP or is cut short)
@@ -2436,156 +2724,502 @@ header names lowercased and a repeated header's values joined with `", "`.
 - Each request has its own connection, waiting 30 seconds at most to connect and for each
   read.
 
-**The server**: `http::serve($listener, $handler, $options = {})` answers the connections on a
-`socket_listen()` listener for ever, calling `$handler($request)` for each request with
+### HTTP server
+
+```gaz
+import "std/http.gaz";
+
+$listener = socket_listen("0.0.0.0", 8080);
+workers(4);
+http::serve($listener, $request -> match ($request["path"]) {
+    "/" => {"body" => "hello\n", "headers" => {"Content-Type" => "text/plain"}},
+    default => {"status" => 404, "body" => "not found\n"},
+});
+```
+
+`http::serve($listener, $handler, $options = {})` answers the connections on a `socket_listen()`
+listener for ever, calling `$handler($request)` for each request with a map:
 
 ```gaz
 {"method" => "GET", "path" => "/users/7", "query" => "tab=posts", "headers" => {...}, "body" => "",
  "remote_address" => "192.0.2.7", "scheme" => "https"}
 ```
 
-and writing the map it returns: `"status"` (200 if left out), `"headers"` and `"body"` (a string,
-`""` if left out). Header names are lowercased and a repeated header's values joined with `", "`,
-as in a response; the path and query are as the client sent them, not decoded.
+- Header names are lowercased, and a repeated header's values joined with `", "`, as in a
+  response.
+- The path and query are as the client sent them, not decoded (see
+  [Reading requests](#reading-requests)).
+- `"remote_address"` is the client's address as `socket_peer()` writes it, or `null` if the
+  client has already gone and the system no longer knows.
+- `"scheme"` is `"https"` for a server with `"tls"`, and `"http"` otherwise.
 
-`"remote_address"` is the client's address as `socket_peer()` writes it (or `null` if the client has
-already gone and the system no longer knows). Behind a proxy it is the proxy's: the client's is in the
+The handler returns a map, which is written as the response: `"status"` (200 if left out),
+`"headers"`, and `"body"` (a string, `""` if left out).
+
+- `Content-Length`, `Date` and `Connection` are written for you. Giving one is an error, except
+  `"Connection" => "close"`, in any case, which asks for the connection to close after this
+  response. There is no `Content-Type` unless you give one.
+- A HEAD request gets the headers without the body, and a 204 or 304 can't have one.
+- `http::handle($socket, $handler, $options = {})` answers one connection, for a program that
+  accepts its own.
+- `http::serve()` returns when its worker is asked to stop, after answering the request in hand.
+- `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
+
+#### Redirects
+
+To send the client somewhere else, a handler returns `http::redirect($to, $status = 303)`.
+
+- 303 See Other, the default, is followed by a browser with a GET, as a form's POST wants. 301 and
+  308 are the permanent moves, and 302 and 307 the temporary ones that keep the method.
+- `$to` is written as given, so a path of your own is safe. One taken from a request (a `next`
+  parameter) must be checked by the caller, or it is an open redirect.
+- A `$to` with a line break or a NUL byte is an error at the call.
+
+#### Behind a proxy
+
+Behind a reverse proxy, `"remote_address"` is the proxy's address. The client's is in the
 `X-Forwarded-For` header the proxy adds, and whether to believe that header is the program's
-decision, since a client can send one of its own. `"scheme"` is `"https"` for a server with `"tls"`,
-`"http"` otherwise (behind a proxy that ends TLS, the proxy's `X-Forwarded-Proto` says what the
-client used).
+decision, since a client can send one of its own. Likewise, a proxy that ends TLS says in
+`X-Forwarded-Proto` what the client used.
 
-`http::client_address($request, $trusted_proxies = [])` gives the client's address, or `null` when
-`"remote_address"` is. With no `$trusted_proxies` it is `"remote_address"` itself and
-`X-Forwarded-For` is never read, so the default can't be fooled by a client sending the header. When
-`"remote_address"` is one of `$trusted_proxies` (a list of addresses, compared as text), the header is
-read from the right, the end the proxies added to, and the first entry that isn't a trusted proxy is
-the client: the entries to its left are whatever the client sent. An entry that is empty or isn't an
-address stops the walk at the last hop a trusted proxy vouched for, as does a missing header or one
-whose every entry is trusted. A `$trusted_proxies` that isn't a list of strings is an error.
+`http::client_address($request, $trusted_proxies = [])` gives the client's address, or `null`
+when `"remote_address"` is `null`:
 
 ```gaz
 // nginx on the same machine, with proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 $address = http::client_address($request, ["127.0.0.1"]);
 ```
 
-There are no address ranges (`10.0.0.0/8`), and IPv6 text is compared as written.
+- With no `$trusted_proxies` it is `"remote_address"` itself, and `X-Forwarded-For` is never
+  read, so the default can't be fooled by a client sending the header.
+- When `"remote_address"` is one of `$trusted_proxies` (a list of addresses, compared as text),
+  the header is read from the right, the end the proxies added to. The first entry that isn't a
+  trusted proxy is the client; the entries to its left are whatever the client sent.
+- An entry that is empty or isn't an address stops the walk at the last hop a trusted proxy
+  vouched for, as does a missing header, or one whose every entry is trusted.
+- A `$trusted_proxies` that isn't a list of strings is an error. There are no address ranges
+  (`10.0.0.0/8`), and IPv6 text is compared as written.
 
-To send the client somewhere else a handler returns `http::redirect($to, $status = 303)`: 303 See
-Other by default, which a browser follows with a GET, as a form's POST wants; 301 and 308 are the
-permanent moves and 302 and 307 the temporary ones that keep the method. `$to` is written as given,
-so a path of your own is safe, and one taken from a request (a `next` parameter) must be checked by
-the caller, or it is an open redirect; one with a line break or a NUL byte is an error at the call.
+#### Connections
 
-- `Content-Length`, `Date` and `Connection` are written for you (giving one is an error, except
-  `"Connection" => "close"`, in any case, which asks for the connection to close after this
-  response); no `Content-Type` unless given. A HEAD request gets the headers without the body; a 204
-  or 304 can't have one.
-- A connection stays open for the client's next request, and its requests are answered in turn,
-  in order when several come at once. It closes after a response that says `Connection: close`,
-  which is one to an HTTP/1.0 request or to one that says `Connection: close`, one the server
-  refused or a handler failed (the bytes after it can't be trusted to start a request), one whose
-  handler asked, the connection's `requests_per_connection`th, the worker's last before
-  `max_requests`, and any while it retires (and, in a single process, one handed over to a client
-  waiting, below). It also closes, without a word, when the client sends nothing for
-  `idle_timeout` seconds, or before its first request for `header_timeout`, or the server is asked
-  to stop. Up to four empty lines before a request line are skipped.
-- Under `workers()`, slow and idle clients hold no worker: the process that called `workers()`
-  accepts every connection and reads each request's line and headers itself, for all of them at
-  once, and hands a worker the connection only when they are all in (`worker_accept()`); after the
-  response a kept-open connection goes back to it to wait for the next request. So a client
-  trickling its headers, or a browser keeping six connections open, costs the server nothing but
-  an open connection, and other clients are answered meanwhile. A body is the worker's to read, so
-  a client sending its body slowly still holds a worker, for up to `request_timeout`. At most
-  `max_connections` connections are open at once; past that, new ones wait in the system's queue
-  until one closes.
-- In a single process (`gaz -S`, or no `workers()`), open connections never keep the server from a
-  new client. When one is waiting, a connection that has had its turn for 50 milliseconds closes
-  after its next response, and an idle one is closed, without a word, once nothing else has taken
-  the new client within 10 to 20 milliseconds (50 if its client had been asking again at once).
-  Closing an idle connection can meet a request its client sends at that very moment, which then
-  gets no response (a browser sends it again; a benchmark counts an error), while a response that
-  says `Connection: close` meets nothing; so for 5 seconds after it has had to close an idle
-  connection, it closes each connection after its response instead, unless the client asked again
-  at once.
-- A request that isn't well formed never reaches the handler: 400 (a bad request line or header
-  line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, a body cut short),
-  408 (the request line and headers took longer than `header_timeout`, or the whole request longer than `request_timeout`), 413 (a body over `max_body`), 431 (a request line and headers over 64KB), 417 (an `Expect` other
-  than `100-continue`, which is answered before the body is read), 501 (a transfer coding other than
-  chunked), 505 (not HTTP/1.x). A connection that closes, or goes quiet, before sending anything
-  gets nothing.
-- A handler that raises, or returns a response that can't be written (a status outside 200 to 599,
-  a header value with a line break), is a 500, and the error and its trace go to standard error.
-  The worker carries on. What `http::query()`, `http::query_all()`, `http::form()` or
-  `http::form_all()` refuses (see below), left uncaught, is answered 400 instead, with nothing
-  logged, as the client's mistake: whenever they refuse, even on a request map the program built
-  itself, which the server can't tell apart.
-- Every request answered is a line on standard error, the access log, written once its response
-  has been sent:
+A connection stays open for the client's next request, and its requests are answered in turn, in
+order when several come at once. Up to four empty lines before a request line are skipped.
 
+A connection closes after a response that says `Connection: close`. The server says so in its
+response:
+
+- to an HTTP/1.0 request, or one that says `Connection: close`;
+- to a request it refused, or whose handler failed, since the bytes after it can't be trusted to
+  start a request;
+- when the handler asked;
+- on the connection's `requests_per_connection`th request, and on the worker's last before
+  `max_requests`;
+- on every request while its worker retires, and, in a single process, when another client is
+  waiting (below).
+
+It also closes, without a word, when the client sends nothing for `idle_timeout` seconds, or
+nothing before its first request for `header_timeout`, or when the server is asked to stop.
+
+**Under `workers()`, slow and idle clients hold no worker.** The process that called `workers()`
+accepts every connection and reads each request's line and headers itself, for all of them at
+once, and hands a worker the connection only when they are all in (`worker_accept()`). After the
+response, a kept-open connection goes back to it to wait for the next request. So a client
+trickling its headers, or a browser keeping six connections open, costs the server nothing but
+an open connection, and other clients are answered meanwhile.
+
+- A body is the worker's to read, so a client sending its body slowly still holds a worker, for
+  up to `request_timeout`.
+- At most `max_connections` connections are open at once. Past that, new ones wait in the
+  system's queue until one closes.
+
+**In a single process** (`gaz -S`, or no `workers()`), open connections never keep the server from
+a new client.
+
+- When a client is waiting, a connection that has had its turn for 50 milliseconds closes after
+  its next response.
+- An idle connection is closed, without a word, once nothing else has taken the new client within
+  10 to 20 milliseconds (50 if its client had been asking again at once).
+- Closing an idle connection can meet a request its client sends at that very moment, which then
+  gets no response: a browser sends it again, and a benchmark counts an error. A response that
+  says `Connection: close` meets nothing. So for 5 seconds after it has had to close an idle
+  connection, the server closes each connection after its response instead, unless the client
+  asked again at once.
+
+**In production**, run it behind a reverse proxy that buffers whole requests (nginx, Caddy).
+Under `workers()` a client sending its headers slowly holds no worker, but one sending its body
+slowly holds one for up to `request_timeout`, and as many such clients as there are workers hold
+them all that long. In a single process, one slow client holds the server.
+
+#### Refused requests and errors
+
+A request that isn't well formed never reaches the handler:
+
+| Status | When |
+| --- | --- |
+| 400 | a bad request line or header line, no `Host` in HTTP/1.1, both `Content-Length` and `Transfer-Encoding`, or a body cut short |
+| 408 | the request line and headers took longer than `header_timeout`, or the whole request longer than `request_timeout` |
+| 413 | a body over `max_body` |
+| 417 | an `Expect` other than `100-continue` (which is answered before the body is read) |
+| 431 | a request line and headers over 64KB |
+| 501 | a transfer coding other than chunked |
+| 505 | not HTTP/1.x |
+
+A connection that closes, or goes quiet, before sending anything gets nothing.
+
+A handler that raises, or returns a response that can't be written (a status outside 200 to 599,
+a header value with a line break), is answered 500, and the error and its trace go to standard
+error. The worker carries on.
+
+What `http::query()`, `http::query_all()`, `http::form()` or `http::form_all()` refuse, left
+uncaught, is answered 400 instead, with nothing logged, as the client's mistake. That holds
+whenever they refuse, even on a request map the program built itself, which the server can't
+tell apart.
+
+#### The access log
+
+Every request answered is a line on standard error, written once its response has been sent:
+
+```
+2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms
+```
+
+The fields are the time (UTC); the client's address (the connection's, so a proxy's behind one);
+the method and target as the request line gave them; the status; the bytes of body sent (0 for a
+HEAD); and how long the request took from its first byte to its response written, in
+milliseconds to three places.
+
+- The server's own refusals and 500s have a line too (a 500's error is written first), and so
+  does each request on a kept-open connection. A connection that closes, or goes quiet, before
+  sending anything has none.
+- Fields are split by single spaces, and none holds one. `-` is what wasn't read (a request line
+  that couldn't be).
+- Every byte of the method and target outside the printable ASCII from `!` to `~` is written
+  `\xHH`, and so is a backslash, so a request can't write a line or a terminal escape of its own.
+  A 500's error line shows the method and path the same way. A target past 360 bytes is cut off
+  with `\...`.
+- Under `workers()`, a standard error nobody reads any more (a log reader that stopped) loses
+  the lines and ends nothing.
+
+#### Server options
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `"timeout"` | 10 | Seconds each read and write may wait, and the wait for a connection's first request. |
+| `"request_timeout"` | 30 | Seconds each request may take to arrive, after which it is a 408, so a client sending a byte at a time can't hold a worker. |
+| `"header_timeout"` | 10 | Seconds the request line and headers may take, also a 408; at most `request_timeout`, or `null` for `request_timeout` alone. The body then has what is left of `request_timeout`. |
+| `"max_body"` | 1048576 | The largest body, in bytes. |
+| `"idle_timeout"` | 5 | Seconds to wait for the next request on an open connection. |
+| `"requests_per_connection"` | 100 | Requests on one connection before it closes; 1 closes every connection after its first request. |
+| `"max_connections"` | 1024 | Connections open at once under `workers()`, waiting for a request or being answered; at most 1000000. |
+| `"access_log"` | `true` | `false` writes no access log; errors are still written. |
+| `"handler_timeout"` | 10 | Seconds the handler may take; at most 100000000, or `null` for no limit. |
+| `"max_requests"` | no limit | Requests a worker answers, however many connections they came on, before it retires. |
+| `"tls"` | none | A certificate and key to serve HTTPS (below). |
+| `"http2"` | `true` | `false` turns off HTTP/2 for a TLS server. |
+
+Both request timeouts count from when a connection is taken for its first request, and from a
+later request's first byte.
+
+`max_connections` is lowered if the open file limit leaves less room. The server raises that
+limit as far as it can, and says so on standard error.
+
+**`handler_timeout`**: past it, the client is answered `503 Service Unavailable`, the access log
+has its line with the deadline as its time, and the worker ends, for the master to start another
+(`worker_deadline()`).
+
+- It needs `workers()`. In a single process (`gaz -S`) the handler runs on, since nobody would
+  start another.
+- A stop or a hand-over gives a worker 10 seconds to finish, so a larger value can be cut short
+  by one, with no 503.
+- A program `run()` started carries on after its worker ends, and so does a PostgreSQL query on
+  the database's side, so set `statement_timeout` below it.
+
+**`max_requests`** is there so a long-lived worker's accumulated state doesn't outlive it. The
+worker calls `worker_retire()` and serves on, one request to a connection so it can leave at any
+moment, until its replacement is ready, so a retiring worker never leaves clients waiting for
+one; then it calls `worker_recycle()`. Without `workers()` it calls `worker_recycle()` at once.
+
+#### HTTPS
+
+`"tls"` serves HTTPS:
+
+```gaz
+http::serve($listener, $app.handler(), {"tls" => {"certificate" => ".../fullchain.pem", "key" => ".../privkey.pem"}});
+```
+
+- A client that asks for HTTP/2 (a browser does) is served HTTP/2, unless `"http2" => false` is
+  given: the same handler, the same request map and the same response, the protocol being the
+  server's business. A connection's streams are answered one at a time by the worker that holds
+  it.
+- The certificate and key are read and checked when the server starts (see
+  `socket_tls_server()`), and read again when they change, so a renewed certificate is served from
+  the next connection on.
+- A client that speaks plain HTTP to it is answered 400, saying to ask for `https://`.
+- Under `workers()` the master hands each connection to a worker as it is accepted, and the
+  worker does the handshake under `"header_timeout"`. Between requests the worker keeps the
+  connection itself while it waits for another, so an idle TLS client holds no worker another
+  client needs: it gives way, closed as after an idle wait, when no worker is free. A client
+  still doing its handshake holds a worker, so slow clients are a proxy's to absorb there, as
+  slow bodies are.
+- Past `"handler_timeout"`, a TLS client is written nothing and sees the connection close.
+- For a site's `Strict-Transport-Security` and `Secure` cookies, see `http::security_headers()`
+  and `http::sessions()`.
+- `http::https_redirect($host)` is a handler for a plain server on port 80 beside an HTTPS one:
+  every request gets a 308 to the same path and query on `https://$host` (`"example.com"`, or
+  with its port), so a POST stays a POST. The host is the program's, never the request's `Host`,
+  which a client writes: `http::serve(socket_listen("0.0.0.0", 80), http::https_redirect("example.com"))`.
+
+### Routing
+
+`http::Router()` sends each request to the handler for its method and path:
+
+```gaz
+$app = http::Router();
+$app.get("/users/:id", $request -> ({"body" => "user {$request["params"]["id"]}"}));
+$app.post("/users", $create_user);
+$app.use(($request, $next) -> $next($request));      // middleware
+http::serve($listener, $app.handler());
+```
+
+- `get`, `post`, `put`, `patch`, `delete`, and `route($method, $pattern, $handler)` for any
+  other. A pattern starts with `/`, and its segments are literal or `:name`; a `:name` takes one
+  whole, non-empty segment, percent-decoded (a `%2F` is a `/` in it), into `$request["params"]`.
+- The first route added that matches wins. A path that matches only with other methods is a 405
+  with an `Allow` header, and a GET route answers HEAD. A path that matches only with its trailing
+  slash added or taken away is a 308 redirect to that spelling. A bad escape is a 400, and
+  anything else a 404, or what `$app.not_found($handler)` gives.
+- Middleware, `($request, $next) -> response`, wraps everything, 404s included; the first added
+  is the outermost, and it can answer without calling `$next`.
+- A group gives a set of routes middleware of their own, a prefix for their paths, or both.
+  `$app.middleware($m)` and `$app.prefix("/admin")` each give an `http::Group`, which has the same
+  `get` to `route` methods, and `middleware()` and `prefix()` again to nest, and whose
+  `group($routes)` calls `$routes` with it:
+
+  ```gaz
+  $app.middleware($require_login).group($routes -> {
+      $routes.get("/", $home);
+      $routes.post("/todos", $create);
+  });
+  $app.prefix("/admin").middleware($admin_only).group($admin -> {
+      $admin.get("/users", $users);              // /admin/users
+  });
   ```
-  2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms
-  ```
 
-  the time (UTC), the client's address (the connection's, so a proxy's behind one), the method and
-  target as the request line gave them, the status, the bytes of body sent (0 for a HEAD) and how
-  long the request took from its first byte to its response written, in milliseconds to three
-  places. That holds for the server's own refusals and 500s too (a 500's error is written first,
-  as before), and for each request on a kept-open connection; a connection that closes, or goes
-  quiet, before sending anything has no line. Fields are split by single spaces and none holds
-  one: `-` is what wasn't read (a request line that couldn't be), every byte of the method and
-  target other than the printable ASCII from `!` to `~` is written `\xHH`, and so is a backslash,
-  so a request can't write a line or a terminal escape of its own (a 500's error line shows the
-  method and path the same way); a target past 360 bytes is cut off with `\...`. Under
-  `workers()`, a standard error nobody reads any more (a log reader that stopped) loses the lines
-  and ends nothing.
-- Options: `"timeout"`, seconds each read and write may wait, and the wait for a connection's first
-  request (10); `"request_timeout"`, seconds each request may take to arrive (30), after which it is
-  a 408, so a client sending a byte at a time can't hold a worker; `"header_timeout"`, seconds its
-  request line and headers may take (10, at most `request_timeout`, `null` for `request_timeout`
-  alone), also a 408, the body then having what is left of `request_timeout` (both count from when
-  a connection is taken for its first request, and from a later request's first byte);
-  `"max_body"` in bytes (1048576);
-  `"idle_timeout"`, seconds to wait for the next request on an open connection (5);
-  `"requests_per_connection"` (100; 1 closes every connection after its first request);
-  `"max_connections"` (1024, at most 1000000), connections open at once under `workers()`, waiting
-  for a request or being answered (fewer if the open file limit leaves less room, which the server
-  raises as far as it can, saying so on standard error);
-  `"access_log"` (true; false writes no access log, the errors still); `"handler_timeout"`,
-  seconds the handler may take (10; at most 100000000; `null` for no limit), after which the client is answered `503
-  Service Unavailable`, the access log has its line with the deadline as its time, and the worker
-  ends, for the master to start another (`worker_deadline()`): it needs `workers()`, and in a single
-  process (`gaz -S`) the handler runs on, since nobody would start another. A stop or a hand-over
-  gives a worker 10 seconds to finish, so a larger value can be cut short by one, with no 503. A
-  program `run()` started carries on after its worker ends, and so does a PostgreSQL query on the
-  database's side, so set `statement_timeout` below it; and
-  `"max_requests"` (unset, no limit), requests answered, however many connections they came on,
-  after which the worker retires, so a long-lived worker's accumulated state doesn't outlive it: it
-  calls `worker_retire()` and serves on, one request to a connection so it can leave at any moment,
-  until its replacement is ready, so a retiring worker never leaves clients waiting for one; then
-  `worker_recycle()`. Without `workers()` it calls `worker_recycle()` at once.
-- It returns when its worker is asked to stop, after answering the request in hand.
-- In production, run it behind a reverse proxy that buffers whole requests (nginx, Caddy): under
-  `workers()` a client sending its headers slowly holds no worker, but one sending its body slowly
-  holds one for up to `request_timeout`, and as many such clients as there are workers hold them
-  all that long; in a single process one slow client holds the server.
-- `"tls"` serves HTTPS: `{"certificate" => ".../fullchain.pem", "key" => ".../privkey.pem"}`, and
-  HTTP/2 to a client that asks for it (a browser does), unless `"http2" => false` is in the map:
-  the same handler, the same request map and the same response, the protocol being the server's
-  business. A connection's streams are answered one at a time by the worker that holds it. Read
-  and checked when the server starts (see `socket_tls_server()`) and read again when they change, so
-  a renewed certificate is served from the next connection on. A client that speaks plain HTTP to
-  it is answered 400, saying to ask for `https://`. Under `workers()` the master hands each
-  connection to a worker as it is accepted, and the worker does the handshake under
-  `"header_timeout"`; between requests it keeps the connection itself, while it waits for another,
-  so an idle TLS client holds no worker another client needs: it gives way, closed as after an
-  idle wait, when no worker is free. A client still doing its handshake holds a worker, so slow
-  clients are a proxy's to absorb there, as slow bodies are. Past `"handler_timeout"` a TLS client
-  is written nothing and sees the connection close. For a site's `Strict-Transport-Security` and
-  `Secure` cookies, see `http::security_headers()` and `http::sessions()`.
-- `http::http_date(time())` is a time as HTTP writes one: `Sat, 08 Aug 2026 14:02:09 GMT`.
+  A group's middleware runs only once one of its routes matched, inside the router's own, the
+  outer group's first, so a 404 or a 405 never reaches it. Its routes go into the router in the
+  order they are added, among the router's own. `/` under a prefix is the prefix itself; a prefix
+  starts with `/` and doesn't end with one.
 
-**Dates and times**, with `std/date.gaz`:
+### Static files
+
+`http::serve_static($dir, $options = {})` is a handler that answers from files under `$dir`, for
+`http::serve()` directly or as a `Router`'s `not_found()`.
+
+- The path is percent-decoded and split into segments; a segment of `..` is refused as a 404, the
+  same answer a missing file gets, rather than resolved and hoped to stay inside `$dir`.
+- A path ending in `/`, or one naming a directory, looks for `index.html` inside it.
+- Content-Type is guessed from the extension (html, css, js, json, images, fonts, `pdf`, `wasm`,
+  `mp4`, `txt`); anything else is `application/octet-stream`.
+- Every file is sent with `ETag: W/"size-mtime"` (from `file_info()`), `Last-Modified` and
+  `Cache-Control: no-cache`, so a browser keeps it but asks each time, and a GET or HEAD whose
+  `If-None-Match` names the tag (or is `*`) gets a `304 Not Modified` with no body.
+  `If-Modified-Since` is read only without an `If-None-Match`, and only the exact date
+  `Last-Modified` gave counts; any other date gets the file.
+- `http::serve_static($dir, {"cache_control" => "public, max-age=31536000, immutable"})` sets
+  Cache-Control instead, for files whose names change with their contents (`app.3f9a1c.css`),
+  which a browser can then keep without asking.
+- `gaz -S host:port [--docroot DIR] [--cert FILE --key FILE]` runs a zero-config server built on
+  this (`std/devserver.gaz`, `--docroot` defaulting to the working directory), over HTTPS (and
+  HTTP/2) with a certificate and its key: `mkcert localhost` makes a pair this machine's browsers
+  trust. A program that wants routing or anything dynamic writes its own few lines on
+  `serve_static()` instead.
+
+### Reading requests
+
+A handler decodes what a request carries when it asks:
+
+- `http::query($request)` is the query string as a map of strings (`?page=2&q=a+b` is
+  `{"page" => "2", "q" => "a b"}`), and `http::form($request)` a form body the same way. A key
+  given twice keeps its last value; `http::query_all()` and `http::form_all()` give every value, a
+  list for each key. `+` is a space in both, as HTML forms send it.
+- `http::form()` needs the request's Content-Type to be `application/x-www-form-urlencoded`, and
+  is an error otherwise.
+- Every key and value must be well formed UTF-8 once decoded, or it is an error (`text that isn't
+  UTF-8 once decoded`), so a handler is only ever given text: `?q=%ff` is refused as a bad escape
+  is, since a database or a JSON document would refuse those bytes later. The router's params are
+  held to the same rule (a 400), and so is `http::cookies()`, which leaves such a cookie out.
+- `http::url_decode($text)` undoes percent-escapes (`%20` is a space, and `+` stays `+`), and a
+  `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`, a 500 in a
+  handler like any other, since its text may be the program's own. It gives the bytes back whatever
+  they are, so a handler that wants bytes that aren't UTF-8 decodes a piece of `$request["query"]`
+  or `$request["body"]` with it.
+- Each of these takes an optional `$default` last, as `to_int($x, $default)` does, given back
+  instead of an error for what the client sent that can't be decoded (a bad percent-escape, text
+  that isn't UTF-8, or a body that isn't a form), so a handler needs no `try`: `http::form($request,
+  {})` reads a request that isn't a form as one with no fields, and `http::query($request, {})` a
+  query string like `?show=%zz` as an empty one. Without one, the error left uncaught in a handler
+  is answered 400. A mistake of the program's (a request that isn't a map) is still an error.
+  `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
+
+### Uploads
+
+A form with `enctype="multipart/form-data"` is read with `http::multipart($request)`:
+
+```gaz
+import "std/crypto.gaz";
+import "std/http.gaz";
+
+fn upload($request) {
+    $sent = http::multipart($request);
+    $photo = $sent["files"]["photo"] ?? null;   // {"filename" => ..., "content_type" => ..., "content" => ...}
+    if ($photo == null || $photo["filename"] == "") {
+        return {"status" => 422, "body" => "Choose a photo to upload"};
+    }
+    $stored = "uploads/" .. crypto::token() .. ".jpg";   // never $photo["filename"]
+    write_file($stored, $photo["content"]);
+
+    return {"body" => "Thanks for " .. ($sent["fields"]["title"] ?? "the photo")};
+}
+```
+
+- It gives `{"fields" => {...}, "files" => {...}}`: each text field a string, as `http::form()`
+  gives one, and each file a map of its `"filename"`, `"content_type"` (the part's own,
+  `application/octet-stream` without one) and `"content"`, the bytes as sent. A name given twice
+  keeps its last value; `http::multipart_all()` gives every value, a list for each name, which is
+  how the files of an `<input type="file" multiple>` arrive. A file input left empty arrives as a
+  file whose filename and content are `""`.
+- **Never use `"filename"` as a path**: it is exactly what the browser sent, and a client can send
+  `../../etc/passwd`. Name the stored file yourself. A quoted filename runs to the next `"` with
+  every byte kept, backslashes too (`filename="dir\"` is `dir\`), as browsers send a `"` as `%22`.
+- The whole body is in memory, so `http::serve()`'s `"max_body"` (1MB by default) bounds an
+  upload, and a bigger body is answered 413 before the handler runs: raise it for a server that
+  takes big files.
+- A body of another Content-Type, or one that isn't well formed (no boundary or one over 70 bytes,
+  a body cut off before its closing boundary, a part without a `name`, a header line without a
+  colon, a parameter whose name isn't a token or whose unquoted value isn't one, a nested
+  multipart body, a `filename*` parameter, more than 1000 parts), is an error, and
+  so is a name, filename or field value that isn't UTF-8; a file's content can be any bytes. It
+  takes a `$default` as `http::form()` does, and without one the error left uncaught is a 400.
+
+### Cookies and signed sessions
+
+These are built on `crypto::sign`, `crypto::equals` and `crypto::token`:
+
+```gaz
+$session = http::session($request, SECRET);           // {} for no cookie, or one that fails
+$session["user_id"] = 7;
+$response = http::session_cookie({"body" => "..."}, $session, SECRET);
+```
+
+- `http::cookies($request)` is the `Cookie` header as a map, each value `url_decode`d. A cookie
+  with a bad escape, or a name or value that isn't UTF-8, is left out rather than refusing the
+  request, since the header carries every cookie the browser holds for the domain, another site's
+  too, which the program can't clear. `http::session()` decodes only its own cookie, so a stray
+  `%` in another one leaves the session alone.
+- `http::set_cookie($response, $name, $value, $options = {})` adds a `Set-Cookie` header to
+  (a copy of) `$response`, url-encoding `$value`. A response can carry several: `write_response()`
+  writes a header whose value is a list as that many lines, not joined with a comma, since
+  RFC 6265 forbids joining `Set-Cookie` values (an `Expires` attribute has a comma of its own).
+  `$options`: `"path"` (`"/"`), `"http_only"` (`true`: a cookie a page's own script can't read is
+  one XSS can't steal), `"secure"` (`false`), `"same_site"` (`"Lax"`, so a cookie doesn't go out
+  on a cross-site request that isn't a plain navigation), `"max_age"` in seconds (a session cookie
+  with none).
+- `http::session($request, $secret)` reads, verifies and decodes the session cookie into a map,
+  or `{}` for no cookie or one that fails to verify or decode: a forged, expired or missing session
+  is routine, not an error a handler must catch. `http::session_cookie($response, $session,
+  $secret, $options = {})` is the reverse, adding the session's cookie to `$response`.
+- `http::csrf_token($session)` gets or makes a CSRF token in the session, returning the session
+  with it set (a handler saves the result with `session_cookie()`, as any other session change);
+  `http::verify_csrf($session, $submitted)` checks one a form sent back, with `crypto::equals()`,
+  as a signature is checked.
+
+### Middleware for a web app
+
+Middleware puts those pieces together for a `Router`. Add it in this order, the first outermost:
+
+```gaz
+$app = http::Router();
+$app.use(http::security_headers());
+$app.use(http::sessions($secret, {"secure" => true}));
+$app.use(http::csrf());
+$app.use(authentication($users));              // your own: only your app knows what a user is
+$app.post("/todos", $request -> http::with_session(http::redirect("/"), http::flash($request, "Added.")));
+```
+
+- `http::security_headers($options = {})` adds `Content-Security-Policy: default-src 'self';
+  form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `X-Content-Type-Options: nosniff`
+  and `Referrer-Policy: same-origin` to every response that doesn't set them itself, so one route
+  can send a policy of its own. `$options` maps a header name to the value to send instead, or to
+  `null` to send none. Names are matched ignoring case.
+- `http::sessions($secret, $options = {})` gives the handler `$request["session"]`, the session
+  from its signed cookie, always with a `"csrf_token"` in it (a new visitor's is kept only if the
+  response hands it out, in its body or a header, so a stylesheet, a 404 or a page without a form
+  sets no cookie), and `$request["flash"]`, the message
+  the last request left for this one, or `null`; the flash is not in `$request["session"]`. A
+  handler changes the session by adding `"session" => $map` to its response, which the middleware
+  takes out again before the response is written. The cookie is written only when the session
+  differs from what the cookie held, so a page that changes nothing sends no `Set-Cookie`, and a
+  flash is shown once: the next session has none unless the handler sets one. `$secret` must be at
+  least 32 bytes, or making the middleware is an error. `$options` are `http::set_cookie()`'s,
+  with `"max_age"` two weeks unless given.
+- `http::csrf($options = {})` answers a POST, PUT, PATCH or DELETE with a 403 unless it came from
+  this site. A browser says so itself: `Sec-Fetch-Site: same-origin`, or, from one that doesn't
+  send that, an `Origin` naming the request's own host (`Origin: null` doesn't); either header
+  naming anywhere else is a 403, token or not. A client that sends neither must carry the
+  session's token, in the form field `_csrf` (`web::csrf_field()`) or an `X-CSRF-Token` header, so
+  a form needs the field only for a browser too old to send an `Origin`. A body that isn't a form
+  carries no token. `$options`: `"field"`, the form field's name, and
+  `"failure"`, a function from the request to the response to send instead of the 403. Without
+  `http::sessions()` before it, a request is an error saying so.
+- `http::with_session($response, $session)` is `$response` with `"session"` set, and
+  `http::flash($request, $message, $session = null)` is this request's session, or `$session`
+  when given, with `$message` to show on the next page.
+- **A login builds a new session** rather than changing the old one, with a fresh
+  `crypto::token()` as its `"csrf_token"` (`{"user_id" => $id, "csrf_token" => crypto::token()}`),
+  so nothing an attacker planted in the session before it carries over. That is your app's code, as
+  is deciding who `"user_id"` is. To greet the user on the next page, pass the new session to
+  `http::flash($request, "Welcome back.", $session)`.
+
+### Testing a handler
+
+`http::TestClient($handler, $options = {})` is a browser for one site that the handler answers as
+`http::serve()` would, with no server:
+
+```gaz
+import "std/test.gaz" use expect;
+import "std/http.gaz";
+
+$client = http::TestClient($app.handler());
+$client.get("/login");
+$done = $client.post("/login", {"email" => "ada@example.com", "password" => "correct horse"});
+expect("logging in goes home", [$done["status"], $done["headers"]["location"]], [303, "/"]);
+expect("and the next page knows who it is", $client.session($secret)["user_id"], 1);
+```
+
+- `$client.get($target, $headers = {})`, `$client.post($target, $fields, $headers = {})` (the
+  fields form-encoded) and `$client.request($method, $target, $headers = {}, $body = "")` give
+  the response as `http::request()` does: header names lowercased, an `Html` body as text with its
+  `Content-Type`. `$target` is a path with its query (`"/search?q=gaz"`).
+- The request is written out as HTTP and read by the server's code, and the response written by
+  it, so a test sees what a browser would: a target the server can't read is a 400, a body over
+  `"max_body"` a 413, and a handler that raises a 500, logged as `http::serve()` logs it. A method,
+  header or target that could end a line of the request is an error, as with `http::request()`.
+- The cookies a response sets are kept and sent with every later request (`Max-Age=0` forgets one);
+  `$client.cookie($name)` and `$client.forget($name)` read and drop one, and a `Cookie` header
+  given to a request is sent instead. `$client.session($secret)` is the session the cookie holds.
+- A POST, PUT, PATCH or DELETE carries this site's `Origin`, as a browser's does, so
+  `http::csrf()` lets it through; give an `origin` header to send it from elsewhere.
+- `http::form_token($response, $field = "_csrf")` is the CSRF token a page carries, as
+  `web::csrf_field()` writes it, for testing a client that sends no `Origin`.
+- A redirect is answered as it is; `$client.follow($response)` fetches where it points with a GET,
+  a relative `Location` read against the last request's target. One on another site is an error.
+- `$options`: `"host"`, the `Host` sent (`"example.test"`), `"remote_address"` (`"192.0.2.1"`,
+  `null` for a client the system no longer knows), `"max_body"`, `http::serve()`'s, so an app
+  is tested against its own limit, and `"scheme"`, the request's (`"http"`, or `"https"`).
+
+### Dates and times
+
+`date.gaz` works with dates, times and time zones:
 
 ```gaz
 $zone = date::zone("Europe/London");
@@ -2645,7 +3279,26 @@ so know which one you hold:
   `$moment.reading()` is a `Moment`'s date and clock with its offset left behind, so a field
   shows a stored time as `$zone.at($time).reading().iso()`.
 
-**Command line arguments**, with `std/cli.gaz`:
+The rest of the library, by what it works on:
+
+- **Day numbers**: `date::days($year, $month, $day)` (an impossible date is an error),
+  `date::civil($days)` (`[year, month, day]`), `date::year`, `date::month`, `date::day`,
+  `date::weekday`, `date::next_weekday($days, $weekday)`, `date::add_months`, `date::is_leap`,
+  `date::days_in_month`, and `date::format` (`Sat 8 Aug 2026`), `date::short` (`8 Aug`) and
+  `date::iso` (`2026-08-08`) to write one. `date::parse_date($text, $default)` reads a
+  `2026-08-08`.
+- **Zones**: `date::utc()`, `date::fixed($seconds)` (a fixed offset from UTC),
+  `date::zone($name, $directory = "/usr/share/zoneinfo")` (a named zone from the time zone
+  database, daylight saving time and all) and `date::tzif($name, $bytes)` (a zone from the bytes
+  of a TZif file). A zone has `at($time)`, `date($time)`,
+  `time($days, $seconds, $resolve = date::Resolution::Reject)` and `occurrences($days, $seconds)`.
+- **A `Moment`**: `rfc3339()`, `format()` and `short()` for its date, `clock()`, `short_clock()`,
+  `offset_text()`, `weekday()` and `reading()`.
+- **Times of day**: `date::time_of_day($hour, $minute, $second = 0)`.
+
+### Command line arguments
+
+`cli.gaz` reads a program's arguments and writes its `--help`:
 
 ```gaz
 $cli = cli::Command("todo", "Keep a list of things to do");
@@ -2668,7 +3321,9 @@ $cli.run(args());
   what is wrong on standard error and exits 2. `try_parse()` and `try_run()` raise a `cli::Stop`
   instead, whose `code` and `message` are what would have been printed.
 
-**Testing**, with `gaz test [path...] [--update] [-v]` and `std/test.gaz`:
+### Testing
+
+`gaz test [path...] [--update] [-v]` runs test files written with `test.gaz`:
 
 ```gaz
 // numbers_test.gaz
@@ -2709,267 +3364,10 @@ test::done();
   it is running, and `main_dir()` only the directory the file is in). `test::snapshot()` reads that argument to find where to record; a test file has
   no reason to read `args()` itself.
 
-**Routing**, with `http::Router()` (in `std/http.gaz`, so nothing extra to import):
+### Terminal styles and keys
 
-```gaz
-$app = http::Router();
-$app.get("/users/:id", $request -> ({"body" => "user {$request["params"]["id"]}"}));
-$app.post("/users", $create_user);
-$app.use(($request, $next) -> $next($request));      // middleware
-http::serve($listener, $app.handler());
-```
-
-- `get`, `post`, `put`, `patch`, `delete`, and `route($method, $pattern, $handler)` for any
-  other. A pattern starts with `/`, and its segments are literal or `:name`; a `:name` takes one
-  whole, non-empty segment, percent-decoded (a `%2F` is a `/` in it), into `$request["params"]`.
-- The first route added that matches wins. A path that matches only with other methods is a 405
-  with an `Allow` header, and a GET route answers HEAD. A path that matches only with its trailing
-  slash added or taken away is a 308 redirect to that spelling. A bad escape is a 400, and
-  anything else a 404, or what `$app.not_found($handler)` gives.
-- Middleware, `($request, $next) -> response`, wraps everything, 404s included; the first added
-  is the outermost, and it can answer without calling `$next`.
-- A group gives a set of routes middleware of their own, a prefix for their paths, or both.
-  `$app.middleware($m)` and `$app.prefix("/admin")` each give an `http::Group`, which has the same
-  `get` to `route` methods, and `middleware()` and `prefix()` again to nest, and whose
-  `group($routes)` calls `$routes` with it:
-
-  ```gaz
-  $app.middleware($require_login).group($routes -> {
-      $routes.get("/", $home);
-      $routes.post("/todos", $create);
-  });
-  $app.prefix("/admin").middleware($admin_only).group($admin -> {
-      $admin.get("/users", $users);              // /admin/users
-  });
-  ```
-
-  A group's middleware runs only once one of its routes matched, inside the router's own, the
-  outer group's first, so a 404 or a 405 never reaches it. Its routes go into the router in the
-  order they are added, among the router's own. `/` under a prefix is the prefix itself; a prefix
-  starts with `/` and doesn't end with one.
-
-**Static files**, with `http::serve_static($dir, $options = {})`: a handler, for `http::serve()` directly or as
-a `Router`'s `not_found()`, that answers from files under `$dir`.
-
-- The path is percent-decoded and split into segments; a segment of `..` is refused as a 404, the
-  same answer a missing file gets, rather than resolved and hoped to stay inside `$dir`.
-- A path ending in `/`, or one naming a directory, looks for `index.html` inside it.
-- Content-Type is guessed from the extension (html, css, js, json, images, fonts, `pdf`, `wasm`,
-  `mp4`, `txt`); anything else is `application/octet-stream`.
-- Every file is sent with `ETag: W/"size-mtime"` (from `file_info()`), `Last-Modified` and
-  `Cache-Control: no-cache`, so a browser keeps it but asks each time, and a GET or HEAD whose
-  `If-None-Match` names the tag (or is `*`) gets a `304 Not Modified` with no body.
-  `If-Modified-Since` is read only without an `If-None-Match`, and only the exact date
-  `Last-Modified` gave counts; any other date gets the file.
-- `http::serve_static($dir, {"cache_control" => "public, max-age=31536000, immutable"})` sets
-  Cache-Control instead, for files whose names change with their contents (`app.3f9a1c.css`),
-  which a browser can then keep without asking.
-- `gaz -S host:port [--docroot DIR] [--cert FILE --key FILE]` runs a zero-config server built on
-  this (`std/devserver.gaz`, `--docroot` defaulting to the working directory), over HTTPS (and
-  HTTP/2) with a certificate and its key: `mkcert localhost` makes a pair this machine's browsers
-  trust. A program that wants routing or anything dynamic writes its own few lines on
-  `serve_static()` instead.
-- `http::https_redirect($host)` is a handler for a plain server on port 80 beside an HTTPS one:
-  every request gets a 308 to the same path and query on `https://$host` (`"example.com"`, or with
-  its port), so a POST stays a POST. The host is the program's, never the request's `Host`, which a
-  client writes: `http::serve(socket_listen("0.0.0.0", 80), http::https_redirect("example.com"))`.
-
-Decoding what a request carries, when a handler asks:
-
-- `http::query($request)` is the query string as a map of strings (`?page=2&q=a+b` is
-  `{"page" => "2", "q" => "a b"}`), and `http::form($request)` a form body the same way. A key
-  given twice keeps its last value; `http::query_all()` and `http::form_all()` give every value, a
-  list for each key. `+` is a space in both, as HTML forms send it.
-- `http::form()` needs the request's Content-Type to be `application/x-www-form-urlencoded`, and
-  is an error otherwise.
-- Every key and value must be well formed UTF-8 once decoded, or it is an error (`text that isn't
-  UTF-8 once decoded`), so a handler is only ever given text: `?q=%ff` is refused as a bad escape
-  is, since a database or a JSON document would refuse those bytes later. The router's params are
-  held to the same rule (a 400), and so is `http::cookies()`, which leaves such a cookie out.
-- `http::url_decode($text)` undoes percent-escapes (`%20` is a space, and `+` stays `+`), and a
-  `%` without two hex digits after it is an error: `bad percent-escape "%zz" at 3`, a 500 in a
-  handler like any other, since its text may be the program's own. It gives the bytes back whatever
-  they are, so a handler that wants bytes that aren't UTF-8 decodes a piece of `$request["query"]`
-  or `$request["body"]` with it.
-- Each of these takes an optional `$default` last, as `to_int($x, $default)` does, given back
-  instead of an error for what the client sent that can't be decoded (a bad percent-escape, text
-  that isn't UTF-8, or a body that isn't a form), so a handler needs no `try`: `http::form($request,
-  {})` reads a request that isn't a form as one with no fields, and `http::query($request, {})` a
-  query string like `?show=%zz` as an empty one. Without one, the error left uncaught in a handler
-  is answered 400. A mistake of the program's (a request that isn't a map) is still an error.
-  `http::url_encode($text)` escapes everything but letters, digits and `- . _ ~`.
-
-**Uploads**: a form with `enctype="multipart/form-data"` is read with `http::multipart($request)`:
-
-```gaz
-import "std/crypto.gaz";
-import "std/http.gaz";
-
-fn upload($request) {
-    $sent = http::multipart($request);
-    $photo = $sent["files"]["photo"] ?? null;   // {"filename" => ..., "content_type" => ..., "content" => ...}
-    if ($photo == null || $photo["filename"] == "") {
-        return {"status" => 422, "body" => "Choose a photo to upload"};
-    }
-    $stored = "uploads/" .. crypto::token() .. ".jpg";   // never $photo["filename"]
-    write_file($stored, $photo["content"]);
-
-    return {"body" => "Thanks for " .. ($sent["fields"]["title"] ?? "the photo")};
-}
-```
-
-- It gives `{"fields" => {...}, "files" => {...}}`: each text field a string, as `http::form()`
-  gives one, and each file a map of its `"filename"`, `"content_type"` (the part's own,
-  `application/octet-stream` without one) and `"content"`, the bytes as sent. A name given twice
-  keeps its last value; `http::multipart_all()` gives every value, a list for each name, which is
-  how the files of an `<input type="file" multiple>` arrive. A file input left empty arrives as a
-  file whose filename and content are `""`.
-- **Never use `"filename"` as a path**: it is exactly what the browser sent, and a client can send
-  `../../etc/passwd`. Name the stored file yourself. A quoted filename runs to the next `"` with
-  every byte kept, backslashes too (`filename="dir\"` is `dir\`), as browsers send a `"` as `%22`.
-- The whole body is in memory, so `http::serve()`'s `"max_body"` (1MB by default) bounds an
-  upload, and a bigger body is answered 413 before the handler runs: raise it for a server that
-  takes big files.
-- A body of another Content-Type, or one that isn't well formed (no boundary or one over 70 bytes,
-  a body cut off before its closing boundary, a part without a `name`, a header line without a
-  colon, a parameter whose name isn't a token or whose unquoted value isn't one, a nested
-  multipart body, a `filename*` parameter, more than 1000 parts), is an error, and
-  so is a name, filename or field value that isn't UTF-8; a file's content can be any bytes. It
-  takes a `$default` as `http::form()` does, and without one the error left uncaught is a 400.
-
-**Cookies and signed sessions**, on `crypto::sign`, `crypto::equals` and `crypto::token`:
-
-```gaz
-$session = http::session($request, SECRET);           // {} for no cookie, or one that fails
-$session["user_id"] = 7;
-$response = http::session_cookie({"body" => "..."}, $session, SECRET);
-```
-
-- `http::cookies($request)` is the `Cookie` header as a map, each value `url_decode`d. A cookie
-  with a bad escape, or a name or value that isn't UTF-8, is left out rather than refusing the
-  request, since the header carries every cookie the browser holds for the domain, another site's
-  too, which the program can't clear. `http::session()` decodes only its own cookie, so a stray
-  `%` in another one leaves the session alone.
-- `http::set_cookie($response, $name, $value, $options = {})` adds a `Set-Cookie` header to
-  (a copy of) `$response`, url-encoding `$value`. A response can carry several: `write_response()`
-  writes a header whose value is a list as that many lines, not joined with a comma, since
-  RFC 6265 forbids joining `Set-Cookie` values (an `Expires` attribute has a comma of its own).
-  `$options`: `"path"` (`"/"`), `"http_only"` (`true`: a cookie a page's own script can't read is
-  one XSS can't steal), `"secure"` (`false`), `"same_site"` (`"Lax"`, so a cookie doesn't go out
-  on a cross-site request that isn't a plain navigation), `"max_age"` in seconds (a session cookie
-  with none).
-- `http::session($request, $secret)` reads, verifies and decodes the session cookie into a map,
-  or `{}` for no cookie or one that fails to verify or decode: a forged, expired or missing session
-  is routine, not an error a handler must catch. `http::session_cookie($response, $session,
-  $secret, $options = {})` is the reverse, adding the session's cookie to `$response`.
-- `http::csrf_token($session)` gets or makes a CSRF token in the session, returning the session
-  with it set (a handler saves the result with `session_cookie()`, as any other session change);
-  `http::verify_csrf($session, $submitted)` checks one a form sent back, with `crypto::equals()`,
-  as a signature is checked.
-
-**Middleware for a web app** puts those pieces together for a `Router`, added in this order, the
-first outermost:
-
-```gaz
-$app = http::Router();
-$app.use(http::security_headers());
-$app.use(http::sessions($secret, {"secure" => true}));
-$app.use(http::csrf());
-$app.use(authentication($users));              // your own: only your app knows what a user is
-$app.post("/todos", $request -> http::with_session(http::redirect("/"), http::flash($request, "Added.")));
-```
-
-- `http::security_headers($options = {})` adds `Content-Security-Policy: default-src 'self';
-  form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `X-Content-Type-Options: nosniff`
-  and `Referrer-Policy: same-origin` to every response that doesn't set them itself, so one route
-  can send a policy of its own. `$options` maps a header name to the value to send instead, or to
-  `null` to send none. Names are matched ignoring case.
-- `http::sessions($secret, $options = {})` gives the handler `$request["session"]`, the session
-  from its signed cookie, always with a `"csrf_token"` in it (a new visitor's is kept only if the
-  response hands it out, in its body or a header, so a stylesheet, a 404 or a page without a form
-  sets no cookie), and `$request["flash"]`, the message
-  the last request left for this one, or `null`; the flash is not in `$request["session"]`. A
-  handler changes the session by adding `"session" => $map` to its response, which the middleware
-  takes out again before the response is written. The cookie is written only when the session
-  differs from what the cookie held, so a page that changes nothing sends no `Set-Cookie`, and a
-  flash is shown once: the next session has none unless the handler sets one. `$secret` must be at
-  least 32 bytes, or making the middleware is an error. `$options` are `http::set_cookie()`'s,
-  with `"max_age"` two weeks unless given.
-- `http::csrf($options = {})` answers a POST, PUT, PATCH or DELETE with a 403 unless it came from
-  this site. A browser says so itself: `Sec-Fetch-Site: same-origin`, or, from one that doesn't
-  send that, an `Origin` naming the request's own host (`Origin: null` doesn't); either header
-  naming anywhere else is a 403, token or not. A client that sends neither must carry the
-  session's token, in the form field `_csrf` (`web::csrf_field()`) or an `X-CSRF-Token` header, so
-  a form needs the field only for a browser too old to send an `Origin`. A body that isn't a form
-  carries no token. `$options`: `"field"`, the form field's name, and
-  `"failure"`, a function from the request to the response to send instead of the 403. Without
-  `http::sessions()` before it, a request is an error saying so.
-- `http::with_session($response, $session)` is `$response` with `"session"` set, and
-  `http::flash($request, $message, $session = null)` is this request's session, or `$session`
-  when given, with `$message` to show on the next page.
-- **A login builds a new session** rather than changing the old one, with a fresh
-  `crypto::token()` as its `"csrf_token"` (`{"user_id" => $id, "csrf_token" => crypto::token()}`),
-  so nothing an attacker planted in the session before it carries over. That is your app's code, as
-  is deciding who `"user_id"` is. To greet the user on the next page, pass the new session to
-  `http::flash($request, "Welcome back.", $session)`.
-
-```gaz
-import "std/http.gaz";
-
-$listener = socket_listen("0.0.0.0", 8080);
-workers(4);
-http::serve($listener, $request -> match ($request["path"]) {
-    "/" => {"body" => "hello\n", "headers" => {"Content-Type" => "text/plain"}},
-    default => {"status" => 404, "body" => "not found\n"},
-});
-```
-
-A client:
-
-```gaz
-import "std/http.gaz";
-
-$r = http::post("https://example.com/api", "{\"n\": 1}", {"Content-Type" => "application/json"});
-echo $r["status"] .. " " .. $r["headers"]["content-type"];
-```
-
-**Testing a handler**, with `http::TestClient($handler, $options = {})`:
-a browser for one site that the handler answers as `http::serve()` would, with no server.
-
-```gaz
-import "std/test.gaz" use expect;
-import "std/http.gaz";
-
-$client = http::TestClient($app.handler());
-$client.get("/login");
-$done = $client.post("/login", {"email" => "ada@example.com", "password" => "correct horse"});
-expect("logging in goes home", [$done["status"], $done["headers"]["location"]], [303, "/"]);
-expect("and the next page knows who it is", $client.session($secret)["user_id"], 1);
-```
-
-- `$client.get($target, $headers = {})`, `$client.post($target, $fields, $headers = {})` (the
-  fields form-encoded) and `$client.request($method, $target, $headers = {}, $body = "")` give
-  the response as `http::request()` does: header names lowercased, an `Html` body as text with its
-  `Content-Type`. `$target` is a path with its query (`"/search?q=gaz"`).
-- The request is written out as HTTP and read by the server's code, and the response written by
-  it, so a test sees what a browser would: a target the server can't read is a 400, a body over
-  `"max_body"` a 413, and a handler that raises a 500, logged as `http::serve()` logs it. A method,
-  header or target that could end a line of the request is an error, as with `http::request()`.
-- The cookies a response sets are kept and sent with every later request (`Max-Age=0` forgets one);
-  `$client.cookie($name)` and `$client.forget($name)` read and drop one, and a `Cookie` header
-  given to a request is sent instead. `$client.session($secret)` is the session the cookie holds.
-- A POST, PUT, PATCH or DELETE carries this site's `Origin`, as a browser's does, so
-  `http::csrf()` lets it through; give an `origin` header to send it from elsewhere.
-- `http::form_token($response, $field = "_csrf")` is the CSRF token a page carries, as
-  `web::csrf_field()` writes it, for testing a client that sends no `Origin`.
-- A redirect is answered as it is; `$client.follow($response)` fetches where it points with a GET,
-  a relative `Location` read against the last request's target. One on another site is an error.
-- `$options`: `"host"`, the `Host` sent (`"example.test"`), `"remote_address"` (`"192.0.2.1"`,
-  `null` for a client the system no longer knows), `"max_body"`, `http::serve()`'s, so an app
-  is tested against its own limit, and `"scheme"`, the request's (`"http"`, or `"https"`).
-
-`term.gaz` is the terminal, on `term_raw`, `term_read`, `term_size` and `term_is_tty` (see the
-builtins). Drawing functions *return* the escape sequence, so `print(...)` draws and results
+`term.gaz` is the terminal, on `term_raw`, `term_read`, `term_size` and `term_is_tty` (see
+[The terminal](#the-terminal)). Drawing functions *return* the escape sequence, so `print(...)` draws and results
 compose with `..`; nothing in it needs a terminal but raw mode.
 
 - **Styles**: `term::style($text, "bold red on_#003")` wraps text in a style and a reset;
@@ -3004,23 +3402,25 @@ compose with `..`; nothing in it needs a terminal but raw mode.
   `term::width($text)` the columns it takes, counting characters rather than bytes. A wide
   character (CJK, emoji) counts one where it takes two.
 - **Keys**: `term::decode($bytes, $flush = false)` turns what `term_read()` gave into
-  `{"keys" => [...], "rest" => "..."}`. A key is `{"key", "ctrl", "alt", "shift"}`, where `"key"`
-  is the character typed (`"a"`, `"é"`, `"space"`) or a name: `enter tab backspace escape up down
-  left right home end insert delete page_up page_down f1` to `f12`, and `unknown` (with the
-  sequence as `"raw"`) for one it doesn't know, such as a cursor position report. When the
-  terminal was asked to (`fullscreen()`'s options) there are also `paste`, holding the pasted text
-  as `"text"`, its newlines as `"\n"` however the terminal sent them (a pasted newline comes as
-  the enter key's `"\r"`); `mouse`, with `"button"` (`left`, `middle`, `right` or `none`),
-  `"action"` (`press`, `release`, `drag`, `move`, `scroll_up` or `scroll_down`) and the `"col"`
-  and `"row"` it was over, from 1; and `focus_in` and `focus_out`. The kitty keyboard protocol's
-  keys (`"\e[13;2u"`, shift+enter) decode to the same names as the terminal's usual sequences, so
-  a `match` never knows which it spoke; byte 8 is `backspace` as 127 is, so `ctrl+h` is only the
-  protocol's. `rest` is the start of a key the bytes stop in the middle of (a paste whose end
-  hasn't come is all of it so far), to put before the next read; with `$flush`, nothing more is
-  coming and it is taken for what it looks like (a lone `ESC` is `escape`, a paste's text so far
-  the paste). `term::name($key)` writes a key as `"ctrl+alt+up"`, in the order ctrl, alt, shift,
-  which a `match` can take (`"paste"`, `"shift+mouse"`, `"focus_in"`), and `term::text($key)` is
-  the character it types, or `null` (a paste too: a program inserts `$key["text"]` itself).
+  `{"keys" => [...], "rest" => "..."}`.
+  - A key is `{"key", "ctrl", "alt", "shift"}`, where `"key"` is the character typed (`"a"`, `"é"`,
+    `"space"`) or a name: `enter tab backspace escape up down left right home end insert delete
+    page_up page_down`, `f1` to `f12`, and `unknown` (with the sequence as `"raw"`) for one it
+    doesn't know, such as a cursor position report.
+  - When the terminal was asked to (`fullscreen()`'s options) there are also `paste`, holding the
+    pasted text as `"text"`, its newlines as `"\n"` however the terminal sent them (a pasted
+    newline comes as the enter key's `"\r"`); `mouse`, with `"button"` (`left`, `middle`, `right` or
+    `none`), `"action"` (`press`, `release`, `drag`, `move`, `scroll_up` or `scroll_down`) and the
+    `"col"` and `"row"` it was over, from 1; and `focus_in` and `focus_out`.
+  - The kitty keyboard protocol's keys (`"\e[13;2u"`, shift+enter) decode to the same names as the
+    terminal's usual sequences, so a `match` never knows which it spoke. Byte 8 is `backspace` as
+    127 is, so `ctrl+h` is only the protocol's.
+  - `rest` is the start of a key the bytes stop in the middle of (a paste whose end hasn't come is
+    all of it so far), to put before the next read. With `$flush`, nothing more is coming, and it
+    is taken for what it looks like: a lone `ESC` is `escape`, a paste's text so far the paste.
+  - `term::name($key)` writes a key as `"ctrl+alt+up"`, in the order ctrl, alt, shift, which a
+    `match` can take (`"paste"`, `"shift+mouse"`, `"focus_in"`), and `term::text($key)` is the
+    character it types, or `null` (a paste too: a program inserts `$key["text"]` itself).
 - **`term::Input($escape_wait = 0.05)`** keeps what a read left over, so make one and keep using
   it: `$input.read($timeout = null)` is the next key, `null` when the time runs out, and
   `{"key" => "eof"}` when the input ends (again on every call after), and `{"key" => "resize"}`
@@ -3048,6 +3448,8 @@ term::fullscreen(() -> {
 });
 ```
 
+### Terminal widgets
+
 `tui.gaz` is widgets, on `term.gaz`. Nothing draws to the terminal directly: everything draws into
 a `tui::Screen`, a grid of cells (one character and one style each, columns and rows counted
 from 1), and `$screen.render()` gives the escape sequences that turn what the terminal shows into
@@ -3056,22 +3458,24 @@ has is redrawn from its first changed cell to its last, so a program clears and 
 interface every frame without flicker. A test draws into a `Screen` and reads `$screen.lines()`,
 with no terminal.
 
-- **`tui::Screen($cols, $rows)`**: `put($col, $row, $text, $style = "")`, `fill($rect, $char = " ",
-  $style = "")`, `clear()`, `cursor($col, $row)` (where the
-  terminal's cursor goes after a render, shown only then), `render()`, `lines()` and
-  `cell($col, $row)` (a `tui::Cell`: `character`, `width`, `style`), `text($rect)` (the text in a
-  `Rect` as a list of its rows, by cells, a wide character once and the blanks at the end of each
-  row trimmed: what a test reads instead of slicing `lines()`), `pane($rect)` (see below), `resize($cols, $rows)`, `fit()`
-  (take the terminal's size, `true` when it changed; call it when a read gives the key `"resize"`,
-  which `interact()` does itself) and `invalidate()` (draw everything at the next render: after
-  `term_suspend()`, or anything else that drew on the terminal). Drawing outside the screen is
-  clipped. A wide character (CJK, emoji) takes two columns, its own cell and a continuation.
-  The four that reset: `clear()` blanks the cells for the next frame (the terminal's state is kept,
-  so `render()` still sends only what changed), `invalidate()` keeps the cells and forgets what the
-  terminal shows (so `render()` sends them all), `resize()` makes the screen a size the program
-  chooses, blank and to be drawn in full, and `fit()` does that to the terminal's size only if it
-  differs.
-  `put()` and `cursor()` are the only places columns are spoken: everything else takes a `Rect`.
+- **`tui::Screen($cols, $rows)`** is the grid. Drawing outside it is clipped, and a wide character
+  (CJK, emoji) takes two columns, its own cell and a continuation.
+  - `put($col, $row, $text, $style = "")`, `fill($rect, $char = " ", $style = "")` and `clear()`.
+  - `cursor($col, $row)`: where the terminal's cursor goes after a render, shown only then.
+  - `render()`, `lines()`, `cell($col, $row)` (a `tui::Cell`: `character`, `width`, `style`), and
+    `text($rect)`: the text in a `Rect` as a list of its rows, by cells, a wide character once and
+    the blanks at the end of each row trimmed. That is what a test reads instead of slicing
+    `lines()`.
+  - `pane($rect)` (see below), `resize($cols, $rows)`, `fit()` and `invalidate()`.
+  - `put()` and `cursor()` are the only places columns are spoken: everything else takes a `Rect`.
+  - Four methods reset something, each differently:
+    - `clear()` blanks the cells for the next frame. The terminal's state is kept, so `render()`
+      still sends only what changed.
+    - `invalidate()` keeps the cells and forgets what the terminal shows, so `render()` sends
+      them all: call it after `term_suspend()`, or anything else that drew on the terminal.
+    - `resize()` makes the screen a size the program chooses, blank and to be drawn in full.
+    - `fit()` does that to the terminal's size, only if it differs, and gives `true` when it
+      changed. Call it when a read gives the key `"resize"`; `interact()` does that itself.
 - **`tui::Pane`** (`$screen.pane($rect)`, or `tui::Pane($screen, $rect)`) is a part of a screen that
   nothing drawn into it leaves. It has `put()`, `fill()`, `cursor()`, `bounds()`, `cols`, `rows` and
   `pane()` as a `Screen` has, but counted from its own top left, `(1, 1)`, so a view given one
@@ -3122,20 +3526,24 @@ with no terminal.
   nearest there is) and `set_items($items)` (the selection stays on its index where there still is
   one, else the last item). `marked($on = "> ", $off = "  ")` puts a marker before each item and
   gives the list.
-- **`tui::Table($headers, $rows, $style_of = null)`** is a table you move about in: `draw($screen,
-  $rect, $focused = true)`, scrolling rows, a selected row and columns that sort. `handle($key)` gives
-  `Outcome::Select` for enter, `null` for the keys it took and `Outcome::Ignored` for the rest (the arrows or `j`/`k`, home and end or `g`/`G`,
-  page up and down; `.` and `,`, or `>` and `<`, sort by the next or previous column, `o` turns the
-  order round and `x` goes back to the order given). `selected_index()` is the selected row's index in
-  `$rows` however they are sorted now, `selected_row()` the row, `sort_by($column, $descending)` and
-  `sorted_by()` (a `tui::Sort` with `column` and `descending`, or `null`) say and set the sort, `select($index)` selects a row by its index in `$rows`,
-  `sortable($on)` turns the sort keys (`.` `,` `o` `x` `<` `>`) off, so they are `Ignored` and a
-  program can take them for its own (it gives the table), and `set_rows($rows)` shows others, keeping the selection on
-  its index. A column of numbers is aligned on the right; `$style_of($row, $index)` gives a row's
-  style, for marking the user's own club. The cells of a column must be alike, or sorting on it is
-  an error. A table too wide leaves out the columns `drop_when_narrow($columns)` names (indexes,
-  the first first; it gives the table, so it can follow the constructor), then squeezes the widest
-  of the rest, then is cut off; `.` and `,` go past a column left out.
+- **`tui::Table($headers, $rows, $style_of = null)`** is a table you move about in, with scrolling
+  rows, a selected row and columns that sort, drawn with `draw($screen, $rect, $focused = true)`.
+  - `handle($key)` gives `Outcome::Select` for enter, `null` for the keys it took and
+    `Outcome::Ignored` for the rest. It takes the arrows or `j`/`k`, home and end or `g`/`G`, and
+    page up and down to move; `.` and `,`, or `>` and `<`, to sort by the next or previous column;
+    `o` to turn the order round; and `x` to go back to the order given.
+  - `selected_index()` is the selected row's index in `$rows`, however they are sorted now, and
+    `selected_row()` the row. `select($index)` selects a row by its index in `$rows`.
+  - `sort_by($column, $descending)` sets the sort, and `sorted_by()` says what it is: a `tui::Sort`
+    with `column` and `descending`, or `null`.
+  - `sortable($on)` turns the sort keys (`.` `,` `o` `x` `<` `>`) off, so they are `Ignored` and a
+    program can take them for its own. It gives the table.
+  - `set_rows($rows)` shows others, keeping the selection on its index.
+  - A column of numbers is aligned on the right. `$style_of($row, $index)` gives a row's style, for
+    marking the user's own club. The cells of a column must be alike, or sorting on it is an error.
+  - A table too wide leaves out the columns `drop_when_narrow($columns)` names (indexes, the first
+    first; it gives the table, so it can follow the constructor), then squeezes the widest of the
+    rest, then is cut off. `.` and `,` go past a column left out.
 - **`tui::table_width($headers, $rows)`** is the width `tui::table()` draws at, for fitting what goes
   beside it.
 - **`tui::wrap($text, $width)`** cuts text into lines at spaces, keeping its own line breaks, a word
@@ -3160,33 +3568,36 @@ with no terminal.
 - **`tui::Metronome($interval, $now)`** is a steady beat: `due($now)`, `wait($now)` (seconds to the
   next, 0 if due) and `beat($now)` after taking one; a late beat isn't made up for with two.
 - **`tui::Menu($items, $title = "", $cancel_keys = ["escape", "q", "ctrl+c"])`** is a `List` in a
-  box, and **`tui::TextField($value = "")`** takes keys
-  (`handle($key)`) and draw themselves (`$menu.draw($screen, $rect, $focused = true)`, a box on the
-  `Rect`'s edges; `$field.draw($screen, $rect, $focused = true)`, across its first row, putting the
-  cursor there only when focused, in the style `styled($style)` set, `"underline"` to begin with,
-  which gives the field). `handle` gives
-  `Outcome::Select` or `Outcome::Cancel` (for the `$cancel_keys`, and always for the end of the
-  input) for a menu and `Outcome::Submit` or `Outcome::Cancel` for a
-  field, `null` for a key it dealt with itself: the arrows, `j`/`k`, home and end, page up and
-  down; typing, backspace, delete, the arrows, home and end or ctrl+a and ctrl+e, ctrl+u and ctrl+k,
-  and `Outcome::Ignored` for any other. `$menu.selected_index()` and `$menu.selected_item()` (as a
-  `List`'s and `Table`'s) say what is selected, `null` when there is nothing, and `$field.value()`
-  what was typed.
+  box. `$menu.draw($screen, $rect, $focused = true)` draws the box on the `Rect`'s edges.
+  `handle($key)` gives `Outcome::Select` for enter, `Outcome::Cancel` for the `$cancel_keys` (and
+  always for the end of the input), `null` for the keys it moves by (the arrows, `j`/`k`, home and
+  end, page up and down) and `Outcome::Ignored` for any other. `$menu.selected_index()` and
+  `$menu.selected_item()` say what is selected, as a `List`'s and `Table`'s do, `null` when there
+  is nothing.
+- **`tui::TextField($value = "")`** is a line of text to edit.
+  `$field.draw($screen, $rect, $focused = true)` draws it across the `Rect`'s first row, putting
+  the cursor there only when focused, in the style `styled($style)` set (`"underline"` to begin
+  with; it gives the field). `handle($key)` gives `Outcome::Submit` for enter, `Outcome::Cancel`
+  for escape, ctrl+c and the end of the input, `null` for the keys it edits with (typing,
+  backspace, delete, the arrows, home and end or ctrl+a and ctrl+e, ctrl+u and ctrl+k) and
+  `Outcome::Ignored` for any other. `$field.value()` is what was typed.
 - **`tui::interact($draw, $handle, $input = null, $tick = null, $interval = 0.25)`** runs
   `$draw($screen)` and `$handle($key)` on a screen of its own until `$handle` gives something
-  other than `null` or `Outcome::Ignored` (so a widget's `handle()` can be passed straight in),
-  which is what it gives (`null` too when the input ends). Keys come from
-  `$input`, a `term::Input`, or a new one; a program that shows one screen after another passes the
-  same one to each, since keys typed ahead are in it and a new one for each screen would lose them.
-  With `$tick`, time passes: when no key has been pressed for `$interval` seconds `$tick()` is called
-  and the screen drawn again, so it can move by itself (a clock, a match being played), and `$tick`
-  ends the screen as `$handle` does. The beat is kept by `monotonic_time()` (in a `tui::Metronome`, which
-  takes the time as an argument and can be tested without waiting), so a key held down doesn't hold it up. The lambdas share state through `shared` variables, or an
-  object as `examples/dashboard.gaz` does. **`tui::choose($items, $title = "", $input = null)`**
-  (the index picked, or `null` if cancelled or there is nothing to pick) and
-  **`tui::ask($question, $initial = "", $input = null)`** (the answer, or `null`) are a
-  `Menu` and a `TextField` run that way, in the middle of the screen. All three need a terminal,
-  or `gaz --tty`'s.
+  other than `null` or `Outcome::Ignored`, and gives that (or `null` when the input ends). So a
+  widget's `handle()` can be passed straight in.
+  - Keys come from `$input`, a `term::Input`, or a new one. A program that shows one screen after
+    another passes the same one to each, since keys typed ahead are in it and a new one for each
+    screen would lose them.
+  - With `$tick`, time passes: when no key has been pressed for `$interval` seconds, `$tick()` is
+    called and the screen drawn again, so it can move by itself (a clock, a match being played).
+    `$tick` ends the screen as `$handle` does. The beat is kept by `monotonic_time()`, in a
+    `tui::Metronome`, so a key held down doesn't hold it up.
+  - The lambdas share state through `shared` variables, or an object as `examples/dashboard.gaz`
+    does.
+- **`tui::choose($items, $title = "", $input = null)`** (the index picked, or `null` if cancelled
+  or there is nothing to pick) and **`tui::ask($question, $initial = "", $input = null)`** (the
+  answer, or `null`) are a `Menu` and a `TextField` run that way, in the middle of the screen.
+  `interact()`, `choose()` and `ask()` need a terminal, or `gaz --tty`'s.
 - **`$screen.snapshot()`** is the screen as text to read: a ruler of columns, the rows numbered,
   then the text in each style (which is how a selection shows) and the cursor.
 

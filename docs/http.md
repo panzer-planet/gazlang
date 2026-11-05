@@ -33,52 +33,63 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
 - **A handle made before `workers()` is the process's that made it**: every `Db`, `Socket` and
   `File` records `vm_process` (`workers.c`: 0 at start, raised in each worker's child by
   `fork_worker()`; a counter, since `getpid()` would be a system call on every
-  `file_read_line()`) as its owner; listeners are exempt. **Releasing one is an abandon, not a
-  close**, in the paths every release takes (`db_close()`, `net_close()`, `file_close()`: decref,
-  the collector, the end of the program and an explicit close): a close says goodbye on the shared
-  connection and ends it for its owner too. PostgreSQL's socket is pointed at `/dev/null`
-  (`abandon_fd()`) before `PQfinish()`, so its Terminate goes nowhere; TLS skips `SSL_shutdown()`'s
-  close_notify; a file's descriptor is pointed at `/dev/null` before `fclose()`, whose seek back
-  would move the shared offset (nothing can read it after the fork today, but a `parallel()`
-  parent would); SQLite's is never closed in a worker (a close can roll back the owner's
-  journal), only kept reachable, a `ponytail:` in `sqlite.c`. The per-driver part is
-  `DbDriver.abandon`. **On macOS `open_sqlite()` sets `OS_ACTIVITY_MODE=disable`** first: Apple's
-  libsqlite3 makes an `os_signpost` on every open, and libtrace's state doesn't survive a fork, so a
-  worker's open after the master had opened one crashes in `os_signpost_enabled`. **On macOS
-  `open_pg()` in a worker sets `PGGSSENCMODE=disable`** unless something set it: libpq would otherwise ask
-  Kerberos.framework for credentials, which sets up Objective-C classes in the worker, and the
-  Objective-C runtime aborts a forked child that does (see [Databases](library.md#databases)). Tested by `tests/gaz/workers/inherited_test.gaz` (under the
-  sanitizers, each worker's `GAZVM_STATS` line checked by `CVM::leaks()`) and `DbPgTest`.
+  `file_read_line()`) as its owner; listeners are exempt.
+  - **Releasing one is an abandon, not a close**, in the paths every release takes
+    (`db_close()`, `net_close()`, `file_close()`: decref, the collector, the end of the program and
+    an explicit close): a close says goodbye on the shared connection and ends it for its owner
+    too. The per-driver part is `DbDriver.abandon`.
+    - PostgreSQL's socket is pointed at `/dev/null` (`abandon_fd()`) before `PQfinish()`, so its
+      Terminate goes nowhere.
+    - TLS skips `SSL_shutdown()`'s close_notify.
+    - A file's descriptor is pointed at `/dev/null` before `fclose()`, whose seek back would move
+      the shared offset (nothing can read it after the fork today, but a `parallel()` parent
+      would).
+    - SQLite's is never closed in a worker (a close can roll back the owner's journal), only kept
+      reachable, a `ponytail:` in `sqlite.c`.
+  - **On macOS `open_sqlite()` sets `OS_ACTIVITY_MODE=disable`** first: Apple's libsqlite3 makes
+    an `os_signpost` on every open, and libtrace's state doesn't survive a fork, so a worker's open
+    after the master had opened one crashes in `os_signpost_enabled`.
+  - **On macOS `open_pg()` in a worker sets `PGGSSENCMODE=disable`** unless something set it:
+    libpq would otherwise ask Kerberos.framework for credentials, which sets up Objective-C classes
+    in the worker, and the Objective-C runtime aborts a forked child that does (see
+    [Databases](library.md#databases)).
+  - Tested by `tests/gaz/workers/inherited_test.gaz` (under the sanitizers, each worker's
+    `GAZVM_STATS` line checked by `CVM::leaks()`) and `DbPgTest`.
 - **`worker_recycle()` is a third case**, neither a graceful exit nor a crash: the master tells
   `WIFSIGNALED(status) && WTERMSIG(status) == SIGUSR2` apart before the generic failure path,
   restarts at once without the start-up check, and logs `worker N recycled; starting another`.
-- **`worker_retire()`** sets `retiring` in its `Slot` (`accepted`, `listening`, `retiring`); the
-  master starts the replacement under the same number at its next poll, keeping the retiring pid
-  in a second half of its pid table, and sends the retiring one SIGTERM once the replacement has
-  set `listening` (on entering `worker_accept()` or `socket_accept()`), or once the number has ended
-  for good. A
+- **`worker_retire()`** sets `retiring` in its `Slot` (`accepted`, `listening`, `retiring`). A
   builtin of its own because the retiring worker must go on running the handler while it waits,
-  which `worker_recycle()`, never returning, can't. After asking, the worker writes nothing more
-  in its slot (`slot = NULL`), which is the replacement's from the fork on. The retiring one is
-  reaped, never replaced (an end other than a recycle or a clean exit is a line, `worker N exited
-  with code 3 while retiring`); a second hand-over of one number waits until the first one's
-  leaver has gone; one still there `STOP_GRACE` after it was asked is killed. Tested by
-  `tests/gaz/workers/retire_test.gaz` (the order, the lines, a slow replacement),
-  `retire_grace_test.gaz` (the kill) and `HttpServerTest` (a worker slow to start and
-  `max_requests` 1: no request waits for a start). **The master looks at its workers every 5ms
-  while a hand-over is under way** (`handing_over()`), 50ms otherwise, because the retiring worker
-  serves a request per connection until relieved and every reconnect costs. Under the master
-  reading heads, a retiring worker is handed a connection only when no other worker waits for one,
-  and none once it has been asked to stop.
-  `ponytail:` noticing the hand-over still waits for a 50ms poll, since the master can't be woken
-  (see the program's own thread below). A replacement that never reaches `socket_accept()` (a
-  start-up that hangs) leaves the retiring worker serving a request per connection with nothing
-  bounding it, so `max_requests` stops limiting its life; a deadline after which the master
-  relieves it anyway would lift that. A replacement that dies within a second of starting without
-  accepting stops the whole pool, as a recycled worker's always did, though the retiring worker
-  is healthy; keeping it and retrying would lift that. `Slot.listening` is set on entering any
-  `socket_accept()`, so a worker that waits on a second listener (an admin port) before the
-  shared one relieves the retiring worker early.
+  which `worker_recycle()`, never returning, can't.
+  - The master starts the replacement under the same number at its next poll, keeping the
+    retiring pid in a second half of its pid table, and sends the retiring one SIGTERM once the
+    replacement has set `listening` (on entering `worker_accept()` or `socket_accept()`), or once
+    the number has ended for good.
+  - After asking, the worker writes nothing more in its slot (`slot = NULL`), which is the
+    replacement's from the fork on.
+  - The retiring one is reaped, never replaced (an end other than a recycle or a clean exit is a
+    line, `worker N exited with code 3 while retiring`). A second hand-over of one number waits
+    until the first one's leaver has gone; one still there `STOP_GRACE` after it was asked is
+    killed.
+  - **The master looks at its workers every 5ms while a hand-over is under way**
+    (`handing_over()`), 50ms otherwise, because the retiring worker serves a request per
+    connection until relieved and every reconnect costs.
+  - Under the master reading heads, a retiring worker is handed a connection only when no other
+    worker waits for one, and none once it has been asked to stop.
+  - Tested by `tests/gaz/workers/retire_test.gaz` (the order, the lines, a slow replacement),
+    `retire_grace_test.gaz` (the kill) and `HttpServerTest` (a worker slow to start and
+    `max_requests` 1: no request waits for a start).
+  - `ponytail:` noticing the hand-over still waits for a 50ms poll, since the master can't be woken
+    (see the program's own thread below).
+    - A replacement that never reaches `socket_accept()` (a start-up that hangs) leaves the
+      retiring worker serving a request per connection with nothing bounding it, so
+      `max_requests` stops limiting its life; a deadline after which the master relieves it
+      anyway would lift that.
+    - A replacement that dies within a second of starting without accepting stops the whole pool,
+      as a recycled worker's always did, though the retiring worker is healthy; keeping it and
+      retrying would lift that.
+    - `Slot.listening` is set on entering any `socket_accept()`, so a worker that waits on a second
+      listener (an admin port) before the shared one relieves the retiring worker early.
 - **A worker that dies takes only the connection it holds**: the master closes its own copy when it
   reaps the worker, if the worker sent nothing since the hand-over, so a crash, a
   `worker_deadline()` 503 or an `exit()` in a handler ends that client's connection and no other;
@@ -86,74 +97,86 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   to the next one that asks.
 - **Stopping**: a worker catches SIGTERM without `SA_RESTART`, so a waiting `accept()` wakes;
   `socket_accept()` and `worker_accept()` wait in `poll()` a second at a time, so a stop that lands
-  between the check and the wait is still seen. The grace is `STOP_GRACE`. Under the master
-  reading heads, **a stop first closes the listener and the master's connections**
-  (`close_front()`): the master closes its copy from the rule, points its own inherited one at
-  `/dev/null` (`abandon_fd()`, found by the number the rule names and checked to be the same
-  listener: same address, no peer), sends the workers SIGTERM, whose handler points each worker's
-  copy at `/dev/null` too (`dup2()`, async-signal-safe, keeping the number the program's socket
-  holds), and only then closes the waiting and kept-open connections. So a new connection is
-  refused, not queued in a backlog nobody will accept from and reset at the end; a kept-open
-  client sees the end at once, as after an idle wait; and the request in hand is still answered,
-  its connection then closed rather than given back (`worker_release()` after a stop).
+  between the check and the wait is still seen. The grace is `STOP_GRACE`.
+  - Under the master reading heads, **a stop first closes the listener and the master's
+    connections** (`close_front()`):
+    1. the master closes its copy from the rule;
+    2. it points its own inherited one at `/dev/null` (`abandon_fd()`, found by the number the
+       rule names and checked to be the same listener: same address, no peer);
+    3. it sends the workers SIGTERM, whose handler points each worker's copy at `/dev/null` too
+       (`dup2()`, async-signal-safe, keeping the number the program's socket holds);
+    4. and only then closes the waiting and kept-open connections.
+  - So a new connection is refused, not queued in a backlog nobody will accept from and reset at
+    the end; a kept-open client sees the end at once, as after an idle wait; and the request in
+    hand is still answered, its connection then closed rather than given back
+    (`worker_release()` after a stop).
 - **A worker whose master has died stops as if asked**, since a master killed with SIGKILL can't
   ask, and orphans would hold the listener: `workers_stopping()`, asked by every wait that wakes
   each second (`worker_accept()`, `socket_accept()`, `socket_wait()`), takes `getppid()` no longer
   being the master's pid for a SIGTERM (`getppid()`, not Linux's `PR_SET_PDEATHSIG`, which macOS
-  hasn't got). Under `http::serve()` an idle worker sees its channel end at once; the master's
-  kept-open connections go with it; a request in hand is finished and its connection closed, as
-  after a stop, bounded by `handler_timeout` rather than `STOP_GRACE`, there being no master left to
-  kill it. Tested by the two `master_killed` tests in `HttpServerTest`.
+  hasn't got).
+  - Under `http::serve()` an idle worker sees its channel end at once, and the master's kept-open
+    connections go with it.
+  - A request in hand is finished and its connection closed, as after a stop, bounded by
+    `handler_timeout` rather than `STOP_GRACE`, there being no master left to kill it.
+  - Tested by the two `master_killed` tests in `HttpServerTest`.
 - **Reloading** (`workers.c`, "Reloading"): SIGUSR2 to a master whose workers serve through it
   `posix_spawnp()`s the same command line (`command_argv`), from the directory gaz started in
-  (`start_dir`, so a `chdir()` before it doesn't change what a relative path names), with every
-  listener the process has (`net_listeners()`) as descriptors 3 on and `LISTEN_FDS` saying how
-  many, systemd's socket-activation convention, so a socket unit's listeners are taken the same way,
-  and one end of a socket pair, the hand-off, as the descriptor after them, which `GAZ_RELOAD_FD`
-  names. `inherit_descriptors()` takes them from the environment at the start of `main()`
-  (close-on-exec, the variables unset), so nothing the program starts inherits them; a
-  `socket_listen()` takes the one on the address it asks for, `workers()` closes those none took
-  and takes the hand-off. The rules it keeps:
-  - **Nothing changes until the new program is ready**: its master writes one byte on the hand-off
-    once a worker registers (`take_rule()`), from which point it accepts from the shared listener:
-    `RELOAD_READY`, or `RELOAD_ELSEWHERE` when the listener it serves wasn't handed down (a changed
-    port is a restart, and the old one would be answered by nobody), which the old master answers by
-    ending it. Only on `RELOAD_READY` does the old master stop listening, so a start that fails (the
-    hand-off ends, or the child is reaped, first) leaves the old pool exactly as it was, and its end
-    is logged as a worker's is. A second SIGUSR2 while one is starting reads a byte already come
-    first, then ends that one and starts another, the way out of a start that hangs; there is no
-    timeout.
-  - **No connection is closed by a reload**: the old master sends every connection in its table to
-    the new one (`MSG_HANDOFF`, a message on the channel format with the bytes read, when its head
-    began on the shared monotonic clock, the requests served and the descriptor), and every
-    kept-open one a worker gives back afterwards (`conn_add()` forwards while draining). The new
-    master reads the hand-off only while its table has room, so the old one waits rather than a
-    connection being closed. The old master asks each worker to stop once it waits for a connection
-    (`drain_idle_workers()`), starts none again, and exits 0 once they have all ended and `SETTLE`
-    (a second) has passed, or kills the rest after `STOP_GRACE`.
+  (`start_dir`, so a `chdir()` before it doesn't change what a relative path names). Every
+  listener the process has (`net_listeners()`) goes as descriptors 3 on, with `LISTEN_FDS` saying
+  how many: systemd's socket-activation convention, so a socket unit's listeners are taken the
+  same way. One end of a socket pair, the hand-off, goes as the descriptor after them, which
+  `GAZ_RELOAD_FD` names. `inherit_descriptors()` takes them from the environment at the start of
+  `main()` (close-on-exec, the variables unset), so nothing the program starts inherits them. A
+  `socket_listen()` takes the one on the address it asks for, and `workers()` closes those none
+  took and takes the hand-off. The rules it keeps:
+  - **Nothing changes until the new program is ready**: its master writes one byte on the
+    hand-off once a worker registers (`take_rule()`), from which point it accepts from the shared
+    listener.
+    - The byte is `RELOAD_READY`, or `RELOAD_ELSEWHERE` when the listener it serves wasn't handed
+      down (a changed port is a restart, and the old one would be answered by nobody), which the
+      old master answers by ending it.
+    - Only on `RELOAD_READY` does the old master stop listening, so a start that fails (the
+      hand-off ends, or the child is reaped, first) leaves the old pool exactly as it was, and its
+      end is logged as a worker's is.
+    - A second SIGUSR2 while one is starting reads a byte already come first, then ends that one
+      and starts another, the way out of a start that hangs; there is no timeout.
+  - **No connection is closed by a reload**: the old master sends every connection in its table
+    to the new one (`MSG_HANDOFF`, a message on the channel format with the bytes read, when its
+    head began on the shared monotonic clock, the requests served and the descriptor), and every
+    kept-open one a worker gives back afterwards (`conn_add()` forwards while draining).
+    - The new master reads the hand-off only while its table has room, so the old one waits rather
+      than a connection being closed.
+    - The old master asks each worker to stop once it waits for a connection
+      (`drain_idle_workers()`), starts none again, and exits 0 once they have all ended and
+      `SETTLE` (a second) has passed, or kills the rest after `STOP_GRACE`.
   - **A new master that dies is taken back from**: one that ends other than cleanly or by a stop
     signal while the old one is still there (a pool failing in its first second, a crash) has the
     old master listen again and start what the drain ended (`take_back()`). Its connections go
     with it, as a worker's do.
-  - **A child, not an exec in place**: only that keeps the old pool serving through a slow start and
-    after a failed one. So the pid changes (nginx's and unicorn's shape); under systemd
-    (`NOTIFY_SOCKET`) the old master sends `MAINPID=` of the new one as it hands over, and its own
-    if it takes the pool back, which a unit with `NotifyAccess=main` follows
-    (`ExecReload=kill -USR2 $MAINPID`). A stop signal sent while the new one starts ends it too.
+  - **A child, not an exec in place**: only that keeps the old pool serving through a slow start
+    and after a failed one. So the pid changes (nginx's and unicorn's shape).
+    - Under systemd (`NOTIFY_SOCKET`) the old master sends `MAINPID=` of the new one as it hands
+      over, and its own if it takes the pool back, which a unit with `NotifyAccess=main` follows
+      (`ExecReload=kill -USR2 $MAINPID`).
+    - A stop signal sent while the new one starts ends it too.
   - **SIGHUP stays a stop**, so a server in a terminal still ends with it and `nohup` keeps
-    meaning what it does; a worker ignores SIGUSR2 (`worker_recycle()` puts the default back to
-    raise its own, and `run()` gives a program it starts the default). Any other gaz program,
-    including a new one still in its set-up, ends by it. A stop signal ignored at the start stays
-    ignored in the new program.
+    meaning what it does.
+    - A worker ignores SIGUSR2 (`worker_recycle()` puts the default back to raise its own, and
+      `run()` gives a program it starts the default).
+    - Any other gaz program, including a new one still in its set-up, ends by it.
+    - A stop signal ignored at the start stays ignored in the new program.
   - TLS connections a worker keeps open can't move, and the new program draws its own session
-    ticket key, so those clients handshake again once; that rotates the key at every reload. A
-    program whose workers accept for themselves (`socket_accept()`) can't be reloaded, the reload
-    refused with a line saying so. Tested by `HttpReloadTest`.
-- **The program runs on its own thread** (see [the C VM](vm.md#how-a-program-runs)), so a fork is that thread alone, with
-  no `main()` to end the process: `run()` in `vm.c` exits a worker itself. And a signal to the
-  master may land on `main()`'s thread, which is why the master waits at most 50ms at a time
-  rather than until one; the stop signals are blocked across each `fork()`, or one sent before a new
-  worker has put its own handlers back would only set its copy of the master's flag.
+    ticket key, so those clients handshake again once; that rotates the key at every reload.
+  - A program whose workers accept for themselves (`socket_accept()`) can't be reloaded, the
+    reload refused with a line saying so.
+  - Tested by `HttpReloadTest`.
+- **The program runs on its own thread** (see [the C VM](vm.md#how-a-program-runs)), so a fork is
+  that thread alone, with no `main()` to end the process: `run()` in `vm.c` exits a worker itself.
+  - A signal to the master may land on `main()`'s thread, which is why the master waits at most
+    50ms at a time rather than until one.
+  - The stop signals are blocked across each `fork()`, or one sent before a new worker has put its
+    own handlers back would only set its copy of the master's flag.
 
 ### The master reads request heads
 
@@ -165,55 +188,68 @@ table entry and a descriptor, never a worker. Puma's reactor and Apache's event 
 for the same reason.
 
 - **Hand-over by descriptor passing**: each worker has a channel to the master, a
-  `socketpair(AF_UNIX, SOCK_STREAM)` made before its fork, and a connection travels as a descriptor
-  sent with `SCM_RIGHTS`, so the master never relays a byte of a request (POSIX, both ways on
-  macOS and Linux; about 10µs a round trip, measured, against about 85µs for a trivial request).
-  Every message carries at least a byte (Linux needs data with ancillary data); a received
-  descriptor is close-on-exec (`MSG_CMSG_CLOEXEC` on Linux, `fcntl()` on macOS, which has no
-  flag). A channel's buffers are `CHANNEL_BUFFER` (256KB) each way, and a message is at most a
-  head's cap and a header, which `MOST_CAP` (64KB) and the bound on skips keep under half of that
-  (Linux may halve it again, `net.core.wmem_max`); each end has at most one message the other hasn't
-  read (a worker sends only after asking or being given, the master only to a worker that asked),
-  so a blocking send never waits on the other side.
+  `socketpair(AF_UNIX, SOCK_STREAM)` made before its fork, and a connection travels as a
+  descriptor sent with `SCM_RIGHTS`, so the master never relays a byte of a request (POSIX, both
+  ways on macOS and Linux; about 10µs a round trip, measured, against about 85µs for a trivial
+  request).
+  - Every message carries at least a byte (Linux needs data with ancillary data).
+  - A received descriptor is close-on-exec (`MSG_CMSG_CLOEXEC` on Linux, `fcntl()` on macOS,
+    which has no flag).
+  - A channel's buffers are `CHANNEL_BUFFER` (256KB) each way, and a message is at most a head's
+    cap and a header, which `MOST_CAP` (64KB) and the bound on skips keep under half of that
+    (Linux may halve it again, `net.core.wmem_max`).
+  - Each end has at most one message the other hasn't read (a worker sends only after asking or
+    being given, the master only to a worker that asked), so a blocking send never waits on the
+    other side.
 - **The master keeps its copy of a connection it handed over** until that worker's next message
-  shows the descriptor arrived (`Channel.sent`), and `worker_release()` asks at once when it closes
-  one, so the client sees its end then; a worker that dies or stops has its channel closed as it is
-  reaped. With the master closing its copy straight after `sendmsg()`, macOS now and then shut a
-  connection down under its client after the hand-over: in bursts a few seconds apart, about one
-  request in 30000 under load (wrk's "read" errors; a client of sixteen keep-alive connections saw
-  15 in 580000 requests), and none in over 1.3 million with the copy kept. The worker's closing its
-  own copy after giving one back made no difference measured, and keeping that one would hold a
-  connection open after the master had closed it. When the worker's next message is an `I`, the
-  master's copy is the connection given back: the `I` carries no descriptor, so one only ever
-  travels from the master to a worker, and a keep-alive request costs one `SCM_RIGHTS`, not two.
-- **The wire format**: a header of 18 bytes, `[type 1][flags 1][length 4][first byte's time 8]
-  [served 4]` (the time `CLOCK_MONOTONIC` seconds as a double, the clock `monotonic_time()` reads,
-  which every process on a machine shares; `served` the requests the connection has had answered;
-  numbers in the machine's own order, both ends being one program on one machine), then `length`
-  bytes, and the connection's descriptor on a message from the master that hands one over. A worker
-  sends `R` (the rule, with the listener's descriptor: its first `worker_accept()`), `W` (it waits
-  for a connection: a `worker_accept()` that hasn't said so, and a `worker_release()` that closes
-  one) and `I` (a kept-open connection back, without its descriptor, with the bytes read past its
-  requests and their count, flagged `waits`, which folds in the `W` the next `worker_accept()` would
-  send: a message saved each way per request). The master sends `C` (a complete head), `L` (over the
-  cap with no end within it), `T` (the head's time ran out after bytes came) or `E` (the client
-  closed, or the read failed, in the middle of a head), with the count. A worker counts as waiting
-  only once it has said so, and says so only on its way back to `worker_accept()` (`http::serve()`
-  always goes back, unless stopping), so nothing is handed to a process about to end.
+  shows the descriptor arrived (`Channel.sent`), and `worker_release()` asks at once when it
+  closes one, so the client sees its end then; a worker that dies or stops has its channel closed
+  as it is reaped.
+  - With the master closing its copy straight after `sendmsg()`, macOS now and then shut a
+    connection down under its client after the hand-over: in bursts a few seconds apart, about
+    one request in 30000 under load (wrk's "read" errors; a client of sixteen keep-alive
+    connections saw 15 in 580000 requests), and none in over 1.3 million with the copy kept.
+  - The worker's closing its own copy after giving one back made no difference measured, and
+    keeping that one would hold a connection open after the master had closed it.
+  - When the worker's next message is an `I`, the master's copy is the connection given back: the
+    `I` carries no descriptor, so one only ever travels from the master to a worker, and a
+    keep-alive request costs one `SCM_RIGHTS`, not two.
+- **The wire format**: a header of 18 bytes,
+  `[type 1][flags 1][length 4][first byte's time 8][served 4]`, then `length` bytes, and the
+  connection's descriptor on a message from the master that hands one over.
+  - The time is `CLOCK_MONOTONIC` seconds as a double, the clock `monotonic_time()` reads, which
+    every process on a machine shares; `served` is the requests the connection has had answered.
+    Numbers are in the machine's own order, both ends being one program on one machine.
+  - A worker sends:
+    - `R` (the rule, with the listener's descriptor: its first `worker_accept()`);
+    - `W` (it waits for a connection: a `worker_accept()` that hasn't said so, and a
+      `worker_release()` that closes one);
+    - `I` (a kept-open connection back, without its descriptor, with the bytes read past its
+      requests and their count, flagged `waits`, which folds in the `W` the next
+      `worker_accept()` would send: a message saved each way per request).
+  - The master sends `C` (a complete head), `L` (over the cap with no end within it), `T` (the
+    head's time ran out after bytes came) or `E` (the client closed, or the read failed, in the
+    middle of a head), with the count.
+  - A worker counts as waiting only once it has said so, and says so only on its way back to
+    `worker_accept()` (`http::serve()` always goes back, unless stopping), so nothing is handed to
+    a process about to end.
 - **No HTTP in the master**: the worker registers a rule, `worker_accept($listener, $rule)` with
   `{"ready" => "\r\n\r\n", "skip" => "\r\n", "skip_most" => 4, "most" => 65536, "within" =>
   header_timeout, "idle" => idle_timeout, "max_connections" => 1024, "timeout" => timeout}`
-  (`master_rule()`), and the master knows only that: skip up to `skip_most` of `skip`, then look for `ready` (one `memmem()`, resumed where the
-  last search left off, so a head trickled a byte at a time is read once) within `most` bytes. These
-  are `read_request()`'s own rules (`MAX_EMPTY_LINES`, `MAX_HEAD`), so a `C` is a head the worker's
-  reader reads without waiting and an `L` one it refuses (431) without reading more, from the same
-  bytes; `"timeout"` is each connection's per-read and per-write timeout, which the master sets at
-  accept (`net_prepare()`), as socket options go with the socket to every process it is handed to,
-  so a hand-over costs a worker no system call for them. The master reads at most
-  `skip_len * skip_most + most + 1` bytes of a connection (`head_cap()`), which always settles the
-  head. **The master checks the rule it is given** (`rule_sound()`) before it reads by it, so a
-  length in it can't send `memmem()` past the rule's texts; one `worker_accept()` wouldn't have sent
-  ends that worker's channel.
+  (`master_rule()`), and the master knows only that: skip up to `skip_most` of `skip`, then look
+  for `ready` (one `memmem()`, resumed where the last search left off, so a head trickled a byte
+  at a time is read once) within `most` bytes.
+  - These are `read_request()`'s own rules (`MAX_EMPTY_LINES`, `MAX_HEAD`), so a `C` is a head the
+    worker's reader reads without waiting and an `L` one it refuses (431) without reading more,
+    from the same bytes.
+  - `"timeout"` is each connection's per-read and per-write timeout, which the master sets at
+    accept (`net_prepare()`), as socket options go with the socket to every process it is handed
+    to, so a hand-over costs a worker no system call for them.
+  - The master reads at most `skip_len * skip_most + most + 1` bytes of a connection
+    (`head_cap()`), which always settles the head.
+  - **The master checks the rule it is given** (`rule_sound()`) before it reads by it, so a length
+    in it can't send `memmem()` past the rule's texts. A rule `worker_accept()` wouldn't have sent
+    ends that worker's channel.
 - **Every byte a client receives is GazLang's**: a head the master gives up on is handed over too,
   tagged, and the worker's reader refuses it through `read_request()`'s own refusals and the
   access log, timed from the master's first-byte time (`Reader.start()`'s third argument): `L` is
@@ -229,47 +265,57 @@ for the same reason.
   already whole in what it has read (pipelined), so their responses come from one worker in order,
   then gives the connection back (`worker_release($socket, $bytes, $served)`, `$bytes` what it read
   past them, or null to close it), and the master holds the idle wait, so an idle client holds no
-  worker. What is kept and what goes back is decided by the master's own rule (`Reader.holds_head()`
-  in `http.gaz`, `head_state()` in `workers.c`): a head whole in the bytes, or past the cap, is
-  answered (or refused) by the worker without reading more; anything else goes back, so what goes
-  back is never more than a head's cap. `requests_per_connection` is counted with the connection,
-  the count travelling with it both ways, and the worker writes the closing response.
-  `ponytail:` a hot keep-alive connection pays a hand-over each way per request
-  ([#78](https://github.com/panzer-planet/gazlang/issues/78)). Measured with wrk
-  on a trivial handler, four workers, against the server before the master read heads: four
-  connections kept busy, 40600 requests a second before, 34500 now (85µs to 105µs each); sixteen,
-  45000 to 41200, with a mean latency of 0.4ms instead of 6ms, since a ready head waits its turn
-  oldest first; sixty-four, 46400 to 41800 (1.5ms instead of 32ms); a connection per request,
-  24800 to 22300. The master, one process, is near a core at 40000 a second. A worker peeking for
-  the next request a moment before giving a connection back would save the hand-overs, but a peek
-  costs every response to an idle client its length, so it would want to be only for connections
-  whose last gap was short.
-- **Dispatch**: the worker that asked last first (LIFO, its memory likeliest still in the
-  processor's caches, and the others left asleep); a retiring worker only when no other waits,
-  and none once asked to stop; heads ready while every worker is busy wait in a queue, oldest first.
+  worker.
+  - What is kept and what goes back is decided by the master's own rule (`Reader.holds_head()` in
+    `http.gaz`, `head_state()` in `workers.c`): a head whole in the bytes, or past the cap, is
+    answered (or refused) by the worker without reading more; anything else goes back, so what
+    goes back is never more than a head's cap.
+  - `requests_per_connection` is counted with the connection, the count travelling with it both
+    ways, and the worker writes the closing response.
+  - `ponytail:` a hot keep-alive connection pays a hand-over each way per request
+    ([#78](https://github.com/panzer-planet/gazlang/issues/78)).
+    - Measured with wrk on a trivial handler, four workers, against the server before the master
+      read heads: four connections kept busy, 40600 requests a second before, 34500 now (85µs to
+      105µs each); sixteen, 45000 to 41200, with a mean latency of 0.4ms instead of 6ms, since a
+      ready head waits its turn oldest first; sixty-four, 46400 to 41800 (1.5ms instead of 32ms);
+      a connection per request, 24800 to 22300.
+    - The master, one process, is near a core at 40000 a second.
+    - A worker peeking for the next request a moment before giving a connection back would save
+      the hand-overs, but a peek costs every response to an idle client its length, so it would
+      want to be only for connections whose last gap was short.
+- **Dispatch**:
+  - the worker that asked last first (LIFO, its memory likeliest still in the processor's caches,
+    and the others left asleep);
+  - a retiring worker only when no other waits, and none once asked to stop;
+  - heads ready while every worker is busy wait in a queue, oldest first.
 - **Backpressure**: `"max_connections"` (1024) bounds the connections open at once, in the
   master's table or held by workers; at it, the master stops polling the listener, and the
-  kernel's backlog holds the rest until a connection closes. The master raises `RLIMIT_NOFILE`'s
-  soft limit toward the hard one (at most `OPEN_MAX` on macOS, which refuses more) when the first
-  worker's rule comes, which is after the first workers were forked, so they keep the limit the
-  program started with and only replacements inherit the raised one (the master's table is what
-  needs the room), and lowers `max_connections` to what fits, with a line saying so.
+  kernel's backlog holds the rest until a connection closes.
+  - The master raises `RLIMIT_NOFILE`'s soft limit toward the hard one (at most `OPEN_MAX` on
+    macOS, which refuses more) when the first worker's rule comes, and lowers `max_connections`
+    to what fits, with a line saying so.
+  - That is after the first workers were forked, so they keep the limit the program started with
+    and only replacements inherit the raised one (the master's table is what needs the room).
 - **`poll()`, bounded**: it costs time in the number of descriptors (measured: 26µs at 100,
   290µs at 1000, 5.6ms at 10000), and macOS refuses more than 10240 at once, so the table is
   bounded (`MOST_POLLED`), and the set is built again before each wait behind
-  `watch_clear()`/`watch_add()`/`watch_wait()`. It is a cliff: with 1000 idle keep-alive
-  connections in the table, wrk at sixteen connections measured 8100 requests a second where it
-  had 25400 without them. `ponytail:` a kqueue or epoll backend there, which would keep its
-  registrations, would lift the bound and the cliff ([#79](https://github.com/panzer-planet/gazlang/issues/79)). The master looks at its workers (`waitpid()`, the
-  `Slot`s, hand-overs) every 50ms (5ms during a hand-over), not at every wake, which comes for every
-  request; between looks it wakes for its channels, the listener and the connections, and for the
-  nearest connection's deadline, reading the clock once each time round.
-- **A head's time**: from a connection's accept, so one that connects and says nothing is closed
-  at `header_timeout` (or `request_timeout` when that is null); for a kept-open connection
-  `idle_timeout` from when it came back, and once its next head's first byte comes,
-  `header_timeout` from that byte. The per-read `timeout` doesn't apply to a head the master reads,
-  only `header_timeout`, so a head that stalls is a 408 where a single process may answer 400 for a
-  read that waited out `timeout` first.
+  `watch_clear()`/`watch_add()`/`watch_wait()`.
+  - It is a cliff: with 1000 idle keep-alive connections in the table, wrk at sixteen connections
+    measured 8100 requests a second where it had 25400 without them. `ponytail:` a kqueue or epoll
+    backend there, which would keep its registrations, would lift the bound and the cliff
+    ([#79](https://github.com/panzer-planet/gazlang/issues/79)).
+  - The master looks at its workers (`waitpid()`, the `Slot`s, hand-overs) every 50ms (5ms during
+    a hand-over), not at every wake, which comes for every request. Between looks it wakes for its
+    channels, the listener and the connections, and for the nearest connection's deadline, reading
+    the clock once each time round.
+- **A head's time**:
+  - from a connection's accept, so one that connects and says nothing is closed at
+    `header_timeout` (or `request_timeout` when that is null);
+  - for a kept-open connection `idle_timeout` from when it came back, and once its next head's
+    first byte comes, `header_timeout` from that byte.
+  - The per-read `timeout` doesn't apply to a head the master reads, only `header_timeout`, so a
+    head that stalls is a 408 where a single process may answer 400 for a read that waited out
+    `timeout` first.
 - **One listener per pool**: the first registration's rule and listener are the master's; every
   worker runs the same program, so a later one's are the same, and its copy of the listener is
   closed. A worker that calls `worker_accept()` on a second listener is refused.
@@ -288,9 +334,9 @@ for the same reason.
   hand over at the first byte, which fails it; idle connections holding no worker; a connection's
   count of requests across workers; a head whose end, or whose skipped empty lines, come in two
   pieces handed over at once, which a search that doesn't resume across reads fails; pipelining
-  whole and split, and pipelined requests answered by the worker that has them; heads refused and logged;
-  backpressure at `max_connections`; a stop with idle connections and a new one refused; the
-  retire, recycle, deadline and crash tests on this path; and one run of the master under the
+  whole and split, and pipelined requests answered by the worker that has them; heads refused and
+  logged; backpressure at `max_connections`; a stop with idle connections and a new one refused;
+  the retire, recycle, deadline and crash tests on this path; and one run of the master under the
   sanitizers with the slow clients, refused heads, pipelining and random bytes, which a planted
   overflow fails), `tests/gaz/workers/handed_test.gaz` (a worker's side without `http::serve()`)
   and `tests/gaz/lib/http_master_test.gaz` (both builtins outside a worker, and what they refuse).
@@ -310,14 +356,17 @@ libssl built for it), while two of CI's three platforms are macOS; it is the Lin
   its handshake holds a worker for up to `header_timeout`, which plain HTTP's master spares; under
   load, as for slow bodies, that is a buffering proxy's to absorb.
 - **Between requests the worker keeps the connection**, since its session can't go back to the
-  master: after a response it gives its client `HOT_GAP` to ask again (a busy client keeps its
-  worker without the master hearing of it), then waits on the connection and its channel together
-  (`worker_accept($listener, $rule, $idle, $seconds)`), having told the master it waits, with
-  `FLAG_HOLDS` on its `W`. Its own client's next request, or a connection the master hands it, is
-  answered first; on a new connection the idle client gives way, with `YIELD_GRACE` to speak first
-  (a request that comes is answered with `Connection: close`), as an idle close does in a single
-  process. **The master hands a new connection to a free worker before one keeping a client**, and
-  of those to the one whose client has waited longest, the least likely to be about to speak.
+  master.
+  - After a response it gives its client `HOT_GAP` to ask again (a busy client keeps its worker
+    without the master hearing of it).
+  - Then it waits on the connection and its channel together
+    (`worker_accept($listener, $rule, $idle, $seconds)`), having told the master it waits, with
+    `FLAG_HOLDS` on its `W`.
+  - Its own client's next request, or a connection the master hands it, is answered first. On a
+    new connection the idle client gives way, with `YIELD_GRACE` to speak first (a request that
+    comes is answered with `Connection: close`), as an idle close does in a single process.
+  - **The master hands a new connection to a free worker before one keeping a client**, and of
+    those to the one whose client has waited longest, the least likely to be about to speak.
 - **A worker whose client speaks first withdraws** (`B`): the master counted it waiting, and may
   have handed it a connection meanwhile. It answers a `B` with `N` if it hadn't, and otherwise the
   connection it handed over is the answer, which the worker's next `worker_accept()` takes; nothing
@@ -325,16 +374,19 @@ libssl built for it), while two of CI's three platforms are macOS; it is the Lin
   outstanding), so the master still sends a worker only what it asked for, one message at a time.
 - **The handshake's refusals are quiet**: a client that gives up, says nothing until the head's
   time is up, refuses the certificate or speaks neither TLS nor HTTP gets nothing and no log line,
-  as a quiet plain connection gets none; one that speaks plain HTTP (OpenSSL's `SSL_R_HTTP_REQUEST`,
-  which leaves the connection plain) is answered 400 saying to ask for `https://`, and logged with
-  `- -` for the method and target, which the handshake's reading took.
+  as a quiet plain connection gets none. One that speaks plain HTTP (OpenSSL's
+  `SSL_R_HTTP_REQUEST`, which leaves the connection plain) is answered 400 saying to ask for
+  `https://`, and logged with `- -` for the method and target, which the handshake's reading took.
 - **The files are read when the server starts** (`server_options()` calls `socket_tls_server()`),
   so a missing file, a key that is encrypted or doesn't match is the program's error at once, in
-  gaz's words, not OpenSSL's, whose reasons differ between versions. **A renewed certificate is
-  read again** at the next handshake: each `socket_tls_accept()` compares both files' device, inode,
-  size and time with the context's, which a certbot renewal (a symbolic link moved) changes; one
-  that can't be read (half written) keeps the last good context, said once on standard error.
-  `ponytail:` one set of files is kept; a program alternating two would make a context at each change.
+  gaz's words, not OpenSSL's, whose reasons differ between versions.
+  - **A renewed certificate is read again** at the next handshake: each `socket_tls_accept()`
+    compares both files' device, inode, size and time with the context's, which a certbot renewal
+    (a symbolic link moved) changes.
+  - One that can't be read (half written) keeps the last good context, said once on standard
+    error.
+  - `ponytail:` one set of files is kept; a program alternating two would make a context at each
+    change.
 - **A session ticket key drawn once before `workers()`** (`net_before_workers()`), so a client
   resumes its session with whichever worker it reaches; rotated only by a restart.
 - **The handler deadline over TLS writes nothing**: `SSL_write()` isn't async-signal-safe, so
@@ -347,11 +399,12 @@ libssl built for it), while two of CI's three platforms are macOS; it is the Lin
 - Measured with wrk on a trivial handler, four workers, keep-alive: four connections, 35700
   requests a second (a hot TLS connection never goes back to the master, so it beats plain HTTP's
   34500); sixteen, 21600; sixty-four, 16200, with no socket errors and a 99th percentile under
-  0.4ms. Before the hot-client and give-way graces, sixteen connections measured thousands of read
-  errors: every response let a waiting connection close a busy one as its next request was sent.
-  `ponytail:` under steady contention every new connection closes an idle one, so TLS clients make
-  more handshakes than plain ones; parking the session in the worker while the master watches the
-  bare descriptor, and handing it back to the same worker, would lift that.
+  0.4ms.
+  - Before the hot-client and give-way graces, sixteen connections measured thousands of read
+    errors: every response let a waiting connection close a busy one as its next request was sent.
+  - `ponytail:` under steady contention every new connection closes an idle one, so TLS clients
+    make more handshakes than plain ones; parking the session in the worker while the master
+    watches the bare descriptor, and handing it back to the same worker, would lift that.
 - Tested by `tests/gaz/sockets/tls_server_test.gaz` (the builtins' refusals, and the handshakes one
   process sees both ends of), `tests/gaz/lib/http_tls_options_test.gaz` (the option's refusals) and
   `HttpTlsTest`, over PHP's TLS streams and curl, in one process and under workers: keep-alive, the
@@ -369,28 +422,35 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
 
 - **A connection is one worker's, its streams answered one at a time**, in the order their
   requests are whole: splitting them across workers would need a demultiplexer in the master,
-  which can't read TLS. So one client's slow request delays its other streams, which a pool of
-  connections (a browser's six for HTTP/1.1) would not; 100 streams may be open at once
-  (`SETTINGS_MAX_CONCURRENT_STREAMS`), a stream past it refused, which a client sends again.
+  which can't read TLS.
+  - So one client's slow request delays its other streams, which a pool of connections (a
+    browser's six for HTTP/1.1) would not.
+  - 100 streams may be open at once (`SETTINGS_MAX_CONCURRENT_STREAMS`), a stream past it refused,
+    which a client sends again.
 - **Between requests it waits as TLS keep-alive does** (`IdleWait`: `PoolWait` asks the master for
   another connection with this one kept, `AloneWait` watches the listener as `another_request()`
-  does), and gives way with a GOAWAY naming the last stream it took, which HTTP/1.1 can't say: the
-  client sends whatever it hadn't sent yet on a new connection, so giving way races with nothing.
-  `"requests_per_connection"` streams answered are a GOAWAY too.
+  does).
+  - It gives way with a GOAWAY naming the last stream it took, which HTTP/1.1 can't say: the
+    client sends whatever it hadn't sent yet on a new connection, so giving way races with
+    nothing.
+  - `"requests_per_connection"` streams answered are a GOAWAY too.
 - **A GOAWAY on a busy connection lingers** (`H2_LINGER`, a second): what the client sent meanwhile
   is read and dropped until it closes, since closing with bytes unread resets the connection, and a
   client loses responses it hadn't read yet. Measured: without it a Go client of sixteen streams
   on four connections saw a reset in every few hundred requests at each GOAWAY; with it, none.
-- **Flow control**: everything a client sends is given back at once (a WINDOW_UPDATE on the
-  connection and the stream for each DATA frame), a body past `"max_body"` is answered 413 when its
-  stream ends, the rest dropped (given back all the same); a response is written as the client's
-  windows allow, the client's frames read while it waits.
-- **What RFC 9113 says to refuse is refused as it says**: a malformed request (an uppercase name,
-  a pseudo-header after a header, unknown, twice or missing, a header only HTTP/1.1 has, TE other
-  than `trailers`, a Content-Length the body doesn't keep) is RST_STREAM PROTOCOL_ERROR; a broken
-  protocol (a frame on a stream not open, a header block interrupted or past `MAX_HEAD`, a bad
-  setting, a window past 2^31 - 1, a PUSH_PROMISE) a GOAWAY with its code. PRIORITY is read and
-  left alone; a server never pushes.
+- **Flow control**:
+  - everything a client sends is given back at once (a WINDOW_UPDATE on the connection and the
+    stream for each DATA frame);
+  - a body past `"max_body"` is answered 413 when its stream ends, the rest dropped (given back
+    all the same);
+  - a response is written as the client's windows allow, the client's frames read while it waits.
+- **What RFC 9113 says to refuse is refused as it says**:
+  - a malformed request (an uppercase name, a pseudo-header after a header, unknown, twice or
+    missing, a header only HTTP/1.1 has, TE other than `trailers`, a Content-Length the body
+    doesn't keep) is RST_STREAM PROTOCOL_ERROR;
+  - a broken protocol (a frame on a stream not open, a header block interrupted or past
+    `MAX_HEAD`, a bad setting, a window past 2^31 - 1, a PUSH_PROMISE) a GOAWAY with its code;
+  - PRIORITY is read and left alone; a server never pushes.
 - **What a handler answers is written as HTTP/2 writes it**: names lowercased, `content-length`
   and `date` added, a Connection header dropped (HTTP/2 has none), the block split into
   CONTINUATION frames past the client's frame size.
@@ -398,20 +458,23 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   goodbye is no error of the server's, and in a single process an error there would have ended it.
 - Measured with a Go HTTP/2 client (`x/net/http2`) on a trivial handler, four workers: 15800
   requests a second on four connections one stream at a time, 17600 with four streams on each,
-  16800 with four on each of sixteen, no request failing; HTTP/1.1 over TLS is about twice that,
-  the difference being HPACK and framing in GazLang. Checked by h2spec (145 checks of RFC 9113 and
-  RFC 7541) while it was written: all 145 pass under `workers()`; in one process four time out,
-  each opening a second connection while its first sits quiet before its preface, which one
-  process waits out (`header_timeout`), as it does a slow HTTP/1.1 client.
-- `ponytail:` a stream's body has no deadline but each frame's read `"timeout"`, so a client
-  trickling one holds the worker; a response is written whole once its handler returns; no
-  server push, no stream priorities.
+  16800 with four on each of sixteen, no request failing. HTTP/1.1 over TLS is about twice that,
+  the difference being HPACK and framing in GazLang.
+- Checked by h2spec (145 checks of RFC 9113 and RFC 7541) while it was written: all 145 pass under
+  `workers()`. In one process four time out, each opening a second connection while its first sits
+  quiet before its preface, which one process waits out (`header_timeout`), as it does a slow
+  HTTP/1.1 client.
+- `ponytail:`
+  - a stream's body has no deadline but each frame's read `"timeout"`, so a client trickling one
+    holds the worker;
+  - a response is written whole once its handler returns;
+  - no server push, no stream priorities.
 - Tested by `HttpTlsTest`, with a raw client in the test (so frames no library sends are sent):
   streams at once, a body in frames, the access log, curl over HTTP/2, flow control holding a
-  response at a window of 10 bytes, PING, a malformed request reset while the next is served, GOAWAY
-  after `requests_per_connection`, an idle connection's GOAWAY for a new client, `"http2" =>
-  false`, and HTTP/2 under the sanitizers; flow control and PING were each broken on purpose and
-  caught. `tests/gaz/lib/http2_test.gaz` tests the frames and HPACK.
+  response at a window of 10 bytes, PING, a malformed request reset while the next is served,
+  GOAWAY after `requests_per_connection`, an idle connection's GOAWAY for a new client,
+  `"http2" => false`, and HTTP/2 under the sanitizers; flow control and PING were each broken on
+  purpose and caught. `tests/gaz/lib/http2_test.gaz` tests the frames and HPACK.
 
 ### Requests and connections
 
@@ -424,15 +487,18 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   byte every few seconds hold a worker for hours. **`"header_timeout"`** (10 seconds) is a shorter
   deadline for the request line and headers, which a real client sends at once, out of the same
   time, so a slow client is cut off sooner while a body (an upload) still has the rest of
-  `request_timeout`. In one process both start together, when the connection is taken for its
-  first request, so a client that connects and waits is bounded too, and at a later request's first
-  byte, since the wait between requests is `idle_timeout`'s, which also gives way to a waiting
-  client. Under `workers()` the master keeps the head's time the same way (from the accept, and
-  from the first byte after an idle wait), and the worker gives the body what is left of
-  `request_timeout` from the head's first byte, which the master sends with the connection. A `header_timeout` above `request_timeout` would never be reached, so one given
-  is refused; the default gives way to a shorter `request_timeout`, so setting that alone is never
-  an error. No ceiling, unlike `handler_timeout`: a deadline is arithmetic on `monotonic_time()`,
-  and no read waits longer than the socket's own timeout. `null` leaves `request_timeout` alone.
+  `request_timeout`.
+  - In one process both start together, when the connection is taken for its first request, so a
+    client that connects and waits is bounded too, and at a later request's first byte, since the
+    wait between requests is `idle_timeout`'s, which also gives way to a waiting client.
+  - Under `workers()` the master keeps the head's time the same way (from the accept, and from the
+    first byte after an idle wait), and the worker gives the body what is left of
+    `request_timeout` from the head's first byte, which the master sends with the connection.
+  - A `header_timeout` above `request_timeout` would never be reached, so one given is refused; the
+    default gives way to a shorter `request_timeout`, so setting that alone is never an error.
+  - No ceiling, unlike `handler_timeout`: a deadline is arithmetic on `monotonic_time()`, and no
+    read waits longer than the socket's own timeout.
+  - `null` leaves `request_timeout` alone.
 - **A deadline holds to the moment**: `Reader` reads with `socket_read($socket, $left)`, which
   waits only what is left of the deadline when that is shorter than the socket's own timeout, in a
   `poll()` before the read (`readable_within()` in `net.c`, which retries an interrupted `poll()`
@@ -447,44 +513,50 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
     per request). A closing response's `Connection: close` is written by `write_response()` alone.
   - A quiet connection gets no 400 or 408, which nobody would read (`Reader.heard_anything()`).
   - **Under `workers()` the master holds the idle wait** (see above): after a response the worker
-    answers the pipelined requests already whole in what it read, then gives a kept-open connection
-    back with what it read past them (after dropping up to `MAX_EMPTY_LINES` empty lines, which
-    some clients send after a body), so an idle connection holds no worker; the count of its
-    requests travels with it, and a request read only in part goes back with it and is handed over
-    again as soon as its head is whole. The rest of this list is the single-process
+    answers the pipelined requests already whole in what it read, then gives a kept-open
+    connection back with what it read past them (after dropping up to `MAX_EMPTY_LINES` empty
+    lines, which some clients send after a body), so an idle connection holds no worker. The count
+    of its requests travels with it, and a request read only in part goes back with it and is
+    handed over again as soon as its head is whole. The rest of this list is the single-process
     server's (`gaz -S`, `serve()` without `workers()`, `http::handle()`), unchanged, and
     `serve_alone()` in `http.gaz`.
   - **The idle wait is `socket_wait()`**, which sees a stop within a second. `ponytail:` a request
     already read in part (pipelined) is answered even after a stop (bounded by
-    `requests_per_connection` and the master's grace), and the response written after a stop can't
-    say `Connection: close`; a `worker_stopping()` builtin would let it.
+    `requests_per_connection` and the master's grace), and the response written after a stop
+    can't say `Connection: close`; a `worker_stopping()` builtin would let it.
   - **An idle connection yields to a waiting client**, which was what made keep-alive safe on by
     default in a prefork pool before the master read heads, and keeps a single process from being
-    held by one idle client for `idle_timeout` (a browser opens up to six). Between requests (never before a connection's
-    first) a worker waits on its socket and its listener together; when the listener is ready it
-    gives its client one to two `YIELD_GRACE`s (10ms), then looks again: a client still queued
-    means no worker is free, so it closes; one gone means a free worker took it, and it waits out
-    the rest of its idle time (a deadline, not a fresh wait each time round). The grace is drawn
-    by each worker because idle workers that look again together all see the client still queued
-    and all give up their connections, where one is enough.
-    `http::handle()` has no listener and waits on its socket alone.
+    held by one idle client for `idle_timeout` (a browser opens up to six).
+    - Between requests (never before a connection's first) a worker waits on its socket and its
+      listener together.
+    - When the listener is ready it gives its client one to two `YIELD_GRACE`s (10ms), then looks
+      again: a client still queued means no worker is free, so it closes; one gone means a free
+      worker took it, and it waits out the rest of its idle time (a deadline, not a fresh wait
+      each time round).
+    - The grace is drawn by each worker because idle workers that look again together all see the
+      client still queued and all give up their connections, where one is enough.
+    - `http::handle()` has no listener and waits on its socket alone.
   - **A connection is handed over at a response where it can be** (`Turns` in `http.gaz`, one per
     worker), since closing an idle one races with a request its client sends at that moment (a
     browser resends; `wrk` counts a read error, a proxy may not resend a POST), and HTTP/1.1 has
     no way to tell an idle client not to send, while a response saying `Connection: close` races
-    with nothing. Hence `TURN` (50ms; `requests_per_connection` alone lets a slow handler's 100
-    requests keep a waiting client out for seconds), `CROWDED` (5s, since a crowded worker's
-    clients pause and a pause is when the next idle close would come) and `HOT_GAP` (5ms: a
-    connection per request costs such clients a good part of their throughput, and one that is
-    late is late, not gone). The last look at the client is just before the close. Tested by
-    `http_turns_test.gaz` (the rules) and `HttpServerTest`, on a server of one process (two
-    clients taking turns see one idle close in twenty turns; a busy connection on a 30ms handler
-    gives way within a second; each fails with the yield taken out). `ponytail:` the first idle close of each crowded spell still races, as the
-    `idle_timeout` close always does; nothing short of the client saying when it will send next
-    would remove it. Whether a client is waiting is a readable listener. A connection is closed after its `Connection: close` response
-    without draining, so a client that pipelined behind it gets a reset, not an orderly end; a
-    lingering close (a half-close and a short read) would lift that, and needs a builtin to
-    half-close.
+    with nothing. Hence:
+    - `TURN` (50ms; `requests_per_connection` alone lets a slow handler's 100 requests keep a
+      waiting client out for seconds);
+    - `CROWDED` (5s, since a crowded worker's clients pause and a pause is when the next idle
+      close would come);
+    - `HOT_GAP` (5ms: a connection per request costs such clients a good part of their
+      throughput, and one that is late is late, not gone).
+    - The last look at the client is just before the close.
+    - Tested by `http_turns_test.gaz` (the rules) and `HttpServerTest`, on a server of one process
+      (two clients taking turns see one idle close in twenty turns; a busy connection on a 30ms
+      handler gives way within a second; each fails with the yield taken out).
+    - `ponytail:` the first idle close of each crowded spell still races, as the `idle_timeout`
+      close always does; nothing short of the client saying when it will send next would remove
+      it. Whether a client is waiting is a readable listener.
+    - A connection is closed after its `Connection: close` response without draining, so a client
+      that pipelined behind it gets a reset, not an orderly end; a lingering close (a half-close
+      and a short read) would lift that, and needs a builtin to half-close.
   - The empty lines skipped before a request line are bounded (`MAX_EMPTY_LINES`) so a client
     can't hold a worker with them.
   - Tested by `tests/gaz/lib/http_connection_test.gaz` (`http::handle()` over a socket pair,
@@ -508,46 +580,52 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
 - **In production, run behind a reverse proxy that buffers whole requests** all the same (nginx's
   default `proxy_request_buffering`, Caddy): it covers slow bodies, and slow TLS handshakes, which
   hold a worker when `serve()` ends TLS itself.
-  A single process (`gaz -S`, `serve()` without `workers()`) reads its own requests, so there a
+- A single process (`gaz -S`, `serve()` without `workers()`) reads its own requests, so there a
   client trickling its headers holds it for up to `header_timeout`, one trickling a body for up to
-  `request_timeout`; one that sent part of a request is answered 408 (400 if it was quiet past the
+  `request_timeout`. One that sent part of a request is answered 408 (400 if it was quiet past the
   per-read `timeout` first) and logged, so it shows; one that sent nothing is closed without a
   word, as any quiet connection is.
 - **No `TCP_DEFER_ACCEPT`**: Linux's listener option, which accepts a connection only once it has
   sent something, would change `socket_listen()` for every program, not only HTTP: a protocol where
   the server speaks first would wait out the deferral before every connection, and so do the tests
-  that accept a connection before writing to it. A connection still deferred when the time is up
-  is accepted anyway once its client acknowledges again, which any real TCP stack does, so it
-  delays a silent client rather than keeping it off a worker. macOS has nothing like it: its
-  headers leave `SO_ACCEPTFILTER` out (FreeBSD's accept filters) and it ships no filter.
+  that accept a connection before writing to it.
+  - A connection still deferred when the time is up is accepted anyway once its client
+    acknowledges again, which any real TCP stack does, so it delays a silent client rather than
+    keeping it off a worker.
+  - macOS has nothing like it: its headers leave `SO_ACCEPTFILTER` out (FreeBSD's accept filters)
+    and it ships no filter.
 
 ### The handler's deadline
 
 - **`"handler_timeout"` (10 seconds, `null` for none) bounds the handler, and the worker enforces
   it**: past it the client is answered 503, the access log gets the line, and the worker ends, for
   the master to start another, as PHP's `max_execution_time` ends a script, but in wall time and
-  with a response. On by default, since one slow request (a regex over a megabyte body takes
-  seconds) holding a worker for ever is the failure the option exists for. It covers the handler
-  and what is done with its answer before anything is sent: from just before `$handler($request)`
-  in `answer()`, through `write_response()` turning the response into bytes (a template's
-  `to_string()` included) and a 500's error line, to a `finally` after them (so an error path can't
-  leave the timer running into the next request's wait). Setting it is inside the `try`, so
-  anything that raises there is a 500, never a dead worker; reading is
-  `request_timeout`'s 408, and writing the response has the per-write `timeout`.
+  with a response.
+  - On by default, since one slow request (a regex over a megabyte body takes seconds) holding a
+    worker for ever is the failure the option exists for.
+  - It covers the handler and what is done with its answer before anything is sent: from just
+    before `$handler($request)` in `answer()`, through `write_response()` turning the response into
+    bytes (a template's `to_string()` included) and a 500's error line, to a `finally` after them
+    (so an error path can't leave the timer running into the next request's wait).
+  - Setting it is inside the `try`, so anything that raises there is a 500, never a dead worker.
+  - Reading is `request_timeout`'s 408, and writing the response has the per-write `timeout`.
 - **`worker_deadline($socket, $seconds, $answer, $line)`**, in `workers.c`: SIGALRM by
-  `setitimer(ITIMER_REAL)`, whose handler writes `$answer` to the socket with `send(MSG_NOSIGNAL)`
-  (Linux and macOS both have the flag; `write()` on a system without it, a worker ignoring SIGPIPE
-  anyway) and `$line` to standard error with `write()`, then puts SIGALRM's default
-  back and raises it: only async-signal-safe calls, both texts copied into the process's own buffers
-  when the timer is set. Not `alarm()`, which takes whole seconds, and not `timer_create()`, which
-  macOS lacks. Clearing sets the armed flag to 0 before cancelling the timer, so a signal landing
-  between the two finds nothing to do (`SA_RESTART`, so what it interrupted carries on). A worker is
-  one thread (a fork copies only the forking thread), so the signal can't run beside the code that
-  clears it. The send is bounded by the socket's `SO_SNDTIMEO` (`timeout`). Named `worker_` with
-  `worker_recycle()` and `worker_retire()` because it is about the worker: it ends the process, and
-  like them it does nothing outside a worker (`false`, as `worker_retire()` gives), the socket being
-  only where the answer goes. The socket and the seconds are still checked in a single process, so a
-  mistake shows before `workers()`.
+  `setitimer(ITIMER_REAL)`, whose handler writes `$answer` to the socket with
+  `send(MSG_NOSIGNAL)` (Linux and macOS both have the flag; `write()` on a system without it, a
+  worker ignoring SIGPIPE anyway) and `$line` to standard error with `write()`, then puts
+  SIGALRM's default back and raises it.
+  - Only async-signal-safe calls, both texts copied into the process's own buffers when the timer
+    is set.
+  - Not `alarm()`, which takes whole seconds, and not `timer_create()`, which macOS lacks.
+  - Clearing sets the armed flag to 0 before cancelling the timer, so a signal landing between the
+    two finds nothing to do (`SA_RESTART`, so what it interrupted carries on). A worker is one
+    thread (a fork copies only the forking thread), so the signal can't run beside the code that
+    clears it.
+  - The send is bounded by the socket's `SO_SNDTIMEO` (`timeout`).
+  - Named `worker_` with `worker_recycle()` and `worker_retire()` because it is about the worker:
+    it ends the process, and like them it does nothing outside a worker (`false`, as
+    `worker_retire()` gives), the socket being only where the answer goes. The socket and the
+    seconds are still checked in a single process, so a mistake shows before `workers()`.
 - **The deadline needs `workers()`**: in a single process (`gaz -S`, `http::handle()` outside
   workers, `http::TestClient`, which has no socket) nobody would start another, so ending it would
   end the server, and the handler runs on.
@@ -560,14 +638,17 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   (`connection()` sends the response after `answer()` returns, and `100 Continue` comes while
   reading), so no record of bytes written is needed. It is `refusal(503, $head)` (HEAD and
   `Connection: close` handled), made once (`TimedOut`) **without a Date header**, which RFC 9110
-  §6.6.1 lets a 5xx leave out and which, stamped when the timer is set, would be stale. **HTTP stays
-  in GazLang**: the access line is made when the timer is set (status 503, the request's method and
-  target, the deadline as its time taken, stamped with the second it would fire), so C never learns
-  the log's format. **Cheap**, since it is made for every request and almost never sent: the part
-  from the status on is made once per limit (`TimedOut`, from the `access_tail()` the real line
-  uses), the method and target escaped once for both lines (`RequestLine.logged()`), and the fire
-  second has a `LogClock` of its own; measured, the deadline costs about 4µs a request with the log
-  on (about 9µs before these), on a trivial handler's ~85µs.
+  §6.6.1 lets a 5xx leave out and which, stamped when the timer is set, would be stale.
+- **HTTP stays in GazLang**: the access line is made when the timer is set (status 503, the
+  request's method and target, the deadline as its time taken, stamped with the second it would
+  fire), so C never learns the log's format.
+- **Cheap**, since it is made for every request and almost never sent:
+  - the part from the status on is made once per limit (`TimedOut`, from the `access_tail()` the
+    real line uses);
+  - the method and target are escaped once for both lines (`RequestLine.logged()`);
+  - the fire second has a `LogClock` of its own;
+  - measured, the deadline costs about 4µs a request with the log on (about 9µs before these), on
+    a trivial handler's ~85µs.
 - **At most 100000000 seconds** (`LONGEST_HANDLER_TIMEOUT`), `worker_deadline()`'s own ceiling,
   which macOS's `setitimer()` sets; a larger value is refused by `server_options()` rather than
   quietly shortened.
@@ -583,99 +664,114 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   an idle wait past it with no stale timer, which fails with the clearing taken out; `null`; the
   option's refusals) and `tests/gaz/lib/http_deadline_test.gaz` (nothing outside a worker, and what
   the builtin refuses).
-- `ponytail:` a program `run()` started outlives a worker that timed out (killing the process group
-  would need `run()` to start one); a PostgreSQL query keeps running on the server after its worker
-  dies, so an app sets `statement_timeout` below the deadline (`SET statement_timeout = 5000`); a single-process server has no deadline;
-  what the handler printed and not yet flushed is lost; the access line's time is the second the
-  timer should fire, not when it did.
+- `ponytail:`
+  - a program `run()` started outlives a worker that timed out (killing the process group would
+    need `run()` to start one);
+  - a PostgreSQL query keeps running on the server after its worker dies, so an app sets
+    `statement_timeout` below the deadline (`SET statement_timeout = 5000`);
+  - a single-process server has no deadline;
+  - what the handler printed and not yet flushed is lost;
+  - the access line's time is the second the timer should fire, not when it did.
 
 ### The access log
 
 - **A line per request answered, on standard error, on by default** (`access_line()` in
   `http.gaz`): `2026-10-07T14:02:09Z 192.0.2.7 GET /search?q=gaz 200 1234 0.412ms`, the time,
-  peer address, method, target, status, body bytes sent and milliseconds. Standard error because
-  that is where the 500s' lines already go and where a process manager collects a server's
-  output; on by default because a server that is silent until something fails was the todo app's
-  friction; `"access_log" => false` turns it off, with no format option until a program asks for
-  one.
+  peer address, method, target, status, body bytes sent and milliseconds.
+  - Standard error because that is where the 500s' lines already go and where a process manager
+    collects a server's output.
+  - On by default because a server that is silent until something fails was the todo app's
+    friction.
+  - `"access_log" => false` turns it off, with no format option until a program asks for one.
 - **Written in `connection()` (or `handed_request()`) after the response is sent**, timed from the
   request's first byte (`Reader.first_byte_at()`; for a pipelined request, whose bytes came with
   the one before it, from when the worker starts reading it) to its response written, so a
   connection's first request doesn't count the wait before its client spoke when a kept-open one
-  doesn't count its idle wait; every
-  answer gets one line: a
-  handler's, the server's refusals (400, 408, 413, ...), a 500 (after its error line, which
-  stays) and each request on a kept-open connection; a response the client didn't stay for is
-  logged as answered. A connection that closes, or goes quiet, before a byte of a request has no
-  line, as it gets no response. `http::TestClient` calls `answer()` and so writes none: a test's
-  output stays its own. A refusal after the request line is logged with its method and target
-  (`RequestLine`, which `read_request()` fills as soon as it has them), one before it with `-`.
+  doesn't count its idle wait.
+  - Every answer gets one line: a handler's, the server's refusals (400, 408, 413, ...), a 500
+    (after its error line, which stays) and each request on a kept-open connection; a response the
+    client didn't stay for is logged as answered.
+  - A connection that closes, or goes quiet, before a byte of a request has no line, as it gets no
+    response.
+  - `http::TestClient` calls `answer()` and so writes none: a test's output stays its own.
+  - A refusal after the request line is logged with its method and target (`RequestLine`, which
+    `read_request()` fills as soon as it has them), one before it with `-`.
 - **ISO 8601 UTC time, not `http_date()`**: it sorts as text, has no spaces, and says its zone.
-  **The peer's address, not `client_address()`'s**: X-Forwarded-For is the client's to write and
+- **The peer's address, not `client_address()`'s**: X-Forwarded-For is the client's to write and
   only the program knows which proxies to trust; behind one, the proxy's own log has the client.
 - **Escaping is one rule**: every byte of the method and target outside printable ASCII (`!` to
   `~`), and a backslash, is `\xHH`, so a line break, a terminal escape or bytes that aren't UTF-8
   can't reach the log as they are, and an escape always means one (a backslash in the text is
-  `\x5C`). Not UTF-8 passed through: a bidirectional override is valid UTF-8 too. Fields are split
-  by single spaces and none holds one; `-` for what is unknown. A 500's error line shows the
-  method and path the same way (`error_prefix()`), since 0x9B and U+0085 are C1 controls a
-  terminal acts on.
-- **Cheap where it can be**: the time is written out once a second (`LogClock`), text with
-  nothing to escape is found by one `trim()` against the bytes that stay (`LOGGED_AS_IS`) rather
-  than a loop over its bytes, and the milliseconds are made from whole microseconds, since writing
-  out a float cost more than the rest of the line.
+  `\x5C`).
+  - Not UTF-8 passed through: a bidirectional override is valid UTF-8 too.
+  - Fields are split by single spaces and none holds one; `-` for what is unknown.
+  - A 500's error line shows the method and path the same way (`error_prefix()`), since 0x9B and
+    U+0085 are C1 controls a terminal acts on.
+- **Cheap where it can be**:
+  - the time is written out once a second (`LogClock`);
+  - text with nothing to escape is found by one `trim()` against the bytes that stay
+    (`LOGGED_AS_IS`) rather than a loop over its bytes;
+  - and the milliseconds are made from whole microseconds, since writing out a float cost more
+    than the rest of the line.
 - **A closed standard error ends nothing**: `workers()` ignores SIGPIPE in the master and its
   workers for good, so a write to a pipe whose reader has gone (`gaz server.gaz 2>&1 | head`, a
   log shipper restarting) fails with EPIPE and the line is lost, where the default would end a
-  worker at its next line and the master, with the pool, at its "starting another". For good,
-  since neither goes back to code that wants the default; `run()` gives what it starts the
-  default back (`POSIX_SPAWN_SETSIGDEF`), as an ignored signal stays ignored through exec; and a
-  program that never calls `workers()` keeps it, so `gaz tool | head` still ends quietly.
-  `ponytail:` `http::serve()` without `workers()` (`gaz -S`) still ends on a closed standard
-  error; ignoring SIGPIPE around each `print_error()` would lift it. Tested by `HttpServerTest`
-  (started through perl, since PHP ignores SIGPIPE and what it starts inherits that) and
-  `tests/gaz/workers/sigpipe_test.gaz`.
+  worker at its next line and the master, with the pool, at its "starting another".
+  - For good, since neither goes back to code that wants the default.
+  - `run()` gives what it starts the default back (`POSIX_SPAWN_SETSIGDEF`), as an ignored signal
+    stays ignored through exec.
+  - A program that never calls `workers()` keeps it, so `gaz tool | head` still ends quietly.
+  - `ponytail:` `http::serve()` without `workers()` (`gaz -S`) still ends on a closed standard
+    error; ignoring SIGPIPE around each `print_error()` would lift it.
+  - Tested by `HttpServerTest` (started through perl, since PHP ignores SIGPIPE and what it starts
+    inherits that) and `tests/gaz/workers/sigpipe_test.gaz`.
 - **One line is one `write()`**: `print_error()` writes its whole text in one system call
   (`write_whole()` in `builtins.c`), since macOS's stdio writes an unbuffered stream 1024 bytes at
-  a time and workers share standard error. A pipe takes only `PIPE_BUF` bytes (512 at the least)
-  whole, so the method is cut at 20 bytes and the target at 360, with `\...`, keeping a line under
-  512. Tested by `HttpServerTest` (the shape, a forged line and terminal escape in a target, a cut
-  target, a line per kept-open request, refusals, the off switch).
+  a time and workers share standard error.
+  - A pipe takes only `PIPE_BUF` bytes (512 at the least) whole, so the method is cut at 20 bytes
+    and the target at 360, with `\...`, keeping a line under 512.
+  - Tested by `HttpServerTest` (the shape, a forged line and terminal escape in a target, a cut
+    target, a line per kept-open request, refusals, the off switch).
 
 ### Not built: jitter and a pool that grows
 
-- **`"max_requests"` jitter, not built** ([#23](https://github.com/panzer-planet/gazlang/issues/23)): workers under an evenly spread load retire together; the
-  hand-over means that no longer leaves the pool short, only their start-up work lands at once,
-  which matters only to an app whose start-up is heavy. If wanted, it is library code:
-  `"max_requests"` taking `[$min, $max]`, each worker drawing `rand_int($min, $max)` once (each is
-  already reseeded from OS entropy by `fork_worker()`).
-- **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)** ([#24](https://github.com/panzer-planet/gazlang/issues/24)),
-  the one real capability gap against FPM's process manager. Since the master reads request
-  heads it knows which workers wait for a connection (their `W`) and how many heads wait for a
-  worker (its queue), which is what scaling reads: spawning more when the queue has waited for a
-  stretch and sending one worker the stop's SIGTERM when it has been idle past a timeout with
-  others to spare, which needs a *target*
-  pool size apart from the live count so a scale-down isn't respawned as a crash (the hand-over's
-  reaped-not-replaced pid is a start on that). `workers($min, $max)` is the likely shape;
-  `ponytail:` no jitter on synchronized scale-down either, matching FPM's own lack of one.
+- **`"max_requests"` jitter, not built**
+  ([#23](https://github.com/panzer-planet/gazlang/issues/23)): workers under an evenly spread load
+  retire together; the hand-over means that no longer leaves the pool short, only their start-up
+  work lands at once, which matters only to an app whose start-up is heavy. If wanted, it is
+  library code: `"max_requests"` taking `[$min, $max]`, each worker drawing `rand_int($min, $max)`
+  once (each is already reseeded from OS entropy by `fork_worker()`).
+- **`workers($n)` is a fixed pool, not built: dynamic sizing (PHP-FPM's `pm = dynamic`/`ondemand`)**
+  ([#24](https://github.com/panzer-planet/gazlang/issues/24)), the one real capability gap against
+  FPM's process manager.
+  - Since the master reads request heads it knows which workers wait for a connection (their `W`)
+    and how many heads wait for a worker (its queue), which is what scaling reads: spawning more
+    when the queue has waited for a stretch and sending one worker the stop's SIGTERM when it has
+    been idle past a timeout with others to spare.
+  - That needs a *target* pool size apart from the live count so a scale-down isn't respawned as
+    a crash (the hand-over's reaped-not-replaced pid is a start on that).
+  - `workers($min, $max)` is the likely shape; `ponytail:` no jitter on synchronized scale-down
+    either, matching FPM's own lack of one.
 
 ## Decoding, routing and responses
 
 - **Decoding a request is asked for, not done for every request**: `query()`/`form()` give maps of
   strings so a handler never checks a value's type, and `query_all()`/`form_all()` lists (Go's
   `Get` against the full list, not PHP's `tag[]` convention, where a key's type would depend on
-  what the client sent). A bad escape is an error, not passed through as PHP and browsers do, so a
-  mangled value can't arrive looking valid. `form()` refuses another Content-Type rather than
-  giving `{}`. **A `$default` (`form($request, {})`) is given back instead** for what the client
-  sent that can't be decoded, as `to_int($x, $default)` does, so a handler needs no `try`, whose
-  `catch (Error)` would also catch a bug and running out of call depth: only the private
-  `Undecodable` kind turns into it. With no default the `Undecodable` itself carries on, and
-  `answer()` turns one the handler left uncaught into a 400 with nothing logged, since what the
-  client sent wrong is not the server's failure. It does so whoever built the request map, since
-  it can't tell; so only the request decoders let one out, and `url_decode()`, whose text may be
-  the program's own, throws its message as a plain error, a logged 500. Pieces split as the WHATWG parser splits them
-  (empty ones skipped, no `=` is a value of `""`). Tested by `tests/gaz/lib/http_decode_test.gaz`,
-  and end to end by `HttpServerTest`.
+  what the client sent).
+  - A bad escape is an error, not passed through as PHP and browsers do, so a mangled value can't
+    arrive looking valid. `form()` refuses another Content-Type rather than giving `{}`.
+  - **A `$default` (`form($request, {})`) is given back instead** for what the client sent that
+    can't be decoded, as `to_int($x, $default)` does, so a handler needs no `try`, whose
+    `catch (Error)` would also catch a bug and running out of call depth: only the private
+    `Undecodable` kind turns into it.
+  - With no default the `Undecodable` itself carries on, and `answer()` turns one the handler left
+    uncaught into a 400 with nothing logged, since what the client sent wrong is not the server's
+    failure. It does so whoever built the request map, since it can't tell; so only the request
+    decoders let one out, and `url_decode()`, whose text may be the program's own, throws its
+    message as a plain error, a logged 500.
+  - Pieces split as the WHATWG parser splits them (empty ones skipped, no `=` is a value of `""`).
+  - Tested by `tests/gaz/lib/http_decode_test.gaz`, and end to end by `HttpServerTest`.
 - **What a decoder gives a handler is UTF-8, by default**: every key and value of `query()` and
   `form()`, and every path segment the router and `serve_static()` match, is checked with
   `utf8_valid` after percent-decoding (`%ff` is how the bytes get in) and refused as `Undecodable`
@@ -683,14 +779,16 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   can't forget it and a database never sees the bytes.
 - **`cookies()` leaves out a cookie it can't decode** (a bad escape, or a name or value that isn't
   UTF-8) rather than refusing: the Cookie header is the browser's shared state for the domain, so
-  one cookie another app set must not refuse every request; the rest still arrive. It has no
-  `$default`, having nothing left to refuse. `session()` reads its own cookie from
-  `sent_cookies()`, never through `cookies()`. Tested by `tests/gaz/lib/http_decode_test.gaz` and,
-  for path segments, `router_test.gaz` and `http_serve_static_test.gaz`. `url_decode()` alone gives bytes
-  back as they are, since `url_decode(url_encode($bytes))` must be `$bytes`; it is the way to raw
-  bytes, on a piece of `$request["query"]` or `$request["body"]`. `ponytail:` no option on the
-  decoders themselves for raw bytes: `$default` takes the only optional slot, and a raw-bytes
-  form decoder waits for a program that needs one.
+  one cookie another app set must not refuse every request; the rest still arrive.
+  - It has no `$default`, having nothing left to refuse.
+  - `session()` reads its own cookie from `sent_cookies()`, never through `cookies()`.
+  - Tested by `tests/gaz/lib/http_decode_test.gaz` and, for path segments, `router_test.gaz` and
+    `http_serve_static_test.gaz`.
+  - `url_decode()` alone gives bytes back as they are, since `url_decode(url_encode($bytes))` must
+    be `$bytes`; it is the way to raw bytes, on a piece of `$request["query"]` or
+    `$request["body"]`.
+  - `ponytail:` no option on the decoders themselves for raw bytes: `$default` takes the only
+    optional slot, and a raw-bytes form decoder waits for a program that needs one.
 - **Uploads are `http::multipart()` and `http::multipart_all()`**, the `form()`/`form_all()` split
   over `{"fields" => ..., "files" => ...}`, with the same `$default` and the same `Undecodable`,
   so a malformed body is a 400 and a body of another type is refused rather than read as empty.
@@ -728,21 +826,24 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   - Tested by `tests/gaz/lib/http_multipart_test.gaz`, end to end through `http::TestClient`.
 - **Routing is `http::Router()`, in `http.gaz` itself**, not a `router.gaz` read as
   `router::Router()`, one namespace naming the other redundantly, for a program already reaching
-  for `http::serve`. `$app.handler()` is an ordinary handler, so the server learns nothing. No
-  regex in patterns; the path is split before it is percent-decoded. Params go into
-  `$request["params"]`, so a handler keeps one argument and tests with a plain map. First match
-  wins (Express's rule: nothing to rank). The 308 is so a link works either way and a page has one
-  URL. Tested by `tests/gaz/lib/router_test.gaz`.
+  for `http::serve`. Tested by `tests/gaz/lib/router_test.gaz`.
+  - `$app.handler()` is an ordinary handler, so the server learns nothing.
+  - No regex in patterns; the path is split before it is percent-decoded.
+  - Params go into `$request["params"]`, so a handler keeps one argument and tests with a plain
+    map.
+  - First match wins (Express's rule: nothing to rank).
+  - The 308 is so a link works either way and a page has one URL.
   - **A group (`http::Group`) adds to the router's one list**, each handler wrapped in the group's
     middleware and each pattern after its prefix, so a group changes no rule of matching: its
     routes win or lose by the order they were added among the router's own, and a 404, a 405 or a
-    spelling redirect never reaches a group's middleware, which runs only once its route matched (a
-    login check doesn't send a misspelt URL to log in). `use()` stays around everything. A group
-    is made by chaining, `middleware()` and `prefix()` each giving a new one, so nesting needs no
-    stack of "the current group", and `group($routes)` only calls `$routes` with it, for the
-    indentation. `/` under a prefix is the prefix itself, as `/admin` is the group's first page; a
-    prefix ending in `/` or of `/` alone is refused rather than read two ways. Middleware is
-    checked to be a function when it is added, by `use()` too.
+    spelling redirect never reaches a group's middleware, which runs only once its route matched
+    (a login check doesn't send a misspelt URL to log in). `use()` stays around everything.
+    - A group is made by chaining, `middleware()` and `prefix()` each giving a new one, so nesting
+      needs no stack of "the current group", and `group($routes)` only calls `$routes` with it,
+      for the indentation.
+    - `/` under a prefix is the prefix itself, as `/admin` is the group's first page; a prefix
+      ending in `/` or of `/` alone is refused rather than read two ways.
+    - Middleware is checked to be a function when it is added, by `use()` too.
 - **`http::client_address()` reads `X-Forwarded-For` only when `remote_address` is a trusted
   proxy**, so the default (none) can't be spoofed by a client's own header, and it walks the header
   from the right, since every entry left of the last trusted hop is the client's to write; an entry
@@ -752,13 +853,14 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
 - **`http::redirect()`** is public because every handler that answers a form needs one (the
   router's own 308 is a separate private function). Tested by
   `tests/gaz/lib/http_redirect_test.gaz`.
-- **`http::serve_static($dir)`**: a segment that decodes to hold a `/` is refused too (`..%2f` is a
-  `..` the segment check never sees; `%2F` is never a separator here). The regression tests aim at
-  a file that exists above the served directory, since a 404 alone can't tell a refusal from a
-  miss. `gaz -S` (`std/devserver.gaz`, run by `vm.c`'s `-S`) takes no router script as `php -S`
-  can, since `import` takes a string literal resolved at parse time, never a runtime-named file
-  (the same reason there is no type-tag deserialization). Tested by
-  `tests/gaz/lib/http_serve_static_test.gaz` and, end to end, `DevServerTest`.
+- **`http::serve_static($dir)`**: a segment that decodes to hold a `/` is refused too (`..%2f` is
+  a `..` the segment check never sees; `%2F` is never a separator here).
+  - The regression tests aim at a file that exists above the served directory, since a 404 alone
+    can't tell a refusal from a miss.
+  - `gaz -S` (`std/devserver.gaz`, run by `vm.c`'s `-S`) takes no router script as `php -S` can,
+    since `import` takes a string literal resolved at parse time, never a runtime-named file (the
+    same reason there is no type-tag deserialization).
+  - Tested by `tests/gaz/lib/http_serve_static_test.gaz` and, end to end, `DevServerTest`.
   - **The ETag is `W/"size-mtime"`, weak**, since a size and a time in whole seconds are one
     `file_info()` call where hashing would read the whole file on every request, and they can't
     promise the bytes are the same: a rewrite of the same size within one second keeps its tag.
@@ -797,12 +899,13 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   - **`http::csrf()` takes the browser's word first** (`from_this_site()`): `Sec-Fetch-Site`
     decides when it is sent (only `same-origin` passes, so a token can't outvote a browser that
     names another site), else `Origin` (this host, over http or https), and only a client that
-    sends neither must carry the session's token. No page can set either header, and every browser
-    since 2020 sends `Origin` on a POST, so forms need no token and one that forgets the field isn't
-    a 403 waiting to happen; a browser too old for both still gets the token's protection, the
-    strict choice. A hostile non-form POST is a 403, not a 500. Without `http::sessions()`
-    before it every request is an error, since a wiring mistake that answered 403 for ever would
-    look like a user's problem.
+    sends neither must carry the session's token.
+    - No page can set either header, and every browser since 2020 sends `Origin` on a POST, so
+      forms need no token and one that forgets the field isn't a 403 waiting to happen; a browser
+      too old for both still gets the token's protection, the strict choice.
+    - A hostile non-form POST is a 403, not a 500.
+    - Without `http::sessions()` before it every request is an error, since a wiring mistake that
+      answered 403 for ever would look like a user's problem.
   - **The secret must be 32 bytes or more**: a short signing secret is the program's mistake, and
     one that can be guessed forges every session.
   - **Who the user is stays the app's** (and the login that builds a *new* session, the
@@ -810,15 +913,17 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
 
 ## Testing a handler
 
-- **`http::TestClient` goes through `answer()`, the server's own path**: the
-  request is written out as bytes and read by `read_request()`, the handler's response written by
-  `write_response()` and read back by the client's `read_response()`, over a `Reader` holding the
-  bytes instead of a socket (`Reader(null, $bytes)`). So a test sees what a browser would, refusals
-  and 500s included, and nothing about a request or a response is described twice. Its header
-  names and values go through `checked_header()`, `http::request()`'s own check, so a test can't
-  smuggle a header in; a `Reader` with no socket writes no interim `100 Continue`, and a
-  `Transfer-Encoding` the test gives gets no `Content-Length` beside it. The serve() options the
-  request's reading takes (`"max_body"`) are the client's, by the same names.
+- **`http::TestClient` goes through `answer()`, the server's own path**: the request is written out
+  as bytes and read by `read_request()`, the handler's response written by `write_response()` and
+  read back by the client's `read_response()`, over a `Reader` holding the bytes instead of a
+  socket (`Reader(null, $bytes)`). So a test sees what a browser would, refusals and 500s
+  included, and nothing about a request or a response is described twice.
+  - Its header names and values go through `checked_header()`, `http::request()`'s own check, so a
+    test can't smuggle a header in.
+  - A `Reader` with no socket writes no interim `100 Continue`, and a `Transfer-Encoding` the test
+    gives gets no `Content-Length` beside it.
+  - The serve() options the request's reading takes (`"max_body"`) are the client's, by the same
+    names.
 - **In `http.gaz` itself**, as the router is: it needs the server's private functions, and a
   second file declaring `namespace http` couldn't be compiled by its path, being then another
   project's namespace (see [the library](library.md)).
@@ -831,19 +936,22 @@ deadline, its 400s and 500s) and `response_parts()` with HTTP/1.1, so a handler 
   request kept.
 - **Cookies are one site's**: Path, Domain, Secure and Expires are not read, `Max-Age` of 0 or less
   forgets one, and one with no name (no `=`, or nothing before it) is skipped, since no Cookie
-  header could send it back by name. A `Cookie` header a test gives wins over the jar, so a forged cookie can be sent.
+  header could send it back by name. A `Cookie` header a test gives wins over the jar, so a forged
+  cookie can be sent.
 - **A POST, PUT, PATCH or DELETE carries this site's `Origin`** (`headers_for()`), as a browser's
   does, so a test drives the app as a browser would; a test gives its own `origin` to send another.
 - **`http::form_token()` reads exactly what `web::csrf_field()` writes**, so finding the token needs
   no app-specific pattern; `session($secret)` reads the cookie as `http::sessions()` does, for what
   a page doesn't show.
-- Tested by `tests/gaz/lib/http_test_client_test.gaz`, and by the todo app's tests, which drive its router
-  through it.
+- Tested by `tests/gaz/lib/http_test_client_test.gaz`, and by the todo app's tests, which drive its
+  router through it.
 
 ## Known limits
 
-- `ponytail:` writing a response has only the per-write timeout; the stop grace
-  is fixed; a program whose workers accept their own connections (`socket_accept()` in a loop of
-  its own, not `http::serve()`) still has new connections queue in the listener's backlog while
-  they drain, reset when the program ends, since the master learns which socket is the listener
-  only from `worker_accept()`.
+- `ponytail:`
+  - writing a response has only the per-write timeout;
+  - the stop grace is fixed;
+  - a program whose workers accept their own connections (`socket_accept()` in a loop of its own,
+    not `http::serve()`) still has new connections queue in the listener's backlog while they
+    drain, reset when the program ends, since the master learns which socket is the listener
+    only from `worker_accept()`.

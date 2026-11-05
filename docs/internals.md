@@ -44,18 +44,20 @@ about it and what isn't.
 - **It is a fixed point.** On every push, CI builds gaz, runs `make -C vm compiler` and fails if
   the bytecode that comes out isn't byte for byte the bytecode checked in. The seed is exactly
   what it makes of the sources: `compiler/` and the standard library files they import
-  (`std/syntax.gaz`, the lexer, and `std/text.gaz`, `std/chars.gaz`, `std/json.gaz`). You can check the same thing yourself:
-  run `make -C vm compiler`, and `git status` shows nothing changed.
+  (`std/syntax.gaz`, the lexer, and `std/text.gaz`, `std/chars.gaz`, `std/json.gaz`). You can
+  check the same thing yourself: run `make -C vm compiler`, and `git status` shows nothing
+  changed.
 - **That doesn't prove it matches the sources.** A seed that put something into what it
   compiled, and recognised its own source so as to put that in again, would pass the same check:
   the attack Ken Thompson described in *Reflections on Trusting Trust*. Ruling that out needs a
-  second compiler that shares nothing with this one, and there is none now. The first seeds
-  (`5e293e58`, `a0f3c13d`) were written by a separate implementation of the language in PHP, with
-  `php bin/gazlang -c`; `make -C vm compiler` arrived in `674392aa`, and since the PHP
-  implementation was removed in `b65300aa`, every seed has been compiled by the one before it.
+  second compiler that shares nothing with this one, and there is none now.
+  - The first seeds (`5e293e58`, `a0f3c13d`) were written by a separate implementation of the
+    language in PHP, with `php bin/gazlang -c`.
+  - `make -C vm compiler` arrived in `674392aa`, and since the PHP implementation was removed in
+    `b65300aa`, every seed has been compiled by the one before it.
 - **It can be read.** The bytecode is text, one instruction per line (see
   [Bytecode](bytecode.md)). `.gitattributes` marks it generated, so git shows a change to it as
-  `Binary files differ`; `git log -p --text -- compiler/gazlang.gzb` or `git show --text COMMIT`
+  `Binary files differ`. `git log -p --text -- compiler/gazlang.gzb` or `git show --text COMMIT`
   shows it line by line. A change to the seed should arrive in the same commit as the change to
   `compiler/` or to one of those library files that caused it.
 
@@ -79,14 +81,15 @@ about it and what isn't.
 
 Everything the tests run is compared with what is recorded as its output, byte for byte:
 
-- **Programs** (`CVMTest`): each entry of `tests/passing.txt` (every program and corpus file in the
-  repository, the snippets the PHPUnit tests run, and the hand-written `.gzb` files) runs on the
-  C VM built with AddressSanitizer and UndefinedBehaviorSanitizer, and must print the standard
-  output, standard error and exit code recorded in `tests/expected/`. It must not leak either:
-  `GAZVM_STATS` makes the VM count every reference-counted value, drop what the finished program
-  still holds, and report what is left over, which must be nothing. A program runs from its
-  source, a snippet is piped in from the project root, a `.gzb` runs as it is; in
-  `tests/corpora/bytecode/` the files named `error_*` must be the ones refused.
+- **Programs** (`CVMTest`): each entry of `tests/passing.txt` (every program and corpus file in
+  the repository, the snippets the PHPUnit tests run, and the hand-written `.gzb` files) runs on
+  the C VM built with AddressSanitizer and UndefinedBehaviorSanitizer, and must print the
+  standard output, standard error and exit code recorded in `tests/expected/`.
+  - It must not leak either: `GAZVM_STATS` makes the VM count every reference-counted value, drop
+    what the finished program still holds, and report what is left over, which must be nothing.
+  - A program runs from its source, a snippet is piped in from the project root, a `.gzb` runs as
+    it is.
+  - In `tests/corpora/bytecode/` the files named `error_*` must be the ones refused.
 - **The front end** (`SelfHostedLexerTest`, `SelfHostedParserTest`, `SelfHostedCompilerTest`):
   each corpus file has what `--tokens`, `--ast` or `-c` must print next to it.
 - **The command line** (`CliTest`): a table of invocations, each its arguments, what is piped in
@@ -99,9 +102,13 @@ Everything the tests run is compared with what is recorded as its output, byte f
   a corpus like any other case.
 
 When output changes on purpose, record it and review the diff, since the recordings are the
-spec: `php tools/progress.php --update` for programs (it also adds new ones to `tests/passing.txt`,
-and removes what no entry records), `GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted`
-for the front end, `GAZLANG_RECORD=1 vendor/bin/phpunit --filter CliTest` for the command line.
+spec:
+
+- `php tools/progress.php --update` for programs (it also adds new ones to `tests/passing.txt`,
+  and removes what no entry records);
+- `GAZLANG_RECORD=1 vendor/bin/phpunit --filter SelfHosted` for the front end;
+- `GAZLANG_RECORD=1 vendor/bin/phpunit --filter CliTest` for the command line.
+
 Record with plain `phpunit`, one test at a time, never under `pest --parallel`.
 
 Order matters as much as results: `KEY_CHECK` exists so that a bad key fails before later keys
@@ -109,12 +116,16 @@ and the value are evaluated. Anything that leans on a platform's behaviour (hash
 conversion, float formatting, rounding) is a rule GazLang defines and writes out step by step,
 as `round()` is in `vm/builtins.c`.
 
-The C is plain C11, libc, libm and pthreads, plus OpenSSL in `net.c` only (for TLS, left out
-by `make TLS=0`, `GAZ_TLS` saying which), and libsqlite3 and libpq in `sqlite.c` and `pg.c` only (left out
-by `make SQLITE=0 PG=0`; `db.c` picks a driver by URL scheme; libpq is loaded with `dlopen` on the
-first `postgres://` open, so building needs only its header). A function that can fail returns `bool`, with
-the error in `vm_error`; values are reference counted (`incref`, `decref`), lists and maps are
-copied on write, and the cycle collector (`vm/gc.c`) frees what counting can't.
+The C is plain C11, libc, libm and pthreads, plus:
+
+- OpenSSL in `net.c` only (for TLS, left out by `make TLS=0`, `GAZ_TLS` saying which);
+- libsqlite3 and libpq in `sqlite.c` and `pg.c` only (left out by `make SQLITE=0 PG=0`). `db.c`
+  picks a driver by URL scheme, and libpq is loaded with `dlopen` on the first `postgres://`
+  open, so building needs only its header.
+
+A function that can fail returns `bool`, with the error in `vm_error`. Values are reference
+counted (`incref`, `decref`), lists and maps are copied on write, and the cycle collector
+(`vm/gc.c`) frees what counting can't.
 
 ## Commands
 
@@ -151,59 +162,67 @@ php tools/bench.php                                    # gaz against PHP and Pyt
 ## Tests
 
 - **PHPUnit**: every helper in `GazLangTestCase` runs `bin/gaz` from the project root.
-  `executeCode()` pipes a snippet in and gives what it printed, or throws a `ProgramError` with
-  what followed `Error: `; `parse()`, `lex()` and `generateCode()` do the same with `--ast`,
-  `--tokens` and `-c`; `runProgram()` and `cli()` run files and command lines.
+  - `executeCode()` pipes a snippet in and gives what it printed, or throws a `ProgramError` with
+    what followed `Error: `.
+  - `parse()`, `lex()` and `generateCode()` do the same with `--ast`, `--tokens` and `-c`.
+  - `runProgram()` and `cli()` run files and command lines.
 - **`tests/gaz/**/*_test.gaz`** are GazLang programs that must print exactly their
   `*_test.expected` file (`GazProgramTest`), and pass under `bin/gaz test tests/gaz games`, which
-  CI runs too. They import `std/test.gaz` `use expect, throws`: `expect($label, $actual,
-  $expected)` prints `ok <label>` or a FAIL line with both values, and `throws($label, $thunk,
-  $message)` (or with a kind before the message) one for an error the thunk must throw. A test of
-  the language's own `try`/`catch` writes its blocks out instead. This is how GazLang code gets
-  tested.
+  CI runs too. This is how GazLang code gets tested. They import `std/test.gaz`
+  `use expect, throws` (a test of the language's own `try`/`catch` writes its blocks out
+  instead):
+  - `expect($label, $actual, $expected)` prints `ok <label>` or a FAIL line with both values.
+  - `throws($label, $thunk, $message)` (or with a kind before the message) prints the same for an
+    error the thunk must throw.
 - **`bin/gaz test`** (`TestCommandTest`, fixtures in `tests/fixtures/gaz_test`) is the same idea
   for a program's own tests, without PHP: it finds every `*_test.gaz` under a path, recursively,
-  and runs each as its own `gaz` process, reinvoked with `program_path()` (the interpreter's own
-  invocation path, added for exactly this), since `import` only takes a string literal and
-  can't splice in a path a runner only learns at run time. `test::snapshot` compares a value
-  against a file recorded next to the calling test, and `--update` (re)writes it. A file fails the
-  run if its stdout has a FAIL line, it exits non-zero, or it prints no check at all; the runner
-  prints only FAIL lines, what a file wrote to standard error and a count per file, everything
-  with `-v`. The fixtures there all pass,
-  since `gaz test tests` runs over them too, so `TestCommandTest` writes its failing files into a
-  temporary copy; `tests/gaz/lib/test_test.gaz` checks each FAIL line by running
-  `tests/fixtures/test_library/failures.gaz` with `run()`.
+  and runs each as its own `gaz` process.
+  - Each is reinvoked with `program_path()` (the interpreter's own invocation path, added for
+    exactly this), since `import` only takes a string literal and can't splice in a path a runner
+    only learns at run time.
+  - `test::snapshot` compares a value against a file recorded next to the calling test, and
+    `--update` (re)writes it.
+  - A file fails the run if its stdout has a FAIL line, it exits non-zero, or it prints no check
+    at all. The runner prints only FAIL lines, what a file wrote to standard error and a count per
+    file, everything with `-v`.
+  - The fixtures there all pass, since `gaz test tests` runs over them too, so `TestCommandTest`
+    writes its failing files into a temporary copy. `tests/gaz/lib/test_test.gaz` checks each
+    FAIL line by running `tests/fixtures/test_library/failures.gaz` with `run()`.
 - **`tests/corpora/lexer/`** are lexing cases, including deliberately tricky ones; a file named
   `error_*` must be exactly one that fails to lex. Each `X.gaz` has the tokens `--tokens` must
   print in `X.tokens`.
 - **`tests/corpora/parser/`** are parsing cases: a file per construct, and an `error_*` file for
-  every message the parser can raise, which must be exactly the ones that fail to parse. Each
-  `X.gaz` has the tree `--ast` must print in `X.ast`, and piped in `X.piped.ast`; `places/`
-  holds the runs from other working directories. The dump is read off each node's fields, so a
-  new field shows up in it without being asked. When a location matters, put the node's tokens
-  on different lines: a one-line case cannot tell one token's line from another's.
+  every message the parser can raise, which must be exactly the ones that fail to parse.
+  - Each `X.gaz` has the tree `--ast` must print in `X.ast`, and piped in `X.piped.ast`;
+    `places/` holds the runs from other working directories.
+  - The dump is read off each node's fields, so a new field shows up in it without being asked.
+  - When a location matters, put the node's tokens on different lines: a one-line case cannot
+    tell one token's line from another's.
 - **`tests/corpora/codegen/`** are code generation cases, built to reach every branch of the
   code generator between them. Each `X.gaz` has the bytecode `-c` must print in `X.code`, and
   piped in `X.piped.code`.
-- **`tests/corpora/cli/`** holds the programs `CliTest` runs through the command line. A change to its
-  options, or to how it reads files and standard input, needs a row there.
+- **`tests/corpora/cli/`** holds the programs `CliTest` runs through the command line. A change to
+  its options, or to how it reads files and standard input, needs a row there.
 - **`compiler/gazlang.gzb`** is the compiler's bytecode, built into the VM. After changing
   anything under `compiler/`, or the lexer, `lib/syntax.gaz`, run `make -C vm compiler` (which
   rebuilds `bin/gaz` with the library first, since the compiler imports the lexer as
-  `std/syntax.gaz`, the copy built into the `bin/gaz` compiling it). It compiles the compiler three times
-  (the old compiler compiles the new one, which compiles itself twice), requires the last two
-  to be the same, and only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit
-  leaves a VM that can compile its fix. The compiler's own source can't use a new feature until
-  it has been built with it once.
+  `std/syntax.gaz`, the copy built into the `bin/gaz` compiling it). The compiler's own source
+  can't use a new feature until it has been built with it once. `make -C vm compiler`:
+  1. compiles the compiler three times (the old compiler compiles the new one, which compiles
+     itself twice);
+  2. requires the last two to be the same;
+  3. only then replaces `gazlang.gzb` and rebuilds the VM, so a broken edit leaves a VM that can
+     compile its fix.
 - **`tests/corpora/vm/`** are programs for the C VM that the rest of the repository doesn't
   reach, found with `php tools/coverage.php`: running out of call depth by every kind of call,
   traces cut short, failing `to_string()`s, floats of every shape, cycles.
-  **`tests/corpora/bytecode/`** are bytecode files written by hand, one broken way per loader
-  message. For the collector, `make -C vm stress` then
-  `GAZVM=vm/build/gazvm-stress php tools/progress.php` collects cycles at every chance and takes
-  over an hour (with `GAZVM` set, each program may run for two hours).
-- `lib/json.gaz` is checked against PHP's own `json_decode` on every `tests/corpora/json/y_*.json` and
-  `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
+- **`tests/corpora/bytecode/`** are bytecode files written by hand, one broken way per loader
+  message.
+- For the collector, `make -C vm stress` then `GAZVM=vm/build/gazvm-stress php tools/progress.php`
+  collects cycles at every chance and takes over an hour (with `GAZVM` set, each program may run
+  for two hours).
+- `lib/json.gaz` is checked against PHP's own `json_decode` on every
+  `tests/corpora/json/y_*.json` and `n_*.json`; `lib/csv.gaz` against `fgetcsv`.
 
 ## Bytecode
 
@@ -233,7 +252,10 @@ labelled [roadmap](https://github.com/panzer-planet/gazlang/labels/roadmap).
 
 ## Style
 
-GazLang in `compiler/` and `lib/`: functions and variables snake_case, kinds PascalCase,
-constants UPPERCASE. A `pub` name's documentation is a docblock (see [documentation comments](language.md#documentation-comments)),
-and the website's build fails on a name of `lib/` without one. The C in `vm/`: plain C11, commented where the C isn't obvious. The tests:
-PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and methods.
+- GazLang in `compiler/` and `lib/`: functions and variables snake_case, kinds PascalCase,
+  constants UPPERCASE. A `pub` name's documentation is a docblock (see
+  [documentation comments](language.md#documentation-comments)), and the website's build fails on
+  a name of `lib/` without one.
+- The C in `vm/`: plain C11, commented where the C isn't obvious.
+- The tests: PHP 8.5, PSR-4 under `GazLang\Tests`, methods camelCase, PHPDoc on classes and
+  methods.
