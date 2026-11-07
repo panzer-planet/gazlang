@@ -1026,7 +1026,8 @@ and methods a table in C.
   field step, since a write inside a list or map the field holds changes the field and a step on
   through a field writes another object), both with `Account #id is read-only: only Account's
   constructor sets it`. The VM's window is `Object.constructing` (in the padding, so no object
-  grows), set by `NEW` and cleared when its frame returns or is unwound by an error, so an object
+  grows), set when a frame of the kind's block is pushed (`push_frame()`, so `NEW`, `CALL_VALUE`
+  and a builtin calling a kind agree) and cleared when that frame returns or is unwound by an error, so an object
   that escaped from a failing constructor is closed too; inside it a write is taken from the
   declaring kind's code or the initialiser (`KIND_INITIALISER`), so a helper function of the kind
   writing through a handle to the object works while the constructor runs and never after. A kind

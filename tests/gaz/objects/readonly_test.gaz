@@ -110,6 +110,18 @@ try {
 }
 throws("and its read-only field is closed", () -> (Escaping::last.id = 2), "Escaping #id is read-only: only Escaping's constructor sets it");
 
+// A kind called as a value constructs as a call by name does: through CALL_VALUE, and through a
+// builtin calling it
+readonly kind Pair {
+    fn _(pub #left, pub #right = 0);
+}
+$make = Pair;
+$made = $make(1, 2);
+expect("a read-only kind constructed through a value", [$made.left, $made.right], [1, 2]);
+throws("and its fields are closed once it is made", () -> ($made.left = 3), "Pair #left is read-only: only Pair's constructor sets it");
+$pairs = map([4, 5], Pair);
+expect("a read-only kind constructed by a builtin calling it", map($pairs, $p -> $p.left), [4, 5]);
+
 // What readonly refuses when the program is read, for the shapes a test of the VM can't hold
 fn refused($source) {
     $result = run([program_path(), "-e", $source]);

@@ -179,8 +179,9 @@ struct Object {
     bool printing;      /* while echo prints it, so one that holds itself prints Name {...} */
     bool says_where;    /* the Error a catch made of a runtime error, whose message line ends
                            where it happened, as a thrown one's doesn't; in the padding too */
-    bool constructing;  /* while NEW's frame runs (the field defaults and the constructor): the
-                           one time a read-only field takes a write; in the padding too */
+    bool constructing;  /* while its kind's frame runs (the field defaults and the constructor),
+                           set by push_frame() however it is constructed: the one time a read-only
+                           field takes a write; in the padding too */
     bool comparing;     /* while == compares its fields with another's, so one met again inside
                            that is known to be a cycle; in the padding too */
     int32_t case_number; /* a case of an enum: which, from 1 (0 for any other object), in the

@@ -26,6 +26,9 @@ ok the child's own field included
 ok a read-only kind is a kind like any other
 ok the error left the object where the constructor put it
 ok and its read-only field is closed
+ok a read-only kind constructed through a value
+ok and its fields are closed once it is made
+ok a read-only kind constructed by a builtin calling it
 ok a method writing a read-only field
 ok a child's constructor writing a parent's
 ok a mutable kind extending a read-only one

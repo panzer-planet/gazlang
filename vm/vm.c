@@ -314,6 +314,11 @@ static bool push_frame(Block *block, Value **sp, int argc, Instr *ret, Func *clo
     f->argc = argc;
     f->closure = closure;
     f->receiver = receiver;
+    /* A kind's block runs only to construct its receiver: until this frame returns (or an error
+       unwinds it, which clears the flag too), the one time a read-only field takes a write. Set
+       here, not by each instruction that constructs, so NEW, CALL_VALUE and a builtin calling a
+       kind can't disagree. */
+    if (block->kind == B_KIND) receiver->constructing = true;
     *sp = base + nlocals;
     return true;
 }
@@ -1346,8 +1351,6 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 goto error;
             }
             Object *o = object_new(c);
-            /* Until this frame returns: the one time a read-only field takes a write */
-            o->constructing = true;
             if (!push_frame(c->block, &sp, in->a, pc, NULL, o)) goto error;
             pc = code + c->block->entry;
             break;
