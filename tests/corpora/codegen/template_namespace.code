@@ -89,11 +89,7 @@ RET
 fn shop::product_card 1 2
 locals $product $note $#html
 @ "templates/namespaced.gazml" 3
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH ""
 STORE 1
 LABEL PASSED_0

@@ -1,0 +1,3 @@
+fn f($align = 1) {}
+f(
+  aling: 2);

@@ -1,0 +1,1 @@
+Error: UNSET_ARG at instruction 1 isn't followed by a call to GazLang code in the top level

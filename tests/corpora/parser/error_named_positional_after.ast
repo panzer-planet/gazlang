@@ -1,0 +1,1 @@
+Error: A positional argument can't follow a named one at tests/corpora/parser/error_named_positional_after.gaz:3

@@ -393,6 +393,35 @@ Top level only, and callable before they are declared, so mutual recursion works
 after the required parameters and are evaluated on each call that leaves the argument out.
 A trailing comma is allowed after the last parameter and the last argument, as after the last
 item of a list, a map or a `match`, so a list written one per line diffs cleanly.
+
+An argument can name its parameter, without the `$`, so a call can skip to a later default or
+say what a bare `true` means:
+
+```gaz
+fn label($text, $style = "", $align = "left") {
+    return "{$text} ({$align})";
+}
+
+echo label("Total", align: "right");    // Total (right): $style keeps its default
+echo label(align: "center", text: "Hi"); // in any order once all are named
+```
+
+- Positional arguments come first, then named ones, each parameter once, and every parameter
+  without a default must be given one way or the other. Each is an error with a sentence:
+  `label() has no parameter $aling (did you mean $align?)`, `label() is given $text twice: by
+  position and by name`, `label() expects $text`.
+- Arguments run in the order they are written, whatever order the parameters are in.
+- Any call to GazLang code takes them: a function, a constructor, a static method, `#method()`,
+  `##method()`, `$obj.method()`, a closure or a kind called as a value. A call the program names
+  is checked when it is read; a call through a value, when it runs. A builtin takes none, having
+  no parameter names.
+- A parameter whose name is a keyword (`$kind`, `$match`) can only be passed by position, as can
+  a list pattern parameter, which has no name.
+- **A parameter's name is part of its function's signature**: an override, and a method
+  answering for an interface's, names each parameter as the one it replaces does, since
+  `$shape.area(unit: 2)` runs whichever kind's `area` the object has. Renaming a `pub` function's
+  parameter changes what its callers may write.
+
 A bare name is a value, builtins included:
 
 ```gaz

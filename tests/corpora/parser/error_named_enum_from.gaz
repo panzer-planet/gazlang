@@ -1,0 +1,5 @@
+enum E: string {
+    Ay = "a";
+}
+echo E::from(
+  value: "a");

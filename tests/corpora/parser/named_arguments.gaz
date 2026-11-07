@@ -1,0 +1,20 @@
+fn label($text, $style = "", $align = "left") {
+    return $text;
+}
+kind Box {
+    fn _(pub #w = 1, pub #h = 2);
+    pub fn area($scale = 1, $plus = 0) {
+        return #scaled(plus: 1);
+    }
+    pub fn scaled($factor = 1, $plus = 0) {
+        return $factor + $plus;
+    }
+}
+label("a", align: "right");
+label(align: "c",
+      text: "b");
+Box(h: 2);
+$b = Box();
+$b.area(plus: 3);
+$f = label;
+$f("x", align: "r");

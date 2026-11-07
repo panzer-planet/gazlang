@@ -1,0 +1,1 @@
+Error: Kind K can't implement both I and J: they name method m differently at tests/corpora/parser/error_named_interfaces_differ.gaz:7

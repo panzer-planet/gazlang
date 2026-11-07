@@ -1,0 +1,14 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+UNSET_ARG 0
+CALL g 1
+PRINT
+
+fn g 1 1
+locals $x
+CHECK_PARAM 0 int
+LOAD 0
+RET

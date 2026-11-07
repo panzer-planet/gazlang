@@ -361,6 +361,123 @@ static Str *constructor_name(void) {
     return name ? name : (name = str_intern("_", 1));
 }
 
+/*
+ * Bind a named call's arguments in place, as the parser binds a call it can resolve: the argc
+ * values at args are the positional ones, then a value for each name in names, and they become
+ * the callee's slots in order, a slot named past a skipped one leaving that one unset (its
+ * default runs, PASSED seeing it unset). locals are the callee's slots, whose first hi are its
+ * parameters, lo of them required; label names the callee in a message. Gives the new count,
+ * which the caller has made room for, or -1 with an error raised and nothing moved.
+ */
+static int bind_named(Value *args, int argc, List *names, Str **locals, int lo, int hi, const char *label) {
+    int nnames = (int)names->len;
+    int npos = argc - nnames;
+    /* A skipped slot makes the call one value longer, up to the callee's parameters */
+    if (args + hi + 2 > stack_end) {
+        raisef("Stack overflow");
+        return -1;
+    }
+    if (npos < 0) {
+        raisef("A named call passes %d argument%s but names %d", argc, argc == 1 ? "" : "s", nnames);
+        return -1;
+    }
+    int *slots = xmalloc((size_t)(nnames ? nnames : 1) * sizeof(int));
+    int count = npos;
+    for (int k = 0; k < nnames; k++) {
+        Value name = names->items[k];
+        if (name.type != T_STRING) {
+            free(slots);
+            raisef("A named call's names must be strings, got %s", type_name(name));
+            return -1;
+        }
+        int slot = -1;
+        for (int j = 0; locals && j < hi; j++) {
+            Str *param = locals[j];
+            if (param->len == name.s->len + 1 && param->data[0] == '$' && !memcmp(param->data + 1, name.s->data, name.s->len)) {
+                slot = j;
+                break;
+            }
+        }
+        if (slot < 0) {
+            free(slots);
+            raisef("%s has no parameter $%s", label, name.s->data);
+            return -1;
+        }
+        bool repeated = slot < npos;
+        for (int i = 0; i < k; i++) repeated = repeated || slots[i] == slot;
+        if (repeated) {
+            free(slots);
+            raisef("%s is given $%s twice: by position and by name", label, name.s->data);
+            return -1;
+        }
+        slots[k] = slot;
+        if (slot + 1 > count) count = slot + 1;
+    }
+    for (int j = npos; j < lo; j++) {
+        bool named = false;
+        for (int k = 0; k < nnames; k++) named = named || slots[k] == j;
+        if (!named) {
+            free(slots);
+            raisef("%s expects %s", label, locals[j]->data);
+            return -1;
+        }
+    }
+    /* The named values move to their slots: set them aside, clear the slots, put them back */
+    Value *named = xmalloc((size_t)(nnames ? nnames : 1) * sizeof(Value));
+    memcpy(named, args + npos, (size_t)nnames * sizeof(Value));
+    for (int j = npos; j < count; j++) args[j] = v_unset();
+    for (int k = 0; k < nnames; k++) args[slots[k]] = named[k];
+    free(named);
+    free(slots);
+    return count;
+}
+
+/*
+ * Bind a named call through a value (CALL_VALUE_NAMED, or CALL_METHOD_NAMED on a member that
+ * isn't a method) against what the value will run: a function's, closure's or bound method's
+ * parameters, or a kind's constructor's. A builtin has no parameter names. Anything that can't
+ * be called, or an abstract kind or an enum, is left as it is (every value counted) for the call
+ * to refuse. Gives the new count, or -1 with an error raised.
+ */
+static int bind_value_call(Value callee, Value *args, int argc, List *names) {
+    Str **locals = NULL;
+    int lo = 0, hi = 0;
+    Buf label = {0};
+    if (callee.type == T_KIND) {
+        Kind *c = callee.k;
+        if (c->abstract || c->is_enum) return argc;
+        Function *constructor = method_function(c, constructor_name());
+        if (constructor) locals = constructor->block->locals;
+        lo = c->lo, hi = c->hi;
+        buf_add_str(&label, c->name);
+        buf_adds(&label, "()");
+    } else if (callee.type == T_FUNCTION) {
+        Func *fn = callee.fn;
+        Block *block;
+        if (fn->kind == F_BUILTIN) {
+            raisef("%s() is a builtin, which takes no named arguments", builtin_info[fn->builtin].name);
+            return -1;
+        } else if (fn->kind == F_CLOSURE) {
+            block = fn->lambda->block;
+        } else if (fn->kind == F_BOUND) {
+            block = method_function(fn->definer, fn->name)->block;
+        } else {
+            block = fn->function->block;
+        }
+        locals = block->locals;
+        lo = block->lo, hi = block->hi;
+        /* A closure is described by where it was made, as an arity error describes it */
+        if (fn->kind == F_CLOSURE) buf_adds(&label, "Function ");
+        describe(callee, &label);
+        if (fn->kind != F_CLOSURE) buf_adds(&label, "()");
+    } else {
+        return argc;
+    }
+    int count = bind_named(args, argc, names, locals, lo, hi, label.data);
+    free(label.data);
+    return count;
+}
+
 /* Run a method on an object to its end, from inside an instruction */
 bool call_method(Object *o, Kind *definer, Str *name, Value *out) {
     Function *f = method_function(definer, name);
@@ -1144,10 +1261,30 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_ARGC:
             PUSH(v_int(fp->argc));
             break;
+        case OP_UNSET_ARG: {
+            /* A skipped argument, in d values below the top (the loader holds it to a call) */
+            int d = in->a;
+            memmove(sp - d + 1, sp - d, (size_t)d * sizeof(Value));
+            sp[-d] = v_unset();
+            sp++;
+            break;
+        }
+        case OP_PASSED:
+            /* Given: an argument the call passed, which a skipped one, left unset, isn't */
+            if (fp->base[in->a].type != T_UNSET) pc = code + in->b;
+            break;
         case OP_CHECK_PARAM: {
             /* After the defaults have run, so a default is held to the type too */
             Value *slot = &fp->base[in->a];
             TypeSpec *t = in->p;
+            /* Only hand-written bytecode skips a parameter that has no default */
+            if (slot->type == T_UNSET) {
+                Buf what = {0};
+                callee_name(fp, &what);
+                raisef("%s expects %s", what.data, fp->block->locals[in->a]->data);
+                free(what.data);
+                goto error;
+            }
             if (!type_admits(t, slot)) {
                 Buf what = {0};
                 callee_name(fp, &what);
@@ -1308,9 +1445,18 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_CALL_METHOD: {
             if (gc_wanted) gc_collect();
             argc = in->a;
+        call_method:;
             Value method = sp[-argc - 1];
             Value *callee_slot = sp - argc - 2;
             if (method.type == T_NULL) {
+                /* An UNSET_ARG feeds a call only to a method the parser resolved, never a value,
+                   which could be a builtin reading every argument as a value */
+                for (int i = 1; i <= argc; i++) {
+                    if (sp[-i].type == T_UNSET) {
+                        raisef("CALL_METHOD skips an argument of %s, which is a value, not a method", ((Str *)in->p)->data);
+                        goto error;
+                    }
+                }
                 /* A field holding a function, or whatever else the member was */
                 memmove(sp - argc - 1, sp - argc, (size_t)argc * sizeof(Value));
                 sp--;
@@ -1402,6 +1548,50 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_BIND_PARENT:
             PUSH(v_func(bound_method(fp->receiver, in->p, in->v.s)));
             break;
+        case OP_CALL_METHOD_NAMED: case OP_CALL_VALUE_NAMED: {
+            if (gc_wanted) gc_collect();
+            /* The names are a list on top of the values; the values become the callee's slots */
+            Value names = POP();
+            argc = in->a;
+            if (names.type != T_LIST) {
+                raisef("%s expects a list of names, got %s", in->orig == OP_CALL_VALUE_NAMED ? "CALL_VALUE_NAMED" : "CALL_METHOD_NAMED", type_name(names));
+                decref(names);
+                goto error;
+            }
+            bool through_method = false;
+            if (in->orig == OP_CALL_METHOD_NAMED) {
+                Value method = sp[-argc - 1];
+                if (method.type == T_NULL) {
+                    /* A member that isn't a method: the value it holds is called */
+                    memmove(sp - argc - 1, sp - argc, (size_t)argc * sizeof(Value));
+                    sp--;
+                } else if (method.type != T_ENTRY || sp[-argc - 2].type != T_OBJECT) {
+                    raisef("CALL_METHOD_NAMED expects a method of an object, got %s of %s", type_name(method), type_name(sp[-argc - 2]));
+                    decref(names);
+                    goto error;
+                } else {
+                    through_method = true;
+                }
+            }
+            int count;
+            if (through_method) {
+                Entry *entry = sp[-argc - 1].entry;
+                Function *f = entry->function;
+                Buf label = {0};
+                buf_add_str(&label, entry->key);
+                buf_adds(&label, "()");
+                count = bind_named(sp - argc, argc, names.l, f->block->locals, f->lo, f->hi, label.data);
+                free(label.data);
+            } else {
+                count = bind_value_call(sp[-argc - 1], sp - argc, argc, names.l);
+            }
+            decref(names);
+            if (count < 0) goto error;
+            sp += count - argc;
+            argc = count;
+            if (through_method) goto call_method;
+            goto call_value;
+        }
         case OP_CALL_VALUE: {
             if (gc_wanted) gc_collect();
             argc = in->a;

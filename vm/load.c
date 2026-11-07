@@ -25,7 +25,7 @@ enum { K_LABEL, K_VALUE, K_SLOT, K_GLOBAL, K_STATIC, K_CAPTURE, K_COUNT, K_LAMBD
        K_CALLABLE, K_BUILTIN, K_KIND, K_MEMBER, K_PATH, K_ELEMENT_PATH, K_TYPE };
 
 /* A pops count that depends on the arguments */
-enum { POPS_PATH = -1, POPS_KEYS = -2, POPS_COUNT = -3, POPS_COUNT1 = -4, POPS_COUNT2 = -5 };
+enum { POPS_PATH = -1, POPS_KEYS = -2, POPS_COUNT = -3, POPS_COUNT1 = -4, POPS_COUNT2 = -5, POPS_COUNT3 = -6 };
 
 typedef struct {
     const char *name;
@@ -136,6 +136,10 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_RETHROW] = {"RETHROW", 0, {0}, 1, 0},
     [OP_THROW] = {"THROW", 0, {0}, 1, 0},
     [OP_HALT] = {"HALT", 0, {0}, 0, 0},
+    [OP_UNSET_ARG] = {"UNSET_ARG", 1, {K_COUNT}, 0, 1},
+    [OP_PASSED] = {"PASSED", 2, {K_SLOT, K_LABEL}, 0, 0},
+    [OP_CALL_METHOD_NAMED] = {"CALL_METHOD_NAMED", 2, {K_COUNT, K_MEMBER}, POPS_COUNT3, 1},
+    [OP_CALL_VALUE_NAMED] = {"CALL_VALUE_NAMED", 1, {K_COUNT}, POPS_COUNT2, 1},
 };
 
 /* An instruction as read, before its names are resolved */
@@ -1325,6 +1329,46 @@ static int find_label(Block *b, Str *name) {
     return -1;
 }
 
+/* How many arguments a call instruction takes, or -1 if it isn't one an UNSET_ARG may feed: a
+   call that runs GazLang code, never a builtin, which reads every argument as a value */
+static int call_count(RawInstr *r) {
+    switch (r->op) {
+    case OP_CALL: case OP_NEW: return r->ints[1];
+    case OP_CALL_METHOD: return r->ints[0];
+    case OP_CALL_PARENT: return r->ints[2];
+    default: return -1;
+    }
+}
+
+/*
+ * An UNSET_ARG puts a skipped argument's unset slot in, and an unset value read as anything but
+ * an argument would be a value no instruction expects. So the ones before a call come straight
+ * before it, each deeper than the last (the highest slot first, so none moves another), and the
+ * call takes every one: nothing runs while an unset value is on the stack, and no walk of the
+ * stack needs to know which values are unset.
+ */
+static void check_unset_arg(Block *b, int position, int height, const char *where) {
+    RawInstr *r = &b->raw[position];
+    int depth = r->ints[0];
+    if (depth > height) {
+        fail_at(false, "UNSET_ARG %d reaches below the stack, which is %d deep, at instruction %d in %s", depth, height, position, where);
+    }
+    RawInstr *next = position + 1 < b->nraw ? &b->raw[position + 1] : NULL;
+    if (next && next->op == OP_UNSET_ARG) {
+        if (next->ints[0] <= depth) {
+            fail_at(false, "UNSET_ARG %d follows UNSET_ARG %d at instruction %d in %s: each must be deeper than the last", next->ints[0], depth, position + 1, where);
+        }
+        return;
+    }
+    int count = next ? call_count(next) : -1;
+    if (count < 0) {
+        fail_at(false, "UNSET_ARG at instruction %d isn't followed by a call to GazLang code in %s", position, where);
+    }
+    if (depth >= count) {
+        fail_at(false, "UNSET_ARG %d is below the %d arguments of %s at instruction %d in %s", depth, count, INFO[next->op].name, position + 1, where);
+    }
+}
+
 /*
  * Check a block: every name it uses exists, every label is defined, and its stack balances.
  * The stack is walked from the top of the block, following jumps, always in the same order
@@ -1440,10 +1484,11 @@ static void check_block(Block *b) {
             case POPS_KEYS: pops = r->path->nkeys; break;
             case POPS_COUNT:
             case POPS_COUNT1:
-            case POPS_COUNT2: {
+            case POPS_COUNT2:
+            case POPS_COUNT3: {
                 int at = 0;
                 while (info->kinds[at] != K_COUNT) at++;
-                pops = (int64_t)r->ints[at] + (info->pops == POPS_COUNT ? 0 : info->pops == POPS_COUNT1 ? 1 : 2);
+                pops = (int64_t)r->ints[at] + (POPS_COUNT - info->pops);
                 break;
             }
             }
@@ -1458,6 +1503,7 @@ static void check_block(Block *b) {
             if (r->op == OP_END_TRY && tries == 0) {
                 FAIL("END_TRY at instruction %d closes a try that no TRY opened", position);
             }
+            if (r->op == OP_UNSET_ARG) check_unset_arg(b, position, height, where);
             height += info->pushes - (int)pops;
             if (height > max) max = height;
 
@@ -1467,8 +1513,9 @@ static void check_block(Block *b) {
             if (r->op == OP_JMP || r->op == OP_JZ || r->op == OP_JNN || r->op == OP_TRY) {
                 target = find_label(b, r->names[0]);
                 if (r->op == OP_JNN || r->op == OP_TRY) target_height = height + 1;
-            } else if (r->op == OP_CATCH_MATCH) {
-                /* Its kind didn't match: the next catch is tried with the error still on top */
+            } else if (r->op == OP_CATCH_MATCH || r->op == OP_PASSED) {
+                /* CATCH_MATCH: its kind didn't match, so the next catch is tried with the error
+                   still on top. PASSED: the slot was passed, so its default is skipped. */
                 target = find_label(b, r->names[1]);
             } else if (r->op == OP_FOREACH_NEXT || r->op == OP_FOREACH_NEXT_KEY) {
                 /* At the end it jumps without pushing anything */
@@ -1894,8 +1941,12 @@ static void link_program(void) {
             case OP_GET_PROPERTY_EXISTING: case OP_GET_METHOD:
                 in->p = r->names[0];
                 break;
-            case OP_CALL_METHOD:
+            case OP_CALL_METHOD: case OP_CALL_METHOD_NAMED:
                 in->p = r->names[1];
+                break;
+            case OP_PASSED:
+                label = find_label(b, r->names[1]);
+                in->b = label < 0 ? -1 : positions[label];
                 break;
             case OP_SET_PATH: case OP_SET_PATH_GLOBAL: case OP_SET_PATH_CAPTURED: case OP_SET_PATH_THIS:
             case OP_SET_PATH_STATIC:

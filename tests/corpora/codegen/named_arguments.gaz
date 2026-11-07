@@ -1,0 +1,16 @@
+fn label($text, $style = "", $align = "left", $pad = 0) {
+    return $text;
+}
+label("a", align: "right");
+label(pad: 1, text: "b");
+$f = label;
+$f("x", pad: 2);
+kind Box {
+    pub fn area($scale = 1, $plus = 0) {
+        return #scaled(plus: 1);
+    }
+    pub fn scaled($factor = 1, $plus = 0) {
+        return $factor + $plus;
+    }
+}
+Box().area(plus: 2);

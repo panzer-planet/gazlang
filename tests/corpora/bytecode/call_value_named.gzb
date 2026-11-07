@@ -1,0 +1,16 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+PUSH_FN f
+PUSH "x"
+PUSH 7
+PUSH ["c"]
+CALL_VALUE_NAMED 2
+PRINT
+
+fn f 1 3
+locals $a $b $c
+LOAD 0
+RET

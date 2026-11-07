@@ -59,11 +59,7 @@ RET
 fn Base.scale 1 2
 locals $by $around
 @ 14
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0

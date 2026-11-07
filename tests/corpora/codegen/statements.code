@@ -571,11 +571,7 @@ RET
 fn Error._ 1 2
 locals $message $cause
 @ "<builtin>" 7
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0

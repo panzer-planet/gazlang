@@ -784,6 +784,32 @@ Names are ASCII.
   name and argument count once the whole program is read, so the VM trusts calls. A default is
   evaluated inside the function, so it sees earlier parameters and a `[]` default is never
   shared; the arity is then `[required, total]`.
+- **Named arguments** (`label("x", align: "right")`, #89): the parameter's name without its `$`,
+  since `$align: ...` would count as a use of `$align` in the caller's scope (captures, `shared`).
+  - **Read without lookahead**, as a lambda's head is: `argument()` in `parser.gaz` reads an
+    expression, and a bare unqualified name followed by `:` was a name, its recorded use taken
+    back. So a keyword-named parameter (`$kind`) can't be passed by name, since `kind:` doesn't
+    parse; a label token would lift that.
+  - **Positional first, each parameter once, evaluated as written**: the restrictive choices.
+    Duplicate names are refused by `arguments()`, the rest once the callee is known.
+  - **A call the parser resolves is bound by the parser** (`bind_arguments()`: by name, a
+    constructor, a static method, `#m()`, `##m()`), into slot order, a skipped slot a
+    `SkippedArgumentAST`; `#order` on the call keeps the written order when it differs, and the
+    code generator then evaluates into hidden `$#argument_*` variables. The code generator writes
+    `UNSET_ARG` for each skipped slot just before the call, so no unset value is on the stack
+    while an argument runs, and the loader checks only the instructions next to it rather than
+    tracking which stack cells may be unset through every jump. A default's prologue is
+    `PASSED slot label` (the slot isn't unset), which replaced `ARGC; PUSH i; GT; NOT; JZ`.
+  - **A call through a value is bound by the VM** (`CALL_VALUE_NAMED`, `CALL_METHOD_NAMED`,
+    `bind_named()` in `vm.c`) against the callee block's `locals`, a kind value against its
+    constructor's, with the parser's sentences. A builtin takes none: `builtin_info[]` has no
+    names, and giving it some would freeze every builtin's parameters. An enum's generated
+    `from()`/`cases()` take none either, having no declaration.
+  - **A parameter's name is API**: an override, an interface implementation and an abstract
+    method's implementer keep the parent's names (`check_override_names()`), and two interfaces
+    naming one method must name its parameters alike, since a call through a value binds against
+    whichever kind's method runs. Constructors are exempt, each kind's being its own. Measured
+    when it landed: no override or implementation in the repository renamed a parameter.
 - **Appending to a list parameter changes only the call's copy**, so a parameter whose every use
   in the body is a write through an index is a parse error (`fn add_to($l) { $l[] = 1; }`,
   `check_lost_writes()` in `parser.gaz`, at the first such write), in functions, methods and

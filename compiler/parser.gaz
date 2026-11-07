@@ -888,15 +888,29 @@ final kind Html {
         return $node;
     }
 
-    // Parse a call's arguments (LPAREN [expr (COMMA expr)* [COMMA]] RPAREN)
-    //
-    // A trailing comma is allowed, as in a list literal, so one argument per line diffs cleanly
+    /*
+     * Parse a call's arguments (LPAREN [argument (COMMA argument)* [COMMA]] RPAREN)
+     *
+     * A trailing comma is allowed, as in a list literal, so one argument per line diffs cleanly.
+     * Positional arguments come first, then named ones, each name once; which parameter a name
+     * is, and whether a name repeats a position, waits for the callee, once the program is read.
+     */
     fn arguments() {
         #eat("LEFT_PAREN");
 
         $args = [];
+        $named = {};
         while (#current_token.type != "RIGHT_PAREN") {
-            $args[] = #expr();
+            $arg = #argument();
+            if (is_a($arg, NamedArgumentAST)) {
+                if (has_key($named, $arg.name)) {
+                    #fail_at("\${$arg.name} is given twice", $arg.file, $arg.line);
+                }
+                $named[$arg.name] = true;
+            } else if (len($named) > 0) {
+                #fail_at("A positional argument can't follow a named one", $arg.file, $arg.line);
+            }
+            $args[] = $arg;
             if (#current_token.type != "COMMA") {
                 break;
             }
@@ -905,6 +919,140 @@ final kind Html {
         #eat("RIGHT_PAREN");
 
         return $args;
+    }
+
+    /*
+     * Parse one argument (expr | IDENTIFIER COLON expr)
+     *
+     * Read as an expression first, as a lambda's head is, so no lookahead is needed: a bare,
+     * unqualified name followed by : was the name of a parameter, and the use primary()
+     * recorded for it is taken back. A ternary's : is read inside expr(), so it never gets here.
+     */
+    fn argument() {
+        $start = #current_token;
+        $value = #expr();
+        $bare = is_a($value, FunctionRefAST) && !contains($value.name, "::") && $value != #grouped;
+        if (#current_token.type != "COLON" || !$bare || $start.type != "IDENTIFIER") {
+            return $value;
+        }
+        if (len(#uses) > 0 && last(#uses)[0] == $value) {
+            delete #uses[len(#uses) - 1];
+        }
+        #eat("COLON");
+
+        return #at(NamedArgumentAST($value.name, #expr()), $start);
+    }
+
+    // Whether a call's arguments name any parameter
+    fn has_named($args) {
+        foreach ($args as $arg) {
+            if (is_a($arg, NamedArgumentAST)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /*
+     * Put a call's named arguments in the slots of $function's parameters, as the call's
+     * arguments in slot order: a parameter skipped before the last one given is a
+     * SkippedArgumentAST, passed unset so its default runs. The call's #order, the slots of the
+     * named arguments as written, is set when they aren't in slot order, so they are still
+     * evaluated as written: the positional ones, written first, fill the first slots, and need
+     * nothing. $function null
+     * is a callee with no parameters (a kind with no constructor).
+     */
+    fn bind_arguments($call, $function, $label) {
+        if (!#has_named($call.args)) {
+            return;
+        }
+        $params = $function == null ? [] : $function.params;
+        $defaults = $function == null ? [] : $function.defaults;
+        $slots = {};
+        $order = [];
+        foreach ($call.args as $i => $arg) {
+            if (!is_a($arg, NamedArgumentAST)) {
+                $slots[$i] = $arg;
+                continue;
+            }
+            $slot = #parameter_slot($params, $arg.name);
+            if ($slot == null) {
+                #fail_at("{$label} has no parameter \${$arg.name}" .. #parameter_hint($params, $arg.name), $arg.file, $arg.line);
+            }
+            if (has_key($slots, $slot)) {
+                #fail_at("{$label} is given \${$arg.name} twice: by position and by name", $arg.file, $arg.line);
+            }
+            $slots[$slot] = $arg.value;
+            $order[] = $slot;
+        }
+        $last = max(keys($slots));
+        $args = [];
+        foreach ($params as $slot => $param) {
+            if (has_key($slots, $slot)) {
+                $args[] = $slots[$slot];
+                continue;
+            }
+            if ($defaults[$slot] == null) {
+                #fail_at("{$label} expects {$param}", $call.file, $call.line);
+            }
+            if ($slot < $last) {
+                $args[] = #relocated(SkippedArgumentAST($param), $call);
+            }
+        }
+        $call.args = $args;
+        if ($order != sort($order)) {
+            $call.order = $order;
+        }
+    }
+
+    // The slot of the parameter a call names $name, or null: a pattern's hidden parameter has no
+    // name a call can write
+    fn parameter_slot($params, $name) {
+        foreach ($params as $slot => $param) {
+            if ($param == "\$" .. $name) {
+                return $slot;
+            }
+        }
+
+        return null;
+    }
+
+    // " (did you mean $x?)" for a name that differs from one parameter's only in case, or by
+    // one letter added, dropped, changed or two swapped, and "" otherwise
+    fn parameter_hint($params, $name) {
+        foreach ($params as $param) {
+            $other = slice($param, 1);
+            if (!starts_with($other, "#") && #one_edit_apart($name, $other)) {
+                return " (did you mean {$param}?)";
+            }
+        }
+
+        return "";
+    }
+
+    /*
+     * Whether two names are the same but for case, or one edit apart; a name shorter than four
+     * letters is one edit from too many others for the edit to be a guess worth making
+     */
+    fn one_edit_apart($a, $b) {
+        [$a, $b] = [lower($a), lower($b)];
+        if ($a == $b) {
+            return true;
+        }
+        if (len($a) < 4 || abs(len($a) - len($b)) > 1) {
+            return false;
+        }
+        $start = 0;
+        while ($start < len($a) && $start < len($b) && $a[$start] == $b[$start]) {
+            $start++;
+        }
+        [$rest_a, $rest_b] = [slice($a, $start), slice($b, $start)];
+        if (slice($rest_a, 1) == slice($rest_b, 1) || slice($rest_a, 1) == $rest_b || $rest_a == slice($rest_b, 1)) {
+            return true;
+        }
+
+        return len($rest_a) >= 2 && len($rest_b) >= 2 && $rest_a[0] == $rest_b[1] && $rest_a[1] == $rest_b[0] && slice($rest_a, 2) == slice($rest_b, 2);
     }
 
     // Parse a primary (INTEGER | FLOAT | STRING | interpolated_string | TRUE | FALSE | NULL | LPAREN expr RPAREN
@@ -1531,7 +1679,7 @@ final kind Html {
                     $call = MethodCallAST($node, #arguments());
                     [$call.line, $call.file] = [$node.line, $node.file];
                     if ($node.use != null) {
-                        #member_uses[$node.use][2] = len($call.args);
+                        #member_uses[$node.use][2] = $call;
                         #member_calls[] = $call;
                     }
                     $node = $call;
@@ -4333,8 +4481,8 @@ final kind Html {
         $root.statements = [...$inits, ...$root.statements];
 
         // In source order, so the first mistake in the program is the one reported
-        foreach (#member_uses as [$node, $kind, $argc, $assigned, $written, $in_static, $in_constructor]) {
-            #check_member_use($node, $kind, $argc, $assigned, $written, $in_static, $in_constructor);
+        foreach (#member_uses as [$node, $kind, $call, $assigned, $written, $in_static, $in_constructor]) {
+            #check_member_use($node, $kind, $call, $assigned, $written, $in_static, $in_constructor);
         }
         foreach (#gaps as $gapped) {
             #fail_gap($gapped);
@@ -4385,6 +4533,7 @@ final kind Html {
                     if ($kind.abstract) {
                         #fail_at("Cannot construct abstract kind {$use.name}", $use.file, $use.line);
                     }
+                    #bind_arguments($use, #constructor_of($kind), #method_label($use.name, "_"));
                     $error = #arity_error("Kind {$use.name}", #constructor_arity($kind), len($use.args));
                     if ($error != null) {
                         #fail_at($error .. #tagged_hint($use), $use.file, $use.line);
@@ -4421,6 +4570,7 @@ final kind Html {
             }
             #check_member_escapes($use, $asker);
             if (is_a($use, FunctionCallAST)) {
+                #bind_to_function($use, $use.name);
                 $error = #arity_error("Function {$use.name}", #functions[$use.name], len($use.args));
                 if ($error != null) {
                     #fail_at($error .. #tagged_hint($use), $use.file, $use.line);
@@ -4891,6 +5041,7 @@ final kind Html {
                     $expected = $parent_fewest == $parent_most ? $parent_fewest : "{$parent_fewest} to {$parent_most}";
                     #fail_at("Method {$kind.name}.{$name} must accept every argument count {$owner}.{$name} does ({$expected})", $method.file, $method.line);
                 }
+                #check_override_names($kind, $method, $owner, #kinds[$owner].methods[$name], "a caller may pass it by name");
                 #check_override_types($kind, $method, $owner, #kinds[$owner].methods[$name]);
             }
             if ($name == "to_string" && #bounds($method.arity)[0] != 0) {
@@ -5017,12 +5168,13 @@ final kind Html {
             $expected = $asked_fewest == $asked_most ? $asked_fewest : "{$asked_fewest} to {$asked_most}";
             #fail_at("Method {$definer}.{$name} must accept every argument count {$interface}.{$name} does ({$expected}){$claim}", $method.file, $method.line);
         }
+        #check_override_names(#kinds[$definer], $method, $interface, $signature, "a caller may pass it by name{$claim}");
         #check_override_types(#kinds[$definer], $method, $interface, $signature, "an implementation keeps the interface's types{$claim}");
     }
 
-    // Whether two interfaces name a method alike: the same argument counts and the same types
+    // Whether two interfaces name a method alike: the same argument counts, parameter names and types
     fn same_signature($mine, $theirs) {
-        if (#bounds($mine.arity) != #bounds($theirs.arity)) {
+        if (#bounds($mine.arity) != #bounds($theirs.arity) || $mine.params != $theirs.params) {
             return false;
         }
         if (!#same_or_none($mine.return_type ?? null, $theirs.return_type ?? null)) {
@@ -5036,6 +5188,24 @@ final kind Html {
         }
 
         return true;
+    }
+
+    /*
+     * An override, or a method answering for an interface's, names each parameter as the one it
+     * replaces does, since a call through a value ($shape.area(unit: 1)) binds its names against
+     * whichever kind's method runs. A parameter the parent can't be called with by name (a
+     * pattern's hidden one) leaves the child free there; a child's extra parameters are its own.
+     */
+    fn check_override_names($kind, $method, $owner, $parent, $why) {
+        $name = $method.name;
+        foreach ($parent.params as $i => $param) {
+            $mine = $method.params[$i] ?? null;
+            if ($mine == null || starts_with($param, "\$#") || $mine == $param) {
+                continue;
+            }
+            $position = $i + 1;
+            #fail_at("Method {$kind.name}.{$name} must name its parameter {$position} {$param}, as {$owner}.{$name} does: {$why}", $method.file, $method.line);
+        }
     }
 
     // Whether two types, either of which may be missing, say the same
@@ -5109,6 +5279,7 @@ final kind Html {
 
         $node.definer = $parent.members[$name];
         if ($node.args != null) {
+            #bind_arguments($node, #kinds[$node.definer].methods[$name], #method_label($node.definer, $name));
             $error = #arity_error("Method {$node.definer}.{$name}", #kinds[$node.definer].methods[$name].arity, len($node.args));
             if ($error != null) {
                 #fail_at($error, $node.file, $node.line);
@@ -5159,6 +5330,29 @@ final kind Html {
         return $kinds;
     }
 
+    // A resolved kind's constructor, its own or the one it inherits, or null if it has none
+    fn constructor_of($kind) {
+        return has_key($kind.members, "_") ? #kinds[$kind.members["_"]].methods["_"] : null;
+    }
+
+    /*
+     * Bind a call's named arguments to the function or static method it calls by name. A
+     * builtin has no parameter names, and an enum's generated methods no declaration, so
+     * neither takes any.
+     */
+    fn bind_to_function($call, $name) {
+        if (!#has_named($call.args)) {
+            return;
+        }
+        if (has_key(#builtins, $name)) {
+            #fail_at("{$name}() is a builtin, which takes no named arguments", $call.file, $call.line);
+        }
+        if (!has_key(#signatures, $name)) {
+            #fail_at("{$name}() takes no named arguments", $call.file, $call.line);
+        }
+        #bind_arguments($call, #signatures[$name], "{$name}()");
+    }
+
     // The number of arguments constructing a resolved kind takes: its constructor's, or none
     fn constructor_arity($kind) {
         return has_key($kind.members, "_") ? #kinds[$kind.members["_"]].methods["_"].arity : 0;
@@ -5166,14 +5360,16 @@ final kind Html {
 
     /*
      * Check a #name against its kind: the member must exist, a method can't be assigned to, a
-     * call must fit its arity, and a read-only field is written only by the constructor of the
+     * call ($call, null for a #name not called) has its named arguments bound and must fit its
+     * arity, and a read-only field is written only by the constructor of the
      * kind that declares it ($in_constructor: the constructor's own statements, not a lambda
      * made there, which may run after construction)
      *
      * Called methods are checked against the kind the method is written in: a child's
      * version accepts every argument count this one does.
      */
-    fn check_member_use($node, $kind, $argc, $assigned, $written, $in_static, $in_constructor) {
+    fn check_member_use($node, $kind, $call, $assigned, $written, $in_static, $in_constructor) {
+        $argc = $call == null ? null : len($call.args);
         $static = #kind_static($kind, $node.name);
         if ($static != null) {
             if ($argc != null && !$kind.static_is_method[$node.name]) {
@@ -5183,6 +5379,8 @@ final kind Html {
                 #fail_at("#{$node.name} is a static method: call it, or reach it by name", $node.file, $node.line);
             }
             if ($argc != null) {
+                #bind_to_function($call, $static);
+                $argc = len($call.args);
                 $error = #arity_error("Static method {$static}", #functions[$static], $argc);
                 if ($error != null) {
                     #fail_at($error, $node.file, $node.line);
@@ -5232,6 +5430,8 @@ final kind Html {
             #fail_at("Cannot assign to method #{$node.name}", $node.file, $node.line);
         }
         if ($argc != null) {
+            #bind_arguments($call, #kinds[$definer].methods[$node.name], #method_label($definer, $node.name));
+            $argc = len($call.args);
             $error = #arity_error("Method {$definer}.{$node.name}", #kinds[$definer].methods[$node.name].arity, $argc);
             if ($error != null) {
                 #fail_at($error, $node.file, $node.line);

@@ -52,11 +52,7 @@ RET
 fn total 1 2
 locals $n $label
 @ 38
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0
@@ -99,11 +95,7 @@ RET
 fn untyped 1 2
 locals $a $b
 @ 50
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH 1
 STORE 1
 LABEL PASSED_0
@@ -150,11 +142,7 @@ RET
 fn Account._ 2 3
 locals $id $owner $start
 @ 11
-ARGC
-PUSH 2
-GT
-NOT
-JZ PASSED_0
+PASSED 2 PASSED_0
 PUSH 0
 STORE 2
 LABEL PASSED_0
@@ -266,11 +254,7 @@ RET
 lambda 0 1 2
 locals $x $y
 @ 54
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH 2
 STORE 1
 LABEL PASSED_0

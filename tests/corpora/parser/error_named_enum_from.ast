@@ -1,0 +1,1 @@
+Error: E::from() takes no named arguments at tests/corpora/parser/error_named_enum_from.gaz:4

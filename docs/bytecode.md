@@ -354,10 +354,27 @@ depth limit is reached.
 | `CALL function count` | `… -- v` | Calls a function of the program by name, with that many arguments. |
 | `CALL_BUILTIN builtin count` | `… -- v` | Calls a builtin. Fails as the builtin does, on an argument of the wrong type. |
 | `CALL_VALUE count` | `f … -- v` | Calls whatever the value under the arguments is: a function, a closure, a bound method or a kind. Fails with "Cannot call int" on anything else, or with an arity message. |
-| `ARGC` | `-- n` | Pushes how many arguments the running call was passed, for default parameters. |
+| `ARGC` | `-- n` | Pushes how many arguments the running call was passed. The compiler writes it only for an enum's `from()`. |
+| `PASSED slot label` | `--` | Jumps to the label when the parameter in that slot was passed: it is one of the arguments given and the call didn't skip it. The compiler writes one per parameter with a default, at the start of the function, jumping over the code that sets the default. |
+| `UNSET_ARG depth` | `… -- … u …` | Puts a skipped argument in, unset, that many values below the top, so its default runs (see "Named arguments" below). |
+| `CALL_VALUE_NAMED count` | `f … names -- v` | `CALL_VALUE` with names: the top is a list of the names of the last arguments, which are bound to the callee's parameters of those names (see "Named arguments"). Fails as the parser does: "Function -> at a.gaz:3 has no parameter $x", "f() is given $x twice: by position and by name", "f() expects $x", and "trim() is a builtin, which takes no named arguments". |
 | `CHECK_PARAM slot type` | `--` | Fails with "total() expects $n to be int, got string" unless the local in that slot is of the type (see "Types"), widening an int to a float in the slot where the type asks for a float. The compiler writes one per typed parameter after the defaults have run, so a default is held to the type too. |
 | `CHECK_RETURN type` | `v -- v` | The same for the value on top, which a `RET` is about to return: "total() should return int, got string". The compiler writes one before every `RET` of a function with a return type, the implicit `null` at its end included. |
 | `RET` | `v --` | Returns the value, dropping the frame and any try handlers it still has. |
+
+#### Named arguments
+
+A call's named arguments are bound to the callee's parameters by name, the `locals` line's
+names of its first slots, which are its parameters (a pattern parameter's hidden name can't be
+given). A call whose callee the compiler knows (`CALL`, `NEW`, `CALL_PARENT`, and `CALL_METHOD`
+on a method the parser resolved) is bound by the compiler: the arguments are pushed in slot
+order, evaluated as written (into hidden variables when the names aren't in slot order), and a
+parameter skipped before the last one given is put in by `UNSET_ARG` just before the call, the
+highest slot first, each at its depth below the top. Its slot is then unset, which `PASSED`
+sees, so its default runs as if the call had stopped short of it. A call through a value is
+bound by the VM: `CALL_VALUE_NAMED` and `CALL_METHOD_NAMED` take the values in the order
+written, then the names as a list, and bind them as the compiler would, against a function's,
+closure's or bound method's parameters, or a kind's constructor's.
 | `PUSH_FN function` | `-- f` | Pushes a function or builtin as a value. |
 | `MAKE_CLOSURE lambda` | `-- f` | Makes a closure of that lambda, copying in the captured variables that exist, then setting its `self` if it has one. Its location is this instruction's. |
 
@@ -407,6 +424,7 @@ block and not in another.
 | `GET_PROPERTY_EXISTING member` | `o -- v` | The same as `GET_PROPERTY`, for a compound update. |
 | `GET_METHOD member` | `o -- o m` | Pushes the object again with the method to run on it, or the member's value with nothing when it isn't a method. |
 | `CALL_METHOD count member` | `o m … -- v` | Calls what `GET_METHOD` found, or the value as `CALL_VALUE` would. Fails with "Method C.m expects 2 arguments, 1 given". |
+| `CALL_METHOD_NAMED count member` | `o m … names -- v` | `CALL_METHOD` with names, bound as `CALL_VALUE_NAMED` binds them: against the method's parameters, or what the member holds when it isn't a method. |
 | `CALL_PARENT kind member count` | `… -- v` | Runs that kind's version of a method on the running object (`##name(...)`). There must be a block `kind.member`, which the loader checks. |
 | `BIND_PARENT kind member` | `-- f` | Pushes that kind's version of a method, bound to the running object (`##name`). |
 
@@ -468,6 +486,11 @@ A file that loads is one the VM can run, so the checks are part of the format:
   `statics` line; a name is one enum or one kind, never both or twice. `NEW` and
   `CALL_CONSTRUCTOR` never name an enum, and `STORE_STATIC`, `SET_PATH_STATIC` and
   `DELETE_PATH_STATIC` never name a case's slot: nothing makes a case or replaces one.
+- An `UNSET_ARG` is followed straight away by another, deeper one, or by a `CALL`, `NEW`,
+  `CALL_METHOD` or `CALL_PARENT` that takes every argument it put in. So nothing runs while an
+  unset value is on the stack, and no value but an argument of a call to GazLang code is ever
+  unset: a builtin reads every argument as a value, so `CALL_BUILTIN` and `CALL_VALUE` take
+  none, and a `CALL_METHOD` that finds a value rather than a method refuses one when it runs.
 - `HALT` is in the top level, whose end it is. In a call it would end that call's run instead,
   leaving whatever started the run without a value.
 

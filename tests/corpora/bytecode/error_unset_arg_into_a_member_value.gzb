@@ -1,0 +1,27 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $h
+NEW H 0
+STORE 0
+LOAD 0
+POP
+PUSH_FN trim
+SET_PATH .run 0
+POP
+LOAD 0
+GET_METHOD run
+PUSH " x "
+UNSET_ARG 0
+CALL_METHOD 2 run
+PRINT
+
+kind H
+field run H pub
+locals
+PUSH null
+SET_FIELD run
+POP
+LOAD_THIS
+RET

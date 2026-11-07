@@ -1,0 +1,229 @@
+Compound
+  statements:
+@ "tests/corpora/parser/named_arguments.gaz"
+    0: FunctionDeclaration 1
+      name: "label"
+      params: ["\$text", "\$style", "\$align"]
+      defaults:
+        0: null
+        1: String 1
+          token: 1 STRING ""
+          value: ""
+        2: String 1
+          token: 1 STRING "left"
+          value: "left"
+      body: Compound
+        statements:
+          0: ReturnStatement 2
+            expr: Variable 2
+              token: 2 VAR_IDENTIFIER $text
+              value: "\$text"
+      arity: [1, 3]
+      kind: null
+      abstract: false
+    1: KindDeclaration 4
+      name: "Box"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"w" => "pub", "h" => "pub", "_" => "pub", "area" => "pub", "scaled" => "pub"}
+      fields: {"w" => null, "h" => null}
+      field_lines: {"w" => 5, "h" => 5}
+      methods:
+        _: FunctionDeclaration 5
+          name: "_"
+          params: ["\$w", "\$h"]
+          defaults:
+            0: Num 5
+              token: 5 INTEGER 1
+              value: 1
+            1: Num 5
+              token: 5 INTEGER 2
+              value: 2
+          body: Compound
+            statements:
+              0: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
+                    name: "w"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $w
+                    value: "\$w"
+              1: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
+                    name: "h"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $h
+                    value: "\$h"
+          arity: [0, 2]
+          kind: "Box"
+          abstract: false
+        area: FunctionDeclaration 6
+          name: "area"
+          params: ["\$scale", "\$plus"]
+          defaults:
+            0: Num 6
+              token: 6 INTEGER 1
+              value: 1
+            1: Num 6
+              token: 6 INTEGER 0
+              value: 0
+          body: Compound
+            statements:
+              0: ReturnStatement 7
+                expr: MethodCall 7
+                  property: Property 7
+                    target: This 7
+                    name: "scaled"
+                    field: false
+                    constant: false
+                    value: null
+                    static_name: null
+                  args:
+                    0: SkippedArgument 7
+                      parameter: "\$factor"
+                    1: Num 7
+                      token: 7 INTEGER 1
+                      value: 1
+          arity: [0, 2]
+          kind: "Box"
+          abstract: false
+        scaled: FunctionDeclaration 9
+          name: "scaled"
+          params: ["\$factor", "\$plus"]
+          defaults:
+            0: Num 9
+              token: 9 INTEGER 1
+              value: 1
+            1: Num 9
+              token: 9 INTEGER 0
+              value: 0
+          body: Compound
+            statements:
+              0: ReturnStatement 10
+                expr: BinOp 10
+                  left: Variable 10
+                    token: 10 VAR_IDENTIFIER $factor
+                    value: "\$factor"
+                  token: 10 PLUS +
+                  op: 10 PLUS +
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $plus
+                    value: "\$plus"
+          arity: [0, 2]
+          kind: "Box"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"w" => "Box", "h" => "Box"}
+      members: {"_" => "Box", "area" => "Box", "scaled" => "Box"}
+      abstract_methods: []
+      slots: [["w", "Box", "pub"], ["h", "Box", "pub"]]
+      method_table: [["_", "Box", "pub", "Box"], ["area", "Box", "pub", "Box"], ["scaled", "Box", "pub", "Box"]]
+      owner_vis: {"w" => "pub", "h" => "pub", "_" => "pub", "area" => "pub", "scaled" => "pub"}
+      declared_at: {"_" => "Box", "area" => "Box", "scaled" => "Box"}
+      hidden: []
+      hidden_fields: []
+    2: Statement 13
+      expr: FunctionCall 13
+        name: "label"
+        args:
+          0: String 13
+            token: 13 STRING "a"
+            value: "a"
+          1: SkippedArgument 13
+            parameter: "\$style"
+          2: String 13
+            token: 13 STRING "right"
+            value: "right"
+    3: Statement 14
+      expr: FunctionCall 14
+        name: "label"
+        args:
+          0: String 15
+            token: 15 STRING "b"
+            value: "b"
+          1: SkippedArgument 14
+            parameter: "\$style"
+          2: String 14
+            token: 14 STRING "c"
+            value: "c"
+        order: [2, 0]
+    4: Statement 16
+      expr: FunctionCall 16
+        name: "Box"
+        args:
+          0: SkippedArgument 16
+            parameter: "\$w"
+          1: Num 16
+            token: 16 INTEGER 2
+            value: 2
+    5: Statement 17
+      expr: Assign 17
+        left: Variable 17
+          token: 17 VAR_IDENTIFIER $b
+          value: "\$b"
+        token: 17 ASSIGN =
+        right: FunctionCall 17
+          name: "Box"
+          args: []
+    6: Statement 18
+      expr: MethodCall 18
+        property: Property 18
+          target: Variable 18
+            token: 18 VAR_IDENTIFIER $b
+            value: "\$b"
+          name: "area"
+          field: false
+          constant: false
+          value: null
+          static_name: null
+        args:
+          0: NamedArgument 18
+            name: "plus"
+            value: Num 18
+              token: 18 INTEGER 3
+              value: 3
+    7: Statement 19
+      expr: Assign 19
+        left: Variable 19
+          token: 19 VAR_IDENTIFIER $f
+          value: "\$f"
+        token: 19 ASSIGN =
+        right: FunctionRef 19
+          name: "label"
+          constant: false
+          value: null
+          static_name: null
+    8: Statement 20
+      expr: CallValue 20
+        callee: Variable 20
+          token: 20 VAR_IDENTIFIER $f
+          value: "\$f"
+        args:
+          0: String 20
+            token: 20 STRING "x"
+            value: "x"
+          1: NamedArgument 20
+            name: "align"
+            value: String 20
+              token: 20 STRING "r"
+              value: "r"

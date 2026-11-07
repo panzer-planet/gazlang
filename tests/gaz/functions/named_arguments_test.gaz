@@ -1,0 +1,115 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * Named arguments: every call to GazLang code takes them, a call the program names bound when
+ * it is read and a call through a value when it runs, each to the same rules: positional
+ * first, each parameter once, a skipped parameter's default run as if the call had stopped
+ * short of it, and the arguments run in the order written. What is refused when the program is
+ * read is the parser corpus's (tests/corpora/parser/error_named_*), and what the loader
+ * refuses the bytecode corpus's.
+ */
+
+fn label($text, $style = "", $align = "left", $pad = 0) {
+    return "{$text}|{$style}|{$align}|{$pad}";
+}
+expect("a later default, skipping one", label("a", align: "right"), "a||right|0");
+expect("all named, in any order", label(align: "c", text: "b"), "b||c|0");
+expect("names not in the parameters' order", label("c", pad: 2, style: "bold"), "c|bold|left|2");
+expect("a name for the next parameter, as a position would be", label("d", style: "s"), "d|s|left|0");
+expect("a trailing comma", label(
+    "e",
+    pad: 1,
+), "e||left|1");
+
+// Arguments run as written, even when that isn't the parameters' order
+shared $ran = [];
+$note = $x -> {
+    $ran[] = $x;
+    return $x;
+};
+label(pad: $note(1), text: $note("t"), style: $note("s"));
+expect("arguments run in the order written", $ran, [1, "t", "s"]);
+
+// A skipped parameter's default runs on the call, seeing the parameters before it
+fn box($width, $height = $width, $depth = $height * 2, $calls = []) {
+    $calls[] = "made";
+    return [$width, $height, $depth, $calls];
+}
+expect("a default from an earlier parameter, the one between skipped", box(3, depth: 1), [3, 3, 1, ["made"]]);
+expect("a default from a skipped one", box(2, calls: []), [2, 2, 4, ["made"]]);
+expect("null given by name is given, not its default", label("f", style: null), "f|null|left|0");
+
+// A typed parameter's default is held to its type after it runs, skipped or not
+fn scaled(int $n, float $by = 2, string $unit = "x") {
+    return "{$n}{$unit}" .. ($n * $by);
+}
+expect("a typed default widened, skipped past", scaled(3, unit: "*"), "3*6.0");
+expect("a typed parameter by name", scaled(by: 1.5, n: 2), "2x3.0");
+
+kind Box {
+    pub static #made = 0;
+
+    fn _(pub #w = 1, pub #h = 2) {
+        Box::made++;
+    }
+
+    pub static fn square($side = 1, $label = "square") {
+        return [$label, Box(h: $side, w: $side).area()];
+    }
+
+    pub fn area($scale = 1, $plus = 0) {
+        return #w * #h * $scale + $plus;
+    }
+
+    pub fn plus_one() {
+        return #area(plus: 1);
+    }
+}
+$b = Box(h: 5);
+expect("a constructor by name", [$b.w, $b.h], [1, 5]);
+expect("a static method", Box::square(label: "sq"), ["sq", 1]);
+expect("a method through a value", $b.area(plus: 3), 8);
+expect("#method()", $b.plus_one(), 6);
+
+kind Tall extends Box {
+    pub fn area($scale = 1, $plus = 0) {
+        return ##area(plus: 100);
+    }
+}
+expect("##method()", Tall().area(), 102);
+
+// Through a value, bound when it runs
+$f = label;
+expect("a function as a value", $f("g", align: "r"), "g||r|0");
+$k = Box;
+expect("a kind as a value", $k(h: 9).h, 9);
+$l = ($a, $b = 2, $c = 3) -> "{$a}{$b}{$c}";
+expect("a closure", $l(1, c: 9), "129");
+$m = $b.area;
+expect("a bound method", $m(scale: 2), 10);
+kind Holder {
+    pub #run = null;
+}
+$holder = Holder();
+$holder.run = ($x, $y = "y") -> "{$x}{$y}";
+expect("a field holding a function, called as a member", $holder.run(y: "!", x: "?"), "?!");
+
+// What a call through a value can only find out when it runs
+throws("a name a closure hasn't got", () -> $l(1, d: 2), "Function -> at tests/gaz/functions/named_arguments_test.gaz:86 has no parameter \$d");
+throws("a name given by position too", () -> $f("h", text: "i"), "label() is given \$text twice: by position and by name");
+throws("a required parameter skipped", () -> $f(align: "r"), "label() expects \$text");
+throws("a builtin as a value", () -> (len)(text: "x"), "len() is a builtin, which takes no named arguments");
+throws("a method's name it hasn't got", () -> $b.area(scael: 2), "Box.area() has no parameter \$scael");
+throws("a kind as a value with no constructor", () -> (Holder)(run: 1), "Holder() has no parameter \$run");
+
+// What the parser refuses, for the shapes a test of the VM can't hold
+fn refused($source) {
+    $result = run([program_path(), "-e", $source]);
+    return trim($result["stderr"]);
+}
+expect("a name a function hasn't got, with a hint", refused("fn f(\$align = 1) \{} f(aling: 2);"), "Error: f() has no parameter \$aling (did you mean \$align?) on line 1");
+expect("a short name gets no guess", refused("fn f(\$a, \$b = 1) \{} f(1, c: 2);"), "Error: f() has no parameter \$c on line 1");
+expect("a positional argument after a named one", refused("fn f(\$a, \$b = 1) \{} f(b: 1, 2);"), "Error: A positional argument can't follow a named one on line 1");
+expect("a name twice", refused("fn f(\$a, \$b = 1) \{} f(1, b: 1, b: 2);"), "Error: \$b is given twice on line 1");
+expect("a builtin by name", refused("echo trim(text: \"x\");"), "Error: trim() is a builtin, which takes no named arguments on line 1");
+expect("an override renaming a parameter", refused("kind A \{ pub fn m(\$x = 1) \{} }\nkind B extends A \{ pub fn m(\$y = 1) \{} }"), "Error: Method B.m must name its parameter 1 \$x, as A.m does: a caller may pass it by name on line 2");

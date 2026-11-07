@@ -161,7 +161,7 @@ class FunctionTest extends GazLangTestCase
     public function test_code_gen_evaluates_defaults_only_for_missing_arguments()
     {
         $this->assertStringContainsString(
-            "fn f 1 2\nARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nLOAD 0\nSTORE 1\nLABEL PASSED_0\nLOAD 1\nRET",
+            "fn f 1 2\nPASSED 1 PASSED_0\nLOAD 0\nSTORE 1\nLABEL PASSED_0\nLOAD 1\nRET",
             $this->generateCode('echo f(2); fn f($a, $b = $a) { return $b; }')
         );
     }
@@ -170,8 +170,8 @@ class FunctionTest extends GazLangTestCase
     {
         $this->assertStringContainsString(
             "fn f 1 3\n"
-            ."ARGC\nPUSH 1\nGT\nNOT\nJZ PASSED_0\nPUSH 2\nSTORE 1\nLABEL PASSED_0\n"
-            ."ARGC\nPUSH 2\nGT\nNOT\nJZ PASSED_1\nLOAD 1\nSTORE 2\nLABEL PASSED_1",
+            ."PASSED 1 PASSED_0\nPUSH 2\nSTORE 1\nLABEL PASSED_0\n"
+            ."PASSED 2 PASSED_1\nLOAD 1\nSTORE 2\nLABEL PASSED_1",
             $this->generateCode('f(1); fn f($a, $b = 2, $c = $b) { }')
         );
     }

@@ -1,0 +1,10 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+PUSH 1
+PUSH 2
+UNSET_ARG 1
+CALL_VALUE 2
+PRINT

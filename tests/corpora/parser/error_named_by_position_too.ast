@@ -1,0 +1,1 @@
+Error: f() is given $a twice: by position and by name at tests/corpora/parser/error_named_by_position_too.gaz:3

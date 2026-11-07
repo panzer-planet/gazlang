@@ -137,21 +137,13 @@ POP
 fn add 1 3
 locals $a $b $c
 @ "functions.gaz" 2
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 LOAD 0
 PUSH 2
 MUL
 STORE 1
 LABEL PASSED_0
-ARGC
-PUSH 2
-GT
-NOT
-JZ PASSED_1
+PASSED 2 PASSED_1
 NEW_ARRAY
 STORE 2
 LABEL PASSED_1
@@ -307,11 +299,7 @@ RET
 fn Error._ 1 2
 locals $message $cause
 @ "<builtin>" 7
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0
@@ -389,11 +377,7 @@ RET
 lambda 4 1 2
 locals $a $b $t
 @ "functions.gaz" 22
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH 1
 STORE 1
 LABEL PASSED_0

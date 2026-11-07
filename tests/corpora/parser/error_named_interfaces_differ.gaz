@@ -1,0 +1,9 @@
+interface I {
+    fn m($a);
+}
+interface J {
+    fn m($b);
+}
+kind K implements I, J {
+    pub fn m($a) {}
+}

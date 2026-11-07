@@ -1,0 +1,33 @@
+ok a later default, skipping one
+ok all named, in any order
+ok names not in the parameters' order
+ok a name for the next parameter, as a position would be
+ok a trailing comma
+ok arguments run in the order written
+ok a default from an earlier parameter, the one between skipped
+ok a default from a skipped one
+ok null given by name is given, not its default
+ok a typed default widened, skipped past
+ok a typed parameter by name
+ok a constructor by name
+ok a static method
+ok a method through a value
+ok #method()
+ok ##method()
+ok a function as a value
+ok a kind as a value
+ok a closure
+ok a bound method
+ok a field holding a function, called as a member
+ok a name a closure hasn't got
+ok a name given by position too
+ok a required parameter skipped
+ok a builtin as a value
+ok a method's name it hasn't got
+ok a kind as a value with no constructor
+ok a name a function hasn't got, with a hint
+ok a short name gets no guess
+ok a positional argument after a named one
+ok a name twice
+ok a builtin by name
+ok an override renaming a parameter

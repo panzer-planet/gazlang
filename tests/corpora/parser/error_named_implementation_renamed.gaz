@@ -1,0 +1,8 @@
+interface Shape {
+    fn area($unit);
+}
+kind Square implements Shape {
+    pub fn area($u) {
+        return 1;
+    }
+}

@@ -1,0 +1,6 @@
+kind A {
+    pub fn m($x = 1) {}
+}
+kind B extends A {
+    pub fn m($y = 1) {}
+}

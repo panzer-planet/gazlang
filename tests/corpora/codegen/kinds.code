@@ -148,11 +148,7 @@ RET
 fn Error._ 1 2
 locals $message $cause
 @ "<builtin>" 7
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0
@@ -283,11 +279,7 @@ RET
 fn Square._ 1 2
 locals $side $label
 @ "kinds.gaz" 15
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH "square"
 STORE 1
 LABEL PASSED_0
@@ -359,11 +351,7 @@ RET
 fn Square.scaled 1 2
 locals $by $plus
 @ "kinds.gaz" 22
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH 0
 STORE 1
 LABEL PASSED_0

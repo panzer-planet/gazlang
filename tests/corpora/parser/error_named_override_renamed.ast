@@ -1,0 +1,1 @@
+Error: Method B.m must name its parameter 1 $x, as A.m does: a caller may pass it by name at tests/corpora/parser/error_named_override_renamed.gaz:5

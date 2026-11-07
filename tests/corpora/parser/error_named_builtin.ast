@@ -1,0 +1,1 @@
+Error: trim() is a builtin, which takes no named arguments at tests/corpora/parser/error_named_builtin.gaz:1

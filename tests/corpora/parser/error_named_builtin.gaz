@@ -1,0 +1,2 @@
+echo trim(
+  text: "x");

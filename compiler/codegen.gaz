@@ -932,10 +932,8 @@ kind CodeGenerator {
     fn visit_method_call($node) {
         // #name() where name is static: a static method is a function, so it is a plain call
         if ($node.property.static_name != null) {
-            foreach ($node.args as $arg) {
-                #visit($arg);
-            }
-            #emit("CALL", [$node.property.static_name, len($node.args)]);
+            $count = #push_arguments($node);
+            #emit("CALL", [$node.property.static_name, $count]);
             return;
         }
         #visit($node.property.target);
@@ -943,10 +941,13 @@ kind CodeGenerator {
             #nullsafe_guard();
         }
         #emit("GET_METHOD", [$node.property.name]);
-        foreach ($node.args as $arg) {
-            #visit($arg);
+        $names = #push_named_arguments($node.args);
+        if ($names != null) {
+            #emit("CALL_METHOD_NAMED", [len($node.args), $node.property.name]);
+            return;
         }
-        #emit("CALL_METHOD", [len($node.args), $node.property.name]);
+        $count = #push_arguments($node);
+        #emit("CALL_METHOD", [$count, $node.property.name]);
     }
 
     fn visit_parent_method($node) {
@@ -954,22 +955,79 @@ kind CodeGenerator {
             #emit("BIND_PARENT", [$node.definer, $node.name]);
             return;
         }
-        foreach ($node.args as $arg) {
-            #visit($arg);
-        }
-        #emit("CALL_PARENT", [$node.definer, $node.name, len($node.args)]);
+        $count = #push_arguments($node);
+        #emit("CALL_PARENT", [$node.definer, $node.name, $count]);
     }
 
     fn visit_function_call($node) {
-        foreach ($node.args as $arg) {
-            #visit($arg);
-        }
+        $count = #push_arguments($node);
         $opcode = match {
             has_key(#builtins, $node.name) => "CALL_BUILTIN",
             has_key(#kinds, $node.name) => "NEW",
             default => "CALL",
         };
-        #emit($opcode, [$node.name, len($node.args)]);
+        #emit($opcode, [$node.name, $count]);
+    }
+
+    /*
+     * Push a call's arguments, which the parser has put in slot order, and give how many slots
+     * they fill. A skipped slot pushes nothing: UNSET_ARGs put it in just before the call, the
+     * highest first, each at its depth below the top, so no unset value is on the stack while
+     * an argument runs. Named arguments written out of slot order (#order) are evaluated as
+     * written, after the positional ones, into hidden variables, and loaded in slot order.
+     */
+    fn push_arguments($node) {
+        $args = $node.args;
+        $held = {};
+        foreach ($node.order ?? [] as $slot) {
+            $held[$slot] = true;
+        }
+        foreach ($args as $slot => $arg) {
+            if (!is_a($arg, SkippedArgumentAST) && !has_key($held, $slot)) {
+                #visit($arg);
+            }
+        }
+        if (len($held) > 0) {
+            $n = #hidden_counter++;
+            foreach ($node.order as $slot) {
+                $held[$slot] = #hidden("\$#argument_{$slot}_{$n}");
+                #visit(StatementAST(#assign($held[$slot], $args[$slot])));
+            }
+            foreach (sort($node.order) as $slot) {
+                #visit($held[$slot]);
+            }
+        }
+        $count = len($args);
+        for ($slot = $count - 1; $slot >= 0; $slot--) {
+            if (is_a($args[$slot], SkippedArgumentAST)) {
+                #emit("UNSET_ARG", [$count - 1 - $slot]);
+            }
+        }
+
+        return $count;
+    }
+
+    /*
+     * For a call through a value, which the VM binds: if any argument is named, push the
+     * values in the order written, then the names of the named ones as one list, and give the
+     * names; null, pushing nothing, when none is named
+     */
+    fn push_named_arguments($args) {
+        $names = [];
+        foreach ($args as $arg) {
+            if (is_a($arg, NamedArgumentAST)) {
+                $names[] = $arg.name;
+            }
+        }
+        if (len($names) == 0) {
+            return null;
+        }
+        foreach ($args as $arg) {
+            #visit(is_a($arg, NamedArgumentAST) ? $arg.value : $arg);
+        }
+        #emit("PUSH", [$names]);
+
+        return $names;
     }
 
     // A static field's default, written once before anything else runs
@@ -1007,6 +1065,10 @@ kind CodeGenerator {
 
     fn visit_call_value($node) {
         #visit($node.callee);
+        if (#push_named_arguments($node.args) != null) {
+            #emit("CALL_VALUE_NAMED", [len($node.args)]);
+            return;
+        }
         foreach ($node.args as $arg) {
             #visit($arg);
         }
@@ -1079,11 +1141,8 @@ kind CodeGenerator {
             }
             $skip_label = "PASSED_" .. #label_counter++;
 
-            #emit("ARGC");
-            #emit("PUSH", [$i]);
-            #emit("GT");
-            #emit("NOT");
-            #emit("JZ", [$skip_label]);
+            // Not passed: beyond the arguments given, or a slot a call skipped by naming a later one
+            #emit("PASSED", [$i, $skip_label]);
             #visit($default);
             #emit("STORE", [$i]);
             #emit("LABEL", [$skip_label]);

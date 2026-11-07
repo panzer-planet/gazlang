@@ -1,0 +1,1 @@
+Error: K() has no parameter $x at tests/corpora/parser/error_named_kind_without_constructor.gaz:3

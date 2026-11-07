@@ -755,6 +755,7 @@ snippet:fea346c212bc
 snippet:fef41ba077a6
 snippet:fff09b153f8a
 snippet:fff0fce3fd64
+tests/corpora/bytecode/call_value_named.gzb
 tests/corpora/bytecode/concat_path_without_steps.gzb
 tests/corpora/bytecode/enums.gzb
 tests/corpora/bytecode/error_abstract_readonly_kind_header.gzb
@@ -766,6 +767,8 @@ tests/corpora/bytecode/error_call_a_builtin.gzb
 tests/corpora/bytecode/error_call_constructor_of_a_kind_without_one.gzb
 tests/corpora/bytecode/error_call_method_of_a_number.gzb
 tests/corpora/bytecode/error_call_parent_without_a_block.gzb
+tests/corpora/bytecode/error_call_value_named_naming_more_than_it_passes.gzb
+tests/corpora/bytecode/error_call_value_named_with_names_not_strings.gzb
 tests/corpora/bytecode/error_capture_slot.gzb
 tests/corpora/bytecode/error_capture_where.gzb
 tests/corpora/bytecode/error_case_in_a_kind.gzb
@@ -774,6 +777,7 @@ tests/corpora/bytecode/error_catch_value_of_a_number.gzb
 tests/corpora/bytecode/error_catch_without_an_error_kind.gzb
 tests/corpora/bytecode/error_check_in_a_lambda.gzb
 tests/corpora/bytecode/error_check_in_a_method.gzb
+tests/corpora/bytecode/error_check_param_of_a_skipped_one.gzb
 tests/corpora/bytecode/error_circular_inheritance.gzb
 tests/corpora/bytecode/error_concat_path_ending_in_append.gzb
 tests/corpora/bytecode/error_count_deeper_than_the_stack.gzb
@@ -917,6 +921,13 @@ tests/corpora/bytecode/error_undefined_label.gzb
 tests/corpora/bytecode/error_undefined_lambda.gzb
 tests/corpora/bytecode/error_unknown_block.gzb
 tests/corpora/bytecode/error_unknown_instruction.gzb
+tests/corpora/bytecode/error_unset_arg_below_the_call.gzb
+tests/corpora/bytecode/error_unset_arg_below_the_stack.gzb
+tests/corpora/bytecode/error_unset_arg_into_a_builtin.gzb
+tests/corpora/bytecode/error_unset_arg_into_a_member_value.gzb
+tests/corpora/bytecode/error_unset_arg_into_a_value.gzb
+tests/corpora/bytecode/error_unset_arg_not_deeper.gzb
+tests/corpora/bytecode/error_unset_arg_without_a_call.gzb
 tests/corpora/bytecode/error_value_arrow.gzb
 tests/corpora/bytecode/error_value_comment_unterminated.gzb
 tests/corpora/bytecode/error_value_decrement.gzb
@@ -964,6 +975,7 @@ tests/corpora/bytecode/superinstruction_lookalikes.gzb
 tests/corpora/bytecode/top_level_ret.gzb
 tests/corpora/bytecode/types.gzb
 tests/corpora/bytecode/unreachable_code_is_not_checked.gzb
+tests/corpora/bytecode/unset_arg.gzb
 tests/corpora/bytecode/values.gzb
 tests/corpora/codegen/assignments.gaz
 tests/corpora/codegen/braced_constant.gaz
@@ -980,6 +992,7 @@ tests/corpora/codegen/list_pattern_empty_slots.gaz
 tests/corpora/codegen/locations.gaz
 tests/corpora/codegen/map_spread.gaz
 tests/corpora/codegen/modules.gaz
+tests/corpora/codegen/named_arguments.gaz
 tests/corpora/codegen/namespaces.gaz
 tests/corpora/codegen/nullsafe.gaz
 tests/corpora/codegen/pattern_parameters.gaz
@@ -1067,6 +1080,7 @@ tests/corpora/parser/modules/projects/requires/peer.gaz
 tests/corpora/parser/modules/same_file_spelt_two_ways.gaz
 tests/corpora/parser/modules/symlink_is_the_file_it_points_to.gaz
 tests/corpora/parser/modules/template_imports.gaz
+tests/corpora/parser/named_arguments.gaz
 tests/corpora/parser/namespaces/enums_qualified.gaz
 tests/corpora/parser/namespaces/imported_twice.gaz
 tests/corpora/parser/namespaces/interfaces_qualified.gaz
@@ -1206,6 +1220,7 @@ tests/gaz/files/mode_test.gaz
 tests/gaz/files/mtime_test.gaz
 tests/gaz/files/sync_test.gaz
 tests/gaz/functions/default_parameters_test.gaz
+tests/gaz/functions/named_arguments_test.gaz
 tests/gaz/functions/shared_test.gaz
 tests/gaz/functions/trailing_comma_test.gaz
 tests/gaz/lib/chars_test.gaz

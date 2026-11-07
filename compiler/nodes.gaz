@@ -190,11 +190,27 @@ kind CallValueAST extends AST {
 kind MethodCallAST extends AST {
     pub #property;
     pub #args;
+    // Set only when a call's named arguments aren't in the order of its parameters: the slots in
+    // the order the arguments are written, which is the order they are evaluated in
+    pub #order;
 
     fn _($property, $args) {
         #property = $property;
         #args = $args;
     }
+}
+
+// name: value in a call's arguments, the parameter's name without its $. A call whose callee
+// the parser knows has these put in their parameters' slots once the program is read; a call
+// through a value keeps them, and the VM binds the names.
+kind NamedArgumentAST extends AST {
+    fn _(pub #name, pub #value);
+}
+
+// A parameter a call skipped by naming a later one, left for its default: the slot is passed
+// unset. $parameter is its name, with the $.
+kind SkippedArgumentAST extends AST {
+    fn _(pub #parameter);
 }
 
 // A call by name: add(1, 2)
@@ -203,6 +219,9 @@ kind FunctionCallAST extends AST {
     pub #args;
     // true for a tagged string (name"..."), and left unset otherwise, so only one dumps it
     pub #tagged;
+    // Set only when a call's named arguments aren't in the order of its parameters: the slots in
+    // the order the arguments are written, which is the order they are evaluated in
+    pub #order;
 
     fn _($name, $args) {
         #name = $name;
@@ -491,6 +510,9 @@ kind ParentMethodAST extends AST {
     pub #args;
     // The kind whose version runs, which the parser knows once the kinds are resolved
     pub #definer = "";
+    // Set only when a call's named arguments aren't in the order of its parameters: the slots in
+    // the order the arguments are written, which is the order they are evaluated in
+    pub #order;
 
     fn _($name, $args) {
         #name = $name;

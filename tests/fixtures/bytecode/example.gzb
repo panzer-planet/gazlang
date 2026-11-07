@@ -82,11 +82,7 @@ RET
 fn Error._ 1 2
 locals $message $cause
 @ "<builtin>" 7
-ARGC
-PUSH 1
-GT
-NOT
-JZ PASSED_0
+PASSED 1 PASSED_0
 PUSH null
 STORE 1
 LABEL PASSED_0
@@ -139,11 +135,7 @@ RET
 fn Counter.step 0 1
 locals $by $#update_value_0
 @ "example.gaz" 4
-ARGC
-PUSH 0
-GT
-NOT
-JZ PASSED_0
+PASSED 0 PASSED_0
 PUSH 1
 STORE 0
 LABEL PASSED_0

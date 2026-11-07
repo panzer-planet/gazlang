@@ -439,7 +439,7 @@ enum {
     OP_NEW, OP_CALL_CONSTRUCTOR, OP_CALL_PARENT, OP_BIND_PARENT, OP_LOAD_THIS, OP_LOAD_FIELD,
     OP_SET_FIELD, OP_GET_PROPERTY, OP_GET_PROPERTY_QUIET, OP_GET_PROPERTY_EXISTING,
     OP_GET_METHOD, OP_CALL_METHOD, OP_TRY, OP_END_TRY, OP_CATCH_MATCH, OP_CATCH_VALUE,
-    OP_RETHROW, OP_THROW, OP_HALT,
+    OP_RETHROW, OP_THROW, OP_HALT, OP_UNSET_ARG, OP_PASSED, OP_CALL_METHOD_NAMED, OP_CALL_VALUE_NAMED,
     OP_COUNT,
     /* Superinstructions, which the loader puts in place of the first instruction of a sequence
        (see fuse() in load.c); past OP_COUNT, so no file can name one */

@@ -1,0 +1,117 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $#argument_3_0 $#argument_0_0 $f
+@ 4
+PUSH "a"
+PUSH "right"
+UNSET_ARG 1
+CALL label 3
+POP
+@ 5
+PUSH 1
+STORE 0
+LOAD 0
+POP
+PUSH "b"
+STORE 1
+LOAD 1
+POP
+LOAD 1
+LOAD 0
+UNSET_ARG 1
+UNSET_ARG 2
+CALL label 4
+POP
+@ 6
+PUSH_FN label
+STORE 2
+LOAD 2
+POP
+@ 7
+LOAD 2
+PUSH "x"
+PUSH 2
+PUSH ["pad"]
+CALL_VALUE_NAMED 2
+POP
+@ 16
+NEW Box 0
+GET_METHOD area
+PUSH 2
+PUSH ["plus"]
+CALL_METHOD_NAMED 1 area
+POP
+
+fn label 1 4
+locals $text $style $align $pad
+@ 1
+PASSED 1 PASSED_0
+PUSH ""
+STORE 1
+LABEL PASSED_0
+PASSED 2 PASSED_1
+PUSH "left"
+STORE 2
+LABEL PASSED_1
+PASSED 3 PASSED_2
+PUSH 0
+STORE 3
+LABEL PASSED_2
+@ 2
+LOAD 0
+RET
+@ 1
+PUSH null
+RET
+
+kind Box
+method area Box pub
+method scaled Box pub
+locals
+@ 8
+LOAD_THIS
+RET
+
+fn Box.area 0 2
+locals $scale $plus
+@ 9
+PASSED 0 PASSED_0
+PUSH 1
+STORE 0
+LABEL PASSED_0
+PASSED 1 PASSED_1
+PUSH 0
+STORE 1
+LABEL PASSED_1
+@ 10
+LOAD_THIS
+GET_METHOD scaled
+PUSH 1
+UNSET_ARG 1
+CALL_METHOD 2 scaled
+RET
+@ 9
+PUSH null
+RET
+
+fn Box.scaled 0 2
+locals $factor $plus
+@ 12
+PASSED 0 PASSED_0
+PUSH 1
+STORE 0
+LABEL PASSED_0
+PASSED 1 PASSED_1
+PUSH 0
+STORE 1
+LABEL PASSED_1
+@ 13
+LOAD 0
+LOAD 1
+ADD
+RET
+@ 12
+PUSH null
+RET
