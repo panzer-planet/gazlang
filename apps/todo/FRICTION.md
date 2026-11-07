@@ -268,7 +268,7 @@ have caught running out of call depth.
 - **An attribute can't be left out by a value**: `{{ }}` writes a value, so the selected filter link
   is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
   is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute
-  would read better, and templates are frozen until the app has used them more ([#59](https://github.com/panzer-planet/gazlang/issues/59)).
+  would read better ([#59](https://github.com/panzer-planet/gazlang/issues/59)).
 - **Static files** (resolved: `http::serve_static()` sends a weak `ETag`, `Last-Modified` and
   `Cache-Control: no-cache`, and answers a matching conditional GET with a 304) had no
   `Cache-Control`/`ETag`, so every page load refetched the stylesheet

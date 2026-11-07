@@ -1214,13 +1214,10 @@ and methods a table in C.
   source translated from a template (`Lexer($text, true)`).
 - `ponytail:` an expression ends at the first `}}` or `!!}`, so it can't hold one, and none spans
   lines; escaping is for HTML text and quoted attributes, not JavaScript or URLs inside a page.
-- **Templates are frozen for now**: no new template features until a real web app has used them. They are
-  the right shape for whole pages, with loops, conditions and layouts that `web::html` would make
-  nested `map` calls, and their errors are at the template's own line, so they stay; but they don't
-  read the markup around a value, so **a URL in one isn't checked** (`web::html` does). If the app
-  keeps them, the compile-time version of the same scan (the text is known when the program is read,
-  so each `{{ }}` can pick its escaper at no run-time cost, and a mistake can be an error then) is
-  the next piece, sharing the scanner with `web.gaz`; if it never reaches for them, delete them.
+- **A URL in a template isn't checked**: templates don't read the markup around a value, as
+  `web::html` does. The compile-time version of the same scan is the next piece: the text is known
+  when the program is read, so each `{{ }}` can pick its escaper at no run-time cost and a mistake
+  can be an error then, sharing the scanner with `web.gaz`.
 
 ## match
 
