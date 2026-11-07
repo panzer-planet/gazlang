@@ -47,10 +47,11 @@ class Utf8CaseTest extends GazLangTestCase
         ];
         /*
          * ICU has the full mappings too, though not the full folding. It checks mbstring only where it
-         * knows as much Unicode as the tables: a system ICU (Ubuntu's) can be versions behind, and
-         * then lacks mappings newer characters have
+         * knows the same Unicode as the tables, not merely as much: a system ICU (Ubuntu's) can be
+         * versions behind, and then lacks mappings newer characters have, and one ahead (Homebrew's)
+         * maps old characters a newer Unicode gave a case pair (Unicode 18's capital for ɷ, U+0277)
          */
-        if (self::icuIsCurrent()) {
+        if (self::icuMatchesTables()) {
             $upper = \Transliterator::create('Any-Upper');
             $lower = \Transliterator::create('Any-Lower');
             self::assertSame($oracle[0], array_map(fn ($line) => $upper->transliterate($line), $lines), 'mbstring and ICU disagree');
@@ -61,13 +62,14 @@ class Utf8CaseTest extends GazLangTestCase
     }
 
     /**
-     * Whether ICU's Unicode is at least the version vm/unicode_tables.h was written from
+     * Whether ICU's Unicode is the version vm/unicode_tables.h was written from
      */
-    private static function icuIsCurrent(): bool
+    private static function icuMatchesTables(): bool
     {
         preg_match('/UNICODE_VERSION "([\d.]+)"/', file_get_contents(__DIR__.'/../vm/unicode_tables.h'), $m);
+        $icu = array_slice(\IntlChar::getUnicodeVersion(), 0, 3);
 
-        return version_compare(implode('.', \IntlChar::getUnicodeVersion()), $m[1], '>=');
+        return implode('.', $icu) === $m[1];
     }
 
     /**
