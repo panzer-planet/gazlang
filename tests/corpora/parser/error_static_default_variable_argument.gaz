@@ -1,0 +1,9 @@
+readonly kind Mark {
+    fn _(pub #name);
+}
+
+kind Tally {
+    static #mark = Mark(
+        $name
+    );
+}

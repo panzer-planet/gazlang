@@ -85,6 +85,12 @@ bool raisef(const char *fmt, ...) {
     return raise_str(s);
 }
 
+/* A static field read or written through before its default has run: only a default that calls
+   code reaching a static declared after it, since defaults run in the order declared */
+static void static_too_soon(int slot) {
+    raisef("%s is used before its default has run: static defaults run in the order declared", program->statics[slot]->data);
+}
+
 /* The Error object a value is, or NULL: only an Error carries a location and a cause */
 static Object *as_error(Value v) {
     /* The type first: a file the loader refused is reported with no program */
@@ -771,10 +777,15 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
         case OP_STORE_CAPTURED:
             set_slot(&fp->closure->captured[in->a], POP());
             break;
-        /* A static field always has a value: the compiler puts its default, a constant, at the
-           top of the program, so nothing can read one before it is set */
+        /* A static field has a value once its default has run: the compiler puts every default at
+           the top of the program, so only a default calling code that reaches a later one sees
+           a slot still unset */
         case OP_LOAD_STATIC:
             a = statics[in->a];
+            if (a.type == T_UNSET) {
+                static_too_soon(in->a);
+                goto error;
+            }
             incref(a);
             PUSH(a);
             break;
@@ -1192,6 +1203,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             } else if (op == OP_SET_PATH_STATIC) {
                 /* With no steps the path appends to the static field itself (..=), which
                    leaves a string: a typed one must allow that; with steps it writes inside */
+                if (statics[in->a].type == T_UNSET) {
+                    static_too_soon(in->a);
+                    goto error;
+                }
                 TypeSpec *t = program->static_types ? program->static_types[in->a] : NULL;
                 if (t && path->nsteps == 0 && !type_has(t, T_STRING)) {
                     raisef("%s must be %s, got string", program->statics[in->a]->data, t->text->data);
@@ -1228,6 +1243,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             } else if (op == OP_DELETE_PATH_CAPTURED) {
                 ok = remove_path(&fp->closure->captured[in->a], fp->closure->lambda->block->captures[in->a], path, keys, fp->block->owner);
             } else if (op == OP_DELETE_PATH_STATIC) {
+                if (statics[in->a].type == T_UNSET) {
+                    static_too_soon(in->a);
+                    goto error;
+                }
                 ok = remove_path(&statics[in->a], program->statics[in->a], path, keys, fp->block->owner);
             } else {
                 Value self = fp->receiver ? v_object(fp->receiver) : v_null();

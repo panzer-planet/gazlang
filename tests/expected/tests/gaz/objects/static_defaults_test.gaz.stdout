@@ -1,0 +1,9 @@
+ok a constructed default
+ok a static method's result
+ok a static method of the kind, by #name, reading a constant default
+ok constructions in a list
+ok and in a map
+ok a typed one
+ok a static whose default was a constant is a slot like any other
+ok a default noting itself
+ok ran once each, in the order declared, an imported file's first

@@ -1,0 +1,1 @@
+Error: Never::set is used before its default has run: static defaults run in the order declared at tests/corpora/bytecode/unset_static.gaz:1

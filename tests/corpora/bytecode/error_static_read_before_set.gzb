@@ -1,0 +1,13 @@
+GAZLANG BYTECODE 3
+globals
+statics Never::set
+
+top
+locals $x
+@ "unset_static.gaz" 1
+PUSH 1
+STORE 0
+LOAD 0
+LOAD_STATIC 0
+EQUALS
+PRINT

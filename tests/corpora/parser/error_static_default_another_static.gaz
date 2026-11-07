@@ -1,0 +1,4 @@
+kind Tally {
+    static #n = 1;
+    static #m = #n + 1;
+}

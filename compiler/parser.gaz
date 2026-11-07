@@ -34,6 +34,10 @@ kind ParseError extends Error {
  */
 const STD_DIRECTORY = "<std>";
 
+// What a constant's value, and a static field's default, may hold
+const CONSTANT_VALUE = "A constant's value can only use literals, operators and other constants";
+const STATIC_DEFAULT = "A static field's default can only use literals, operators, constants, constructing a readonly kind and calling a static method";
+
 /*
  * A file the program is made of, while it is parsed and afterwards, when the names written in
  * it are resolved against what it sees: its own declarations and those of the modules it
@@ -3743,12 +3747,30 @@ final kind Html {
         return has_key($kind.constant_owners, $name) ? "{$kind.constant_owners[$name]}::{$name}" : null;
     }
 
-    // Check all of a constant's expression is something fold() can work out, the parts it won't get to included
-    //
-    // fold() leaves out the side of && || ?? and ?: that isn't needed, as a program does, so on
-    // its own it would accept `true ? 1 : $x` and refuse it the day the condition changed.
-    // What a constant may be made of is a rule about the source, so it is checked on the source.
+    /*
+     * Check all of a constant's expression is something fold() can work out, the parts it won't
+     * get to included.
+     *
+     * fold() leaves out the side of && || ?? and ?: that isn't needed, as a program does, so on
+     * its own it would accept `true ? 1 : $x` and refuse it the day the condition changed.
+     * What a constant may be made of is a rule about the source, so it is checked on the source.
+     */
     fn check_constant_expression($node, $kind) {
+        #check_value_source($node, $kind, false);
+    }
+
+    /*
+     * Refuse what a static default may not hold: beyond what a constant may, only constructing a
+     * read-only kind and calling a static method. What a default constructs itself is read-only,
+     * since every reader shares the slot's object; what a static method returns is the method's.
+     */
+    fn check_static_default($node, $kind) {
+        #check_value_source($node, $kind, true);
+    }
+
+    // A constant's value, or with $calls a static default's, checked on the source
+    fn check_value_source($node, $kind, $calls) {
+        $refusal = $calls ? STATIC_DEFAULT : CONSTANT_VALUE;
         if (is_a($node, FunctionRefAST)) {
             if (#constant_key(#as_asked($node.name, $kind)) == null) {
                 #fail_at(match {
@@ -3766,41 +3788,138 @@ final kind Html {
             if (is_a($node.target, FunctionRefAST)) {
                 #check_dot_on_name($node);
             }
-            $owner = is_a($node.target, ThisAST) ? $kind : null;
-            if ($owner != null && #kind_constant($owner, $node.name) != null) {
+            if (is_a($node.target, ThisAST) && #kind_constant($kind, $node.name) != null) {
                 return;
             }
-            // A parent's private constant is the parent's own, which is worth saying outright
-            if ($owner != null) {
-                $hidden = #not_pub($owner, $node.name);
-                if ($hidden != null) {
-                    #fail_at($hidden, $node.file, $node.line);
-                }
-            }
-            #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line);
+            #fail_hidden($node, $kind);
+            #fail_at($refusal, $node.file, $node.line);
         }
-        // Constants fold before the empty slots left in #gaps are refused, so one here is refused
-        // now, in the same words, rather than reaching fold() as a null entry
-        if (in_array($node, #gaps)) {
+        if ($calls && is_a($node, SkippedArgumentAST)) {
+            return;
+        }
+        if ($calls && is_a($node, FunctionCallAST)) {
+            #check_default_call($node);
+        } else if ($calls && is_a($node, MethodCallAST)) {
+            #check_default_method_call($node, $kind);
+        } else if (in_array($node, #gaps)) {
+            // Constants fold before the empty slots left in #gaps are refused, so one here is
+            // refused now, in the same words, rather than reaching fold() as a null entry
             #fail_gap($node);
+        } else if (!#folds($node) && !($calls && is_a($node, NamedArgumentAST))) {
+            #fail_at($refusal, $node.file, $node.line);
         }
-        $parts = match {
-            is_a($node, NumAST) || is_a($node, StringAST) || is_a($node, BooleanAST) || is_a($node, NullAST) => [],
+        foreach (#expression_parts($node) as $part) {
+            if ($part != null) {
+                #check_value_source($part, $kind, $calls);
+            }
+        }
+    }
+
+    // A parent's private member named by #name is the parent's own, which is worth saying outright
+    fn fail_hidden($node, $kind) {
+        if (!is_a($node.target, ThisAST)) {
+            return;
+        }
+        $hidden = #not_pub($kind, $node.name);
+        if ($hidden != null) {
+            #fail_at($hidden, $node.file, $node.line);
+        }
+    }
+
+    // Whether a node is one fold() works out, other than a name
+    fn folds($node) {
+        foreach ([NumAST, StringAST, BooleanAST, NullAST, UnaryOpAST, BinOpAST, TernaryAST, ArrayLiteralAST, SpreadAST] as $shape) {
+            if (is_a($node, $shape)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The parts of a constant's or static default's expression that are expressions themselves
+    fn expression_parts($node) {
+        return match {
             is_a($node, UnaryOpAST) => [$node.expr],
             is_a($node, BinOpAST) => [$node.left, $node.right],
             is_a($node, TernaryAST) => [$node.condition, $node.then, $node.else],
-            is_a($node, ArrayLiteralAST) => $node.entries,
+            is_a($node, ArrayLiteralAST) => #entry_parts($node.entries),
             is_a($node, SpreadAST) => [$node.expr],
-            default => #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line),
+            is_a($node, NamedArgumentAST) => [$node.value],
+            is_a($node, FunctionCallAST) || is_a($node, MethodCallAST) => $node.args,
+            default => [],
         };
-        foreach ($parts as $part) {
-            // A list or map literal's entries are [key, value], the key null in a list
-            foreach (type_of($part) == "list" ? $part : [$part] as $expression) {
-                if ($expression != null) {
-                    #check_constant_expression($expression, $kind);
-                }
+    }
+
+    // A list or map literal's entries as expressions: each is [key, value], the key null in a list
+    fn entry_parts($entries) {
+        $parts = [];
+        foreach ($entries as $entry) {
+            foreach (type_of($entry) == "list" ? $entry : [$entry] as $part) {
+                $parts[] = $part;
             }
         }
+
+        return $parts;
+    }
+
+    // Whether a static default calls anything, which makes it one that runs when the program starts
+    fn calls_in($node) {
+        if ($node == null) {
+            return false;
+        }
+        if (is_a($node, FunctionCallAST) || is_a($node, MethodCallAST)) {
+            return true;
+        }
+        foreach (#expression_parts($node) as $part) {
+            if (#calls_in($part)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // A call by name in a static default: constructing a read-only kind, or a static method
+    fn check_default_call($call) {
+        $kind = #kinds[$call.name] ?? null;
+        if ($kind != null) {
+            if (!($kind.readonly ?? false)) {
+                #fail_at("A static field's default can construct only a readonly kind, and {$call.name} isn't one", $call.file, $call.line);
+            }
+
+            return;
+        }
+        if (!#is_static_method($call.name)) {
+            #fail_at(STATIC_DEFAULT, $call.file, $call.line);
+        }
+    }
+
+    // #name(...) in a static default: a static method of the kind, which check_member_use() resolves later
+    fn check_default_method_call($call, $kind) {
+        $property = $call.property;
+        if (is_a($property.target, ThisAST) && #has_static_method($kind, $property.name)) {
+            return;
+        }
+        #fail_hidden($property, $kind);
+        #fail_at(STATIC_DEFAULT, $call.file, $call.line);
+    }
+
+    // Whether a resolved name is a kind's static method, Kind::name, rather than a function of a
+    // namespace that a kind happens to share a name with
+    fn is_static_method($name) {
+        $parts = split($name, "::");
+        if (len($parts) < 2) {
+            return false;
+        }
+        $kind = #kinds[join(slice($parts, 0, -1), "::")] ?? null;
+
+        return $kind != null && #has_static_method($kind, last($parts));
+    }
+
+    // Whether a kind has a static method of that name, its own or a parent's it may use
+    fn has_static_method($kind, $name) {
+        return #kind_static($kind, $name) != null && ($kind.static_is_method[$name] ?? false);
     }
 
     // Refuse a list literal left with an empty slot, which only a pattern may have
@@ -3883,7 +4002,7 @@ final kind Html {
             }
         }
 
-        #fail_at("A constant's value can only use literals, operators and other constants", $node.file, $node.line);
+        #fail_at(CONSTANT_VALUE, $node.file, $node.line);
     }
 
     // What $compute gives, with an error in it raised again as a ParseError at the node. Only the
@@ -4459,26 +4578,42 @@ final kind Html {
             #constant_value($key, $constant[0]);
         }
 
-        // A static field is a slot, and its default a constant, so the two are worked out
-        // here and the code generator writes them before the program's own first instruction
+        /*
+         * A static field is a slot. A default that is a constant is worked out here, and the code
+         * generator writes them all before the program's own first instruction; one that
+         * constructs a read-only kind or calls a static method runs after them, once, in the
+         * order declared, which puts an imported file's before the file importing it
+         */
         $inits = [];
+        $started = [];
         foreach (#kinds as $kind) {
             foreach ($kind.statics as $name => $expr) {
-                #check_constant_expression($expr, $kind);
-                #statics["{$kind.name}::{$name}"] = len(#static_defaults);
-                #static_defaults[] = #fold($expr, $kind);
+                $key = "{$kind.name}::{$name}";
                 $type = ($kind.static_types ?? {})[$name] ?? null;
-                if ($type != null && !#type_takes($type, type_of(last(#static_defaults)))) {
-                    #fail_at("{$kind.name}::{$name} must be {$type.text()}, got " .. type_of(last(#static_defaults)), $expr.file, $expr.line);
+                #statics[$key] = len(#static_defaults);
+                #check_static_default($expr, $kind);
+                if (#calls_in($expr)) {
+                    if ($type != null) {
+                        #check_known($expr, $type, "{$key} must be");
+                    }
+                    #static_defaults[] = null;
+                    $init = StaticInitAST($key, null);
+                    $init.expr = $expr;
+                    $started[] = $init;
+                } else {
+                    #static_defaults[] = #fold($expr, $kind);
+                    if ($type != null && !#type_takes($type, type_of(last(#static_defaults)))) {
+                        #fail_at("{$key} must be {$type.text()}, got " .. type_of(last(#static_defaults)), $expr.file, $expr.line);
+                    }
+                    $init = StaticInitAST($key, last(#static_defaults));
+                    $inits[] = $init;
                 }
-                $init = StaticInitAST("{$kind.name}::{$name}", last(#static_defaults));
                 // At the default's own file and line: #at() would take the file being read now
                 $init.line = $expr.line;
                 $init.file = $expr.file;
-                $inits[] = $init;
             }
         }
-        $root.statements = [...$inits, ...$root.statements];
+        $root.statements = [...$inits, ...$started, ...$root.statements];
 
         // In source order, so the first mistake in the program is the one reported
         foreach (#member_uses as [$node, $kind, $call, $assigned, $written, $in_static, $in_constructor]) {

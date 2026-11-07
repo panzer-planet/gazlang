@@ -1030,9 +1030,13 @@ kind CodeGenerator {
         return $names;
     }
 
-    // A static field's default, written once before anything else runs
+    // A static field's default, written once before the program's own code runs
     fn visit_static_init($node) {
-        #emit("PUSH", [$node.value]);
+        if (($node.expr ?? null) != null) {
+            #visit($node.expr);
+        } else {
+            #emit("PUSH", [$node.value]);
+        }
         #emit_static("STORE", $node.name);
     }
 

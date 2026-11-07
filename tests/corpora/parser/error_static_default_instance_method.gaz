@@ -1,0 +1,11 @@
+readonly kind Mark {
+    fn _(pub #name);
+}
+
+kind Tally {
+    static #mark = #make();
+
+    fn make() {
+        return Mark("x");
+    }
+}

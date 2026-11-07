@@ -229,12 +229,15 @@ kind FunctionCallAST extends AST {
     }
 }
 
-// A bare function, kind or constant name used as a value
-// A static field's default, which the code generator writes before the program's own first
-// instruction: the value is a constant the parser worked out, so there is no order to define
+/*
+ * A static field's default, which the code generator writes before the program's own first
+ * instruction: the value is a constant the parser worked out, or, for a default that constructs a
+ * read-only kind or calls a static method, the expression to run, in #expr, set only then
+ */
 kind StaticInitAST extends AST {
     pub #name;
     pub #value;
+    pub #expr;
 
     fn _($name, $value) {
         #name = $name;
@@ -242,6 +245,7 @@ kind StaticInitAST extends AST {
     }
 }
 
+// A bare function, kind or constant name used as a value
 kind FunctionRefAST extends AST {
     pub #name;
     // Whether the name is a constant's, and if so its value, which the parser works out once

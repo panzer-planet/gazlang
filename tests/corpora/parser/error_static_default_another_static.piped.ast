@@ -1,0 +1,1 @@
+Error: A static field's default can only use literals, operators, constants, constructing a readonly kind and calling a static method on line 3

@@ -1,0 +1,18 @@
+// An error in a default stops the program before its own code runs, located in the default
+readonly kind Ratio {
+    fn _(pub #top, pub #bottom) {
+        if (#bottom == 0) {
+            throw Error("A ratio's bottom can't be 0");
+        }
+    }
+}
+
+kind Rates {
+    pub static #half = Ratio(1, 2);
+    pub static #broken = Ratio(
+        1,
+        0
+    );
+}
+
+echo "never printed";

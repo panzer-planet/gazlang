@@ -1,0 +1,7 @@
+kind Counter {
+    fn _(pub #n);
+}
+
+kind Tally {
+    static #counter = Counter(0);
+}

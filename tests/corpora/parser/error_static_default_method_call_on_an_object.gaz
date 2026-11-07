@@ -1,0 +1,11 @@
+readonly kind Mark {
+    fn _(pub #name);
+
+    pub fn named() {
+        return Mark(#name);
+    }
+}
+
+kind Tally {
+    static #mark = Mark("x").named();
+}

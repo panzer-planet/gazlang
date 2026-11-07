@@ -1,0 +1,55 @@
+import "std/test.gaz" use expect;
+import "./static_defaults/trace.gaz" use Trace, Mark;
+
+/*
+ * A static field's default that constructs a read-only kind or calls a static method (#91): it
+ * runs once when the program starts, after every constant default, in the order declared, an
+ * imported file's before the file importing it. What a default may not hold is refused when the
+ * program is read (tests/corpora/parser/error_static_default_*), and a default that reaches a
+ * static whose default hasn't run yet stops the program
+ * (tests/corpora/vm/static_default_used_too_soon*.gaz).
+ */
+
+readonly kind Point {
+    fn _(pub #x, pub #y = 0);
+
+    pub static fn origin() {
+        return Point(0);
+    }
+}
+
+kind Board {
+    const SIDE = 8;
+
+    pub static #corner = Point(#SIDE, y: #SIDE);
+    pub static #origin = Point::origin();
+    pub static #scaled = #at(2);
+    pub static #pair = [Point(1, 2), Point(5)];
+    pub static #named = {"centre" => Point(#SIDE / 2, #SIDE / 2)};
+    pub static #count = 3;
+    pub static ?Point #maybe = Point(1);
+
+    // Reads #count, a constant default, which is set before any default that calls
+    static fn at($x) {
+        return Point($x, #count);
+    }
+}
+
+kind First {
+    pub static #mark = Trace::note("first");
+}
+
+kind Second {
+    pub static #mark = Trace::note("second");
+}
+
+expect("a constructed default", Board::corner, Point(8, 8));
+expect("a static method's result", Board::origin, Point(0, 0));
+expect("a static method of the kind, by #name, reading a constant default", Board::scaled, Point(2, 3));
+expect("constructions in a list", Board::pair, [Point(1, 2), Point(5, 0)]);
+expect("and in a map", Board::named, {"centre" => Point(4, 4)});
+expect("a typed one", Board::maybe, Point(1));
+Board::count = 4;
+expect("a static whose default was a constant is a slot like any other", Board::count, 4);
+expect("a default noting itself", [First::mark, Second::mark, First::mark], [Mark("first"), Mark("second"), Mark("first")]);
+expect("ran once each, in the order declared, an imported file's first", Trace::seen, ["imported", "first", "second"]);

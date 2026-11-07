@@ -1,0 +1,9 @@
+import "std/text.gaz";
+
+// A function of a namespace a kind shares its name with is not a static method
+kind text {
+}
+
+kind Tally {
+    static #n = text::indentation("  x");
+}

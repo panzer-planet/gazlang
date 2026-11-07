@@ -1,0 +1,3 @@
+Error: Early::later is used before its default has run: static defaults run in the order declared at tests/corpora/vm/static_default_used_too_soon.gaz:11
+  Early::peek at tests/corpora/vm/static_default_used_too_soon.gaz:11
+  top level at tests/corpora/vm/static_default_used_too_soon.gaz:7

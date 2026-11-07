@@ -1,0 +1,7 @@
+fn make() {
+    return 1;
+}
+
+kind Tally {
+    static #n = make();
+}

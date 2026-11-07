@@ -1,0 +1,1 @@
+Error: A static field's default can construct only a readonly kind, and Counter isn't one on line 6

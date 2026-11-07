@@ -1,0 +1,16 @@
+// Writing inside a static whose default hasn't run yet is refused as reading it is
+readonly kind Mark {
+    fn _(pub #name);
+}
+
+kind Early {
+    pub static #first = Early::poke();
+    pub static #later = [Mark("later")];
+
+    static fn poke() {
+        #later[0] = Mark("sooner");
+        return Mark("first");
+    }
+}
+
+echo Early::first;

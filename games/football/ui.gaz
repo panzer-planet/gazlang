@@ -860,6 +860,18 @@ pub kind Shell {
     const MENU_WIDTH = 16;
     const NEXT_WIDTH = 14;
 
+    // The keys that work on every screen, and the ones that work while a match is on
+    static #keys_everywhere = [
+        tui::Hint("1-7", "sections"),
+        tui::Hint("tab", "menu or section"),
+        tui::Hint("escape", "back to the menu"),
+        tui::Hint("c", "continue"),
+        tui::Hint("C", "play the match at once"),
+        tui::Hint("S", "save"),
+        tui::Hint("q", "quit"),
+    ];
+    static #keys_in_a_match = [tui::Hint("ctrl+c", "quit")];
+
     #current = 0;
     #where = "menu";
     #note = "";
@@ -877,23 +889,6 @@ pub kind Shell {
             Section("Finances", FinancesView($game)),
             Section("Transfers", TransfersView($game)),
         ], MatchView($game), $save_path);
-    }
-
-    // The keys that work on every screen, and while a match is on
-    fn keys_everywhere() {
-        return [
-            tui::Hint("1-7", "sections"),
-            tui::Hint("tab", "menu or section"),
-            tui::Hint("escape", "back to the menu"),
-            tui::Hint("c", "continue"),
-            tui::Hint("C", "play the match at once"),
-            tui::Hint("S", "save"),
-            tui::Hint("q", "quit"),
-        ];
-    }
-
-    fn keys_in_a_match() {
-        return [tui::Hint("ctrl+c", "quit")];
     }
 
     /* Which section is on show, by name, and whether keys go to the menu or the section */
@@ -994,7 +989,7 @@ pub kind Shell {
 
     /* Every key there is on this screen, in a box over it, until the next key */
     fn draw_keys($screen, $view) {
-        tui::key_help($screen, {$view.title() => $view.hints(), "Everywhere" => #game.live != null ? #keys_in_a_match() : #keys_everywhere()});
+        tui::key_help($screen, {$view.title() => $view.hints(), "Everywhere" => #game.live != null ? #keys_in_a_match : #keys_everywhere});
     }
 
     /* Time passes, while nobody is pressing keys: a matchday being played moves on, unless the keys are being read */

@@ -1,0 +1,15 @@
+// A default that reads a static whose default hasn't run yet stops the program, located where it reads
+readonly kind Mark {
+    fn _(pub #name);
+}
+
+kind Early {
+    pub static #first = Early::peek();
+    pub static #later = Mark("later");
+
+    static fn peek() {
+        return #later;
+    }
+}
+
+echo Early::first;

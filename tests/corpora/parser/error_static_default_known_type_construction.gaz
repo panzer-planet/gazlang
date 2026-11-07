@@ -1,0 +1,7 @@
+readonly kind Mark {
+    fn _(pub #name);
+}
+
+kind Tally {
+    static int #mark = Mark("x");
+}

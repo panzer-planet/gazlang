@@ -1,0 +1,4 @@
+Error: A ratio's bottom can't be 0
+  Ratio._ at tests/corpora/vm/static_default_fails.gaz:5
+  new Ratio at tests/corpora/vm/static_default_fails.gaz:2
+  top level at tests/corpora/vm/static_default_fails.gaz:12

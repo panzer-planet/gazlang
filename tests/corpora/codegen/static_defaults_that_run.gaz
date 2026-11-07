@@ -1,0 +1,14 @@
+// A default that constructs or calls runs after every constant default, in the order declared
+readonly kind Point {
+    fn _(pub #x, pub #y = 0);
+
+    pub static fn origin() {
+        return Point(0);
+    }
+}
+
+kind Board {
+    pub static #corner = Point(8, y: 8);
+    pub static #origin = Point::origin();
+    pub static #size = 64;
+}

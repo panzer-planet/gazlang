@@ -1,0 +1,1 @@
+Error: Base::helper is not pub, so only Base can use it at tests/corpora/parser/error_static_default_private_static_of_a_parent.gaz:8

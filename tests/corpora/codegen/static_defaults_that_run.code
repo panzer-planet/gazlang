@@ -1,0 +1,60 @@
+GAZLANG BYTECODE 3
+globals
+statics Board::size Board::corner Board::origin
+
+top
+locals
+@ "static_defaults_that_run.gaz" 13
+PUSH 64
+STORE_STATIC 0
+@ "static_defaults_that_run.gaz" 11
+PUSH 8
+PUSH 8
+NEW Point 2
+STORE_STATIC 1
+@ "static_defaults_that_run.gaz" 12
+CALL Point::origin 0
+STORE_STATIC 2
+
+fn Point::origin 0 0 in Point
+locals
+@ "static_defaults_that_run.gaz" 6
+PUSH 0
+NEW Point 1
+RET
+@ "static_defaults_that_run.gaz" 5
+PUSH null
+RET
+
+readonly kind Point
+field x Point pub
+field y Point pub
+method _ Point pub
+locals $#argument_0 $#argument_1
+@ "static_defaults_that_run.gaz" 2
+CALL_CONSTRUCTOR Point
+POP
+LOAD_THIS
+RET
+
+fn Point._ 1 2
+locals $x $y
+@ "static_defaults_that_run.gaz" 3
+PASSED 1 PASSED_0
+PUSH 0
+STORE 1
+LABEL PASSED_0
+LOAD 0
+SET_FIELD x
+POP
+LOAD 1
+SET_FIELD y
+POP
+PUSH null
+RET
+
+kind Board
+locals
+@ "static_defaults_that_run.gaz" 10
+LOAD_THIS
+RET

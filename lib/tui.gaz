@@ -49,7 +49,7 @@ const CONTINUATION = 0;
  * Screen's diff relies on.
  */
 pub readonly kind Cell {
-    static #shared_blank = null;
+    static #shared_blank = Cell(" ", 1, term::Style::of(""));
 
     /**
      * The cell showing $character in $style, $width columns wide
@@ -60,7 +60,6 @@ pub readonly kind Cell {
      * The blank cell, a space in no style: one shared value, which every blank cell is
      */
     pub static fn blank() {
-        #shared_blank ??= Cell(" ", 1, term::Style::of(""));
         return #shared_blank;
     }
 

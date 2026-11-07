@@ -2244,9 +2244,36 @@ echo Counter::count;
 - **`#name` inside the kind is the member**, static or not, since `#` already means "a member
   of the kind this is written in". A static method has no object, so naming an instance field
   or method in one is a parse error, and `#` on its own is too.
-- **A static field's value is a constant expression**, worked out by the parser and written
-  before the program's first instruction. Running one would bring initialisation order and
-  bytecode before the top level, which is why constants refuse `Point(0, 0)` as well. It is
+- **A static field's value is a constant expression, or builds a read-only value**. A constant
+  expression is worked out by the parser and written before the program's first instruction.
+  A default may also construct a `readonly` kind or call a static method, with arguments of the
+  same shapes, and it runs once when the program starts, after every constant default:
+
+  ```gaz
+  readonly kind Hint {
+      fn _(pub #keys, pub #what);
+  }
+
+  kind Shell {
+      static #everywhere = [Hint("q", "quit"), Hint("?", "help")];
+
+      pub static fn keys() {
+          return #everywhere;
+      }
+  }
+
+  echo len(Shell::keys()) .. " " .. Shell::keys()[0].what;
+  ```
+  ```
+  2 quit
+  ```
+
+  Those defaults run in the order declared, an imported file's before the file importing it. One
+  that reaches a static whose default hasn't run yet stops the program (`Shell::keys is used
+  before its default has run`), and an error in one stops it before its own code starts. What a
+  default constructs itself must be a read-only kind, since every reader shares the one object
+  the slot holds; what a static method returns is up to the method. A variable, a plain function
+  call, another static and constructing a mutable kind are errors. The value is
   required: `static #count;` is an error.
 - **Read, called and assigned from anywhere the static escapes to**, as every member is:
   `Counter::next()`, `Counter::count = 1`, `Counter::count++`, `Counter::rows[] = $r` and

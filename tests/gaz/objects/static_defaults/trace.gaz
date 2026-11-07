@@ -1,0 +1,24 @@
+namespace trace;
+
+/**
+ * The order static defaults ran in, each noted as it runs
+ */
+pub readonly kind Mark {
+    fn _(pub #name);
+}
+
+pub kind Trace {
+    pub static #seen = [];
+
+    /**
+     * A Mark for $name, noting that its default ran
+     */
+    pub static fn note($name) {
+        Trace::seen[] = $name;
+        return Mark($name);
+    }
+}
+
+pub kind Imported {
+    pub static #mark = Trace::note("imported");
+}

@@ -1,0 +1,1 @@
+Error: A static field's default can only use literals, operators, constants, constructing a readonly kind and calling a static method at tests/corpora/parser/error_static_default_method_call_on_an_object.gaz:10

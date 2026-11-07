@@ -1,0 +1,9 @@
+kind Base {
+    static fn helper() {
+        return 1;
+    }
+}
+
+kind Tally extends Base {
+    static #n = #helper();
+}

@@ -595,6 +595,21 @@ A new open item is filed as an issue with a topic and a kind label, never added 
     method block keeps its dot, which is still what says "this one needs an object".
   - **A static field's default is required** since a slot with nothing in it would need the quiet
     load a static never wants.
+  - **A default may construct a read-only kind or call a static method** (#91), with arguments
+    of the same shapes, beyond what a constant may (`check_static_default()` in `parser.gaz`):
+    the football shell's keys and `tui::Cell`'s shared blank asked for it. A constant default is
+    folded and written first; one that calls is a `StaticInitAST` with `#expr`, run once after
+    them in declaration order, which puts an imported file's before the importer's (`#kinds`
+    order). What a default constructs itself is read-only, the restrictive choice, since every
+    reader shares the slot's object; what a static method returns is the method's, since only
+    running it would tell. A variable, a plain function, another static or constructing a
+    mutable kind is refused, and loosening any of that later breaks nothing. One walker checks a
+    constant and a static default (`check_value_source()`), so their shapes can't drift apart.
+    Constants keep their rule: they are not slots.
+  - **A slot read before its default has run is an error**, not the unset value: only a default
+    calling code that reaches a later one can see it (or hand-written bytecode), so
+    `LOAD_STATIC`, `SET_PATH_STATIC` and `DELETE_PATH_STATIC` test for unset (`static_too_soon()`
+    in `vm.c`), a branch never taken in a compiled program's own code.
   - **Assigned through `pub`/`kin` alone**, so a static needs no rule of its own to protect it.
     `Counter::count` and `#count` compile to the same instruction, since `::` resolves when it is
     parsed (a path written with a `#` takes the static as its root, `static_start()` in

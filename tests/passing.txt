@@ -907,6 +907,7 @@ tests/corpora/bytecode/error_slot.gzb
 tests/corpora/bytecode/error_stack_differs.gzb
 tests/corpora/bytecode/error_stack_differs_after_try.gzb
 tests/corpora/bytecode/error_stack_differs_spaced.gzb
+tests/corpora/bytecode/error_static_read_before_set.gzb
 tests/corpora/bytecode/error_static_slot_out_of_range.gzb
 tests/corpora/bytecode/error_static_type_then_more.gzb
 tests/corpora/bytecode/error_static_type_without_slot.gzb
@@ -1008,6 +1009,7 @@ tests/corpora/codegen/readonly.gaz
 tests/corpora/codegen/rest_pattern.gaz
 tests/corpora/codegen/shared.gaz
 tests/corpora/codegen/statements.gaz
+tests/corpora/codegen/static_defaults_that_run.gaz
 tests/corpora/codegen/static_in_an_imported_file.gaz
 tests/corpora/codegen/statics.gaz
 tests/corpora/codegen/statics/counter.gaz
@@ -1168,6 +1170,9 @@ tests/corpora/vm/rethrow_value.gaz
 tests/corpora/vm/rounding.gaz
 tests/corpora/vm/small_lists.gaz
 tests/corpora/vm/static_coalesce.gaz
+tests/corpora/vm/static_default_fails.gaz
+tests/corpora/vm/static_default_used_too_soon.gaz
+tests/corpora/vm/static_default_used_too_soon_written.gaz
 tests/corpora/vm/superinstructions.gaz
 tests/corpora/vm/throw.gaz
 tests/corpora/vm/throw_hand_set_line.gaz
@@ -1290,6 +1295,8 @@ tests/gaz/objects/private_member_names_test.gaz
 tests/gaz/objects/promoted_fields_test.gaz
 tests/gaz/objects/readonly_equality_test.gaz
 tests/gaz/objects/readonly_test.gaz
+tests/gaz/objects/static_defaults/trace.gaz
+tests/gaz/objects/static_defaults_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
 tests/gaz/operators/coalesce_test.gaz
