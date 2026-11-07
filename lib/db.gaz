@@ -583,9 +583,11 @@ pub kind Ident {
  *
  * The text can't hold `$1` or `?1`: that is how PostgreSQL and SQLite number parameters, so it
  * would be read as whichever value has that number. Nor can it hold what looks like a call in
- * braces, `{db::ident($c)}`, which is text, since only `{$`, `{@`, `{#` and a constant's
- * `{NAME}` start an interpolation. Interpolate a variable instead; `db::raw()` is the way round a
- * false alarm, such as `$1` inside an SQL string literal or a `$$...$$` function body.
+ * braces, `{db::ident($c)}`: the compiler refuses one in a string, since only `{$`, `{@`, `{#`
+ * and a constant's `{NAME}` start an interpolation, and the tag refuses one that reached it as
+ * text anyway (written `\{`, or parts built by hand). Interpolate a variable instead; `db::raw()`
+ * is the way round a false alarm, such as `$1` inside an SQL string literal or a `$$...$$`
+ * function body.
  */
 pub fn sql(list $strings, list $values): Sql {
     foreach ($strings as $text) {
@@ -631,8 +633,8 @@ fn check_no_numbered_placeholder($text, $mark) {
 }
 
 /*
- * `{db::ident($c)}` in the text is text: only `{$`, `{@`, `{#` and a constant's name alone,
- * `{NAME}`, start an interpolation
+ * `{db::ident($c)}` as text: the compiler refuses a call in a string's braces, so it gets here
+ * written `\{`, or in parts built by hand, and is no more meant as SQL then
  */
 fn check_no_call($text) {
     foreach (positions($text, "{") as $at) {

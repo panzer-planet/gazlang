@@ -7,7 +7,7 @@ ok the five that HTML needs escaped
 ok values print as echo does
 ok an Html goes into {{ }} as it is
 ok a layout around a template
-ok @{{, emails and CSS at-rules are text
+ok @{{, emails, CSS at-rules and braced calls are text
 ok Html::escape
 ok a typed header
 ok a typed header is checked

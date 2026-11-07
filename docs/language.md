@@ -119,9 +119,11 @@ at most 20 items
   constant can't print as text: `Undefined constant LIMT in "{LIMT}": declare it, or write
   \{LIMT} for the text`. A function, kind or static field there says to put it in a `$variable`
   first or join it with `..`.
-- Anything else is literal, so `{round($n, 2)}` prints as written. Assign it to a variable
+- A call in bare braces is an error too, since it never interpolates and no JSON or CSS has
+  that shape: `"{round($n, 2)}"` says `A call doesn't interpolate in bare braces: assign
+  round(...) to a $variable first, or write \{round( for the text`. Assign it to a variable
   first, or start the expression with a sigil and call from there
-  (`{$o.shout() .. to_string($n)}`).
+  (`{$o.shout() .. to_string($n)}`). A space before the `(` (`{f (x)}`) is text, as `{ X}` is.
 - A lone `$`, `$5`, `me@example.com`, `{ $x}`, `{ X}`, `{3}`, `{X:1}` and `{}` are all literal
   too, and `\{NAME}` is the text `{NAME}`.
 - The index after a bare name is `[0]`, `[-1]`, `[$i]` or `[key]`, read as the string `"key"`
@@ -1708,11 +1710,12 @@ echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
   there), and a dot is part of the name: a table in a schema is two, `{$schema}.{$table}`.
 - Anything else (a map, a function, an object) is an error when the `db::sql"..."` is made.
 - **Only a variable or a constant is interpolated**: as in any string, `{$`, `{@`, `{#` and a
-  constant's `{NAME}` start an interpolation and nothing else does, so `{db::ident($c)}` would be
-  text. Put a fragment or a name in a variable first, `$column = db::ident($c);`, then write
-  `{$column}`; the tag refuses what looks like a call in braces (`db::sql text holds
-  {db::ident(...)}: ...`), while a brace before anything else (`'{1,2}'`, `'{"k": 1}'`) is text as
-  usual. A constant (`limit {PAGE_SIZE}`) is a value like any other, so it is bound as a parameter;
+  constant's `{NAME}` start an interpolation and nothing else does, and `{db::ident($c)}` is
+  refused when the program is read, as a call in any string's braces is. Put a fragment or a name
+  in a variable first, `$column = db::ident($c);`, then write `{$column}`. The tag also refuses
+  one that reaches it as text, escaped (`\{db::ident(`) or in parts built by hand (`db::sql
+  text holds {db::ident(...)}: ...`), while a brace before anything else (`'{1,2}'`,
+  `'{"k": 1}'`) is text as usual. A constant (`limit {PAGE_SIZE}`) is a value like any other, so it is bound as a parameter;
   a word in braces meant as SQL text is written `\{word}`.
 - **A numbered placeholder can't be in the text**: `$1` (PostgreSQL's) or `?1` (SQLite's) would be
   read as whichever value has that number. Interpolate the value instead. A bare `?`, or a named

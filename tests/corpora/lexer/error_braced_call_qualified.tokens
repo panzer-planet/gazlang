@@ -1,0 +1,2 @@
+1 ECHO echo
+Error: A call doesn't interpolate in bare braces: assign text::upper(...) to a $variable first, or write \{text::upper( for the text on line 2

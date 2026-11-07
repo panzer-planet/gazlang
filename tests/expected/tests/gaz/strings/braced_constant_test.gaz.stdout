@@ -21,7 +21,9 @@ ok a colon after it
 ok a :: with nothing after it
 ok JSON
 ok CSS
-ok a call
+ok an escaped call
+ok a space before the (
+ok a call quoted back escapes the brace
 ok empty braces
 ok an escaped brace
 ok single quotes

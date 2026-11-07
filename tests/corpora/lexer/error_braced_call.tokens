@@ -1,0 +1,18 @@
+1 VAR_IDENTIFIER $entries
+1 ASSIGN =
+1 LEFT_BRACKET [
+1 INTEGER 1
+1 COMMA ,
+1 INTEGER 2
+1 RIGHT_BRACKET ]
+1 SEMICOLON ;
+2 ECHO echo
+2 STRING_START "fine "
+2 VAR_IDENTIFIER $entries
+2 LEFT_BRACKET [
+2 INTEGER 0
+2 RIGHT_BRACKET ]
+2 STRING_END ""
+2 SEMICOLON ;
+3 ECHO echo
+Error: A call doesn't interpolate in bare braces: assign len(...) to a $variable first, or write \{len( for the text on line 3

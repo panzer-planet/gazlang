@@ -578,14 +578,15 @@ static bool name_start(unsigned char c) {
 
 /*
  * Whether the text from the { at i is a name in braces, which a string literal interpolates as
- * a constant: names joined by ::, then the } at once ({NAME}, {ns::NAME}). The same shape as
- * at_braced_name() in lib/syntax.gaz.
+ * a constant: names joined by ::, then the } at once ({NAME}, {ns::NAME}); or those names then
+ * a (, a call, which a literal refuses. Either needs a \ before the { to be text. The same
+ * shapes as at_braced_name() and refuse_braced_call() in lib/syntax.gaz.
  */
 static bool braced_name_at(const Str *s, size_t i) {
     i++;
     while (i < s->len && name_start((unsigned char)s->data[i])) {
         while (i < s->len && (name_start((unsigned char)s->data[i]) || (s->data[i] >= '0' && s->data[i] <= '9'))) i++;
-        if (i < s->len && s->data[i] == '}') return true;
+        if (i < s->len && (s->data[i] == '}' || s->data[i] == '(')) return true;
         if (i + 1 >= s->len || s->data[i] != ':' || s->data[i + 1] != ':') return false;
         i += 2;
     }

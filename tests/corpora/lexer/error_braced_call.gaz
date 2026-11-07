@@ -1,0 +1,3 @@
+$entries = [1, 2];
+echo "fine {$entries[0]}";
+echo "{len($entries)} entries";

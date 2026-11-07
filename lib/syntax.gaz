@@ -399,8 +399,9 @@ pub kind Lexer {
     // Without interpolation a string is one STRING. With it, it is STRING_START (the text
     // before the first one), each interpolated expression's tokens, STRING_MIDDLE between them
     // and STRING_END after the last. "$name" interpolates a variable, "{$...}", "{@...}" and
-    // "{#...}" an expression, and "{NAME}" a constant (the parser checks that it is one); the
-    // braces themselves give no tokens. $first is true at the opening quote, false when
+    // "{#...}" an expression, and "{NAME}" a constant (the parser checks that it is one), while
+    // "{name(" is refused, since a call in braces never interpolates; the braces themselves
+    // give no tokens. $first is true at the opening quote, false when
     // resuming after an interpolation.
     fn string_part($first) {
         if ($first) {
@@ -453,7 +454,10 @@ pub kind Lexer {
 
                 return Token($first ? "STRING_START" : "STRING_MIDDLE", $text);
             } else {
-                // A $ or { that is only text
+                // A $ or { that is only text, unless it opens a call
+                if (#char == "{") {
+                    #refuse_braced_call();
+                }
                 $text ..= #char;
                 #skip(1);
             }
@@ -473,22 +477,42 @@ pub kind Lexer {
      * "{X:1}" or "{}", is text, so JSON and CSS need no escaping.
      */
     fn at_braced_name() {
+        $end = #braced_name_end();
+
+        return $end >= 0 && char_at(#text, $end) == "}";
+    }
+
+    /*
+     * A call in bare braces, "{len($x)}": the names a constant's would be, then ( where its }
+     * would be. It never interpolates, and no JSON or CSS has that shape, so it is refused
+     * rather than printed as written, which is what the program meant least.
+     */
+    fn refuse_braced_call() {
+        $end = #braced_name_end();
+        if ($end < 0 || char_at(#text, $end) != "(") {
+            return;
+        }
+        $name = slice(#text, #pos + 1, $end - #pos - 1);
+        #fail("A call doesn't interpolate in bare braces: assign " .. $name .. "(...) to a \$variable first, or write \\{" .. $name .. "( for the text");
+    }
+
+    /*
+     * Where the names from the { on end, joined by ::, or -1 when there is no name or a ::
+     * has none after it
+     */
+    fn braced_name_end() {
         $i = #pos + 1;
         while (#is_name_start(char_at(#text, $i))) {
             while ($i < #length && contains(#NAME_CHARS, #text[$i])) {
                 $i++;
             }
-            $next = char_at(#text, $i);
-            if ($next == "}") {
-                return true;
-            }
-            if ($next != ":" || char_at(#text, $i + 1) != ":") {
-                return false;
+            if (char_at(#text, $i) != ":" || char_at(#text, $i + 1) != ":") {
+                return $i;
             }
             $i += 2;
         }
 
-        return false;
+        return -1;
     }
 
     // The one [key] PHP allows after a bare interpolated variable, at the [: the [, key and ]

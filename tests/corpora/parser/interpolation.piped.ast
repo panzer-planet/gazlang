@@ -143,18 +143,32 @@ Compound
             token: 7 CONCAT ..
             op: 7 CONCAT ..
             right: String 7
-              token: 7 STRING_MIDDLE " has {len("
-              value: " has {len("
+              token: 7 STRING_MIDDLE " has "
+              value: " has "
           token: 7 CONCAT ..
           op: 7 CONCAT ..
-          right: Variable 7
-            token: 7 VAR_IDENTIFIER $user
-            value: "\$user"
+          right: MethodCall 7
+            property: Property 7
+              target: Property 7
+                target: Variable 7
+                  token: 7 VAR_IDENTIFIER $user
+                  value: "\$user"
+                name: "tags"
+                field: false
+                constant: false
+                value: null
+                static_name: null
+              name: "count"
+              field: false
+              constant: false
+              value: null
+              static_name: null
+            args: []
         token: 7 CONCAT ..
         op: 7 CONCAT ..
         right: String 7
-          token: 7 STRING_END ".tags)} tags"
-          value: ".tags)} tags"
+          token: 7 STRING_END " tags"
+          value: " tags"
     7: EchoStatement 8
       expr: BinOp 8
         left: BinOp 8

@@ -39,10 +39,11 @@ expect("a layout around a template", [
 ], [true, true, true]);
 
 /* What looks like a directive or an expression but isn't */
-expect("@{{, emails and CSS at-rules are text", to_string(literal()), join([
+expect("@{{, emails, CSS at-rules and braced calls are text", to_string(literal()), join([
     "{{ not an expression }} and me@example.com",
     "<style>@media (max-width: 600px) { p { color: red; } }</style>",
     "@import is text too",
+    "\{render(x)}, \{ns::view( and \{NAME} are text in a template",
     "",
 ], "\n"));
 

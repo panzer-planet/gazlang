@@ -718,6 +718,14 @@ Names are ASCII.
   text may have been meant. Any name, not only uppercase ones, since the language doesn't enforce
   a constant's case. This broke `{word}` text in strings, which has no compatibility promise yet.
   The bytecode loader still reads `"{X}"` in a `PUSH` as text; the compiler writes `\{`.
+- **A call in bare braces is a lexer error** (`refuse_braced_call()`, #93): the same names, then
+  `(` where the `}` would be. It never interpolates and no JSON or CSS has that shape, so as text
+  it was only ever a program that meant the call and printed the braces, silently (the style
+  review's `"{len(#listing.entries)} entries"`, and two of the repository's own tests). Refused
+  rather than interpolated, the restrictive choice: interpolating expressions would be PHP's
+  `{$...}` widened, a much bigger door, and opening it later breaks nothing. `quote()` writes
+  `\{` before one too (`braced_name_at()` in `value.c`), so template text holding one survives;
+  `db::sql` still refuses one that reaches it as text.
 - `quote()` in `value.c` is the exact inverse of a literal, and everything that shows a string
   as source uses it (a template's text too, which is how `{X}` in its HTML stays text).
 - **Tagged strings are parser sugar only**: the lexer gives a `TAG` token (the name) instead of

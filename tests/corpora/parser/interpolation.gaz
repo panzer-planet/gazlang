@@ -4,7 +4,7 @@ echo "$a$b";
 echo "$a and $b and $c.";
 echo "{$a}";
 echo "x{$a}y{$b}z";
-echo "{$user.name} has {len($user.tags)} tags";
+echo "{$user.name} has {$user.tags.count()} tags";
 echo "{$a + 1} {$f(1)[0]} {@g}";
 echo "$list[0] $map[key] $map[$i] $list[-1]";
 echo "nested {$m["k" .. "{$i}"]} done";

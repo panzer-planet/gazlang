@@ -1,0 +1,5 @@
+// A call in braces that is text: escaped, a space before its (, single quotes, split by ..
+$x = [1, 2];
+echo "\{len($x)} {len ($x)}";
+echo '{len($x)}';
+echo "{f" .. "(x)}" .. "\{ns::g(";

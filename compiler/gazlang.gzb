@@ -4267,6 +4267,8 @@ method read_hex syntax::Lexer
 method read_word syntax::Lexer
 method string_part syntax::Lexer
 method at_braced_name syntax::Lexer
+method refuse_braced_call syntax::Lexer
+method braced_name_end syntax::Lexer
 method interpolated_index syntax::Lexer
 method escape syntax::Lexer
 method read_braced_hex syntax::Lexer
@@ -5511,24 +5513,24 @@ RET
 
 fn syntax::Lexer.string_part 1 1
 locals $first $start_line $last $text $i $c
-@ "<std>/syntax.gaz" 406
+@ "<std>/syntax.gaz" 407
 LOAD 0
 JZ ELSE_0
-@ "<std>/syntax.gaz" 408
+@ "<std>/syntax.gaz" 409
 LOAD_FIELD line
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 409
+@ "<std>/syntax.gaz" 410
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 406
+@ "<std>/syntax.gaz" 407
 JMP ENDIF_0
 LABEL ELSE_0
-@ "<std>/syntax.gaz" 411
+@ "<std>/syntax.gaz" 412
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -5536,7 +5538,7 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 412
+@ "<std>/syntax.gaz" 413
 LOAD_FIELD interpolations
 LOAD 2
 INDEX_GET
@@ -5545,53 +5547,53 @@ INDEX_GET
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 413
+@ "<std>/syntax.gaz" 414
 LOAD 2
 KEY_CHECK
 DELETE_PATH_THIS .interpolations[k]
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 416
+@ "<std>/syntax.gaz" 417
 PUSH ""
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_1
-@ "<std>/syntax.gaz" 417
+@ "<std>/syntax.gaz" 418
 PUSH true
 JZ ENDWHILE_1
-@ "<std>/syntax.gaz" 419
+@ "<std>/syntax.gaz" 420
 LOAD_FIELD pos
 STORE 4
 LOAD 4
 POP
 LABEL WHILE_2
-@ "<std>/syntax.gaz" 420
+@ "<std>/syntax.gaz" 421
 LOAD 4
 LOAD_FIELD length
 LT
 JZ ENDWHILE_2
-@ "<std>/syntax.gaz" 421
+@ "<std>/syntax.gaz" 422
 LOAD_FIELD text
 LOAD 4
 INDEX_GET
 STORE 5
 LOAD 5
 POP
-@ "<std>/syntax.gaz" 422
+@ "<std>/syntax.gaz" 423
 LOAD 5
 PUSH "\n"
 EQUALS
 JZ ELSE_3
-@ "<std>/syntax.gaz" 423
+@ "<std>/syntax.gaz" 424
 LOAD_THIS
 GET_PROPERTY_EXISTING line
 INC
 SET_FIELD line
 POP
-@ "<std>/syntax.gaz" 422
+@ "<std>/syntax.gaz" 423
 JMP ENDIF_3
 LABEL ELSE_3
-@ "<std>/syntax.gaz" 424
+@ "<std>/syntax.gaz" 425
 LOAD 5
 PUSH "\""
 EQUALS
@@ -5632,23 +5634,23 @@ LABEL OR_TRUE_5
 PUSH true
 LABEL OR_END_5
 JZ ELSE_4
-@ "<std>/syntax.gaz" 425
+@ "<std>/syntax.gaz" 426
 JMP ENDWHILE_2
-@ "<std>/syntax.gaz" 424
+@ "<std>/syntax.gaz" 425
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
 LABEL ENDIF_3
-@ "<std>/syntax.gaz" 427
+@ "<std>/syntax.gaz" 428
 LOAD 4
 INC
 STORE 4
 LOAD 4
 POP
-@ "<std>/syntax.gaz" 420
+@ "<std>/syntax.gaz" 421
 JMP WHILE_2
 LABEL ENDWHILE_2
-@ "<std>/syntax.gaz" 429
+@ "<std>/syntax.gaz" 430
 LOAD_FIELD text
 LOAD_FIELD pos
 LOAD 4
@@ -5657,7 +5659,7 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 3
 POP
-@ "<std>/syntax.gaz" 430
+@ "<std>/syntax.gaz" 431
 LOAD_THIS
 GET_METHOD skip
 LOAD 4
@@ -5665,7 +5667,7 @@ LOAD_FIELD pos
 SUB
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 432
+@ "<std>/syntax.gaz" 433
 LOAD_FIELD char
 PUSH ""
 EQUALS
@@ -5682,44 +5684,44 @@ LABEL OR_TRUE_9
 PUSH true
 LABEL OR_END_9
 JZ ELSE_8
-@ "<std>/syntax.gaz" 433
+@ "<std>/syntax.gaz" 434
 JMP ENDWHILE_1
-@ "<std>/syntax.gaz" 432
+@ "<std>/syntax.gaz" 433
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "<std>/syntax.gaz" 435
+@ "<std>/syntax.gaz" 436
 LOAD_FIELD char
 PUSH "\\"
 EQUALS
 JZ ELSE_10
-@ "<std>/syntax.gaz" 436
+@ "<std>/syntax.gaz" 437
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 437
+@ "<std>/syntax.gaz" 438
 LOAD_FIELD char
 PUSH ""
 EQUALS
 JZ ELSE_11
-@ "<std>/syntax.gaz" 438
+@ "<std>/syntax.gaz" 439
 JMP ENDWHILE_1
-@ "<std>/syntax.gaz" 437
+@ "<std>/syntax.gaz" 438
 JMP ENDIF_11
 LABEL ELSE_11
 LABEL ENDIF_11
-@ "<std>/syntax.gaz" 440
+@ "<std>/syntax.gaz" 441
 LOAD_THIS
 GET_METHOD escape
 CALL_METHOD 0 escape
 CONCAT_ASSIGN 3
 POP
-@ "<std>/syntax.gaz" 435
+@ "<std>/syntax.gaz" 436
 JMP ENDIF_10
 LABEL ELSE_10
-@ "<std>/syntax.gaz" 441
+@ "<std>/syntax.gaz" 442
 LOAD_FIELD char
 PUSH "$"
 EQUALS
@@ -5737,7 +5739,7 @@ LABEL AND_FALSE_13
 PUSH false
 LABEL AND_END_13
 JZ ELSE_12
-@ "<std>/syntax.gaz" 442
+@ "<std>/syntax.gaz" 443
 NEW_ARRAY
 PUSH "bare"
 ARRAY_PUSH
@@ -5747,7 +5749,7 @@ PUSH 0
 ARRAY_PUSH
 SET_PATH_THIS .interpolations[]
 POP
-@ "<std>/syntax.gaz" 444
+@ "<std>/syntax.gaz" 445
 LOAD 0
 JZ TERNARY_ELSE_14
 PUSH "STRING_START"
@@ -5758,10 +5760,10 @@ LABEL TERNARY_END_14
 LOAD 3
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 441
+@ "<std>/syntax.gaz" 442
 JMP ENDIF_12
 LABEL ELSE_12
-@ "<std>/syntax.gaz" 445
+@ "<std>/syntax.gaz" 446
 LOAD_FIELD char
 PUSH "{"
 EQUALS
@@ -5778,13 +5780,13 @@ LABEL AND_FALSE_16
 PUSH false
 LABEL AND_END_16
 JZ ELSE_15
-@ "<std>/syntax.gaz" 446
+@ "<std>/syntax.gaz" 447
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 447
+@ "<std>/syntax.gaz" 448
 NEW_ARRAY
 PUSH "braces"
 ARRAY_PUSH
@@ -5794,7 +5796,7 @@ PUSH 0
 ARRAY_PUSH
 SET_PATH_THIS .interpolations[]
 POP
-@ "<std>/syntax.gaz" 449
+@ "<std>/syntax.gaz" 450
 LOAD 0
 JZ TERNARY_ELSE_17
 PUSH "STRING_START"
@@ -5805,10 +5807,10 @@ LABEL TERNARY_END_17
 LOAD 3
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 445
+@ "<std>/syntax.gaz" 446
 JMP ENDIF_15
 LABEL ELSE_15
-@ "<std>/syntax.gaz" 450
+@ "<std>/syntax.gaz" 451
 LOAD_FIELD char
 PUSH "{"
 EQUALS
@@ -5823,13 +5825,13 @@ LABEL AND_FALSE_19
 PUSH false
 LABEL AND_END_19
 JZ ELSE_18
-@ "<std>/syntax.gaz" 451
+@ "<std>/syntax.gaz" 452
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 452
+@ "<std>/syntax.gaz" 453
 NEW_ARRAY
 PUSH "constant"
 ARRAY_PUSH
@@ -5839,7 +5841,7 @@ PUSH 0
 ARRAY_PUSH
 SET_PATH_THIS .interpolations[]
 POP
-@ "<std>/syntax.gaz" 454
+@ "<std>/syntax.gaz" 455
 LOAD 0
 JZ TERNARY_ELSE_20
 PUSH "STRING_START"
@@ -5850,14 +5852,28 @@ LABEL TERNARY_END_20
 LOAD 3
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 450
+@ "<std>/syntax.gaz" 451
 JMP ENDIF_18
 LABEL ELSE_18
-@ "<std>/syntax.gaz" 457
+@ "<std>/syntax.gaz" 458
+LOAD_FIELD char
+PUSH "{"
+EQUALS
+JZ ELSE_21
+@ "<std>/syntax.gaz" 459
+LOAD_THIS
+GET_METHOD refuse_braced_call
+CALL_METHOD 0 refuse_braced_call
+POP
+@ "<std>/syntax.gaz" 458
+JMP ENDIF_21
+LABEL ELSE_21
+LABEL ENDIF_21
+@ "<std>/syntax.gaz" 461
 LOAD_FIELD char
 CONCAT_ASSIGN 3
 POP
-@ "<std>/syntax.gaz" 458
+@ "<std>/syntax.gaz" 462
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
@@ -5867,49 +5883,146 @@ LABEL ENDIF_18
 LABEL ENDIF_15
 LABEL ENDIF_12
 LABEL ENDIF_10
-@ "<std>/syntax.gaz" 417
+@ "<std>/syntax.gaz" 418
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/syntax.gaz" 462
+@ "<std>/syntax.gaz" 466
 LOAD_FIELD char
 PUSH ""
 EQUALS
-JZ ELSE_21
-@ "<std>/syntax.gaz" 463
+JZ ELSE_22
+@ "<std>/syntax.gaz" 467
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
 LOAD 1
 CALL_METHOD 2 fail
 POP
-@ "<std>/syntax.gaz" 462
-JMP ENDIF_21
-LABEL ELSE_21
-LABEL ENDIF_21
-@ "<std>/syntax.gaz" 465
+@ "<std>/syntax.gaz" 466
+JMP ENDIF_22
+LABEL ELSE_22
+LABEL ENDIF_22
+@ "<std>/syntax.gaz" 469
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 467
+@ "<std>/syntax.gaz" 471
 LOAD 0
-JZ TERNARY_ELSE_22
+JZ TERNARY_ELSE_23
 PUSH "STRING"
-JMP TERNARY_END_22
-LABEL TERNARY_ELSE_22
+JMP TERNARY_END_23
+LABEL TERNARY_ELSE_23
 PUSH "STRING_END"
-LABEL TERNARY_END_22
+LABEL TERNARY_END_23
 LOAD 3
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 405
+@ "<std>/syntax.gaz" 406
 PUSH null
 RET
 
 fn syntax::Lexer.at_braced_name 0 0
-locals $i $next
-@ "<std>/syntax.gaz" 476
+locals $end
+@ "<std>/syntax.gaz" 480
+LOAD_THIS
+GET_METHOD braced_name_end
+CALL_METHOD 0 braced_name_end
+STORE 0
+LOAD 0
+POP
+@ "<std>/syntax.gaz" 482
+LOAD 0
+PUSH 0
+GE
+JZ AND_FALSE_0
+LOAD_FIELD text
+LOAD 0
+CALL chars::char_at 2
+PUSH "}"
+EQUALS
+JZ AND_FALSE_0
+PUSH true
+JMP AND_END_0
+LABEL AND_FALSE_0
+PUSH false
+LABEL AND_END_0
+RET
+@ "<std>/syntax.gaz" 479
+PUSH null
+RET
+
+fn syntax::Lexer.refuse_braced_call 0 0
+locals $end $name
+@ "<std>/syntax.gaz" 491
+LOAD_THIS
+GET_METHOD braced_name_end
+CALL_METHOD 0 braced_name_end
+STORE 0
+LOAD 0
+POP
+@ "<std>/syntax.gaz" 492
+LOAD 0
+PUSH 0
+LT
+NOT
+JZ OR_TRUE_1
+LOAD_FIELD text
+LOAD 0
+CALL chars::char_at 2
+PUSH "("
+NOT_EQUALS
+NOT
+JZ OR_TRUE_1
+PUSH false
+JMP OR_END_1
+LABEL OR_TRUE_1
+PUSH true
+LABEL OR_END_1
+JZ ELSE_0
+@ "<std>/syntax.gaz" 493
+PUSH null
+RET
+@ "<std>/syntax.gaz" 492
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "<std>/syntax.gaz" 495
+LOAD_FIELD text
+LOAD_FIELD pos
+PUSH 1
+ADD
+LOAD 0
+LOAD_FIELD pos
+SUB
+PUSH 1
+SUB
+CALL_BUILTIN slice 3
+STORE 1
+LOAD 1
+POP
+@ "<std>/syntax.gaz" 496
+LOAD_THIS
+GET_METHOD fail
+PUSH "A call doesn't interpolate in bare braces: assign "
+LOAD 1
+CONCAT
+PUSH "(...) to a \$variable first, or write \\{"
+CONCAT
+LOAD 1
+CONCAT
+PUSH "( for the text"
+CONCAT
+CALL_METHOD 1 fail
+POP
+@ "<std>/syntax.gaz" 490
+PUSH null
+RET
+
+fn syntax::Lexer.braced_name_end 0 0
+locals $i
+@ "<std>/syntax.gaz" 504
 LOAD_FIELD pos
 PUSH 1
 ADD
@@ -5917,7 +6030,7 @@ STORE 0
 LOAD 0
 POP
 LABEL WHILE_0
-@ "<std>/syntax.gaz" 477
+@ "<std>/syntax.gaz" 505
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD text
@@ -5926,7 +6039,7 @@ CALL chars::char_at 2
 CALL_METHOD 1 is_name_start
 JZ ENDWHILE_0
 LABEL WHILE_1
-@ "<std>/syntax.gaz" 478
+@ "<std>/syntax.gaz" 506
 LOAD 0
 LOAD_FIELD length
 LT
@@ -5943,40 +6056,23 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ENDWHILE_1
-@ "<std>/syntax.gaz" 479
+@ "<std>/syntax.gaz" 507
 LOAD 0
 INC
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 478
+@ "<std>/syntax.gaz" 506
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/syntax.gaz" 481
+@ "<std>/syntax.gaz" 509
 LOAD_FIELD text
 LOAD 0
 CALL chars::char_at 2
-STORE 1
-LOAD 1
-POP
-@ "<std>/syntax.gaz" 482
-LOAD 1
-PUSH "}"
-EQUALS
-JZ ELSE_3
-@ "<std>/syntax.gaz" 483
-PUSH true
-RET
-@ "<std>/syntax.gaz" 482
-JMP ENDIF_3
-LABEL ELSE_3
-LABEL ENDIF_3
-@ "<std>/syntax.gaz" 485
-LOAD 1
 PUSH ":"
 NOT_EQUALS
 NOT
-JZ OR_TRUE_5
+JZ OR_TRUE_4
 LOAD_FIELD text
 LOAD 0
 PUSH 1
@@ -5985,71 +6081,72 @@ CALL chars::char_at 2
 PUSH ":"
 NOT_EQUALS
 NOT
-JZ OR_TRUE_5
+JZ OR_TRUE_4
 PUSH false
-JMP OR_END_5
-LABEL OR_TRUE_5
+JMP OR_END_4
+LABEL OR_TRUE_4
 PUSH true
-LABEL OR_END_5
-JZ ELSE_4
-@ "<std>/syntax.gaz" 486
-PUSH false
+LABEL OR_END_4
+JZ ELSE_3
+@ "<std>/syntax.gaz" 510
+LOAD 0
 RET
-@ "<std>/syntax.gaz" 485
-JMP ENDIF_4
-LABEL ELSE_4
-LABEL ENDIF_4
-@ "<std>/syntax.gaz" 488
+@ "<std>/syntax.gaz" 509
+JMP ENDIF_3
+LABEL ELSE_3
+LABEL ENDIF_3
+@ "<std>/syntax.gaz" 512
 LOAD 0
 PUSH 2
 ADD
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 477
+@ "<std>/syntax.gaz" 505
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/syntax.gaz" 491
-PUSH false
+@ "<std>/syntax.gaz" 515
+PUSH 1
+NEG
 RET
-@ "<std>/syntax.gaz" 475
+@ "<std>/syntax.gaz" 503
 PUSH null
 RET
 
 fn syntax::Lexer.interpolated_index 0 0
 locals $line $key $digits $int $tokens $#foreach_array_1 $#foreach_position_1 $token
-@ "<std>/syntax.gaz" 500
+@ "<std>/syntax.gaz" 524
 LOAD_FIELD line
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 501
+@ "<std>/syntax.gaz" 525
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 503
+@ "<std>/syntax.gaz" 527
 PUSH null
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 504
+@ "<std>/syntax.gaz" 528
 LOAD_FIELD char
 PUSH "$"
 EQUALS
 JZ ELSE_0
-@ "<std>/syntax.gaz" 505
+@ "<std>/syntax.gaz" 529
 LOAD_THIS
 GET_METHOD var_identifier
 CALL_METHOD 0 var_identifier
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 504
+@ "<std>/syntax.gaz" 528
 JMP ENDIF_0
 LABEL ELSE_0
-@ "<std>/syntax.gaz" 506
+@ "<std>/syntax.gaz" 530
 LOAD_FIELD char
 CALL chars::is_digit 1
 NOT
@@ -6065,31 +6162,31 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "<std>/syntax.gaz" 507
+@ "<std>/syntax.gaz" 531
 LOAD_FIELD char
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 508
+@ "<std>/syntax.gaz" 532
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 509
+@ "<std>/syntax.gaz" 533
 LOAD_THIS
 GET_METHOD read_digits
 CALL_METHOD 0 read_digits
 CONCAT_ASSIGN 2
 POP
-@ "<std>/syntax.gaz" 511
+@ "<std>/syntax.gaz" 535
 LOAD 2
 PUSH null
 CALL_BUILTIN to_int 2
 STORE 3
 LOAD 3
 POP
-@ "<std>/syntax.gaz" 512
+@ "<std>/syntax.gaz" 536
 LOAD 3
 PUSH null
 NOT_EQUALS
@@ -6117,16 +6214,16 @@ LABEL TERNARY_END_3
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 506
+@ "<std>/syntax.gaz" 530
 JMP ENDIF_1
 LABEL ELSE_1
-@ "<std>/syntax.gaz" 513
+@ "<std>/syntax.gaz" 537
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD char
 CALL_METHOD 1 is_name_start
 JZ ELSE_5
-@ "<std>/syntax.gaz" 514
+@ "<std>/syntax.gaz" 538
 PUSH "STRING"
 LOAD_THIS
 GET_METHOD read_word
@@ -6135,13 +6232,13 @@ NEW syntax::Token 2
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 513
+@ "<std>/syntax.gaz" 537
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
 LABEL ENDIF_1
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 517
+@ "<std>/syntax.gaz" 541
 LOAD 1
 PUSH null
 EQUALS
@@ -6171,24 +6268,24 @@ LABEL OR_TRUE_7
 PUSH true
 LABEL OR_END_7
 JZ ELSE_6
-@ "<std>/syntax.gaz" 518
+@ "<std>/syntax.gaz" 542
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid array index in interpolated string: use \"\{\$name[...]}\" for anything but [0], [-1], [key] or [\$i]"
 LOAD 0
 CALL_METHOD 2 fail
 POP
-@ "<std>/syntax.gaz" 517
+@ "<std>/syntax.gaz" 541
 JMP ENDIF_6
 LABEL ELSE_6
 LABEL ENDIF_6
-@ "<std>/syntax.gaz" 520
+@ "<std>/syntax.gaz" 544
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 522
+@ "<std>/syntax.gaz" 546
 NEW_ARRAY
 PUSH "LEFT_BRACKET"
 PUSH "["
@@ -6203,7 +6300,7 @@ ARRAY_PUSH
 STORE 4
 LOAD 4
 POP
-@ "<std>/syntax.gaz" 523
+@ "<std>/syntax.gaz" 547
 LOAD 4
 FOREACH_CHECK
 STORE 5
@@ -6212,38 +6309,38 @@ STORE 6
 LABEL FOREACH_9
 FOREACH_NEXT 5 6 ENDFOREACH_9
 STORE 7
-@ "<std>/syntax.gaz" 524
+@ "<std>/syntax.gaz" 548
 LOAD 0
 SET_PATH .line 7
 POP
-@ "<std>/syntax.gaz" 523
+@ "<std>/syntax.gaz" 547
 JMP FOREACH_9
 LABEL ENDFOREACH_9
-@ "<std>/syntax.gaz" 527
+@ "<std>/syntax.gaz" 551
 LOAD 4
 RET
-@ "<std>/syntax.gaz" 499
+@ "<std>/syntax.gaz" 523
 PUSH null
 RET
 
 fn syntax::Lexer.escape 0 0
 locals $c $hex $code_point
-@ "<std>/syntax.gaz" 532
+@ "<std>/syntax.gaz" 556
 LOAD_FIELD char
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 533
+@ "<std>/syntax.gaz" 557
 LOAD_THIS
 GET_METHOD advance
 CALL_METHOD 0 advance
 POP
-@ "<std>/syntax.gaz" 535
+@ "<std>/syntax.gaz" 559
 LOAD 0
 PUSH "x"
 EQUALS
 JZ ELSE_0
-@ "<std>/syntax.gaz" 536
+@ "<std>/syntax.gaz" 560
 LOAD_THIS
 GET_METHOD read_hex
 PUSH 2
@@ -6251,13 +6348,13 @@ CALL_METHOD 1 read_hex
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 537
+@ "<std>/syntax.gaz" 561
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 2
 NOT_EQUALS
 JZ ELSE_1
-@ "<std>/syntax.gaz" 538
+@ "<std>/syntax.gaz" 562
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid escape \\x"
@@ -6267,27 +6364,27 @@ PUSH ": expected two hex digits"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 537
+@ "<std>/syntax.gaz" 561
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/syntax.gaz" 541
+@ "<std>/syntax.gaz" 565
 LOAD_THIS
 GET_METHOD hex_value
 LOAD 1
 CALL_METHOD 1 hex_value
 CALL_BUILTIN chr 1
 RET
-@ "<std>/syntax.gaz" 535
+@ "<std>/syntax.gaz" 559
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 544
+@ "<std>/syntax.gaz" 568
 LOAD 0
 PUSH "u"
 EQUALS
 JZ ELSE_2
-@ "<std>/syntax.gaz" 545
+@ "<std>/syntax.gaz" 569
 LOAD_FIELD char
 PUSH "{"
 EQUALS
@@ -6302,22 +6399,22 @@ LABEL TERNARY_END_3
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 546
+@ "<std>/syntax.gaz" 570
 LOAD 1
 PUSH null
 EQUALS
 JZ ELSE_4
-@ "<std>/syntax.gaz" 547
+@ "<std>/syntax.gaz" 571
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid escape \\u: expected \\u{...} with 1 to 6 hex digits"
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 546
+@ "<std>/syntax.gaz" 570
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "<std>/syntax.gaz" 549
+@ "<std>/syntax.gaz" 573
 LOAD_THIS
 GET_METHOD hex_value
 LOAD 1
@@ -6325,7 +6422,7 @@ CALL_METHOD 1 hex_value
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 550
+@ "<std>/syntax.gaz" 574
 LOAD 2
 PUSH 1114111
 GT
@@ -6352,7 +6449,7 @@ LABEL OR_TRUE_6
 PUSH true
 LABEL OR_END_6
 JZ ELSE_5
-@ "<std>/syntax.gaz" 551
+@ "<std>/syntax.gaz" 575
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid escape \\u{"
@@ -6362,21 +6459,21 @@ PUSH "}: not a Unicode code point"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 550
+@ "<std>/syntax.gaz" 574
 JMP ENDIF_5
 LABEL ELSE_5
 LABEL ENDIF_5
-@ "<std>/syntax.gaz" 554
+@ "<std>/syntax.gaz" 578
 LOAD_THIS
 GET_METHOD utf8
 LOAD 2
 CALL_METHOD 1 utf8
 RET
-@ "<std>/syntax.gaz" 544
+@ "<std>/syntax.gaz" 568
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/syntax.gaz" 557
+@ "<std>/syntax.gaz" 581
 LOAD 0
 PUSH "0"
 EQUALS
@@ -6390,7 +6487,7 @@ LABEL AND_FALSE_9
 PUSH false
 LABEL AND_END_9
 JZ ELSE_8
-@ "<std>/syntax.gaz" 558
+@ "<std>/syntax.gaz" 582
 LOAD_THIS
 GET_METHOD fail
 PUSH "Octal escapes are not supported: \\0"
@@ -6400,11 +6497,11 @@ PUSH " (use \\x)"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 557
+@ "<std>/syntax.gaz" 581
 JMP ENDIF_8
 LABEL ELSE_8
 LABEL ENDIF_8
-@ "<std>/syntax.gaz" 561
+@ "<std>/syntax.gaz" 585
 PUSH {"n" => "\n", "t" => "\t", "r" => "\r", "v" => "\v", "f" => "\f", "e" => "\e", "0" => "\x00", "\\" => "\\", "\"" => "\"", "$" => "$", "{" => "{"}
 LOAD 0
 INDEX_GET_QUIET
@@ -6419,19 +6516,19 @@ CONCAT
 CALL_METHOD 1 fail
 LABEL COALESCE_END_10
 RET
-@ "<std>/syntax.gaz" 531
+@ "<std>/syntax.gaz" 555
 PUSH null
 RET
 
 fn syntax::Lexer.read_braced_hex 0 0
 locals $hex
-@ "<std>/syntax.gaz" 566
+@ "<std>/syntax.gaz" 590
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 567
+@ "<std>/syntax.gaz" 591
 LOAD_THIS
 GET_METHOD read_hex
 PUSH 7
@@ -6439,7 +6536,7 @@ CALL_METHOD 1 read_hex
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 568
+@ "<std>/syntax.gaz" 592
 LOAD_FIELD char
 PUSH "}"
 NOT_EQUALS
@@ -6469,47 +6566,47 @@ LABEL OR_TRUE_1
 PUSH true
 LABEL OR_END_1
 JZ ELSE_0
-@ "<std>/syntax.gaz" 569
+@ "<std>/syntax.gaz" 593
 PUSH null
 RET
-@ "<std>/syntax.gaz" 568
+@ "<std>/syntax.gaz" 592
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 571
+@ "<std>/syntax.gaz" 595
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 573
+@ "<std>/syntax.gaz" 597
 LOAD 0
 RET
-@ "<std>/syntax.gaz" 565
+@ "<std>/syntax.gaz" 589
 PUSH null
 RET
 
 fn syntax::Lexer.utf8 1 1
 locals $code_point
-@ "<std>/syntax.gaz" 578
+@ "<std>/syntax.gaz" 602
 LOAD 0
 PUSH 128
 LT
 JZ ELSE_0
-@ "<std>/syntax.gaz" 579
+@ "<std>/syntax.gaz" 603
 LOAD 0
 CALL_BUILTIN chr 1
 RET
-@ "<std>/syntax.gaz" 578
+@ "<std>/syntax.gaz" 602
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 581
+@ "<std>/syntax.gaz" 605
 LOAD 0
 PUSH 2048
 LT
 JZ ELSE_1
-@ "<std>/syntax.gaz" 582
+@ "<std>/syntax.gaz" 606
 PUSH 192
 LOAD 0
 PUSH 6
@@ -6524,16 +6621,16 @@ BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
 RET
-@ "<std>/syntax.gaz" 581
+@ "<std>/syntax.gaz" 605
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/syntax.gaz" 584
+@ "<std>/syntax.gaz" 608
 LOAD 0
 PUSH 65536
 LT
 JZ ELSE_2
-@ "<std>/syntax.gaz" 585
+@ "<std>/syntax.gaz" 609
 PUSH 224
 LOAD 0
 PUSH 12
@@ -6557,11 +6654,11 @@ BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
 RET
-@ "<std>/syntax.gaz" 584
+@ "<std>/syntax.gaz" 608
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/syntax.gaz" 588
+@ "<std>/syntax.gaz" 612
 PUSH 240
 LOAD 0
 PUSH 18
@@ -6577,7 +6674,7 @@ BIT_AND
 BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
-@ "<std>/syntax.gaz" 589
+@ "<std>/syntax.gaz" 613
 PUSH 128
 LOAD 0
 PUSH 6
@@ -6594,42 +6691,42 @@ BIT_AND
 BIT_OR
 CALL_BUILTIN chr 1
 CONCAT
-@ "<std>/syntax.gaz" 588
+@ "<std>/syntax.gaz" 612
 RET
-@ "<std>/syntax.gaz" 577
+@ "<std>/syntax.gaz" 601
 PUSH null
 RET
 
 fn syntax::Lexer.single_quoted_string 0 0
 locals $start_line $result $i $from $c
-@ "<std>/syntax.gaz" 594
+@ "<std>/syntax.gaz" 618
 LOAD_FIELD line
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 595
+@ "<std>/syntax.gaz" 619
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 597
+@ "<std>/syntax.gaz" 621
 PUSH ""
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 598
+@ "<std>/syntax.gaz" 622
 LOAD_FIELD pos
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 600
+@ "<std>/syntax.gaz" 624
 LOAD 2
 STORE 3
 LOAD 3
 POP
 LABEL WHILE_0
-@ "<std>/syntax.gaz" 601
+@ "<std>/syntax.gaz" 625
 LOAD 2
 LOAD_FIELD length
 LT
@@ -6646,28 +6743,28 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "<std>/syntax.gaz" 602
+@ "<std>/syntax.gaz" 626
 LOAD_FIELD text
 LOAD 2
 INDEX_GET
 STORE 4
 LOAD 4
 POP
-@ "<std>/syntax.gaz" 603
+@ "<std>/syntax.gaz" 627
 LOAD 4
 PUSH "\n"
 EQUALS
 JZ ELSE_2
-@ "<std>/syntax.gaz" 604
+@ "<std>/syntax.gaz" 628
 LOAD_THIS
 GET_PROPERTY_EXISTING line
 INC
 SET_FIELD line
 POP
-@ "<std>/syntax.gaz" 603
+@ "<std>/syntax.gaz" 627
 JMP ENDIF_2
 LABEL ELSE_2
-@ "<std>/syntax.gaz" 605
+@ "<std>/syntax.gaz" 629
 LOAD 4
 PUSH "\\"
 EQUALS
@@ -6714,7 +6811,7 @@ LABEL AND_FALSE_4
 PUSH false
 LABEL AND_END_4
 JZ ELSE_3
-@ "<std>/syntax.gaz" 607
+@ "<std>/syntax.gaz" 631
 LOAD_FIELD text
 LOAD 3
 LOAD 2
@@ -6723,48 +6820,48 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 1
 POP
-@ "<std>/syntax.gaz" 608
+@ "<std>/syntax.gaz" 632
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 609
+@ "<std>/syntax.gaz" 633
 LOAD 2
 STORE 3
 LOAD 3
 POP
-@ "<std>/syntax.gaz" 605
+@ "<std>/syntax.gaz" 629
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
 LABEL ENDIF_2
-@ "<std>/syntax.gaz" 611
+@ "<std>/syntax.gaz" 635
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 601
+@ "<std>/syntax.gaz" 625
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/syntax.gaz" 614
+@ "<std>/syntax.gaz" 638
 LOAD 2
 LOAD_FIELD length
 GE
 JZ ELSE_7
-@ "<std>/syntax.gaz" 615
+@ "<std>/syntax.gaz" 639
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
 LOAD 0
 CALL_METHOD 2 fail
 POP
-@ "<std>/syntax.gaz" 614
+@ "<std>/syntax.gaz" 638
 JMP ENDIF_7
 LABEL ELSE_7
 LABEL ENDIF_7
-@ "<std>/syntax.gaz" 617
+@ "<std>/syntax.gaz" 641
 LOAD_FIELD text
 LOAD 3
 LOAD 2
@@ -6773,7 +6870,7 @@ SUB
 CALL_BUILTIN slice 3
 CONCAT_ASSIGN 1
 POP
-@ "<std>/syntax.gaz" 618
+@ "<std>/syntax.gaz" 642
 LOAD_THIS
 GET_METHOD skip
 LOAD 2
@@ -6783,23 +6880,23 @@ LOAD_FIELD pos
 SUB
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 620
+@ "<std>/syntax.gaz" 644
 LOAD 1
 RET
-@ "<std>/syntax.gaz" 593
+@ "<std>/syntax.gaz" 617
 PUSH null
 RET
 
 fn syntax::Lexer.identifier 0 0
 locals $word $keyword
-@ "<std>/syntax.gaz" 629
+@ "<std>/syntax.gaz" 653
 LOAD_THIS
 GET_METHOD read_word
 CALL_METHOD 0 read_word
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 630
+@ "<std>/syntax.gaz" 654
 PUSH {"echo" => "ECHO", "if" => "IF", "else" => "ELSE", "while" => "WHILE", "for" => "FOR", "foreach" => "FOREACH", "as" => "AS", "break" => "BREAK", "continue" => "CONTINUE", "fn" => "FN", "return" => "RETURN", "null" => "NULL", "delete" => "DELETE", "match" => "MATCH", "default" => "DEFAULT", "const" => "CONST", "include" => "INCLUDE", "import" => "IMPORT", "try" => "TRY", "catch" => "CATCH", "finally" => "FINALLY", "throw" => "THROW", "true" => "TRUE", "false" => "FALSE", "kind" => "KIND", "extends" => "EXTENDS", "abstract" => "ABSTRACT", "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL", "readonly" => "READONLY", "enum" => "ENUM", "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "kin" => "KIN", "static" => "STATIC", "shared" => "SHARED"}
 LOAD 0
 INDEX_GET_QUIET
@@ -6809,40 +6906,40 @@ LABEL COALESCE_END_0
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 631
+@ "<std>/syntax.gaz" 655
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "<std>/syntax.gaz" 632
+@ "<std>/syntax.gaz" 656
 LOAD 1
 LOAD 0
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 631
+@ "<std>/syntax.gaz" 655
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/syntax.gaz" 634
+@ "<std>/syntax.gaz" 658
 LOAD_FIELD char
 PUSH "\""
 EQUALS
 JZ ELSE_2
-@ "<std>/syntax.gaz" 635
+@ "<std>/syntax.gaz" 659
 PUSH "TAG"
 LOAD 0
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 634
+@ "<std>/syntax.gaz" 658
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/syntax.gaz" 637
+@ "<std>/syntax.gaz" 661
 LOAD_FIELD char
 PUSH "'"
 EQUALS
 JZ ELSE_3
-@ "<std>/syntax.gaz" 638
+@ "<std>/syntax.gaz" 662
 LOAD_THIS
 GET_METHOD fail
 PUSH "A tag takes a double-quoted string: write "
@@ -6856,22 +6953,22 @@ PUSH "'...'"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 637
+@ "<std>/syntax.gaz" 661
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "<std>/syntax.gaz" 641
+@ "<std>/syntax.gaz" 665
 PUSH "IDENTIFIER"
 LOAD 0
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 628
+@ "<std>/syntax.gaz" 652
 PUSH null
 RET
 
 fn syntax::Lexer.var_identifier 0 0
 locals $type $sigil
-@ "<std>/syntax.gaz" 646
+@ "<std>/syntax.gaz" 670
 LOAD_FIELD char
 PUSH "@"
 EQUALS
@@ -6884,18 +6981,18 @@ LABEL TERNARY_END_0
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 647
+@ "<std>/syntax.gaz" 671
 LOAD_FIELD char
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 648
+@ "<std>/syntax.gaz" 672
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 649
+@ "<std>/syntax.gaz" 673
 LOAD_FIELD template
 JZ AND_FALSE_3
 LOAD 1
@@ -6919,29 +7016,29 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ELSE_1
-@ "<std>/syntax.gaz" 650
+@ "<std>/syntax.gaz" 674
 LOAD_THIS
 GET_METHOD skip
 PUSH 5
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 652
+@ "<std>/syntax.gaz" 676
 LOAD 0
 PUSH "$#html"
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 649
+@ "<std>/syntax.gaz" 673
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/syntax.gaz" 656
+@ "<std>/syntax.gaz" 680
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD char
 CALL_METHOD 1 is_name_start
 NOT
 JZ ELSE_4
-@ "<std>/syntax.gaz" 657
+@ "<std>/syntax.gaz" 681
 LOAD_THIS
 GET_METHOD fail
 PUSH "Invalid variable name: "
@@ -6953,11 +7050,11 @@ CALL_METHOD 0 read_word
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 656
+@ "<std>/syntax.gaz" 680
 JMP ENDIF_4
 LABEL ELSE_4
 LABEL ENDIF_4
-@ "<std>/syntax.gaz" 660
+@ "<std>/syntax.gaz" 684
 LOAD 0
 LOAD 1
 LOAD_THIS
@@ -6966,39 +7063,39 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 645
+@ "<std>/syntax.gaz" 669
 PUSH null
 RET
 
 fn syntax::Lexer.hash 0 0
 locals $parent $sigil
-@ "<std>/syntax.gaz" 665
+@ "<std>/syntax.gaz" 689
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 666
+@ "<std>/syntax.gaz" 690
 LOAD_FIELD char
 PUSH "#"
 EQUALS
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 667
+@ "<std>/syntax.gaz" 691
 LOAD 0
 JZ ELSE_0
-@ "<std>/syntax.gaz" 668
+@ "<std>/syntax.gaz" 692
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 667
+@ "<std>/syntax.gaz" 691
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 670
+@ "<std>/syntax.gaz" 694
 LOAD 0
 JZ TERNARY_ELSE_1
 PUSH "##"
@@ -7009,13 +7106,13 @@ LABEL TERNARY_END_1
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 671
+@ "<std>/syntax.gaz" 695
 LOAD_THIS
 GET_METHOD is_name_start
 LOAD_FIELD char
 CALL_METHOD 1 is_name_start
 JZ ELSE_2
-@ "<std>/syntax.gaz" 672
+@ "<std>/syntax.gaz" 696
 LOAD 0
 JZ TERNARY_ELSE_3
 PUSH "PARENT_IDENTIFIER"
@@ -7030,11 +7127,11 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 671
+@ "<std>/syntax.gaz" 695
 JMP ENDIF_2
 LABEL ELSE_2
 LABEL ENDIF_2
-@ "<std>/syntax.gaz" 675
+@ "<std>/syntax.gaz" 699
 LOAD 0
 JZ TERNARY_ELSE_4
 PUSH "PARENT"
@@ -7045,59 +7142,59 @@ LABEL TERNARY_END_4
 LOAD 1
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 664
+@ "<std>/syntax.gaz" 688
 PUSH null
 RET
 
 fn syntax::Lexer.span 0 0
 locals
-@ "<std>/syntax.gaz" 685
+@ "<std>/syntax.gaz" 709
 NEW_ARRAY
 LOAD_FIELD start
 ARRAY_PUSH
 LOAD_FIELD pos
 ARRAY_PUSH
 RET
-@ "<std>/syntax.gaz" 684
+@ "<std>/syntax.gaz" 708
 PUSH null
 RET
 
 fn syntax::Lexer.get_next_token 0 0
 locals $token $line $last $state
-@ "<std>/syntax.gaz" 693
+@ "<std>/syntax.gaz" 717
 LOAD_FIELD pos
 SET_FIELD start
 POP
-@ "<std>/syntax.gaz" 694
+@ "<std>/syntax.gaz" 718
 LOAD_FIELD queued_tokens
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_0
-@ "<std>/syntax.gaz" 695
+@ "<std>/syntax.gaz" 719
 LOAD_FIELD queued_tokens
 PUSH 0
 INDEX_GET
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 696
+@ "<std>/syntax.gaz" 720
 PUSH 0
 KEY_CHECK
 DELETE_PATH_THIS .queued_tokens[k]
-@ "<std>/syntax.gaz" 698
+@ "<std>/syntax.gaz" 722
 LOAD 0
 RET
-@ "<std>/syntax.gaz" 694
+@ "<std>/syntax.gaz" 718
 JMP ENDIF_0
 LABEL ELSE_0
 LABEL ENDIF_0
-@ "<std>/syntax.gaz" 701
+@ "<std>/syntax.gaz" 725
 LOAD_FIELD line
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 702
+@ "<std>/syntax.gaz" 726
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -7105,7 +7202,7 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 703
+@ "<std>/syntax.gaz" 727
 LOAD 2
 PUSH 0
 LT
@@ -7122,12 +7219,12 @@ LABEL TERNARY_END_1
 STORE 3
 LOAD 3
 POP
-@ "<std>/syntax.gaz" 705
+@ "<std>/syntax.gaz" 729
 LOAD 3
 PUSH "bare"
 EQUALS
 JZ ELSE_2
-@ "<std>/syntax.gaz" 707
+@ "<std>/syntax.gaz" 731
 LOAD 2
 KEY_CHECK
 PUSH 0
@@ -7135,37 +7232,37 @@ KEY_CHECK
 PUSH "after_bare"
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "<std>/syntax.gaz" 708
+@ "<std>/syntax.gaz" 732
 LOAD_THIS
 GET_METHOD var_identifier
 CALL_METHOD 0 var_identifier
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 709
+@ "<std>/syntax.gaz" 733
 LOAD_FIELD char
 PUSH "["
 EQUALS
 JZ ELSE_3
-@ "<std>/syntax.gaz" 710
+@ "<std>/syntax.gaz" 734
 LOAD_THIS
 GET_METHOD interpolated_index
 CALL_METHOD 0 interpolated_index
 SET_FIELD queued_tokens
 POP
-@ "<std>/syntax.gaz" 709
+@ "<std>/syntax.gaz" 733
 JMP ENDIF_3
 LABEL ELSE_3
 LABEL ENDIF_3
-@ "<std>/syntax.gaz" 705
+@ "<std>/syntax.gaz" 729
 JMP ENDIF_2
 LABEL ELSE_2
-@ "<std>/syntax.gaz" 712
+@ "<std>/syntax.gaz" 736
 LOAD 3
 PUSH "after_bare"
 EQUALS
 JZ ELSE_4
-@ "<std>/syntax.gaz" 713
+@ "<std>/syntax.gaz" 737
 LOAD_THIS
 GET_METHOD string_part
 PUSH false
@@ -7173,15 +7270,15 @@ CALL_METHOD 1 string_part
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 712
+@ "<std>/syntax.gaz" 736
 JMP ENDIF_4
 LABEL ELSE_4
-@ "<std>/syntax.gaz" 714
+@ "<std>/syntax.gaz" 738
 LOAD 3
 PUSH "constant"
 EQUALS
 JZ ELSE_5
-@ "<std>/syntax.gaz" 718
+@ "<std>/syntax.gaz" 742
 PUSH "IDENTIFIER"
 LOAD_THIS
 GET_METHOD read_word
@@ -7190,7 +7287,7 @@ NEW syntax::Token 2
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 719
+@ "<std>/syntax.gaz" 743
 LOAD 2
 KEY_CHECK
 PUSH 0
@@ -7206,28 +7303,28 @@ PUSH "braces"
 LABEL TERNARY_END_6
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "<std>/syntax.gaz" 714
+@ "<std>/syntax.gaz" 738
 JMP ENDIF_5
 LABEL ELSE_5
-@ "<std>/syntax.gaz" 720
+@ "<std>/syntax.gaz" 744
 LOAD 3
 PUSH "constant_colons"
 EQUALS
 JZ ELSE_7
-@ "<std>/syntax.gaz" 721
+@ "<std>/syntax.gaz" 745
 LOAD_THIS
 GET_METHOD skip
 PUSH 2
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 722
+@ "<std>/syntax.gaz" 746
 PUSH "DOUBLE_COLON"
 PUSH "::"
 NEW syntax::Token 2
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 723
+@ "<std>/syntax.gaz" 747
 LOAD 2
 KEY_CHECK
 PUSH 0
@@ -7235,24 +7332,24 @@ KEY_CHECK
 PUSH "constant"
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "<std>/syntax.gaz" 720
+@ "<std>/syntax.gaz" 744
 JMP ENDIF_7
 LABEL ELSE_7
-@ "<std>/syntax.gaz" 725
+@ "<std>/syntax.gaz" 749
 LOAD_THIS
 GET_METHOD skip_ignored
 CALL_METHOD 0 skip_ignored
 POP
-@ "<std>/syntax.gaz" 726
+@ "<std>/syntax.gaz" 750
 LOAD_FIELD pos
 SET_FIELD start
 POP
-@ "<std>/syntax.gaz" 727
+@ "<std>/syntax.gaz" 751
 LOAD_FIELD line
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 728
+@ "<std>/syntax.gaz" 752
 LOAD_THIS
 GET_METHOD scan_token
 CALL_METHOD 0 scan_token
@@ -7263,29 +7360,29 @@ LABEL ENDIF_7
 LABEL ENDIF_5
 LABEL ENDIF_4
 LABEL ENDIF_2
-@ "<std>/syntax.gaz" 730
+@ "<std>/syntax.gaz" 754
 LOAD 1
 SET_PATH .line 0
 POP
-@ "<std>/syntax.gaz" 732
+@ "<std>/syntax.gaz" 756
 LOAD 0
 RET
-@ "<std>/syntax.gaz" 692
+@ "<std>/syntax.gaz" 716
 PUSH null
 RET
 
 fn syntax::Lexer.skip_ignored 0 0
 locals $c
 LABEL WHILE_0
-@ "<std>/syntax.gaz" 737
+@ "<std>/syntax.gaz" 761
 PUSH true
 JZ ENDWHILE_0
-@ "<std>/syntax.gaz" 738
+@ "<std>/syntax.gaz" 762
 LOAD_FIELD char
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 739
+@ "<std>/syntax.gaz" 763
 LOAD 0
 PUSH " "
 EQUALS
@@ -7326,77 +7423,77 @@ LABEL OR_TRUE_2
 PUSH true
 LABEL OR_END_2
 JZ ELSE_1
-@ "<std>/syntax.gaz" 740
+@ "<std>/syntax.gaz" 764
 LOAD_THIS
 GET_METHOD skip_whitespace
 CALL_METHOD 0 skip_whitespace
 POP
-@ "<std>/syntax.gaz" 739
+@ "<std>/syntax.gaz" 763
 JMP ENDIF_1
 LABEL ELSE_1
-@ "<std>/syntax.gaz" 741
+@ "<std>/syntax.gaz" 765
 LOAD 0
 PUSH "/"
 NOT_EQUALS
 JZ ELSE_5
-@ "<std>/syntax.gaz" 742
+@ "<std>/syntax.gaz" 766
 PUSH null
 RET
-@ "<std>/syntax.gaz" 741
+@ "<std>/syntax.gaz" 765
 JMP ENDIF_5
 LABEL ELSE_5
-@ "<std>/syntax.gaz" 743
+@ "<std>/syntax.gaz" 767
 LOAD_THIS
 GET_METHOD peek
 CALL_METHOD 0 peek
 PUSH "/"
 EQUALS
 JZ ELSE_6
-@ "<std>/syntax.gaz" 744
+@ "<std>/syntax.gaz" 768
 LOAD_THIS
 GET_METHOD skip_comment
 CALL_METHOD 0 skip_comment
 POP
-@ "<std>/syntax.gaz" 743
+@ "<std>/syntax.gaz" 767
 JMP ENDIF_6
 LABEL ELSE_6
-@ "<std>/syntax.gaz" 745
+@ "<std>/syntax.gaz" 769
 LOAD_THIS
 GET_METHOD peek
 CALL_METHOD 0 peek
 PUSH "*"
 EQUALS
 JZ ELSE_7
-@ "<std>/syntax.gaz" 746
+@ "<std>/syntax.gaz" 770
 LOAD_THIS
 GET_METHOD skip_block_comment
 CALL_METHOD 0 skip_block_comment
 POP
-@ "<std>/syntax.gaz" 745
+@ "<std>/syntax.gaz" 769
 JMP ENDIF_7
 LABEL ELSE_7
-@ "<std>/syntax.gaz" 748
+@ "<std>/syntax.gaz" 772
 PUSH null
 RET
 LABEL ENDIF_7
 LABEL ENDIF_6
 LABEL ENDIF_5
 LABEL ENDIF_1
-@ "<std>/syntax.gaz" 737
+@ "<std>/syntax.gaz" 761
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/syntax.gaz" 736
+@ "<std>/syntax.gaz" 760
 PUSH null
 RET
 
 fn syntax::Lexer.scan_token 0 0
 locals $c $type $last $#update_key1_0 $#update_key2_0 $#update_key1_1 $#update_key2_1 $#foreach_array_2 $#foreach_position_2 $length $operator
-@ "<std>/syntax.gaz" 755
+@ "<std>/syntax.gaz" 779
 LOAD_FIELD char
 STORE 0
 LOAD 0
 POP
-@ "<std>/syntax.gaz" 757
+@ "<std>/syntax.gaz" 781
 PUSH {"(" => "LEFT_PAREN", ")" => "RIGHT_PAREN", "[" => "LEFT_BRACKET", "]" => "RIGHT_BRACKET", "," => "COMMA", ";" => "SEMICOLON", "~" => "BIT_NOT"}
 LOAD 0
 INDEX_GET_QUIET
@@ -7406,27 +7503,27 @@ LABEL COALESCE_END_0
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 758
+@ "<std>/syntax.gaz" 782
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_1
-@ "<std>/syntax.gaz" 759
+@ "<std>/syntax.gaz" 783
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 760
+@ "<std>/syntax.gaz" 784
 LOAD 1
 LOAD 0
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 758
+@ "<std>/syntax.gaz" 782
 JMP ENDIF_1
 LABEL ELSE_1
 LABEL ENDIF_1
-@ "<std>/syntax.gaz" 767
+@ "<std>/syntax.gaz" 791
 LOAD 0
 PUSH "$"
 EQUALS
@@ -7442,10 +7539,10 @@ JMP OR_END_3
 LABEL OR_TRUE_3
 PUSH true
 LABEL OR_END_3
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_0
-@ "<std>/syntax.gaz" 768
+@ "<std>/syntax.gaz" 792
 LOAD 0
 PUSH "a"
 GE
@@ -7493,17 +7590,17 @@ JMP OR_END_4
 LABEL OR_TRUE_4
 PUSH true
 LABEL OR_END_4
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_1
-@ "<std>/syntax.gaz" 769
+@ "<std>/syntax.gaz" 793
 LOAD 0
 PUSH "\""
 EQUALS
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_2
-@ "<std>/syntax.gaz" 770
+@ "<std>/syntax.gaz" 794
 LOAD 0
 PUSH "0"
 GE
@@ -7517,31 +7614,31 @@ JMP AND_END_8
 LABEL AND_FALSE_8
 PUSH false
 LABEL AND_END_8
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_3
-@ "<std>/syntax.gaz" 771
+@ "<std>/syntax.gaz" 795
 LOAD 0
 PUSH ""
 EQUALS
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_4
-@ "<std>/syntax.gaz" 778
+@ "<std>/syntax.gaz" 802
 LOAD 0
 PUSH "'"
 EQUALS
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_5
-@ "<std>/syntax.gaz" 779
+@ "<std>/syntax.gaz" 803
 LOAD 0
 PUSH "#"
 EQUALS
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_6
-@ "<std>/syntax.gaz" 781
+@ "<std>/syntax.gaz" 805
 LOAD 0
 PUSH "."
 EQUALS
@@ -7558,10 +7655,10 @@ JMP AND_END_9
 LABEL AND_FALSE_9
 PUSH false
 LABEL AND_END_9
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_7
-@ "<std>/syntax.gaz" 785
+@ "<std>/syntax.gaz" 809
 LOAD 0
 PUSH "?"
 EQUALS
@@ -7591,69 +7688,69 @@ JMP AND_END_10
 LABEL AND_FALSE_10
 PUSH false
 LABEL AND_END_10
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_8
-@ "<std>/syntax.gaz" 789
+@ "<std>/syntax.gaz" 813
 LOAD 0
 PUSH "{"
 EQUALS
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_9
-@ "<std>/syntax.gaz" 797
+@ "<std>/syntax.gaz" 821
 LOAD 0
 PUSH "}"
 EQUALS
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 NOT
 JZ MATCH_ARM_2_10
 JMP MATCH_ARM_2_11
 LABEL MATCH_ARM_2_0
-@ "<std>/syntax.gaz" 767
+@ "<std>/syntax.gaz" 791
 LOAD_THIS
 GET_METHOD var_identifier
 CALL_METHOD 0 var_identifier
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_1
-@ "<std>/syntax.gaz" 768
+@ "<std>/syntax.gaz" 792
 LOAD_THIS
 GET_METHOD identifier
 CALL_METHOD 0 identifier
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_2
-@ "<std>/syntax.gaz" 769
+@ "<std>/syntax.gaz" 793
 LOAD_THIS
 GET_METHOD string_part
 PUSH true
 CALL_METHOD 1 string_part
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_3
-@ "<std>/syntax.gaz" 770
+@ "<std>/syntax.gaz" 794
 LOAD_THIS
 GET_METHOD number
 CALL_METHOD 0 number
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_4
-@ "<std>/syntax.gaz" 773
+@ "<std>/syntax.gaz" 797
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 0
 GT
 JZ ELSE_12
-@ "<std>/syntax.gaz" 774
+@ "<std>/syntax.gaz" 798
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unterminated string"
@@ -7663,46 +7760,46 @@ PUSH 1
 INDEX_GET
 CALL_METHOD 2 fail
 POP
-@ "<std>/syntax.gaz" 773
+@ "<std>/syntax.gaz" 797
 JMP ENDIF_12
 LABEL ELSE_12
 LABEL ENDIF_12
-@ "<std>/syntax.gaz" 776
+@ "<std>/syntax.gaz" 800
 PUSH "EOF"
 PUSH null
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_5
-@ "<std>/syntax.gaz" 778
+@ "<std>/syntax.gaz" 802
 PUSH "STRING"
 LOAD_THIS
 GET_METHOD single_quoted_string
 CALL_METHOD 0 single_quoted_string
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_6
-@ "<std>/syntax.gaz" 779
+@ "<std>/syntax.gaz" 803
 LOAD_THIS
 GET_METHOD hash
 CALL_METHOD 0 hash
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_7
-@ "<std>/syntax.gaz" 782
+@ "<std>/syntax.gaz" 806
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 783
+@ "<std>/syntax.gaz" 807
 PUSH "PROPERTY"
 PUSH "."
 LOAD_THIS
@@ -7711,17 +7808,17 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_8
-@ "<std>/syntax.gaz" 786
+@ "<std>/syntax.gaz" 810
 LOAD_THIS
 GET_METHOD skip
 PUSH 2
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 787
+@ "<std>/syntax.gaz" 811
 PUSH "NULLSAFE_PROPERTY"
 PUSH "?."
 LOAD_THIS
@@ -7730,17 +7827,17 @@ CALL_METHOD 0 read_word
 CONCAT
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_9
-@ "<std>/syntax.gaz" 790
+@ "<std>/syntax.gaz" 814
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 791
+@ "<std>/syntax.gaz" 815
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -7748,12 +7845,12 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 792
+@ "<std>/syntax.gaz" 816
 LOAD 2
 PUSH 0
 GE
 JZ ELSE_13
-@ "<std>/syntax.gaz" 793
+@ "<std>/syntax.gaz" 817
 LOAD 2
 KEY_CHECK
 STORE 3
@@ -7771,26 +7868,26 @@ INDEX_GET_EXISTING
 INC
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "<std>/syntax.gaz" 792
+@ "<std>/syntax.gaz" 816
 JMP ENDIF_13
 LABEL ELSE_13
 LABEL ENDIF_13
-@ "<std>/syntax.gaz" 795
+@ "<std>/syntax.gaz" 819
 PUSH "LEFT_BRACE"
 PUSH "{"
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_10
-@ "<std>/syntax.gaz" 798
+@ "<std>/syntax.gaz" 822
 LOAD_THIS
 GET_METHOD skip
 PUSH 1
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 801
+@ "<std>/syntax.gaz" 825
 LOAD_FIELD interpolations
 CALL_BUILTIN len 1
 PUSH 1
@@ -7798,12 +7895,12 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "<std>/syntax.gaz" 802
+@ "<std>/syntax.gaz" 826
 LOAD 2
 PUSH 0
 GE
 JZ ELSE_14
-@ "<std>/syntax.gaz" 803
+@ "<std>/syntax.gaz" 827
 LOAD_FIELD interpolations
 LOAD 2
 INDEX_GET
@@ -7812,7 +7909,7 @@ INDEX_GET
 PUSH 0
 GT
 JZ ELSE_15
-@ "<std>/syntax.gaz" 804
+@ "<std>/syntax.gaz" 828
 LOAD 2
 KEY_CHECK
 STORE 5
@@ -7830,10 +7927,10 @@ INDEX_GET_EXISTING
 DEC
 SET_PATH_THIS .interpolations[k][k]
 POP
-@ "<std>/syntax.gaz" 803
+@ "<std>/syntax.gaz" 827
 JMP ENDIF_15
 LABEL ELSE_15
-@ "<std>/syntax.gaz" 805
+@ "<std>/syntax.gaz" 829
 LOAD_FIELD interpolations
 LOAD 2
 INDEX_GET
@@ -7842,27 +7939,27 @@ INDEX_GET
 PUSH "braces"
 EQUALS
 JZ ELSE_16
-@ "<std>/syntax.gaz" 806
+@ "<std>/syntax.gaz" 830
 LOAD_THIS
 GET_METHOD string_part
 PUSH false
 CALL_METHOD 1 string_part
 RET
-@ "<std>/syntax.gaz" 805
+@ "<std>/syntax.gaz" 829
 JMP ENDIF_16
 LABEL ELSE_16
 LABEL ENDIF_16
 LABEL ENDIF_15
-@ "<std>/syntax.gaz" 802
+@ "<std>/syntax.gaz" 826
 JMP ENDIF_14
 LABEL ELSE_14
 LABEL ENDIF_14
-@ "<std>/syntax.gaz" 809
+@ "<std>/syntax.gaz" 833
 PUSH "RIGHT_BRACE"
 PUSH "}"
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 766
+@ "<std>/syntax.gaz" 790
 PUSH null
 JMP MATCH_END_2
 LABEL MATCH_ARM_2_11
@@ -7870,7 +7967,7 @@ PUSH null
 JMP MATCH_END_2
 LABEL MATCH_END_2
 POP
-@ "<std>/syntax.gaz" 814
+@ "<std>/syntax.gaz" 838
 PUSH [3, 2, 1]
 FOREACH_CHECK
 STORE 7
@@ -7879,7 +7976,7 @@ STORE 8
 LABEL FOREACH_17
 FOREACH_NEXT 7 8 ENDFOREACH_17
 STORE 9
-@ "<std>/syntax.gaz" 815
+@ "<std>/syntax.gaz" 839
 LOAD_FIELD text
 LOAD_FIELD pos
 LOAD 9
@@ -7887,7 +7984,7 @@ CALL_BUILTIN slice 3
 STORE 10
 LOAD 10
 POP
-@ "<std>/syntax.gaz" 816
+@ "<std>/syntax.gaz" 840
 PUSH {"+" => "PLUS", "+=" => "PLUS_ASSIGN", "++" => "INCREMENT", "-" => "MINUS", "-=" => "MINUS_ASSIGN", "--" => "DECREMENT", "->" => "ARROW", "*" => "MULTIPLY", "*=" => "MULTIPLY_ASSIGN", "**" => "POWER", "**=" => "POWER_ASSIGN", "/" => "DIVIDE", "/=" => "DIVIDE_ASSIGN", "%" => "MODULO", "%=" => "MODULO_ASSIGN", "&" => "BIT_AND", "&=" => "BIT_AND_ASSIGN", "&&" => "AND", "|" => "BIT_OR", "|=" => "BIT_OR_ASSIGN", "||" => "OR", "|>" => "PIPE", "^" => "BIT_XOR", "^=" => "BIT_XOR_ASSIGN", "<" => "LESS_THAN", "<=" => "LESS_EQUALS", "<=>" => "SPACESHIP", "<<" => "SHIFT_LEFT", "<<=" => "SHIFT_LEFT_ASSIGN", ">" => "GREATER_THAN", ">=" => "GREATER_EQUALS", ">>" => "SHIFT_RIGHT", ">>=" => "SHIFT_RIGHT_ASSIGN", "=" => "ASSIGN", "==" => "EQUALS", "=>" => "DOUBLE_ARROW", "!" => "NOT", "!=" => "NOT_EQUALS", ".." => "CONCAT", "..=" => "CONCAT_ASSIGN", "..." => "SPREAD", "?" => "QUESTION", "??" => "COALESCE", "??=" => "COALESCE_ASSIGN", ":" => "COLON", "::" => "DOUBLE_COLON"}
 LOAD 10
 INDEX_GET_QUIET
@@ -7897,30 +7994,30 @@ LABEL COALESCE_END_18
 STORE 1
 LOAD 1
 POP
-@ "<std>/syntax.gaz" 817
+@ "<std>/syntax.gaz" 841
 LOAD 1
 PUSH null
 NOT_EQUALS
 JZ ELSE_19
-@ "<std>/syntax.gaz" 818
+@ "<std>/syntax.gaz" 842
 LOAD_THIS
 GET_METHOD skip
 LOAD 9
 CALL_METHOD 1 skip
 POP
-@ "<std>/syntax.gaz" 819
+@ "<std>/syntax.gaz" 843
 LOAD 1
 LOAD 10
 NEW syntax::Token 2
 RET
-@ "<std>/syntax.gaz" 817
+@ "<std>/syntax.gaz" 841
 JMP ENDIF_19
 LABEL ELSE_19
 LABEL ENDIF_19
-@ "<std>/syntax.gaz" 814
+@ "<std>/syntax.gaz" 838
 JMP FOREACH_17
 LABEL ENDFOREACH_17
-@ "<std>/syntax.gaz" 823
+@ "<std>/syntax.gaz" 847
 LOAD_THIS
 GET_METHOD fail
 PUSH "Unexpected character '"
@@ -7930,7 +8027,7 @@ PUSH "'"
 CONCAT
 CALL_METHOD 1 fail
 POP
-@ "<std>/syntax.gaz" 754
+@ "<std>/syntax.gaz" 778
 PUSH null
 RET
 

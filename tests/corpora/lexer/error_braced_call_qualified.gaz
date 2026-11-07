@@ -1,0 +1,2 @@
+echo "first line
+  {text::upper("x")} on the second";
