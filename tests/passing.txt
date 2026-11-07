@@ -764,6 +764,8 @@ tests/corpora/bytecode/error_array_extend_into_an_int.gzb
 tests/corpora/bytecode/error_array_push_onto_a_float.gzb
 tests/corpora/bytecode/error_bad_path.gzb
 tests/corpora/bytecode/error_call_a_builtin.gzb
+tests/corpora/bytecode/error_call_builtin_too_few.gzb
+tests/corpora/bytecode/error_call_builtin_too_many.gzb
 tests/corpora/bytecode/error_call_constructor_of_a_kind_without_one.gzb
 tests/corpora/bytecode/error_call_method_of_a_number.gzb
 tests/corpora/bytecode/error_call_parent_without_a_block.gzb
@@ -890,6 +892,7 @@ tests/corpora/bytecode/error_no_globals.gzb
 tests/corpora/bytecode/error_no_locals_at_end.gzb
 tests/corpora/bytecode/error_not_bytecode.gzb
 tests/corpora/bytecode/error_parent_undefined.gzb
+tests/corpora/bytecode/error_pop_below_the_try.gzb
 tests/corpora/bytecode/error_readonly_field_added.gzb
 tests/corpora/bytecode/error_readonly_field_dropped.gzb
 tests/corpora/bytecode/error_readonly_field_line_too_long.gzb
@@ -907,7 +910,9 @@ tests/corpora/bytecode/error_stack_differs_spaced.gzb
 tests/corpora/bytecode/error_static_slot_out_of_range.gzb
 tests/corpora/bytecode/error_static_type_then_more.gzb
 tests/corpora/bytecode/error_static_type_without_slot.gzb
+tests/corpora/bytecode/error_throw_below_the_try.gzb
 tests/corpora/bytecode/error_top_with_words.gzb
+tests/corpora/bytecode/error_try_floors_differ.gzb
 tests/corpora/bytecode/error_try_handler_open_on_one_path.gzb
 tests/corpora/bytecode/error_type_empty_part.gzb
 tests/corpora/bytecode/error_type_undefined_kind_in_check.gzb

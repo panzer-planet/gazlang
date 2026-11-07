@@ -1,0 +1,1 @@
+Error: THROW at instruction 2 takes the stack below 1, where the try around it was opened in the top level

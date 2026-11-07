@@ -1,0 +1,8 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+PUSH "abc"
+CALL_BUILTIN slice 1
+PRINT

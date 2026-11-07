@@ -449,6 +449,8 @@ A file that loads is one the VM can run, so the checks are part of the format:
   refused rather than clamped, since it is a number nothing meant.
 - Every label a jump names is defined in the same block, and every function, builtin, kind
   and lambda a name or index refers to exists.
+- A `CALL_BUILTIN` passes a count within the builtin's arity, since a builtin reads its
+  arguments by position and trusts the count.
 - Nothing that needs the object a method runs on (`LOAD_FIELD`, `SET_FIELD`, `CALL_PARENT`,
   `BIND_PARENT`, `CALL_CONSTRUCTOR`) is in a block that can run without one: the top level, a
   function, a method called or pushed as a function, or a lambda made in any of these.
@@ -458,8 +460,11 @@ A file that loads is one the VM can run, so the checks are part of the format:
   reached without what it would have pushed. The greatest depth reached is what a VM needs to
   size the block's stack.
 - Each block's handlers balance the same way: an instruction is reached with the same handlers
-  open on every path, and `END_TRY` closes one that a `TRY` opened. (`RET` needs none of this:
-  a call's handlers go with its frame.)
+  open on every path, opened at the same depths, and `END_TRY` closes one that a `TRY` opened.
+  (`RET` needs none of this: a call's handlers go with its frame.)
+- Nothing inside a try pops the stack below the depth at its `TRY`. An error unwinds to that
+  depth and pushes itself there, so a stack already lower would start the handler shallower
+  than the walk says, and every instruction after it would read the wrong slots.
 - A kind named `Error` declares `message`, `file`, `line` and `trace` as `pub`, which is where
   a VM puts an error the program didn't throw itself and what every program reads off one, and
   a file holding `CATCH_VALUE` or `CATCH_MATCH` has that kind at all, since that is what a

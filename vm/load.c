@@ -1299,8 +1299,26 @@ static void mark_objectless(void) {
     free(work);
 }
 
-/* A path to walk: where, how deep the stack is, and how many try handlers are open */
-typedef struct { int position, height, tries; } Work;
+/* A path to walk: where, how deep the stack is, how many try handlers are open, and the
+   innermost one's floor (an index into the walk's floors, -1 with none open) */
+typedef struct { int position, height, tries, floor; } Work;
+
+/* A try handler's floor: the stack's height at its TRY, which nothing inside it may pop
+   below, since an error unwinds to that height and pushes itself there, and a stack already
+   lower would start the handler shallower than the walk said. Each links to the floor of the
+   handler around it, so one path's chain is shared by every path that forks from it. */
+typedef struct { int height, outer; } Floor;
+
+/* Whether two chains of floors are the same heights, innermost first */
+static bool same_floors(const Floor *floors, int a, int b) {
+    while (a >= 0 && b >= 0 && a != b) {
+        if (floors[a].height != floors[b].height) return false;
+        a = floors[a].outer;
+        b = floors[b].outer;
+    }
+    /* Met, or one chain ran out first */
+    return a == b;
+}
 
 /* A label's position in a block's raw instructions, its last definition if it has several, or
    -1. Names are interned, so the table is keyed by the pointer. Built on the first lookup: a
@@ -1369,6 +1387,8 @@ static void check_unset_arg(Block *b, int position, int height, const char *wher
     }
 }
 
+static void describe_arity(char *out, size_t size, int lo, int hi);
+
 /*
  * Check a block: every name it uses exists, every label is defined, and its stack balances.
  * The stack is walked from the top of the block, following jumps, always in the same order
@@ -1382,15 +1402,18 @@ static void check_block(Block *b) {
 
     int *heights = xmalloc((size_t)(b->nraw + 1) * sizeof(int));
     int *opens = xmalloc((size_t)(b->nraw + 1) * sizeof(int));
+    int *floor_at = xmalloc((size_t)(b->nraw + 1) * sizeof(int));
     for (int i = 0; i < b->nraw; i++) heights[i] = -1;
     int nwork = 1, capwork = 16;
     Work *work = xmalloc((size_t)capwork * sizeof(Work));
-    work[0] = (Work){0, 0, 0};
+    work[0] = (Work){0, 0, 0, -1};
+    int nfloors = 0, capfloors = 16;
+    Floor *floors = xmalloc((size_t)capfloors * sizeof(Floor));
     int max = 0;
 
     while (nwork) {
         Work item = work[--nwork];
-        int position = item.position, height = item.height, tries = item.tries;
+        int position = item.position, height = item.height, tries = item.tries, floor = item.floor;
         while (position < b->nraw) {
             RawInstr *r = &b->raw[position];
             if (heights[position] >= 0) {
@@ -1410,10 +1433,14 @@ static void check_block(Block *b) {
                 if (opens[position] != tries) {
                     FAIL("%d try handlers are open at instruction %d, but %d on another path", tries, position, opens[position]);
                 }
+                if (!same_floors(floors, floor_at[position], floor)) {
+                    FAIL("The try handlers open at instruction %d were opened at other stack heights on another path", position);
+                }
                 break;
             }
             heights[position] = height;
             opens[position] = tries;
+            floor_at[position] = floor;
             const InstrInfo *info = &INFO[r->op];
 
             for (int i = 0; i < info->nargs; i++) {
@@ -1459,6 +1486,16 @@ static void check_block(Block *b) {
                 }
                 }
             }
+            /* A builtin reads its arguments by position and trusts the count, which the compiler
+               checks against the same table, so a count outside its arity is refused here */
+            if (r->op == OP_CALL_BUILTIN) {
+                const BuiltinInfo *builtin = &builtin_info[builtin_find(r->names[0]->data, r->names[0]->len)];
+                if (r->ints[1] < builtin->lo || r->ints[1] > builtin->hi) {
+                    char takes[64];
+                    describe_arity(takes, sizeof takes, builtin->lo, builtin->hi);
+                    FAIL("CALL_BUILTIN passes %s %d argument%s, but it takes %s", builtin->name, r->ints[1], r->ints[1] == 1 ? "" : "s", takes);
+                }
+            }
             /* An enum's cases are its only objects, made before the program runs, and stay what
                they are: nothing constructs one, and nothing stores into a case's slot */
             if ((r->op == OP_NEW || r->op == OP_CALL_CONSTRUCTOR) && kind_block(r->names[0])->is_enum) {
@@ -1495,6 +1532,9 @@ static void check_block(Block *b) {
             if (height < pops) {
                 FAIL("%s needs %lld value%s but the stack is %d deep at instruction %d", info->name, (long long)pops, pops == 1 ? "" : "s", height, position);
             }
+            if (floor >= 0 && height - pops < floors[floor].height) {
+                FAIL("%s at instruction %d takes the stack below %d, where the try around it was opened", info->name, position, floors[floor].height);
+            }
             /* The loader puts one at the end of the top level itself; anywhere else it would
                end a call's run, leaving its caller in C without a value or its frames */
             if (r->op == OP_HALT && b->kind != B_TOP) {
@@ -1509,7 +1549,7 @@ static void check_block(Block *b) {
 
             /* A jump reaches its label with the stack as it is here; JNN keeps the value it
                tested, and a handler starts one deeper, holding the error */
-            int target = -1, target_height = height, target_tries = tries;
+            int target = -1, target_height = height, target_tries = tries, target_floor = floor;
             if (r->op == OP_JMP || r->op == OP_JZ || r->op == OP_JNN || r->op == OP_TRY) {
                 target = find_label(b, r->names[0]);
                 if (r->op == OP_JNN || r->op == OP_TRY) target_height = height + 1;
@@ -1522,13 +1562,22 @@ static void check_block(Block *b) {
                 target = find_label(b, r->names[2]);
                 target_height = height - info->pushes;
             }
-            /* A try's handler is open from TRY until END_TRY, or until its catch runs */
-            if (r->op == OP_TRY) tries++;
-            if (r->op == OP_END_TRY) tries--;
+            /* A try's handler is open from TRY until END_TRY, or until its catch runs, which
+               starts with the floors around the TRY */
+            if (r->op == OP_TRY) {
+                tries++;
+                if (nfloors == capfloors) floors = xrealloc(floors, (size_t)(capfloors *= 2) * sizeof(Floor));
+                floors[nfloors] = (Floor){height, floor};
+                floor = nfloors++;
+            }
+            if (r->op == OP_END_TRY) {
+                tries--;
+                floor = floors[floor].outer;
+            }
             if (target >= 0) {
                 if (target_height > max) max = target_height;
                 if (nwork == capwork) work = xrealloc(work, (size_t)(capwork *= 2) * sizeof(Work));
-                work[nwork++] = (Work){target, target_height, target_tries};
+                work[nwork++] = (Work){target, target_height, target_tries, target_floor};
             }
             if (r->op == OP_JMP || r->op == OP_RET || r->op == OP_RETHROW || r->op == OP_THROW || r->op == OP_HALT) break;
             position++;
@@ -1541,6 +1590,8 @@ static void check_block(Block *b) {
     b->max_stack = max;
     free(heights);
     free(opens);
+    free(floor_at);
+    free(floors);
     free(work);
 #undef FAIL
 }

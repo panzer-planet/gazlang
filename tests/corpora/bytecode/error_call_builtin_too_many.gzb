@@ -1,0 +1,9 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+PUSH 1
+PUSH 2
+CALL_BUILTIN type_of 2
+PRINT
