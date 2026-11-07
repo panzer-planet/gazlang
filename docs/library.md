@@ -335,6 +335,14 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
 - `tests/gaz/lib/sql_test.gaz` renders both styles with no database; `db_test.gaz` and
   `pg_check.gaz` run them. `ponytail:` no helper joins a list of fragments (a bulk insert of many
   rows is one `values {$row}` per row, or a loop in a transaction).
+- **A new PostgreSQL connection reports warnings and above** (`quiet_notices()` in `pg.c`), since
+  PostgreSQL's default level, `notice`, had libpq print a line on standard error for statements as
+  ordinary as `create table if not exists`, on every start of every program. Only where nothing
+  chose the level: `pg_settings` says where the session's value came from, so a URL's `options`
+  (`?options=-c%20client_min_messages%3Dnotice`), `ALTER ROLE` or `DATABASE ... SET` and the
+  server's configuration keep theirs. It costs one statement when a connection opens, and a
+  failure leaves the level as it was and the connection open. Tested by `DbPgTest` and
+  `pg_check.gaz`.
 - **libpq is loaded, not linked** (`load_libpq()` in `pg.c`, `dlopen` on the first `postgres://`
   open), since linked it cost every start of gaz about 7ms (it brings OpenSSL 3 and Kerberos) for
   programs that never open a database.

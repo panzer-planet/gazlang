@@ -179,6 +179,13 @@ $db.value(db::sql"select pg_advisory_unlock({$lock})");
 expect("a connection the server ended", refusal(() -> $other.value(db::sql"select pg_terminate_backend(pg_backend_pid())"))[1], db::Problem::Disconnected);
 expect("and one already gone is 08006", refusal(() -> $other.value(db::sql"select 1")), ["08006", db::Problem::Disconnected, null, null, null]);
 
+/* NOTICEs are off where nothing chose their level, and a URL that asks for them keeps them */
+expect("a new connection reports warnings and above", $db.value(db::sql"show client_min_messages"), "warning");
+$joiner = contains(args()[0], "?") ? "&" : "?";
+$noisy = db::open(args()[0] .. $joiner .. "options=-c%20client_min_messages%3Dnotice");
+expect("a URL's own level is kept", $noisy.value(db::sql"show client_min_messages"), "notice");
+$noisy.close();
+
 /* Last, since it leaves the connection in COPY mode: not the server's refusal, so not a Failure */
 throws("COPY from the client is gaz's own error", () -> $db.exec(db::raw("copy kids from stdin")), Error,
     "postgres: COPY to or from the client isn't supported; COPY to or from a file the server reads is");

@@ -174,6 +174,21 @@ void pg_load_before_fork(void) { load_libpq(); }
 
 /* ---- The driver ------------------------------------------------------------------------- */
 
+/*
+ * PostgreSQL's default, client_min_messages = notice, has libpq print a NOTICE on standard error
+ * for statements as ordinary as `create table if not exists` and `truncate ... cascade`, so every
+ * program printed them on every start. A new connection is made quieter, warnings and above, but
+ * only where nothing chose the level: pg_settings says where the session's value came from, and a
+ * URL's options (source "client"), ALTER ROLE or DATABASE ... SET and the server's own
+ * configuration each keep theirs. A failure changes nothing and costs the connection nothing:
+ * notices are a nicety, and no transaction is open to be spoiled.
+ */
+static void quiet_notices(PGconn *c) {
+    PGresult *r = pq.PQexec(c, "select set_config('client_min_messages', 'warning', false) from pg_settings "
+                               "where name = 'client_min_messages' and source = 'default'");
+    pq.PQclear(r);
+}
+
 static bool open_pg(Str *url, void **conn) {
     if (!load_libpq()) return raisef("%s", failure.data);
 #ifdef __APPLE__
@@ -212,6 +227,7 @@ static bool open_pg(Str *url, void **conn) {
         pq.PQfinish(c);
         return r;
     }
+    quiet_notices(c);
     *conn = c;
     return true;
 }

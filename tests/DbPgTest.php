@@ -25,6 +25,23 @@ class DbPgTest extends GazLangTestCase
         $this->assertGreaterThan(20, substr_count($output, 'ok '));
     }
 
+    /**
+     * A second `create table if not exists` raises a NOTICE, which libpq prints on standard error
+     * unless the session's level is above it: quiet by default, there when the URL asks for it
+     */
+    public function test_notices_reach_standard_error_only_when_asked_for()
+    {
+        $program = 'for ($i = 0; $i < 2; $i++) { $db.exec(db::sql"create temp table if not exists quiet (n int)"); } echo "done";';
+        $run = fn (string $url) => self::gazlang(['-e', "import \"std/db.gaz\"; \$db = db::open(\"{$url}\"); {$program}"]);
+        $joiner = str_contains(self::url(), '?') ? '&' : '?';
+
+        [$out, $err, $code] = $run(self::url());
+        $this->assertSame(['done', '', 0], [trim($out), $err, $code]);
+        [$out, $err, $code] = $run(self::url().$joiner.'options=-c%20client_min_messages%3Dnotice');
+        $this->assertSame(['done', 0], [trim($out), $code]);
+        $this->assertStringContainsString('NOTICE:', $err);
+    }
+
     public function test_a_worker_letting_go_of_an_inherited_connection_leaves_it_working()
     {
         [$out, $err, $code] = self::workers('drop');
