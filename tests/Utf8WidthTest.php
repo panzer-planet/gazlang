@@ -19,14 +19,16 @@ class Utf8WidthTest extends GazLangTestCase
     private const LAST = 0x10FFFF;
 
     /**
-     * The code points whose width a version of Unicode changed, by that version: 16.0 made the
-     * I Ching monograms, digrams, trigrams and hexagrams, the Tai Xuan Jing symbols and the
-     * counting rod numerals wide, for their use with CJK, and made the Ahom medial ra (U+1171E)
-     * a spacing mark. A Python whose Unicode is older than the version can't be asked about them.
+     * The code points whose width a version of Unicode changed, by that version: 14.0 made the
+     * Hanunoo sign pamudpod (U+1734) a spacing mark; 16.0 made the I Ching monograms, digrams,
+     * trigrams and hexagrams, the Tai Xuan Jing symbols and the counting rod numerals wide, for
+     * their use with CJK, and made the Ahom medial ra (U+1171E) a spacing mark. A Python whose
+     * Unicode is older than the version can't be asked about them.
      *
      * @var array<string, list<array{int, int}>>
      */
     private const CHANGED = [
+        '14.0.0' => [[0x1734, 0x1734]],
         '16.0.0' => [[0x2630, 0x2637], [0x268A, 0x268F], [0x4DC0, 0x4DFF], [0x1171E, 0x1171E], [0x1D300, 0x1D356], [0x1D360, 0x1D376]],
     ];
 
