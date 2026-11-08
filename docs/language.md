@@ -699,6 +699,31 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   echo Cell("a", Style("red")) == Cell("a", Style("red", true));    // false
   echo in_array(Style("red"), [Style("blue"), Style("red")]);       // true
   ```
+- **`with` makes a changed copy of a read-only object**: `$price with (cents: 0)` is a new
+  object of `$price`'s own kind, each named field changed and the rest copied. It is a step of an
+  expression, as `.` and `[` are, so `$cell with (style: $bold).width` reads the copy's width.
+  - The copy is made by the kind's constructor, never by copying fields: each constructor
+    parameter gets its named value, or else the old object's field of the same name. So the
+    constructor's type checks and its own checks hold for a copy, and a field the constructor
+    works out from its parameters is worked out again.
+  - Only an object of a read-only kind whose constructor promotes every parameter (its own
+    constructor or the one it inherits) can be copied, since each parameter's name must be a
+    field whose value means what the parameter means. Anything else is an error when it runs:
+    `Box isn't read-only: with copies a read-only object`, `Table can't be copied with: its
+    constructor takes $headers, which isn't a promoted field`, `Cannot use with on int`.
+  - The arguments are named, at least one, each once, and evaluated as written:
+    `with (cents: 0)`, never `with (0)` or `with ()`. A name that isn't a parameter says so:
+    `Money has no parameter $amount`.
+
+  ```gaz
+  readonly kind Money { fn _(pub #cents, pub #currency = "ZAR"); }
+
+  $price = Money(1750);
+  $free = $price with (cents: 0);
+  echo $free.cents .. " " .. $free.currency;                       // 0 ZAR
+  echo $price.cents;                                                 // 1750
+  echo $price with (currency: "USD") == Money(1750, "USD");         // true
+  ```
 - **`fields()` and `echo` are not member access** and show every field that is set, whatever it
   escapes: reflection exists so a pass can walk an object without knowing its kind.
 - **`to_string()`** is the one protocol method: `echo`, `..`, interpolation and `join` use it.
@@ -1100,7 +1125,7 @@ ends any block comment, it can't appear in a docblock's text.
 
 The keywords are `echo if else while for foreach as break continue fn return null delete match
 default const import try catch finally throw true false kind extends abstract interface
-implements final readonly enum namespace use pub kin static shared`, and `include` stays a keyword so that
+implements final readonly enum namespace use pub kin static shared with`, and `include` stays a keyword so that
 writing it says to write `import`. Other
 languages' words (`function`, `class`, `public`, `private`, `protected`) are ordinary names.
 

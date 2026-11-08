@@ -1,0 +1,5 @@
+readonly kind Style {
+    fn _(pub #fg);
+}
+
+echo Style("red") with ();

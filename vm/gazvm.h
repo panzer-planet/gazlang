@@ -299,6 +299,13 @@ struct Kind {
        kind; its cases are its only objects, one each, made when a run starts (make_cases() in
        vm.c) and kept in the static slots the statics line names after them. Its block has them. */
     bool is_enum;
+    /* with: a read-only kind whose record has a with line can be copied. For each parameter of
+       its constructor, in slot order, the field a copy takes it from when it isn't named, or -1
+       for a parameter that isn't a promoted field, which with refuses; with_names says what each
+       is called (the field's name, or the parameter's own, with its $). */
+    bool has_with;
+    int *with_fields;
+    Str **with_names;
 };
 
 typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA, B_INTERFACE } BlockKind;
@@ -343,6 +350,9 @@ struct Block {
     Str **static_names, **static_type_texts;
     int nimplements;    /* kind: the interfaces it claims itself */
     Str **implements;
+    bool has_with;      /* kind: its with line, one name for each constructor parameter */
+    int nwith;
+    Str **with_names;
     int nsigs;          /* interface: each method it names, with the arity it asks for */
     Str **sig_names;
     int *sig_lo, *sig_hi;
@@ -440,6 +450,7 @@ enum {
     OP_SET_FIELD, OP_GET_PROPERTY, OP_GET_PROPERTY_QUIET, OP_GET_PROPERTY_EXISTING,
     OP_GET_METHOD, OP_CALL_METHOD, OP_TRY, OP_END_TRY, OP_CATCH_MATCH, OP_CATCH_VALUE,
     OP_RETHROW, OP_THROW, OP_HALT, OP_UNSET_ARG, OP_PASSED, OP_CALL_METHOD_NAMED, OP_CALL_VALUE_NAMED,
+    OP_WITH,
     OP_COUNT,
     /* Superinstructions, which the loader puts in place of the first instruction of a sequence
        (see fuse() in load.c); past OP_COUNT, so no file can name one */

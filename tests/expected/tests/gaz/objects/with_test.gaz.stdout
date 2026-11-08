@@ -1,0 +1,23 @@
+ok the named field changes
+ok the others are copied
+ok the old object is unchanged
+ok a new object, == by fields to one made outright
+ok several names, in any order
+ok a derived field is worked out again
+ok the copy is of the exact kind
+ok a nested copy
+ok a member of the copy
+ok then ==
+ok in a list
+ok through ?.
+ok evaluated as written
+ok and bound by name
+ok a type check
+ok the constructor's own check
+ok an unknown name
+ok no constructor, so no parameters
+ok a parameter that isn't promoted
+ok a list pattern parameter
+ok a mutable kind
+ok an enum case
+ok not an object

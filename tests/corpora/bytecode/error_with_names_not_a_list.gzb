@@ -1,0 +1,56 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $red $copy
+@ "with_bytecode.gaz" 4
+PUSH "red"
+NEW Style 1
+STORE 0
+LOAD 0
+POP
+@ "with_bytecode.gaz" 5
+LOAD 0
+PUSH true
+PUSH "bold"
+WITH 1
+STORE 1
+LOAD 1
+POP
+@ "with_bytecode.gaz" 6
+LOAD 1
+GET_PROPERTY fg
+PUSH " "
+CONCAT
+LOAD 1
+GET_PROPERTY bold
+CONCAT
+PRINT
+
+readonly kind Style
+field fg Style pub
+field bold Style pub
+method _ Style pub
+with fg bold
+locals $#argument_0 $#argument_1
+@ "with_bytecode.gaz" 1
+CALL_CONSTRUCTOR Style
+POP
+LOAD_THIS
+RET
+
+fn Style._ 1 2
+locals $fg $bold
+@ "with_bytecode.gaz" 2
+PASSED 1 PASSED_0
+PUSH false
+STORE 1
+LABEL PASSED_0
+LOAD 0
+SET_FIELD fg
+POP
+LOAD 1
+SET_FIELD bold
+POP
+PUSH null
+RET

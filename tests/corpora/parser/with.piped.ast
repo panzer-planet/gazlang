@@ -1,0 +1,144 @@
+Compound
+  statements:
+@ null
+    0: KindDeclaration 1
+      name: "Style"
+      parent: null
+      abstract: false
+      readonly: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"fg" => "pub", "bold" => "pub", "_" => "pub"}
+      fields: {"fg" => null, "bold" => null}
+      field_lines: {"fg" => 2, "bold" => 2}
+      methods:
+        _: FunctionDeclaration 2
+          name: "_"
+          params: ["\$fg", "\$bold"]
+          defaults:
+            0: null
+            1: Boolean 2
+              token: 2 FALSE false
+              value: false
+          body: Compound
+            statements:
+              0: Statement 2
+                expr: Assign 2
+                  left: Property 2
+                    target: This 2
+                    name: "fg"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 2 ASSIGN =
+                  right: Variable 2
+                    token: 2 VAR_IDENTIFIER $fg
+                    value: "\$fg"
+              1: Statement 2
+                expr: Assign 2
+                  left: Property 2
+                    target: This 2
+                    name: "bold"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 2 ASSIGN =
+                  right: Variable 2
+                    token: 2 VAR_IDENTIFIER $bold
+                    value: "\$bold"
+          arity: [1, 2]
+          kind: "Style"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"fg" => "Style", "bold" => "Style"}
+      members: {"_" => "Style"}
+      abstract_methods: []
+      slots: [["fg", "Style", "pub"], ["bold", "Style", "pub"]]
+      method_table: [["_", "Style", "pub", "Style"]]
+      owner_vis: {"fg" => "pub", "bold" => "pub", "_" => "pub"}
+      declared_at: {"_" => "Style"}
+      hidden: []
+      hidden_fields: []
+    1: Statement 5
+      expr: Assign 5
+        left: Variable 5
+          token: 5 VAR_IDENTIFIER $red
+          value: "\$red"
+        token: 5 ASSIGN =
+        right: FunctionCall 5
+          name: "Style"
+          args:
+            0: String 5
+              token: 5 STRING "red"
+              value: "red"
+    2: EchoStatement 7
+      expr: Property 7
+        target: With 7
+          target: Variable 7
+            token: 7 VAR_IDENTIFIER $red
+            value: "\$red"
+          args:
+            0: NamedArgument 7
+              name: "bold"
+              value: Boolean 7
+                token: 7 TRUE true
+                value: true
+        name: "bold"
+        field: false
+        constant: false
+        value: null
+        static_name: null
+    3: EchoStatement 8
+      expr: BinOp 8
+        left: With 8
+          target: Variable 8
+            token: 8 VAR_IDENTIFIER $red
+            value: "\$red"
+          args:
+            0: NamedArgument 8
+              name: "fg"
+              value: String 8
+                token: 8 STRING "blue"
+                value: "blue"
+        token: 8 EQUALS ==
+        op: 8 EQUALS ==
+        right: FunctionCall 8
+          name: "Style"
+          args:
+            0: String 8
+              token: 8 STRING "blue"
+              value: "blue"
+    4: Statement 10
+      expr: Assign 10
+        left: Variable 10
+          token: 10 VAR_IDENTIFIER $copy
+          value: "\$copy"
+        token: 10 ASSIGN =
+        right: With 11
+          target: Variable 10
+            token: 10 VAR_IDENTIFIER $red
+            value: "\$red"
+          args:
+            0: NamedArgument 12
+              name: "fg"
+              value: String 12
+                token: 12 STRING "green"
+                value: "green"
+            1: NamedArgument 13
+              name: "bold"
+              value: Property 13
+                target: Variable 13
+                  token: 13 VAR_IDENTIFIER $red
+                  value: "\$red"
+                name: "bold"
+                field: false
+                constant: false
+                value: null
+                static_name: null

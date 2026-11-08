@@ -1,0 +1,103 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * $object with (name: value): a new object of the old one's exact kind, made by its constructor,
+ * each parameter given its named value or else the old object's field of the same name. Only a
+ * read-only kind whose constructor promotes every parameter can be copied. The bytecode corpus
+ * (tests/corpora/bytecode/with.gzb) and the loader's error_with_* cases hold the record line.
+ */
+
+readonly kind Style {
+    fn _(pub #fg, pub #bold = false);
+}
+
+readonly kind Cell {
+    pub #width;
+
+    fn _(pub #text, pub Style #style, pub int #columns = 1) {
+        // Derived, so a copy works it out again rather than taking the old one's
+        #width = #columns * len(#text);
+    }
+}
+
+readonly kind Wide extends Cell {}
+
+readonly kind Origin {
+    pub #x = 0;
+}
+
+readonly kind Table {
+    pub #rows;
+
+    fn _($headers) {
+        #rows = [$headers];
+    }
+}
+
+readonly kind Pair {
+    pub #sum;
+
+    fn _([$a, $b]) {
+        #sum = $a + $b;
+    }
+}
+
+readonly kind Checked {
+    fn _(pub #n) {
+        if (#n < 0) {
+            throw "Checked: no negatives";
+        }
+    }
+}
+
+kind Mutable {
+    fn _(pub #n);
+}
+
+enum Light {
+    Red;
+}
+
+$red = Style("red");
+$cell = Cell("ab", $red);
+
+// What is copied and what is changed
+$bold = $red with (bold: true);
+expect("the named field changes", $bold.bold, true);
+expect("the others are copied", $bold.fg, "red");
+expect("the old object is unchanged", $red.bold, false);
+expect("a new object, == by fields to one made outright", $bold == Style("red", true), true);
+expect("several names, in any order", $cell with (columns: 3, text: "xyz") == Cell("xyz", $red, 3), true);
+expect("a derived field is worked out again", ($cell with (text: "abcd")).width, 4);
+expect("the copy is of the exact kind", kind_of(Wide("a", $red) with (text: "b")), Wide);
+expect("a nested copy", ($cell with (style: $cell.style with (fg: "blue"))).style.fg, "blue");
+
+// A postfix step, beside . and [
+expect("a member of the copy", $cell with (text: "abc").width, 3);
+expect("then ==", $red with (bold: true) == $bold, true);
+expect("in a list", [$red with (fg: "green")][0].fg, "green");
+expect("through ?.", null?.style with (fg: "blue"), null);
+
+// The values are evaluated as written, then the constructor runs
+shared $log = [];
+$note = ($what, $value) -> {
+    $log[] = $what;
+
+    return $value;
+};
+$copy = $cell with (columns: $note("columns", 2), text: $note("text", "q"));
+expect("evaluated as written", $log, ["columns", "text"]);
+expect("and bound by name", [$copy.text, $copy.columns], ["q", 2]);
+
+// The constructor's checks hold for a copy
+throws("a type check", () -> $cell with (columns: "two"), "Cell() expects \$columns to be int, got string");
+throws("the constructor's own check", () -> Checked(1) with (n: -1), "Checked: no negatives");
+
+// What can't be copied
+throws("an unknown name", () -> $red with (colour: "blue"), "Style has no parameter \$colour");
+throws("no constructor, so no parameters", () -> Origin() with (x: 1), "Origin has no parameter \$x");
+throws("a parameter that isn't promoted", () -> Table(["a"]) with (rows: []), "Table can't be copied with: its constructor takes \$headers, which isn't a promoted field");
+throws("a list pattern parameter", () -> Pair([1, 2]) with (sum: 1), "Pair can't be copied with: its constructor takes a list pattern, which isn't a promoted field");
+throws("a mutable kind", () -> Mutable(1) with (n: 2), "Mutable isn't read-only: with copies a read-only object");
+throws("an enum case", () -> Light::Red with (value: 1), "Light isn't read-only: with copies a read-only object");
+throws("not an object", () -> 5 with (n: 1), "Cannot use with on int");

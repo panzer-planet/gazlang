@@ -1,0 +1,95 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $red
+@ "with.gaz" 20
+PUSH "red"
+NEW Style 1
+STORE 0
+LOAD 0
+POP
+@ "with.gaz" 21
+LOAD 0
+PUSH true
+PUSH "blue"
+PUSH ["bold", "fg"]
+WITH 2
+PRINT
+@ "with.gaz" 22
+LOAD 0
+PUSH true
+PUSH ["bold"]
+WITH 1
+GET_PROPERTY fg
+PRINT
+
+readonly kind Style
+field fg Style pub
+field bold Style pub
+method _ Style pub
+with fg bold
+locals $#argument_0 $#argument_1
+@ "with.gaz" 1
+CALL_CONSTRUCTOR Style
+POP
+LOAD_THIS
+RET
+
+fn Style._ 1 2
+locals $fg $bold
+@ "with.gaz" 2
+PASSED 1 PASSED_0
+PUSH false
+STORE 1
+LABEL PASSED_0
+LOAD 0
+SET_FIELD fg
+POP
+LOAD 1
+SET_FIELD bold
+POP
+PUSH null
+RET
+
+readonly kind Blank
+with
+locals
+@ "with.gaz" 6
+LOAD_THIS
+RET
+
+readonly kind Table
+field rows Table pub
+method _ Table pub
+with $headers
+locals $#argument_0
+@ "with.gaz" 9
+CALL_CONSTRUCTOR Table
+POP
+LOAD_THIS
+RET
+
+fn Table._ 1 1
+locals $headers
+@ "with.gaz" 13
+NEW_ARRAY
+LOAD 0
+ARRAY_PUSH
+SET_FIELD rows
+POP
+@ "with.gaz" 12
+PUSH null
+RET
+
+readonly kind Loud extends Style
+field fg Style pub
+field bold Style pub
+method _ Style pub
+with fg bold
+locals $#argument_0 $#argument_1
+@ "with.gaz" 18
+CALL_CONSTRUCTOR Style
+POP
+LOAD_THIS
+RET

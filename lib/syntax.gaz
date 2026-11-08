@@ -166,7 +166,7 @@ pub kind Lexer {
         "false" => "FALSE", "kind" => "KIND", "extends" => "EXTENDS", "abstract" => "ABSTRACT",
         "interface" => "INTERFACE", "implements" => "IMPLEMENTS", "final" => "FINAL", "readonly" => "READONLY", "enum" => "ENUM",
         "namespace" => "NAMESPACE", "use" => "USE", "pub" => "PUB", "kin" => "KIN", "static" => "STATIC",
-        "shared" => "SHARED",
+        "shared" => "SHARED", "with" => "WITH",
     };
 
     // Single character escapes in double-quoted strings, and what each stands for

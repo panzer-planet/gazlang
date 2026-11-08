@@ -1,0 +1,1 @@
+Error: with takes named arguments only: write with (name: value) at tests/corpora/parser/error_with_positional.gaz:6

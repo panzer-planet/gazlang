@@ -1033,7 +1033,7 @@ and methods a table in C.
   request can be shared without any "did someone change it?" question, and a `readonly kind`
   closes every field, so a shared object nobody can change behaves like a value (money, points,
   colours). Objects stay handles: the object a read-only field holds is still writable through
-  it (shallow, as everywhere else). A changed copy (`with`) stays open in #88.
+  it (shallow, as everywhere else). A changed copy is `with` (below).
 - **Two objects of one read-only kind are `==` when their fields are** (`objects_equal()` in
   `value.c`, inside `values_equal()`, so `in_array` and `match` follow): the same kind exactly
   (a child adds fields, so a parent's object and a child's differ: the restrictive choice,
@@ -1099,6 +1099,33 @@ and methods a table in C.
   (`check_readonly()` in `load.c`: the headers agree, and each field line says `readonly` exactly
   where the parent's does). Old files load unchanged, so the version stays 3. `--ast` shows
   `readonly` and `readonly_fields` only where set.
+- **`$price with (cents: 0)` is a changed copy** (#88), since a read-only object can't be
+  modified and a domain method (`Money.plus()`) covers only domain operations. Designed with named
+  arguments (#89): a copy is a constructor call with named arguments, the rest from the old object.
+  - **A postfix step beside `.` and `[`** (`with_copy()` in `parser.gaz`, a `WithAST`), so
+    `$cell with (style: $s).width` and `$a with (x: 1) == $b` do the obvious thing. `with` is a
+    keyword (a parameter named `$with` can't be passed by name, as `$kind` can't); a member may
+    still be named `with`, so `term::Style.with()` keeps working (`.with` is one glued token).
+  - **An operator, not a generated method**: a generated `.with()` would take a member name from
+    every read-only kind, and `term::Style` already has one.
+  - **It runs the constructor, never copies slots**: each parameter gets its named value or the
+    old object's field of that name, so type checks, the constructor's own checks and the
+    read-only window hold as for any construction, and a derived field is derived again. A field
+    the old object never set is passed unset, so its default runs (or, for a required one, it is
+    an error).
+  - **Only read-only kinds whose constructor promotes every parameter**, so each parameter's name
+    is a field and the old value means what the parameter means; `with` on a mutable object would
+    be a copy, which GazLang has none of. The restrictive choices, each loosenable later. Which
+    kind an object is shows only when it runs, so every refusal is the VM's; the parser refuses
+    only `with ()` and a positional argument.
+  - **In bytecode** (`copy_record()` in `parser.gaz`, `build_with()` in `load.c`,
+    `with_arguments()` in `vm.c`): a read-only kind's `with` line names, per constructor
+    parameter in slot order, the field it promotes, or the parameter itself with its `$` when it
+    promotes none, so the VM can name it when it refuses (`Table can't be copied with: its
+    constructor takes $headers, ...`). `WITH count` takes the object, the values as written, then
+    the names as one list, as `CALL_VALUE_NAMED` does. Without the line there is no `with`, and
+    every write still goes through the constructor's own window, so hand-written bytecode can't
+    use it to write a closed field. Old files load unchanged, so the version stays 3.
 
 ## Enums
 

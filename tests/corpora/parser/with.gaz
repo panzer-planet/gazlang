@@ -1,0 +1,14 @@
+readonly kind Style {
+    fn _(pub #fg, pub #bold = false);
+}
+
+$red = Style("red");
+// A postfix step: the copy's field, then ==
+echo $red with (bold: true).bold;
+echo $red with (fg: "blue") == Style("blue");
+// The arguments on lines of their own, and a trailing comma
+$copy = $red
+    with (
+        fg: "green",
+        bold: $red.bold,
+    );

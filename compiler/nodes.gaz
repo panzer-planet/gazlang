@@ -213,6 +213,15 @@ kind SkippedArgumentAST extends AST {
     fn _(pub #parameter);
 }
 
+/*
+ * $price with (cents: 0): a new object of $target's own kind, made by its constructor, each
+ * parameter given its NamedArgumentAST in #args or else the old object's field of that name.
+ * The VM binds the names, since which kind $target is shows only when it runs.
+ */
+kind WithAST extends AST {
+    fn _(pub #target, pub #args);
+}
+
 // A call by name: add(1, 2)
 kind FunctionCallAST extends AST {
     pub #name;
@@ -549,6 +558,9 @@ kind KindDeclarationAST extends AST {
     // The fields it declares read-only itself, each true by name: set only once one is, so a
     // kind without dumps as it always did (fields() leaves out what was never set)
     pub #readonly_fields;
+    // A read-only kind's record for with (see copy_record() in parser.gaz), worked out once the
+    // whole program is read: derived, so the tree dump leaves it out
+    pub #copy_record;
     // The interfaces it claims itself, in the order written: set only when it claims any, so a
     // kind without dumps as it always did (fields() leaves out what was never set)
     pub #interfaces;

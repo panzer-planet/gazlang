@@ -484,6 +484,93 @@ static int bind_value_call(Value callee, Value *args, int argc, List *names) {
     return count;
 }
 
+/*
+ * Turn a WITH's operands into its constructor's arguments, in place: the object at base, then
+ * the n values named, in order, by names. Each name is a parameter of the constructor of the
+ * object's kind, and every parameter not named takes the old object's field it promotes (unset
+ * if the object never set it, so its default runs again, as a skipped argument's does). Gives
+ * the count, the constructor's parameters, which the caller makes the new object's frame from;
+ * or -1 with an error raised and nothing moved.
+ */
+static int with_arguments(Value *base, int n, List *names) {
+    Object *old = base->o;
+    Kind *c = old->kind;
+    const char *kind = c->name->data;
+    if (!c->has_with) {
+        if (c->block->is_readonly) {
+            raisef("%s can't be copied with: its record has no with line", kind);
+        } else {
+            raisef("%s isn't read-only: with copies a read-only object", kind);
+        }
+        return -1;
+    }
+    int hi = c->hi;
+    for (int j = 0; j < hi; j++) {
+        if (c->with_fields[j] >= 0) continue;
+        Str *param = c->with_names[j];
+        /* A list pattern parameter's hidden name, which no program writes */
+        if (param->len > 1 && param->data[1] == '#') {
+            raisef("%s can't be copied with: its constructor takes a list pattern, which isn't a promoted field", kind);
+        } else {
+            raisef("%s can't be copied with: its constructor takes %s, which isn't a promoted field", kind, param->data);
+        }
+        return -1;
+    }
+    if (base + hi + 2 > stack_end) {
+        raisef("Stack overflow");
+        return -1;
+    }
+    /* Which value names each parameter, or -1 for one copied from the old object */
+    int *given = xmalloc((size_t)(hi ? hi : 1) * sizeof(int));
+    for (int j = 0; j < hi; j++) given[j] = -1;
+    for (int k = 0; k < n; k++) {
+        Value name = names->items[k];
+        if (name.type != T_STRING) {
+            free(given);
+            raisef("WITH's names must be strings, got %s", type_name(name));
+            return -1;
+        }
+        int slot = -1;
+        for (int j = 0; j < hi; j++) {
+            Str *field = c->with_names[j];
+            if (field->len == name.s->len && !memcmp(field->data, name.s->data, field->len)) slot = j;
+        }
+        if (slot < 0) {
+            free(given);
+            raisef("%s has no parameter $%s", kind, name.s->data);
+            return -1;
+        }
+        if (given[slot] >= 0) {
+            free(given);
+            raisef("%s is given $%s twice", kind, name.s->data);
+            return -1;
+        }
+        given[slot] = k;
+    }
+    for (int j = 0; j < c->lo; j++) {
+        if (given[j] < 0 && old->fields[c->with_fields[j]].type == T_UNSET) {
+            free(given);
+            raisef("%s has no %s to copy, and its constructor needs one", kind, c->with_names[j]->data);
+            return -1;
+        }
+    }
+    /* Every value named moves to its parameter's slot; the rest are the old object's */
+    Value *args = xmalloc((size_t)(hi ? hi : 1) * sizeof(Value));
+    for (int j = 0; j < hi; j++) {
+        if (given[j] >= 0) {
+            args[j] = base[1 + given[j]];
+        } else {
+            args[j] = old->fields[c->with_fields[j]];
+            incref(args[j]);
+        }
+    }
+    decref(*base);
+    memcpy(base, args, (size_t)hi * sizeof(Value));
+    free(args);
+    free(given);
+    return hi;
+}
+
 /* Run a method on an object to its end, from inside an instruction */
 bool call_method(Object *o, Kind *definer, Str *name, Value *out) {
     Function *f = method_function(definer, name);
@@ -1610,6 +1697,35 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             argc = count;
             if (through_method) goto call_method;
             goto call_value;
+        }
+        case OP_WITH: {
+            if (gc_wanted) gc_collect();
+            /* The object, the values named, then the names, as CALL_VALUE_NAMED has them */
+            Value names = POP();
+            int n = in->a;
+            Value *base = sp - n - 1;
+            if (names.type != T_LIST || (int)names.l->len != n) {
+                raisef("WITH %d expects a list of %d names, got %s", n, n, type_name(names));
+                decref(names);
+                goto error;
+            }
+            if (base->type != T_OBJECT) {
+                raisef("Cannot use with on %s", type_name(*base));
+                decref(names);
+                goto error;
+            }
+            Kind *c = base->o->kind;
+            int count = with_arguments(base, n, names.l);
+            decref(names);
+            if (count < 0) goto error;
+            sp = base + count;
+            if (fp - frames == MAX_CALL_DEPTH) {
+                raise_depth(c->name->data);
+                goto error;
+            }
+            if (!push_frame(c->block, &sp, count, pc, NULL, object_new(c))) goto error;
+            pc = code + c->block->entry;
+            break;
         }
         case OP_CALL_VALUE: {
             if (gc_wanted) gc_collect();

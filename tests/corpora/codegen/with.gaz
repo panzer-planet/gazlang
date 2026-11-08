@@ -1,0 +1,22 @@
+readonly kind Style {
+    fn _(pub #fg, pub #bold = false);
+}
+
+// No constructor: its with line names nothing
+readonly kind Blank {}
+
+// A parameter that isn't promoted is named as itself
+readonly kind Table {
+    pub #rows;
+
+    fn _($headers) {
+        #rows = [$headers];
+    }
+}
+
+// A child copies through the constructor it inherits
+readonly kind Loud extends Style {}
+
+$red = Style("red");
+echo $red with (bold: true, fg: "blue");
+echo $red with (bold: true).fg;

@@ -140,6 +140,7 @@ static const InstrInfo INFO[OP_COUNT] = {
     [OP_PASSED] = {"PASSED", 2, {K_SLOT, K_LABEL}, 0, 0},
     [OP_CALL_METHOD_NAMED] = {"CALL_METHOD_NAMED", 2, {K_COUNT, K_MEMBER}, POPS_COUNT3, 1},
     [OP_CALL_VALUE_NAMED] = {"CALL_VALUE_NAMED", 1, {K_COUNT}, POPS_COUNT2, 1},
+    [OP_WITH] = {"WITH", 1, {K_COUNT}, POPS_COUNT2, 1},
 };
 
 /* An instruction as read, before its names are resolved */
@@ -326,7 +327,7 @@ static const char *KEYWORDS[][2] = {
     {"try", "TRY"}, {"catch", "CATCH"}, {"finally", "FINALLY"}, {"throw", "THROW"}, {"kind", "KIND"},
     {"extends", "EXTENDS"}, {"abstract", "ABSTRACT"}, {"interface", "INTERFACE"}, {"implements", "IMPLEMENTS"},
     {"final", "FINAL"}, {"namespace", "NAMESPACE"}, {"use", "USE"}, {"pub", "PUB"}, {"kin", "KIN"},
-    {"static", "STATIC"}, {"shared", "SHARED"},
+    {"static", "STATIC"}, {"shared", "SHARED"}, {"readonly", "READONLY"}, {"enum", "ENUM"}, {"with", "WITH"},
 };
 
 static bool is_word(char c) { return is_alpha(c) || is_digit(c) || c == '_'; }
@@ -1044,6 +1045,11 @@ static Block *read_block(const char *header) {
             n = b->nmethods;
             b->method_declarers = push_name(b->method_declarers, &n, declarer);
             b->method_definers = push_name(b->method_definers, &b->nmethods, definer);
+        } else if (!strcmp(first, "with") && b->kind == B_KIND && !b->is_enum) {
+            /* What with copies each constructor parameter from, checked once the kinds are built */
+            if (b->has_with) fail("Kind %s has a second 'with' line", b->name->data);
+            b->has_with = true;
+            for (int i = 1; i < w.n; i++) b->with_names = push_name(b->with_names, &b->nwith, intern(w.w[i]));
         } else if (!strcmp(first, "implements") && b->kind == B_KIND) {
             if (w.n != 2) fail("Expected 'implements Interface'");
             b->implements = push_name(b->implements, &b->nimplements, intern(w.w[1]));
@@ -1695,6 +1701,37 @@ static void check_readonly(Kind *c) {
     }
 }
 
+/*
+ * A with line: only a read-only kind's, one name for each parameter of its constructor, each a
+ * field the constructor's kind can see or the parameter's own name, with its $, which with
+ * refuses. A copy is still made by the constructor, which checks what it is given, so a line
+ * naming the wrong field makes a wrong copy but never writes a closed field.
+ */
+static void build_with(Kind *c) {
+    Block *b = c->block;
+    const char *name = c->name->data;
+    if (!b->is_readonly) fail_at(false, "Kind %s has a with line but isn't read-only: with copies a read-only object", name);
+    if (b->nwith != c->hi) {
+        fail_at(false, "Kind %s's with line names %d parameter%s, but its constructor takes %d", name, b->nwith, b->nwith == 1 ? "" : "s", c->hi);
+    }
+    Kind *constructor_kind = c;
+    for (int m = 0; m < c->nmethods; m++) {
+        if (c->methods[m]->len == 1 && c->methods[m]->data[0] == '_') constructor_kind = c->definers[m];
+    }
+    c->with_fields = xmalloc((size_t)b->nwith * sizeof(int) + 1);
+    for (int i = 0; i < b->nwith; i++) {
+        Str *field = b->with_names[i];
+        if (field->data[0] == '$') {
+            c->with_fields[i] = -1;
+            continue;
+        }
+        c->with_fields[i] = kind_field(c, field, constructor_kind);
+        if (c->with_fields[i] < 0) fail_at(false, "Kind %s's with line names %s, which isn't a field of it", name, field->data);
+    }
+    c->with_names = b->with_names;
+    c->has_with = true;
+}
+
 /* An enum's record: what keeps its cases its only objects, and each one's value where it is put.
    A backed enum has one field, value, pub and typed with what its cases are, so every write into
    it goes through check_field_type(), which refuses a case; an enum without values has none. Its
@@ -1802,6 +1839,7 @@ static void build_kinds(void) {
             prog->error_kind = c;
         }
         if (!strcmp(c->name->data, "Html")) prog->html_kind = c;
+        if (b->has_with) build_with(c);
     }
     for (int i = 0; i < prog->ninterfaces; i++) {
         Kind *c = &prog->interfaces[i];

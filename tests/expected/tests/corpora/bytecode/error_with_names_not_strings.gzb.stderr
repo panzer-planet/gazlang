@@ -1,0 +1,1 @@
+Error: WITH's names must be strings, got int at tests/corpora/bytecode/with_bytecode.gaz:5

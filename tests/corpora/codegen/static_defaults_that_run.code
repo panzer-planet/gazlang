@@ -30,6 +30,7 @@ readonly kind Point
 field x Point pub
 field y Point pub
 method _ Point pub
+with x y
 locals $#argument_0 $#argument_1
 @ "static_defaults_that_run.gaz" 2
 CALL_CONSTRUCTOR Point

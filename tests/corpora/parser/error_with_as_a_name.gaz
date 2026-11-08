@@ -1,0 +1,4 @@
+// with is a keyword now, so no function can take its name
+fn with($x) {
+    return $x;
+}

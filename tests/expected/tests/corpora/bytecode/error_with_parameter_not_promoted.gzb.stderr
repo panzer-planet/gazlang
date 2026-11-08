@@ -1,0 +1,1 @@
+Error: Style can't be copied with: its constructor takes $bold, which isn't a promoted field at tests/corpora/bytecode/with_bytecode.gaz:5

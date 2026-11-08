@@ -123,6 +123,14 @@ whole set. A kind whose objects can be made (one that isn't abstract) must have,
 interface in that set, a `pub` method of each name the interface gives, whose block accepts
 every argument count the interface asks for.
 
+A read-only kind may have one `with` line, which is what lets `WITH` copy its objects: a word for
+each parameter of its constructor (its own or the one it inherits), in slot order, saying where a
+copy takes that parameter from when the copy doesn't name it. The word is the field the parameter
+promotes, or the parameter's own name, with its `$`, for one that promotes none, which makes
+`WITH` refuse the kind: `with cents currency`, `with $headers`. A kind with no constructor has a
+`with` line with no words. A file without the line, such as one written before `with`, still
+loads; `WITH` refuses that kind.
+
 A `static` line gives a static field the kind declares with a type: its name (without the kind,
 which is the block's own) and the type. Its slot is the one the `statics` header names as
 `Kind::name`; a static field without a type has no line, since the header already has it.
@@ -157,6 +165,7 @@ locals $#argument_0
 readonly kind Money
 field cents Money pub int
 method _ Money pub
+with cents
 locals $#argument_0
 ```
 
@@ -425,6 +434,7 @@ block and not in another.
 | `GET_METHOD member` | `o -- o m` | Pushes the object again with the method to run on it, or the member's value with nothing when it isn't a method. |
 | `CALL_METHOD count member` | `o m … -- v` | Calls what `GET_METHOD` found, or the value as `CALL_VALUE` would. Fails with "Method C.m expects 2 arguments, 1 given". |
 | `CALL_METHOD_NAMED count member` | `o m … names -- v` | `CALL_METHOD` with names, bound as `CALL_VALUE_NAMED` binds them: against the method's parameters, or what the member holds when it isn't a method. |
+| `WITH count` | `o … names -- o'` | A changed copy (`$price with (cents: 0)`): a new object of `o`'s own kind, made as `NEW` makes one, its constructor given each named value (the top is a list of the names of the `count` values under it) and, for every parameter not named, the field of `o` that the kind's `with` line gives (unset when `o` never set it, so its default runs). Fails with "Cannot use with on int", "Box isn't read-only: with copies a read-only object", "Table can't be copied with: its constructor takes $headers, which isn't a promoted field", "Money has no parameter $amount" and "Money is given $cents twice". |
 | `CALL_PARENT kind member count` | `… -- v` | Runs that kind's version of a method on the running object (`##name(...)`). There must be a block `kind.member`, which the loader checks. |
 | `BIND_PARENT kind member` | `-- f` | Pushes that kind's version of a method, bound to the running object (`##name`). |
 
@@ -475,6 +485,10 @@ A file that loads is one the VM can run, so the checks are part of the format:
   `final` entry of its parent's runs the same version and says `final` too.
 - A `readonly` kind's parent is `readonly`, a kind whose parent is `readonly` is too, and a
   kind's `field` line of a parent's field says `readonly` exactly where the parent's does.
+- A `with` line is a read-only kind's, once, with a word for each parameter of its constructor:
+  a field of the kind that the constructor's kind can see, or a word starting with `$`. What a
+  copy writes is still checked by the constructor that makes it, so a line naming the wrong
+  field makes a wrong copy, never a write to a closed field.
 - An interface's name is no kind's or other interface's, and it names each method once, with no
   code. Every `implements` line names an interface, each once in a kind, and a kind that isn't
   abstract has, for every interface it or an ancestor claims, a `pub` method of each name the

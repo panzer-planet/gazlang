@@ -968,6 +968,15 @@ tests/corpora/bytecode/error_value_variable.gzb
 tests/corpora/bytecode/error_value_with_a_hash.gzb
 tests/corpora/bytecode/error_value_with_an_arrow.gzb
 tests/corpora/bytecode/error_version.gzb
+tests/corpora/bytecode/error_with_line_names_no_field.gzb
+tests/corpora/bytecode/error_with_line_on_a_mutable_kind.gzb
+tests/corpora/bytecode/error_with_line_too_short.gzb
+tests/corpora/bytecode/error_with_line_twice.gzb
+tests/corpora/bytecode/error_with_name_twice.gzb
+tests/corpora/bytecode/error_with_names_not_a_list.gzb
+tests/corpora/bytecode/error_with_names_not_strings.gzb
+tests/corpora/bytecode/error_with_parameter_not_promoted.gzb
+tests/corpora/bytecode/error_with_without_a_line.gzb
 tests/corpora/bytecode/final.gzb
 tests/corpora/bytecode/foreach_next.gzb
 tests/corpora/bytecode/interfaces.gzb
@@ -983,6 +992,7 @@ tests/corpora/bytecode/types.gzb
 tests/corpora/bytecode/unreachable_code_is_not_checked.gzb
 tests/corpora/bytecode/unset_arg.gzb
 tests/corpora/bytecode/values.gzb
+tests/corpora/bytecode/with.gzb
 tests/corpora/codegen/assignments.gaz
 tests/corpora/codegen/braced_constant.gaz
 tests/corpora/codegen/catch_union.gaz
@@ -1020,6 +1030,7 @@ tests/corpora/codegen/template_namespace.gaz
 tests/corpora/codegen/templates/product.gaz
 tests/corpora/codegen/throw.gaz
 tests/corpora/codegen/types.gaz
+tests/corpora/codegen/with.gaz
 tests/corpora/codegen/write_through_call.gaz
 tests/corpora/lexer/block_comments.gaz
 tests/corpora/lexer/braced_call_text.gaz
@@ -1139,6 +1150,7 @@ tests/corpora/parser/uses_error_by_extending.gaz
 tests/corpora/parser/uses_error_by_name.gaz
 tests/corpora/parser/uses_error_by_untyped_catch.gaz
 tests/corpora/parser/visibility.gaz
+tests/corpora/parser/with.gaz
 tests/corpora/vm/concat_assign_paths.gaz
 tests/corpora/vm/cycles.gaz
 tests/corpora/vm/deep_uncaught.gaz
@@ -1297,6 +1309,7 @@ tests/gaz/objects/readonly_equality_test.gaz
 tests/gaz/objects/readonly_test.gaz
 tests/gaz/objects/static_defaults/trace.gaz
 tests/gaz/objects/static_defaults_test.gaz
+tests/gaz/objects/with_test.gaz
 tests/gaz/operators/assignment_operators_test.gaz
 tests/gaz/operators/bitwise_test.gaz
 tests/gaz/operators/coalesce_test.gaz

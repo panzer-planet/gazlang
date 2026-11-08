@@ -87,6 +87,7 @@ RET
 readonly kind Money
 field cents Money pub int
 method _ Money pub
+with cents
 locals $#argument_0
 @ "readonly.gaz" 20
 CALL_CONSTRUCTOR Money
@@ -108,6 +109,7 @@ final readonly kind Change extends Money
 field cents Money pub int
 field note Change pub
 method _ Money pub
+with cents
 locals $#argument_0
 @ "readonly.gaz" 25
 PUSH "change"

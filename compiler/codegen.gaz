@@ -130,6 +130,7 @@ kind CodeGenerator {
             FunctionRefAST => #visit_function_ref($node),
             LambdaAST => #visit_lambda($node),
             CallValueAST => #visit_call_value($node),
+            WithAST => #visit_with($node),
             ReturnStatementAST => #visit_return_statement($node),
             ThrowAST => #visit_throw($node),
         }
@@ -1067,6 +1068,16 @@ kind CodeGenerator {
         #emit("MAKE_CLOSURE", [len(#lambdas) - 1]);
     }
 
+    /*
+     * A changed copy: the object, the values in the order written, then their names as one
+     * list, which WITH binds to the parameters of the constructor of the object's kind
+     */
+    fn visit_with($node) {
+        #visit($node.target);
+        $names = #push_named_arguments($node.args);
+        #emit("WITH", [len($names)]);
+    }
+
     fn visit_call_value($node) {
         #visit($node.callee);
         if (#push_named_arguments($node.args) != null) {
@@ -1198,7 +1209,7 @@ kind CodeGenerator {
             #block({
                 "kind" => "kind", "name" => $kind.name, "parent" => $kind.parent,
                 "implements" => $kind.interfaces ?? [], "abstract" => $kind.abstract, "final" => $kind.final ?? false,
-                "readonly" => $kind.readonly ?? false,
+                "readonly" => $kind.readonly ?? false, "copy_record" => $kind.copy_record ?? null,
                 "fields" => #field_records($kind), "methods" => #method_records($kind),
                 "statics" => #typed_statics($kind), "enum" => $enum, "backing" => $kind.backing ?? null,
                 "cases" => $kind.cases ?? {},
@@ -1515,6 +1526,10 @@ kind Program {
         // Only a static field with a type has a line: its slot is in the statics line already
         foreach ($block["statics"] as [$static, $type]) {
             $lines[] = "static {$static} {$type}";
+        }
+        // A read-only kind's: the field with copies each constructor parameter from
+        if ($block["copy_record"] != null) {
+            $lines[] = join(["with", ...$block["copy_record"]], " ");
         }
 
         return $lines;

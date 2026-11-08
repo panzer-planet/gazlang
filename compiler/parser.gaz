@@ -1652,7 +1652,12 @@ final kind Html {
         $node = #primary();
         $nullsafe = false;
 
-        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY", "NULLSAFE_PROPERTY", "DOUBLE_COLON"])) {
+        while (in_array(#current_token.type, ["LEFT_BRACKET", "LEFT_PAREN", "PROPERTY", "NULLSAFE_PROPERTY", "DOUBLE_COLON", "WITH"])) {
+            if (#current_token.type == "WITH") {
+                $node = #with_copy($node);
+
+                continue;
+            }
             if (#current_token.type == "PROPERTY" || #current_token.type == "NULLSAFE_PROPERTY") {
                 // $user.name: which members the object has is only known when it runs
                 $token = #current_token;
@@ -1719,6 +1724,26 @@ final kind Html {
         }
 
         return $node;
+    }
+
+    /*
+     * Parse a changed copy (WITH arguments), every argument named and at least one: a step of
+     * a postfix chain, so $cell with (style: $s).width reads the copy's width. Located at with.
+     */
+    fn with_copy($target) {
+        $token = #current_token;
+        #eat("WITH");
+        $args = #arguments();
+        if (len($args) == 0) {
+            #fail_at("with () changes nothing: name a field to change, as in with (name: value)", #file, $token.line);
+        }
+        foreach ($args as $arg) {
+            if (!is_a($arg, NamedArgumentAST)) {
+                #fail_at("with takes named arguments only: write with (name: value)", $arg.file, $arg.line);
+            }
+        }
+
+        return #at(WithAST($target, $args), $token);
     }
 
     // A chain with a ?. in it as one node, located where it starts to be read
@@ -5220,7 +5245,30 @@ final kind Html {
             #fail_at("Kind {$kind.name} must define abstract method {$name} of {$kind.abstract_methods[$name]}, or be abstract", $kind.file, $kind.line);
         }
         #check_interfaces($kind);
+        if ($kind.readonly ?? false) {
+            $kind.copy_record = #copy_record($kind);
+        }
         $kind.resolved = true;
+    }
+
+    /*
+     * What with copies a resolved read-only kind's objects from: for each parameter of its
+     * constructor (its own or the one it inherits), in order, the field it promotes, or the
+     * parameter itself ("$name") when it promotes none, which with then refuses. A kind with no
+     * constructor has nothing to copy, so with can only fail on the name it is given.
+     */
+    fn copy_record($kind) {
+        if (!has_key($kind.members, "_")) {
+            return [];
+        }
+        $declarer = $kind.members["_"];
+        $record = [];
+        foreach (#kinds[$declarer].methods["_"].params as $param) {
+            $field = slice($param, 1);
+            $record[] = has_key(#promoted, "{$declarer}::{$field}") ? $field : $param;
+        }
+
+        return $record;
     }
 
     // Every name after implements must be an interface's, and each only once
