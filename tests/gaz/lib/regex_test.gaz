@@ -79,6 +79,7 @@ expect("groups respects anchors", [regex::groups("xa", "^(a)"), regex::groups("a
 expect("replace", regex::replace("hello world", "o", "0"), "hell0 w0rld");
 expect("replace a class", regex::replace("a1b22c333", "[0-9]+", "#"), "a#b#c#");
 expect("replace an escaped dot", regex::replace("a.b.c", "\\.", "::"), "a::b::c");
+expect("replace, the replacement passed by name", regex::replace("a.b", "\\.", replacement: "-"), "a-b");
 expect("replace without a match", regex::replace("abc", "x", "y"), "abc");
 expect("replace doesn't overlap", regex::replace("aaaa", "aa", "b"), "bb");
 expect("replace with nothing", regex::replace("a-b-c", "-", ""), "abc");

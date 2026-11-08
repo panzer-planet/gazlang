@@ -22,6 +22,28 @@ class BytecodeTest extends GazLangTestCase
         );
     }
 
+    /**
+     * The loader names a token in a literal as the lexer would, so its keyword table (KEYWORDS
+     * in vm/load.c) is the lexer's (Lexer::KEYWORDS in lib/syntax.gaz) but true, false and null,
+     * which it reads as values
+     */
+    public function test_the_loader_knows_every_keyword_the_lexer_does()
+    {
+        $this->assertSame(1, preg_match('/const KEYWORDS = \{(.*?)\};/s', (string) file_get_contents(self::ROOT.'/lib/syntax.gaz'), $table));
+        preg_match_all('/"([a-z]+)" => "([A-Z]+)"/', $table[1], $lexer, PREG_SET_ORDER);
+        $this->assertSame(1, preg_match('/static const char \*KEYWORDS\[\]\[2\] = \{(.*?)\};/s', (string) file_get_contents(self::ROOT.'/vm/load.c'), $table));
+        preg_match_all('/\{"([a-z]+)", "([A-Z]+)"\}/', $table[1], $loader, PREG_SET_ORDER);
+
+        $pairs = fn (array $sets): array => array_map(fn (array $set): string => "{$set[1]} {$set[2]}", $sets);
+        $expected = array_values(array_diff($pairs($lexer), ['true TRUE', 'false FALSE', 'null NULL']));
+        $known = $pairs($loader);
+        // In any order: the loader looks a word up, so only which words are there matters
+        sort($expected);
+        sort($known);
+        $this->assertGreaterThan(30, count($expected));
+        $this->assertSame($expected, $known);
+    }
+
     public function test_every_instruction_is_documented_and_run_by_the_vm()
     {
         $documented = [];

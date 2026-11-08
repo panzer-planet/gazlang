@@ -288,6 +288,9 @@ kind Parser {
     // The fields a constructor's promoted parameters declared, as "Kind::name", so a second
     // declaration of one can say where the first came from (a promoted parameter is the field)
     #promoted = {};
+    // The member uses that are a promoted parameter's own write (#x = $x), by index, so with
+    // can tell a field the constructor keeps as given from one it writes again
+    #promoted_uses = {};
 
     // Every #name, in source order, as [node, the kind it is written in, the argument count
     // if it is called or null, whether it is assigned to], checked once the kinds are
@@ -2652,6 +2655,7 @@ final kind Html {
     fn promoted_assignment($kind, $name, $token) {
         $property = #at(PropertyAST(#at(ThisAST(), $token), $name), $token);
         $property.use = len(#member_uses);
+        #promoted_uses[$property.use] = true;
         // The constructor's own write, so a read-only field takes it
         #member_uses[] = [$property, $kind, null, false, false, false, true];
 
@@ -5254,21 +5258,39 @@ final kind Html {
     /*
      * What with copies a resolved read-only kind's objects from: for each parameter of its
      * constructor (its own or the one it inherits), in order, the field it promotes, or the
-     * parameter itself ("$name") when it promotes none, which with then refuses. A kind with no
-     * constructor has nothing to copy, so with can only fail on the name it is given.
+     * parameter itself ("$name") when the field doesn't keep it as given, which with then
+     * refuses: a parameter that promotes nothing, or one whose field the constructor writes
+     * again (#name = "Mr " .. $name), since copying that field back in would write it twice.
+     * A kind with no constructor has nothing to copy, so with can only fail on the name.
      */
     fn copy_record($kind) {
-        if (!has_key($kind.members, "_")) {
+        $constructor = #constructor_of($kind);
+        if ($constructor == null) {
             return [];
         }
         $declarer = $kind.members["_"];
+        $rewritten = #rewritten_by_constructor($declarer);
         $record = [];
-        foreach (#kinds[$declarer].methods["_"].params as $param) {
+        foreach ($constructor.params as $param) {
             $field = slice($param, 1);
-            $record[] = has_key(#promoted, "{$declarer}::{$field}") ? $field : $param;
+            $kept = has_key(#promoted, "{$declarer}::{$field}") && !has_key($rewritten, $field);
+            $record[] = $kept ? $field : $param;
         }
 
         return $record;
+    }
+
+    // The fields a kind's constructor writes, or writes under, beyond its promoted parameters'
+    // own writes, each true by name
+    fn rewritten_by_constructor($name) {
+        $fields = {};
+        foreach (#member_uses as $at => [$node, $kind, $call, $assigned, $written, $in_static, $in_constructor]) {
+            if ($in_constructor && ($assigned || $written) && $kind.name == $name && !has_key(#promoted_uses, $at)) {
+                $fields[$node.name] = true;
+            }
+        }
+
+        return $fields;
     }
 
     // Every name after implements must be an interface's, and each only once

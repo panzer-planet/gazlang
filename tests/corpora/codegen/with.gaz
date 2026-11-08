@@ -14,6 +14,13 @@ readonly kind Table {
     }
 }
 
+// A promoted field the constructor writes again isn't kept as given
+readonly kind Titled {
+    fn _(pub #name, pub #age) {
+        #name = "Mr " .. $name;
+    }
+}
+
 // A child copies through the constructor it inherits
 readonly kind Loud extends Style {}
 

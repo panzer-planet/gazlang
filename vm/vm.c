@@ -496,7 +496,7 @@ static int with_arguments(Value *base, int n, List *names) {
     Object *old = base->o;
     Kind *c = old->kind;
     const char *kind = c->name->data;
-    if (!c->has_with) {
+    if (!c->with_fields) {
         if (c->block->is_readonly) {
             raisef("%s can't be copied with: its record has no with line", kind);
         } else {
@@ -505,14 +505,15 @@ static int with_arguments(Value *base, int n, List *names) {
         return -1;
     }
     int hi = c->hi;
+    Str **names_of = c->block->with_names;
     for (int j = 0; j < hi; j++) {
         if (c->with_fields[j] >= 0) continue;
-        Str *param = c->with_names[j];
+        Str *param = names_of[j];
         /* A list pattern parameter's hidden name, which no program writes */
         if (param->len > 1 && param->data[1] == '#') {
-            raisef("%s can't be copied with: its constructor takes a list pattern, which isn't a promoted field", kind);
+            raisef("%s can't be copied with: its constructor takes a list pattern, which it can't keep as a field", kind);
         } else {
-            raisef("%s can't be copied with: its constructor takes %s, which isn't a promoted field", kind, param->data);
+            raisef("%s can't be copied with: its constructor doesn't keep %s as a field", kind, param->data);
         }
         return -1;
     }
@@ -532,7 +533,7 @@ static int with_arguments(Value *base, int n, List *names) {
         }
         int slot = -1;
         for (int j = 0; j < hi; j++) {
-            Str *field = c->with_names[j];
+            Str *field = names_of[j];
             if (field->len == name.s->len && !memcmp(field->data, name.s->data, field->len)) slot = j;
         }
         if (slot < 0) {
@@ -550,7 +551,7 @@ static int with_arguments(Value *base, int n, List *names) {
     for (int j = 0; j < c->lo; j++) {
         if (given[j] < 0 && old->fields[c->with_fields[j]].type == T_UNSET) {
             free(given);
-            raisef("%s has no %s to copy, and its constructor needs one", kind, c->with_names[j]->data);
+            raisef("%s has no %s to copy, and its constructor needs one", kind, names_of[j]->data);
             return -1;
         }
     }

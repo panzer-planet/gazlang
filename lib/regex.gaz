@@ -3,7 +3,7 @@
  * $s matches $pattern in full, regex::search($s, $pattern) whether $pattern occurs anywhere in
  * $s, regex::find($s, $pattern) the start index of the first (leftmost) match, or null,
  * regex::groups($s, $pattern) what the first match and each group in it took, and
- * regex::replace($s, $pattern, $with) every match replaced.
+ * regex::replace($s, $pattern, $replacement) every match replaced.
  *
  * Syntax: literal bytes, "." (any byte), "*" "+" "?" (repetition, greedy), "|" (alternation,
  * the first that matches wins), "(...)" (a group, which captures), "[...]" and "[^...]"
@@ -562,10 +562,10 @@ fn captured($s, $slots, $group) {
  * An empty match replaces nothing and the search moves on a byte: replace("abc", "x*", "-") is
  * "-a-b-c-".
  *
- * $with is a string or a function. In a string, "$0" is the whole match, "$1" to "$9" (and on,
- * as many digits as follow) a group, numbered by its "(" from the left, and "$$" a "$"; a group
- * that took no part gives "". A group the pattern hasn't got, or a "$" followed by anything
- * else, is an error before anything is replaced:
+ * $replacement is a string or a function. In a string, "$0" is the whole match, "$1" to "$9"
+ * (and on, as many digits as follow) a group, numbered by its "(" from the left, and "$$" a "$";
+ * a group that took no part gives "". A group the pattern hasn't got, or a "$" followed by
+ * anything else, is an error before anything is replaced:
  *
  *     regex::replace("2026-10-05", '(\d+)-(\d+)-(\d+)', "$3/$2/$1")   // "05/10/2026"
  *     regex::replace("5", '\d', "$$$0")                               // "$5"
@@ -575,10 +575,10 @@ fn captured($s, $slots, $group) {
  *
  *     regex::replace("a1b22", '\d+', $g -> to_string(to_int($g[0]) * 2))   // "a2b44"
  */
-pub fn replace($s, $pattern, $with) {
+pub fn replace($s, $pattern, $replacement) {
     $compiled = compile($pattern);
     [, $groups] = $compiled;
-    $replacement = replacement($with, $groups, $pattern);
+    $fill = replacement($replacement, $groups, $pattern);
     $matcher = Matcher($compiled, len($s));
     $out = "";
     $at = 0;
@@ -588,7 +588,7 @@ pub fn replace($s, $pattern, $with) {
             break;
         }
         [$from, $to] = [$slots[0], $slots[1]];
-        $out ..= slice($s, $at, $from - $at) .. $replacement(taken($s, $slots));
+        $out ..= slice($s, $at, $from - $at) .. $fill(taken($s, $slots));
         if ($to == $from) {
             $out ..= slice($s, $from, 1);
             $to += 1;
@@ -602,15 +602,15 @@ pub fn replace($s, $pattern, $with) {
     return $out .. slice($s, $at);
 }
 
-// $with as a function from a match's groups to its replacement, checked before any match
-fn replacement($with, $groups, $pattern) {
-    if (type_of($with) == "function") {
-        return $taken -> checked_text($with($taken));
+// $replacement as a function from a match's groups to its replacement, checked before any match
+fn replacement($replacement, $groups, $pattern) {
+    if (type_of($replacement) == "function") {
+        return $taken -> checked_text($replacement($taken));
     }
-    if (type_of($with) != "string") {
-        throw "regex: replace() takes a string or a function, not " .. type_of($with);
+    if (type_of($replacement) != "string") {
+        throw "regex: replace() takes a string or a function, not " .. type_of($replacement);
     }
-    $pieces = pieces($with, $groups, $pattern);
+    $pieces = pieces($replacement, $groups, $pattern);
     return $taken -> filled($pieces, $taken);
 }
 
@@ -627,7 +627,7 @@ fn filled($pieces, $taken) {
     return $text;
 }
 
-// What a function given as $with returned, which must be a string
+// What a function given as $replacement returned, which must be a string
 fn checked_text($text) {
     if (type_of($text) != "string") {
         throw "regex: replace()'s function must return a string, not " .. type_of($text);
@@ -639,25 +639,25 @@ fn checked_text($text) {
  * A replacement string read once: its text and the group numbers in it, in order, each group
  * one the pattern has.
  */
-fn pieces($with, $groups, $pattern) {
+fn pieces($replacement, $groups, $pattern) {
     $pieces = [];
     $at = 0;
     while (true) {
-        $dollar = index_of($with, "$", $at);
+        $dollar = index_of($replacement, "$", $at);
         if ($dollar == null) {
-            $pieces[] = slice($with, $at);
+            $pieces[] = slice($replacement, $at);
             return $pieces;
         }
-        $pieces[] = slice($with, $at, $dollar - $at);
+        $pieces[] = slice($replacement, $at, $dollar - $at);
         $at = $dollar + 1;
-        $digits = chars::span($with, $at, chars::is_digit);
-        if (chars::char_at($with, $at) == "$") {
+        $digits = chars::span($replacement, $at, chars::is_digit);
+        if (chars::char_at($replacement, $at) == "$") {
             $pieces[] = "$";
             $at += 1;
         } else if ($digits == 0) {
-            throw "regex: a '$' in a replacement names a group ($0, $1, ...): write $$ for a '$', at " .. $dollar .. " in \"" .. $with .. "\"";
+            throw "regex: a '$' in a replacement names a group ($0, $1, ...): write $$ for a '$', at " .. $dollar .. " in \"" .. $replacement .. "\"";
         } else {
-            $group = to_int(slice($with, $at, $digits));
+            $group = to_int(slice($replacement, $at, $digits));
             if ($group > $groups) {
                 throw "regex: the replacement names group " .. $group .. ", and /" .. $pattern .. "/ has " .. $groups;
             }

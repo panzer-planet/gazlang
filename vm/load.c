@@ -1727,9 +1727,11 @@ static void build_with(Kind *c) {
         }
         c->with_fields[i] = kind_field(c, field, constructor_kind);
         if (c->with_fields[i] < 0) fail_at(false, "Kind %s's with line names %s, which isn't a field of it", name, field->data);
+        /* A name given twice would make the earlier parameter one no copy could name */
+        for (int j = 0; j < i; j++) {
+            if (b->with_names[j] == field) fail_at(false, "Kind %s's with line names %s twice", name, field->data);
+        }
     }
-    c->with_names = b->with_names;
-    c->has_with = true;
 }
 
 /* An enum's record: what keeps its cases its only objects, and each one's value where it is put.

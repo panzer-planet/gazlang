@@ -61,6 +61,7 @@ ok groups respects anchors
 ok replace
 ok replace a class
 ok replace an escaped dot
+ok replace, the replacement passed by name
 ok replace without a match
 ok replace doesn't overlap
 ok replace with nothing

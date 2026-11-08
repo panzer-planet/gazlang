@@ -968,6 +968,7 @@ tests/corpora/bytecode/error_value_variable.gzb
 tests/corpora/bytecode/error_value_with_a_hash.gzb
 tests/corpora/bytecode/error_value_with_an_arrow.gzb
 tests/corpora/bytecode/error_version.gzb
+tests/corpora/bytecode/error_with_line_names_a_field_twice.gzb
 tests/corpora/bytecode/error_with_line_names_no_field.gzb
 tests/corpora/bytecode/error_with_line_on_a_mutable_kind.gzb
 tests/corpora/bytecode/error_with_line_too_short.gzb

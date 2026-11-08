@@ -3,20 +3,20 @@ globals
 
 top
 locals $red
-@ "with.gaz" 20
+@ "with.gaz" 27
 PUSH "red"
 NEW Style 1
 STORE 0
 LOAD 0
 POP
-@ "with.gaz" 21
+@ "with.gaz" 28
 LOAD 0
 PUSH true
 PUSH "blue"
 PUSH ["bold", "fg"]
 WITH 2
 PRINT
-@ "with.gaz" 22
+@ "with.gaz" 29
 LOAD 0
 PUSH true
 PUSH ["bold"]
@@ -82,13 +82,44 @@ POP
 PUSH null
 RET
 
+readonly kind Titled
+field name Titled pub
+field age Titled pub
+method _ Titled pub
+with $name age
+locals $#argument_0 $#argument_1
+@ "with.gaz" 18
+CALL_CONSTRUCTOR Titled
+POP
+LOAD_THIS
+RET
+
+fn Titled._ 2 2
+locals $name $age
+@ "with.gaz" 19
+LOAD 0
+SET_FIELD name
+POP
+LOAD 1
+SET_FIELD age
+POP
+@ "with.gaz" 20
+PUSH "Mr "
+LOAD 0
+CONCAT
+SET_FIELD name
+POP
+@ "with.gaz" 19
+PUSH null
+RET
+
 readonly kind Loud extends Style
 field fg Style pub
 field bold Style pub
 method _ Style pub
 with fg bold
 locals $#argument_0 $#argument_1
-@ "with.gaz" 18
+@ "with.gaz" 25
 CALL_CONSTRUCTOR Style
 POP
 LOAD_THIS

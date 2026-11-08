@@ -707,10 +707,12 @@ echo is_a($c, Shape) .. " " .. $c.radius;
     constructor's type checks and its own checks hold for a copy, and a field the constructor
     works out from its parameters is worked out again.
   - Only an object of a read-only kind whose constructor promotes every parameter (its own
-    constructor or the one it inherits) can be copied, since each parameter's name must be a
-    field whose value means what the parameter means. Anything else is an error when it runs:
+    constructor or the one it inherits) and writes none of those fields again can be copied,
+    since each parameter's name must be a field holding what the parameter was given: a
+    constructor that writes `#name = "Mr " .. $name` would add a second "Mr " to every copy.
+    Anything else is an error when it runs:
     `Box isn't read-only: with copies a read-only object`, `Table can't be copied with: its
-    constructor takes $headers, which isn't a promoted field`, `Cannot use with on int`.
+    constructor doesn't keep $headers as a field`, `Cannot use with on int`.
   - The arguments are named, at least one, each once, and evaluated as written:
     `with (cents: 0)`, never `with (0)` or `with ()`. A name that isn't a parameter says so:
     `Money has no parameter $amount`.

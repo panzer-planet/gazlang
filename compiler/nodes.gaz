@@ -558,8 +558,10 @@ kind KindDeclarationAST extends AST {
     // The fields it declares read-only itself, each true by name: set only once one is, so a
     // kind without dumps as it always did (fields() leaves out what was never set)
     pub #readonly_fields;
-    // A read-only kind's record for with (see copy_record() in parser.gaz), worked out once the
-    // whole program is read: derived, so the tree dump leaves it out
+    /*
+     * A read-only kind's record for with (see copy_record() in parser.gaz), worked out once the
+     * whole program is read: derived, so the tree dump leaves it out
+     */
     pub #copy_record;
     // The interfaces it claims itself, in the order written: set only when it claims any, so a
     // kind without dumps as it always did (fields() leaves out what was never set)

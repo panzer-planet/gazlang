@@ -18,6 +18,7 @@ ok an unknown name
 ok no constructor, so no parameters
 ok a parameter that isn't promoted
 ok a list pattern parameter
+ok a promoted field the constructor writes again
 ok a mutable kind
 ok an enum case
 ok not an object

@@ -301,11 +301,9 @@ struct Kind {
     bool is_enum;
     /* with: a read-only kind whose record has a with line can be copied. For each parameter of
        its constructor, in slot order, the field a copy takes it from when it isn't named, or -1
-       for a parameter that isn't a promoted field, which with refuses; with_names says what each
-       is called (the field's name, or the parameter's own, with its $). */
-    bool has_with;
+       for a parameter the constructor doesn't keep as a field, which with refuses; the block's
+       with_names say what each is called. NULL without a with line. */
     int *with_fields;
-    Str **with_names;
 };
 
 typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA, B_INTERFACE } BlockKind;

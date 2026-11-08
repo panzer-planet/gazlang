@@ -50,6 +50,13 @@ readonly kind Checked {
     }
 }
 
+readonly kind Titled {
+    fn _(pub #name, pub #age) {
+        // Written again, so a copy would add a second "Mr "
+        #name = "Mr " .. $name;
+    }
+}
+
 kind Mutable {
     fn _(pub #n);
 }
@@ -96,8 +103,9 @@ throws("the constructor's own check", () -> Checked(1) with (n: -1), "Checked: n
 // What can't be copied
 throws("an unknown name", () -> $red with (colour: "blue"), "Style has no parameter \$colour");
 throws("no constructor, so no parameters", () -> Origin() with (x: 1), "Origin has no parameter \$x");
-throws("a parameter that isn't promoted", () -> Table(["a"]) with (rows: []), "Table can't be copied with: its constructor takes \$headers, which isn't a promoted field");
-throws("a list pattern parameter", () -> Pair([1, 2]) with (sum: 1), "Pair can't be copied with: its constructor takes a list pattern, which isn't a promoted field");
+throws("a parameter that isn't promoted", () -> Table(["a"]) with (rows: []), "Table can't be copied with: its constructor doesn't keep \$headers as a field");
+throws("a list pattern parameter", () -> Pair([1, 2]) with (sum: 1), "Pair can't be copied with: its constructor takes a list pattern, which it can't keep as a field");
+throws("a promoted field the constructor writes again", () -> Titled("X", 1) with (age: 2), "Titled can't be copied with: its constructor doesn't keep \$name as a field");
 throws("a mutable kind", () -> Mutable(1) with (n: 2), "Mutable isn't read-only: with copies a read-only object");
 throws("an enum case", () -> Light::Red with (value: 1), "Light isn't read-only: with copies a read-only object");
 throws("not an object", () -> 5 with (n: 1), "Cannot use with on int");

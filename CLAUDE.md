@@ -1113,17 +1113,19 @@ and methods a table in C.
     read-only window hold as for any construction, and a derived field is derived again. A field
     the old object never set is passed unset, so its default runs (or, for a required one, it is
     an error).
-  - **Only read-only kinds whose constructor promotes every parameter**, so each parameter's name
-    is a field and the old value means what the parameter means; `with` on a mutable object would
+  - **Only read-only kinds whose constructor promotes every parameter and keeps it as given**,
+    so each parameter's name is a field and the old value means what the parameter means; `with` on a mutable object would
     be a copy, which GazLang has none of. The restrictive choices, each loosenable later. Which
     kind an object is shows only when it runs, so every refusal is the VM's; the parser refuses
     only `with ()` and a positional argument.
   - **In bytecode** (`copy_record()` in `parser.gaz`, `build_with()` in `load.c`,
     `with_arguments()` in `vm.c`): a read-only kind's `with` line names, per constructor
-    parameter in slot order, the field it promotes, or the parameter itself with its `$` when it
-    promotes none, so the VM can name it when it refuses (`Table can't be copied with: its
-    constructor takes $headers, ...`). `WITH count` takes the object, the values as written, then
-    the names as one list, as `CALL_VALUE_NAMED` does. Without the line there is no `with`, and
+    parameter in slot order, the field it promotes, or the parameter itself with its `$` when the
+    field doesn't keep it as given (it promotes none, or the constructor writes the field again,
+    which a copy would apply twice: `rewritten_by_constructor()`), so the VM can name it when it
+    refuses (`Table can't be copied with: its constructor doesn't keep $headers as a field`).
+    `WITH count` takes the object, the values as written, then the names as one list, as
+    `CALL_VALUE_NAMED` does. Without the line there is no `with`, and
     every write still goes through the constructor's own window, so hand-written bytecode can't
     use it to write a closed field. Old files load unchanged, so the version stays 3.
 
