@@ -1,0 +1,174 @@
+Compound
+  statements:
+@ null
+    0: KindDeclaration 4
+      name: "sealed::Token"
+      parent: null
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"text" => "pub", "_" => "pub"}
+      fields: {"text" => null}
+      field_lines: {"text" => 5}
+      methods:
+        _: FunctionDeclaration 5
+          name: "_"
+          params: ["\$text"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 5
+                expr: Assign 5
+                  left: Property 5
+                    target: This 5
+                    name: "text"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 5 ASSIGN =
+                  right: Variable 5
+                    token: 5 VAR_IDENTIFIER $text
+                    value: "\$text"
+          arity: 1
+          kind: "sealed::Token"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"text" => "sealed::Token"}
+      members: {"_" => "sealed::Token"}
+      abstract_methods: []
+      slots: [["text", "sealed::Token", "pub"]]
+      method_table: [["_", "sealed::Token", "pub", "sealed::Token"]]
+      owner_vis: {"text" => "pub", "_" => "pub"}
+      declared_at: {"_" => "sealed::Token"}
+      hidden: []
+      hidden_fields: []
+    1: KindDeclaration 9
+      name: "sealed::Open"
+      parent: null
+      abstract: false
+      public_constructor: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"text" => "pub", "_" => "pub"}
+      fields: {"text" => null}
+      field_lines: {"text" => 10}
+      methods:
+        _: FunctionDeclaration 10
+          name: "_"
+          params: ["\$text"]
+          defaults: [null]
+          body: Compound
+            statements:
+              0: Statement 10
+                expr: Assign 10
+                  left: Property 10
+                    target: This 10
+                    name: "text"
+                    field: true
+                    constant: false
+                    value: null
+                    static_name: null
+                  token: 10 ASSIGN =
+                  right: Variable 10
+                    token: 10 VAR_IDENTIFIER $text
+                    value: "\$text"
+          arity: 1
+          kind: "sealed::Open"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"text" => "sealed::Open"}
+      members: {"_" => "sealed::Open"}
+      abstract_methods: []
+      slots: [["text", "sealed::Open", "pub"]]
+      method_table: [["_", "sealed::Open", "pub", "sealed::Open"]]
+      owner_vis: {"text" => "pub", "_" => "pub"}
+      declared_at: {"_" => "sealed::Open"}
+      hidden: []
+      hidden_fields: []
+    2: KindDeclaration 14
+      name: "sealed::Base"
+      parent: null
+      abstract: true
+      public_constructor: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"_" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        _: FunctionDeclaration 15
+          name: "_"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "sealed::Base"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"_" => "sealed::Base"}
+      abstract_methods: []
+      slots: []
+      method_table: [["_", "sealed::Base", "pub", "sealed::Base"]]
+      owner_vis: {"_" => "pub"}
+      declared_at: {"_" => "sealed::Base"}
+      hidden: []
+      hidden_fields: []
+    3: KindDeclaration 19
+      name: "sealed::Inherits"
+      parent: "sealed::Token"
+      abstract: false
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: []
+      fields: []
+      field_lines: []
+      methods: []
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: {"text" => "sealed::Token"}
+      members: {"_" => "sealed::Token"}
+      abstract_methods: []
+      slots: [["text", "sealed::Token", "pub"]]
+      method_table: [["_", "sealed::Token", "pub", "sealed::Token"]]
+      owner_vis: {"text" => "pub", "_" => "pub"}
+      declared_at: {"_" => "sealed::Token"}
+      hidden: []
+      hidden_fields: []
+    4: FunctionDeclaration 21
+      name: "sealed::token"
+      params: ["\$text"]
+      defaults: [null]
+      body: Compound
+        statements:
+          0: ReturnStatement 22
+            expr: FunctionCall 22
+              name: "sealed::Token"
+              args:
+                0: Variable 22
+                  token: 22 VAR_IDENTIFIER $text
+                  value: "\$text"
+      arity: 1
+      kind: null
+      abstract: false

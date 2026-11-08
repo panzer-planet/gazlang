@@ -51,7 +51,7 @@ pub kind Cup {
     #settled = {};
     pub #champion = null;
 
-    fn _(pub #name, $teams) {
+    pub fn _(pub #name, $teams) {
         #alive = $teams;
         $size = 1;
         while ($size * 2 <= len($teams)) {

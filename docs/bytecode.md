@@ -64,6 +64,14 @@ member use in it is asking as, which is what says whether a member that isn't `p
 A method's own name already carries its kind, so only a static method's header and a lambda's
 need to say it; a kind block is the initialiser of its own objects and reaches all of them.
 
+Every block is in a namespace, which a constructor's reach is compared with (see `local` below):
+the part before the first `::` of its kind's name (`in Kind`, or the dot in a method's name) or
+of its own name, or the root's for a name without one. Where neither says it, the header ends
+with `ns N`: `top ns shop` for a main file that declares `namespace shop`, and `lambda 3 1 1 ns
+shop` for a lambda written outside every kind. A static default that calls something runs as a
+lambda written in its kind (`MAKE_CLOSURE`, `CALL_VALUE 0`, `STORE_STATIC` in `top`), so its code is
+its kind's. A file without `ns` is all in the root namespace, as a file from before it was.
+
 ```gzb
 fn safe_div 2 2
 locals $a $b $e
@@ -116,6 +124,12 @@ itself is never overridden, so a `final` line has a marker. Every kind that has 
 repeats the word, so a kind is checked against its parent alone: a child keeps each final entry
 as its parent has it, the same version and still `final`. An unmarked entry of the name beside
 it is the child's own method, which overrides nothing.
+
+The constructor's `method _` line ends with `local` when the constructor isn't `pub`, so only code
+in its kind's namespace may construct the kind: `method _ db::Sql pub local`. Its marker stays
+`pub`, which says only that a child without a constructor of its own takes this one; every kind
+that takes it repeats `local`. A line without it is a constructor anyone may call, as every
+constructor was before.
 
 An `implements` line names an interface the kind claims itself, one line each, in the order
 the source wrote them; what its ancestors claim is theirs to say, and a loader works out the
@@ -483,6 +497,12 @@ A file that loads is one the VM can run, so the checks are part of the format:
   and a kind's parent. No kind is its own ancestor, through any number of parents.
 - No kind's parent is `final`, and every `pub` or `kin` entry a kind has of the name of a
   `final` entry of its parent's runs the same version and says `final` too.
+- Only a constructor's `method` line says `local`. A `NEW` or `CALL_CONSTRUCTOR` naming a kind
+  whose constructor is local is in a block of that kind's namespace; a kind whose parent's
+  constructor is local is in the parent's namespace; and a kind that takes its parent's
+  constructor says `local` exactly where the parent does. Construction through a value
+  (`CALL_VALUE`, `CALL_VALUE_NAMED`, a builtin calling a kind, `WITH`) is checked when it runs,
+  against the namespace of the running block.
 - A `readonly` kind's parent is `readonly`, a kind whose parent is `readonly` is too, and a
   kind's `field` line of a parent's field says `readonly` exactly where the parent's does.
 - A `with` line is a read-only kind's, once, with a word for each parameter of its constructor:

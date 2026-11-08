@@ -12,9 +12,10 @@
  * SQL is written `db::sql"..."`, and what it interpolates is sent apart from it, so nothing in a
  * value is ever read as SQL: a `Db` writes each database's own placeholders (`?` for SQLite, `$1`
  * for PostgreSQL) and refuses anything that isn't one, so a plain string can't reach the database
- * by accident. The ways round are deliberate and visible: `db::raw($text)`, for SQL built some
- * other way, and building a fragment through `kind_of()` of one, since a constructor is always
- * reachable. The `db_run()` builtin underneath still takes a string and a list of parameters.
+ * by accident. The way round is deliberate and visible: `db::raw($text)`, for SQL built some
+ * other way. `Sql`'s constructor isn't `pub`, so only this namespace makes one, and a kind
+ * outside it can't extend it. The `db_run()` builtin underneath still takes a string and a list of
+ * parameters.
  *
  * Only `{$`, `{@`, `{#` and a constant's `{NAME}` start an interpolation, so a fragment or a name
  * is put in a variable first: `$column = db::ident("name");` then `{$column}`. A constant is a
@@ -47,15 +48,15 @@ import "std/chars.gaz" use char_at, span, is_digit, is_alpha, is_alnum;
  * `db::sql"..."` and refuse anything else
  */
 pub kind Db {
-    #handle;
-    #driver;
-    #placeholder;
-    #depth = 0;
+    db #handle;
+    string #driver;
+    function #placeholder;
+    int #depth = 0;
 
     /**
-     * A connection to the database $url names (see db::open())
+     * A connection to the database $url names: made by db::open()
      */
-    fn _($url) {
+    fn _(string $url) {
         #handle = db_open($url);
         #driver = driver_for($url);
         #placeholder = #driver == SQLITE ? question_mark : numbered;
@@ -64,44 +65,44 @@ pub kind Db {
     /**
      * {"rows" => [row, ...], "changes" => rows an insert, update or delete changed}
      */
-    pub fn run($sql) {
-        return #result($sql, "run");
+    pub fn run(Sql $sql): map {
+        return #result($sql);
     }
 
     /**
      * The rows, each a map from column name to value
      */
-    pub fn query($sql) {
-        return #result($sql, "query")["rows"];
+    pub fn query(Sql $sql): list {
+        return #result($sql)["rows"];
     }
 
     /**
      * The first row, or null when there is none
      */
-    pub fn row($sql) {
-        return #result($sql, "row")["rows"][0] ?? null;
+    pub fn row(Sql $sql): ?map {
+        return #result($sql)["rows"][0] ?? null;
     }
 
     /**
      * The first column of the first row, or null when there is none
      */
-    pub fn value($sql) {
-        $row = #result($sql, "value")["rows"][0] ?? null;
+    pub fn value(Sql $sql): int|float|string|bool|null {
+        $row = #result($sql)["rows"][0] ?? null;
         return $row == null ? null : values($row)[0];
     }
 
     /**
      * How many rows an insert, update or delete changed
      */
-    pub fn exec($sql) {
-        return #result($sql, "exec")["changes"];
+    pub fn exec(Sql $sql): int {
+        return #result($sql)["changes"];
     }
 
     /**
      * Runs $work with this database between begin and commit, gives what it returns, and rolls
      * back and raises again if it raises. Inside another transaction it is a savepoint instead.
      */
-    pub fn transaction($work) {
+    pub fn transaction(function $work) {
         $savepoint = "gaz_savepoint_" .. #depth;
         #execute(#depth == 0 ? "begin" : "savepoint " .. $savepoint);
         #depth++;
@@ -122,15 +123,12 @@ pub kind Db {
      * Close the connection; closing it twice is fine, and it closes by itself when the last
      * reference to it goes
      */
-    pub fn close() {
+    pub fn close(): null {
         db_close(#handle);
     }
 
-    // Runs an Sql, rendered for this database; anything else is refused, naming the method
-    fn result($sql, $method) {
-        if (!is_a($sql, Sql)) {
-            throw "Db.{$method}() takes db::sql\"...\", not " .. described($sql) .. ': write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way';
-        }
+    // Runs an Sql, rendered for this database
+    fn result(Sql $sql): map {
         [$text, $params] = $sql.render(#placeholder);
         return #execute($text, $params);
     }
@@ -140,7 +138,7 @@ pub kind Db {
      * for (a closed handle, a parameter no database could store) was gaz's to find, and goes on as
      * it is.
      */
-    fn execute($text, $params = []) {
+    fn execute(string $text, list $params = []): map {
         try {
             return db_run(#handle, $text, $params);
         } catch (Error $e) {
@@ -157,18 +155,18 @@ const SQLITE = "sqlite";
 const POSTGRES = "postgres";
 
 // Which database the URL is, by its scheme, as db_open() reads it
-fn driver_for($url) {
+fn driver_for(string $url): string {
     if (starts_with($url, "sqlite:")) {
         return SQLITE;
     }
     return POSTGRES;
 }
 
-fn question_mark($n) {
+fn question_mark(int $n): string {
     return "?";
 }
 
-fn numbered($n) {
+fn numbered(int $n): string {
     return '$' .. $n;
 }
 
@@ -221,31 +219,31 @@ pub kind Failure extends Error {
     /**
      * "sqlite" or "postgres"
      */
-    pub #driver;
+    pub string #driver;
     /**
      * The database's own code: SQLite's extended result code, an int (2067 for a unique
      * constraint), or PostgreSQL's SQLSTATE, five characters ("23505"). PostgreSQL gives null for
      * an error libpq made itself, but 08006 when the connection is gone.
      */
-    pub #code;
+    pub int|string|null #code;
     /**
      * SQLite's name for its code ("SQLITE_CONSTRAINT_UNIQUE"), or null for PostgreSQL, whose code
      * is its own name, or a code this gaz doesn't know
      */
-    pub #name;
+    pub ?string #name;
     /**
      * The constraint that failed ("users_email_key") as PostgreSQL gives it; null when it doesn't,
      * and always with SQLite, which only names it in its message
      */
-    pub #constraint;
+    pub ?string #constraint;
     /**
      * The table the error is about, or null (see constraint)
      */
-    pub #table;
+    pub ?string #table;
     /**
      * The column the error is about, or null (see constraint)
      */
-    pub #column;
+    pub ?string #column;
     /**
      * What went wrong, the same for both databases
      */
@@ -256,7 +254,7 @@ pub kind Failure extends Error {
      * db_error() gives them: `{"code" => ...}`, and with PostgreSQL "constraint", "table" and
      * "column"
      */
-    fn _(string $message, string $driver, map $fields) {
+    pub fn _(string $message, string $driver, map $fields) {
         ##_($message);
         #driver = $driver;
         #code = $fields["code"] ?? null;
@@ -400,7 +398,7 @@ fn sqlite_problem(int $code): Problem {
 const CONNECTION_CLASS = "08";
 
 // What a SQLSTATE is, by PostgreSQL's appendix of error codes
-fn postgres_problem($sqlstate): Problem {
+fn postgres_problem(?string $sqlstate): Problem {
     if ($sqlstate == null) {
         return Problem::Other;
     }
@@ -424,7 +422,7 @@ fn postgres_problem($sqlstate): Problem {
  * memory, or "postgres://user:password@host:port/name" (postgresql:// too). A driver the VM was
  * built without, or a database that can't be opened, is an error.
  */
-pub fn open($url) {
+pub fn open(string $url): Db {
     return Db($url);
 }
 
@@ -433,17 +431,21 @@ const SCALARS = ["int", "float", "string", "bool", "null"];
 // How SQLite and PostgreSQL number a parameter in the text: ?1, $1
 const NUMBERED_PLACEHOLDERS = ["?", '$'];
 
-/*
- * A piece of SQL with its values kept apart, made by the tag `db::sql"..."`, or by `db::raw()`. The
- * text parts are always one more than the values. Nothing about it changes once it is made, and
- * printing it shows the SQL with `?` for each value, never the values, which may be secrets. Not
- * `pub`, so no program writes `db::Sql(...)` from a string by accident: only the tag and `raw()`
- * make one.
+/**
+ * A piece of SQL with its values kept apart, made by the tag `db::sql"..."` or by `db::raw()`,
+ * which is what a `Db`'s methods take. Its constructor isn't `pub`, so no program writes
+ * `db::Sql(...)` from a string: only the tag and `raw()` make one. The text parts are always one
+ * more than the values. Nothing about it changes once it is made, and printing it shows the SQL
+ * with `?` for each value, never the values, which may be secrets.
  */
-kind Sql {
-    #strings;
-    #values;
+pub kind Sql {
+    list #strings;
+    list #values;
 
+    /**
+     * The SQL of `$strings` with `$values` between them, each checked: what `db::sql` and
+     * `db::raw()` make
+     */
     fn _(list $strings, list $values) {
         if (len($strings) != len($values) + 1) {
             throw "db::Sql() takes one more text part than values, got " .. len($strings) .. " and " .. len($values);
@@ -460,22 +462,25 @@ kind Sql {
         #values = $values;
     }
 
-    /*
+    /**
      * The SQL for one database and the values to send with it, as `[$text, $params]`.
      * `$placeholder` gives the text for the Nth value, counted from 1 across every fragment spliced
      * in: `$n -> "?"` for SQLite, `$n -> '$' .. $n` for PostgreSQL. A `Db` calls it for you.
      */
-    pub fn render($placeholder): list {
+    pub fn render(function $placeholder): list {
         $rendering = Rendering($placeholder);
         #write_into($rendering);
         return [$rendering.text, $rendering.params];
     }
 
+    /**
+     * The SQL with `?` for each value, never the values
+     */
     pub fn to_string(): string {
         return #render(question_mark)[0];
     }
 
-    fn write_into($rendering) {
+    fn write_into(Rendering $rendering): null {
         foreach (#values as $i => $value) {
             $rendering.write(#strings[$i]);
             #write_value($rendering, $value);
@@ -483,7 +488,7 @@ kind Sql {
         $rendering.write(last(#strings));
     }
 
-    fn write_value($rendering, $value) {
+    fn write_value(Rendering $rendering, $value): null {
         if (is_a($value, Sql)) {
             $value.write_into($rendering);
             return;
@@ -500,7 +505,7 @@ kind Sql {
     }
 
     // A list is one placeholder for each item, in parentheses, for in (...)
-    fn write_list($rendering, $items) {
+    fn write_list(Rendering $rendering, list $items): null {
         $rendering.write("(");
         foreach ($items as $i => $item) {
             if ($i > 0) {
@@ -514,19 +519,16 @@ kind Sql {
 
 // The text being written and the values it has taken so far
 kind Rendering {
-    pub #text = "";
-    pub #params = [];
-    #placeholder;
+    pub string #text = "";
+    pub list #params = [];
 
-    fn _($placeholder) {
-        #placeholder = $placeholder;
-    }
+    fn _(function #placeholder);
 
-    pub fn write($text) {
+    pub fn write(string $text): null {
         #text ..= $text;
     }
 
-    pub fn parameter($value) {
+    pub fn parameter($value): null {
         #params[] = $value;
         $placeholder = #placeholder;
         #text ..= $placeholder(len(#params));
@@ -540,7 +542,7 @@ kind Rendering {
  * in a schema is two, `{$schema}.{$table}`, each a `db::ident()`.
  */
 pub kind Ident {
-    #name;
+    string #name;
 
     /**
      * The name $name; an empty one, or one holding a NUL byte, is an error
@@ -590,10 +592,12 @@ pub kind Ident {
  * function body.
  */
 pub fn sql(list $strings, list $values): Sql {
+    // Made first, so a part that isn't a string gets Sql's sentence before the text is read
+    $sql = Sql($strings, $values);
     foreach ($strings as $text) {
         check_text($text);
     }
-    return Sql($strings, $values);
+    return $sql;
 }
 
 /**
@@ -616,14 +620,14 @@ pub fn ident(string $name): Ident {
  * whichever value has that number, and a call written where only a variable or a constant is
  * interpolated.
  */
-fn check_text($text) {
+fn check_text(string $text): null {
     foreach (NUMBERED_PLACEHOLDERS as $mark) {
         check_no_numbered_placeholder($text, $mark);
     }
     check_no_call($text);
 }
 
-fn check_no_numbered_placeholder($text, $mark) {
+fn check_no_numbered_placeholder(string $text, string $mark): null {
     foreach (positions($text, $mark) as $at) {
         $next = char_at($text, $at + 1);
         if (is_digit($next)) {
@@ -636,7 +640,7 @@ fn check_no_numbered_placeholder($text, $mark) {
  * `{db::ident($c)}` as text: the compiler refuses a call in a string's braces, so it gets here
  * written `\{`, or in parts built by hand, and is no more meant as SQL then
  */
-fn check_no_call($text) {
+fn check_no_call(string $text): null {
     foreach (positions($text, "{") as $at) {
         $call = call_at($text, $at + 1);
         if ($call != null) {
@@ -650,7 +654,7 @@ fn check_no_call($text) {
  * qualified or not, followed by `(`. Null for anything else, so `'{1,2}'`, `'{a,b}'` and
  * `'{"k": 1}'` stay text.
  */
-fn call_at($text, $start) {
+fn call_at(string $text, int $start): ?string {
     $at = $start;
     while (is_name_start(char_at($text, $at))) {
         $at += span($text, $at, is_name_char);
@@ -665,16 +669,16 @@ fn call_at($text, $start) {
     return null;
 }
 
-fn is_name_start($c) {
+fn is_name_start(string $c): bool {
     return is_alpha($c) || $c == "_";
 }
 
-fn is_name_char($c) {
+fn is_name_char(string $c): bool {
     return is_alnum($c) || $c == "_";
 }
 
 // Where $needle starts in $text, each time, left to right
-fn positions($text, $needle) {
+fn positions(string $text, string $needle): list {
     $found = [];
     $at = index_of($text, $needle);
     while ($at != null) {
@@ -687,7 +691,7 @@ fn positions($text, $needle) {
     return $found;
 }
 
-fn check_value($value) {
+fn check_value($value): null {
     if (is_a($value, Sql) || is_a($value, Ident) || in_array(type_of($value), SCALARS)) {
         return;
     }
@@ -705,7 +709,7 @@ fn check_value($value) {
 }
 
 // A value's type for a message: "a string", "an int", "null", "a Point"
-fn described($value) {
+fn described($value): string {
     $type = type_of($value);
     if ($type == "object") {
         $type = kind_name($value);

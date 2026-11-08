@@ -1,0 +1,1 @@
+Error: Kind r::C extends q::P, whose constructor is not pub, so only namespace q can extend it

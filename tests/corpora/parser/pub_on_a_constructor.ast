@@ -1,0 +1,38 @@
+Compound
+  statements:
+@ "tests/corpora/parser/pub_on_a_constructor.gaz"
+    0: KindDeclaration 1
+      name: "A"
+      parent: null
+      abstract: false
+      public_constructor: true
+      statics: []
+      static_lines: []
+      static_methods: []
+      static_owners: []
+      static_is_method: []
+      vis: {"_" => "pub"}
+      fields: []
+      field_lines: []
+      methods:
+        _: FunctionDeclaration 1
+          name: "_"
+          params: []
+          defaults: []
+          body: Compound
+            statements: []
+          arity: 0
+          kind: "A"
+          abstract: false
+      constants: []
+      constant_lines: []
+      constant_owners: []
+      layout: []
+      members: {"_" => "A"}
+      abstract_methods: []
+      slots: []
+      method_table: [["_", "A", "pub", "A"]]
+      owner_vis: {"_" => "pub"}
+      declared_at: {"_" => "A"}
+      hidden: []
+      hidden_fields: []

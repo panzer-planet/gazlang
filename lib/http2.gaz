@@ -230,7 +230,7 @@ pub kind ConnectionError extends Error {
     /**
      * An error to end a connection with: the code its GOAWAY says, and the message
      */
-    fn _(pub int #code, string $message) {
+    pub fn _(pub int #code, string $message) {
         ##_($message);
     }
 }
@@ -242,7 +242,7 @@ pub kind Frame {
     /**
      * A frame of $type, with $flags, on $stream (0 for the connection), carrying $payload
      */
-    fn _(pub int #type, pub int #flags, pub int #stream, pub string #payload);
+    pub fn _(pub int #type, pub int #flags, pub int #stream, pub string #payload);
 
     /**
      * Whether a flag (END_STREAM, END_HEADERS, ...) is set
@@ -313,7 +313,7 @@ pub kind FrameReader {
      * Frames read from $socket, each at most $most bytes of payload; $data is what was read of
      * the connection already, which comes first
      */
-    fn _(#socket, #most = DEFAULT_FRAME_SIZE, #data = "");
+    pub fn _(#socket, #most = DEFAULT_FRAME_SIZE, #data = "");
 
     /**
      * Whether a whole frame has been read already, so next() gives it without reading
@@ -441,7 +441,7 @@ pub kind Decoder {
      * most a block's decoded fields may cost as RFC 9113 §6.5.2 counts them (MAX_HEADER_LIST_SIZE):
      * past it is an error, so a small block of references to one big entry can't decode to megabytes
      */
-    fn _(#limit = DEFAULT_TABLE_SIZE, #list_most = null) {
+    pub fn _(#limit = DEFAULT_TABLE_SIZE, #list_most = null) {
         #max_size = #limit;
     }
 

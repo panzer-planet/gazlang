@@ -4163,7 +4163,7 @@ pub kind TestClient {
     /**
      * A client of $handler with no cookies yet; $options as above
      */
-    fn _($handler, $options = {}) {
+    pub fn _($handler, $options = {}) {
         #handler = $handler;
         #options = with_defaults("http::TestClient()", $options, TEST_CLIENT_OPTIONS);
         #server_options = server_options({"max_body" => #options["max_body"]});

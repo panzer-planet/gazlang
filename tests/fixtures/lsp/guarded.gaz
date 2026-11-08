@@ -1,0 +1,19 @@
+namespace guarded;
+
+// Constructed only inside guarded
+pub kind Sealed {
+    fn _(pub #secret);
+}
+
+// Constructed anywhere
+pub kind Open {
+    pub fn _(pub #anything);
+}
+
+// Takes Sealed's constructor, and its reach
+pub kind Child extends Sealed {
+}
+
+// No constructor at all, so constructed wherever its name reaches
+pub kind Plain {
+}

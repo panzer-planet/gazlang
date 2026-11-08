@@ -1031,10 +1031,23 @@ kind CodeGenerator {
         return $names;
     }
 
-    // A static field's default, written once before the program's own code runs
+    /*
+     * A static field's default, written once before the program's own code runs: a constant one
+     * pushed, one that calls run in the top level, unless its kind is in another namespace than
+     * the top level's, when it runs as a lambda written in its kind, called once here, so the
+     * code is in the kind's namespace (a constructor that reaches only that namespace makes it).
+     * Only then, since the lambda is a frame of its own in a trace.
+     */
     fn visit_static_init($node) {
-        if (($node.expr ?? null) != null) {
-            #visit($node.expr);
+        $expr = $node.expr ?? null;
+        if ($expr != null && namespace_of(split_name_kind($node.name)) != (#tree.written_in ?? "")) {
+            $lambda = LambdaAST([], [], 0, $expr, []);
+            [$lambda.file, $lambda.line] = [$node.file, $node.line];
+            $lambda.owner = split_name_kind($node.name);
+            #visit_lambda($lambda);
+            #emit("CALL_VALUE", [0]);
+        } else if ($expr != null) {
+            #visit($expr);
         } else {
             #emit("PUSH", [$node.value]);
         }
@@ -1181,7 +1194,7 @@ kind CodeGenerator {
             }
         }
         #visit(#tree);
-        #block({"kind" => "top"});
+        #block({"kind" => "top", "namespace" => #tree.written_in ?? ""});
 
         foreach (#functions as $function) {
             #compile_function($function);
@@ -1230,7 +1243,7 @@ kind CodeGenerator {
             #block({
                 "kind" => "lambda", "index" => $i, "arity" => $lambda.arity, "captures" => $lambda.captures,
                 "self" => $lambda.self == null ? null : index_in($lambda.captures, $lambda.self), "map" => $map,
-                "owner" => $lambda.owner,
+                "owner" => $lambda.owner, "namespace" => $lambda.written_in ?? "",
             });
         }
 
@@ -1251,13 +1264,18 @@ kind CodeGenerator {
         return $records;
     }
 
-    // Every method a kind can run, each as [name, definer, vis, declarer, final]: what its record
-    // says of them, final being the definer's word, which every kind that has the entry repeats
+    /*
+     * Every method a kind can run, each as [name, definer, vis, declarer, final, local]: what its
+     * record says of them, final being the definer's word, which every kind that has the entry
+     * repeats, and local the constructor's, when it reaches only its namespace (not pub, and not
+     * the root's, where nothing is private)
+     */
     fn method_records($kind) {
         $records = [];
         foreach ($kind.method_table as [$method, $definer, $vis, $declarer]) {
             $final = #kinds[$definer].methods[$method].final ?? false;
-            $records[] = [$method, $definer, $vis, $declarer, $final];
+            $local = $method == "_" && contains($definer, "::") && !(#kinds[$definer].public_constructor ?? false);
+            $records[] = [$method, $definer, $vis, $declarer, $final, $local];
         }
 
         return $records;
@@ -1405,6 +1423,21 @@ kind CodeGenerator {
     }
 }
 
+// The namespace a name is in: the part before its first ::, or "" for the root's
+fn namespace_of($name) {
+    $colons = index_of($name, "::");
+
+    return $colons == null ? "" : slice($name, 0, $colons);
+}
+
+// The kind a static's key names, Kind::static or ns::Kind::static: everything before its last ::
+fn split_name_kind($key) {
+    $parts = split($key, "::");
+    delete $parts[len($parts) - 1];
+
+    return join($parts, "::");
+}
+
 // Where a value first is in a list
 fn index_in($list, $value) {
     foreach ($list as $i => $element) {
@@ -1483,7 +1516,7 @@ kind Program {
             "kind" => #kind_header($block),
             "interface" => #interface_header($block, $bounds),
             "lambda" => #lambda_header($block, $bounds($block["arity"])),
-            default => ["top"],
+            default => ["top" .. #in_namespace($block)],
         };
     }
 
@@ -1519,9 +1552,9 @@ kind Program {
             $lines[] = "field {$field} {$declarer}" .. ($vis == "" ? "" : " {$vis}") .. ($readonly ? " readonly" : "")
                 .. ($type == null ? "" : " {$type}");
         }
-        foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final]) {
+        foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final, $local]) {
             $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}")
-                .. ($declarer == $definer ? "" : " {$declarer}") .. ($final ? " final" : "");
+                .. ($declarer == $definer ? "" : " {$declarer}") .. ($final ? " final" : "") .. ($local ? " local" : "");
         }
         // Only a static field with a type has a line: its slot is in the statics line already
         foreach ($block["statics"] as [$static, $type]) {
@@ -1547,7 +1580,7 @@ kind Program {
         foreach ($block["fields"] as [$field, $declarer, $vis, $_, $type]) {
             $lines[] = "field {$field} {$declarer} {$vis} {$type}";
         }
-        foreach ($block["methods"] as [$method, $definer, $vis, $declarer, $final]) {
+        foreach ($block["methods"] as [$method, $definer, $vis, $_, $_, $_]) {
             $lines[] = "method {$method} {$definer}" .. ($vis == "" ? "" : " {$vis}");
         }
         foreach ($block["cases"] as $case => $value) {
@@ -1566,8 +1599,19 @@ kind Program {
         return $owner == null || contains($block["name"] ?? "", ".") ? "" : " in {$owner}";
     }
 
+    /*
+     * " ns N" for a block whose namespace neither its name nor its kind says: the top level, in the
+     * main file's, and a lambda outside every kind, in the one it is written in. The root's is
+     * left unsaid, as old files leave it, so what doesn't use namespaces reads as it did.
+     */
+    fn in_namespace($block) {
+        $namespace = $block["namespace"] ?? "";
+
+        return $namespace == "" || ($block["owner"] ?? null) != null ? "" : " ns {$namespace}";
+    }
+
     fn lambda_header($block, $bounds) {
-        $lines = ["lambda {$block["index"]} {$bounds}" .. #in_kind($block)];
+        $lines = ["lambda {$block["index"]} {$bounds}" .. #in_kind($block) .. #in_namespace($block)];
         foreach ($block["map"] as [$from_closure, $outer, $inner]) {
             $lines[] = "capture " .. $block["captures"][$inner] .. ($from_closure ? " captured " : " local ") .. $outer;
         }

@@ -1,7 +1,7 @@
 GAZLANG BYTECODE 3
 globals
 
-top
+top ns shop
 locals $html
 @ "template_namespace.gaz" 6
 PUSH "Lamp"
@@ -178,7 +178,7 @@ RET
 
 kind shop::Product
 field name shop::Product pub string
-method _ shop::Product pub
+method _ shop::Product pub local
 locals $#argument_0
 @ "templates/product.gaz" 4
 CALL_CONSTRUCTOR shop::Product

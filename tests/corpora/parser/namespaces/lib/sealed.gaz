@@ -1,0 +1,23 @@
+namespace sealed;
+
+// Made only in namespace sealed, by token()
+pub kind Token {
+    fn _(pub #text);
+}
+
+// Made anywhere
+pub kind Open {
+    pub fn _(pub #text);
+}
+
+// Extended anywhere: an abstract kind's pub constructor serves its children
+pub abstract kind Base {
+    pub fn _();
+}
+
+// Takes Token's constructor, and its reach
+pub kind Inherits extends Token {}
+
+pub fn token($text) {
+    return Token($text);
+}

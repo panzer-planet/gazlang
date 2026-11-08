@@ -580,7 +580,7 @@ pub kind Scanner {
      * A scanner at the start of markup, naming itself in its errors as `$who`, `$source` and
      * `$unit` say (see above).
      */
-    fn _(#who = "web::html", #source = "web::html's text", #unit = "a tagged string");
+    pub fn _(#who = "web::html", #source = "web::html's text", #unit = "a tagged string");
 
     /**
      * Where each value of a tagged string's text parts goes, in order: a `Slot` each.

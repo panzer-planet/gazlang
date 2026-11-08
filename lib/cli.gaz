@@ -52,7 +52,7 @@ pub kind Command {
      * A command named $name, as its help names it, with a one-line $summary for its help;
      * command() makes a subcommand with its handler and the command above it
      */
-    fn _(pub #name, pub #summary, #on_run = null, #above = null);
+    pub fn _(pub #name, pub #summary, #on_run = null, #above = null);
 
     /**
      * A flag, --$name, true when given and false when not; $short is its one-letter -x, or null

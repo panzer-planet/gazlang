@@ -1,0 +1,44 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $make
+@ "kind_value_from_another_namespace.gaz" 3
+CALL q::kind_value 0
+STORE 0
+LOAD 0
+POP
+@ "kind_value_from_another_namespace.gaz" 4
+LOAD 0
+PUSH 1
+CALL_VALUE 1
+GET_PROPERTY x
+PRINT
+
+fn q::kind_value 0 0
+locals
+@ "q.gaz" 8
+PUSH_KIND q::P
+RET
+@ "q.gaz" 7
+PUSH null
+RET
+
+kind q::P
+field x q::P pub
+method _ q::P pub local
+locals $#argument_0
+@ "q.gaz" 3
+CALL_CONSTRUCTOR q::P
+POP
+LOAD_THIS
+RET
+
+fn q::P._ 1 1
+locals $x
+@ "q.gaz" 4
+LOAD 0
+SET_FIELD x
+POP
+PUSH null
+RET

@@ -1,0 +1,38 @@
+namespace sealed;
+
+// A read-only value only this namespace makes, so its invariant holds however it is reached
+pub readonly kind Even {
+    fn _(pub int #n) {
+        if (#n % 2 != 0) {
+            throw "sealed::Even needs an even number";
+        }
+    }
+}
+
+pub fn even(int $n): Even {
+    return Even($n);
+}
+
+// The kind itself, as a value, for the tests of construction through one
+pub fn kind_of_even() {
+    return Even;
+}
+
+// A function of the namespace that makes one from what it is given: the confused deputy
+pub fn maker() {
+    return $n -> Even($n);
+}
+
+// Made anywhere
+pub kind Note {
+    pub fn _(pub string #text);
+}
+
+// A static default runs as its kind's code, in its namespace, so it may make an Even
+pub kind Defaults {
+    static #pair = Even(2);
+
+    pub static fn two(): Even {
+        return #pair;
+    }
+}

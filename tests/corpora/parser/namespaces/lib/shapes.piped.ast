@@ -29,6 +29,7 @@ Compound
       name: "shapes::Circle"
       parent: null
       abstract: false
+      public_constructor: true
       interfaces: ["shapes::Area"]
       statics: []
       static_lines: []

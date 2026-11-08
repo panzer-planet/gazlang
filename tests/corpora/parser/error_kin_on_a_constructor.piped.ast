@@ -1,0 +1,1 @@
+Error: A constructor is pub or reaches its own namespace: no kin, since a kind only its children construct is abstract, and an abstract kind's pub _ serves them on line 2

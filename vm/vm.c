@@ -438,6 +438,17 @@ static int bind_named(Value *args, int argc, List *names, Str **locals, int lo, 
     return count;
 }
 
+/* Whether the code running now may not construct c: its constructor is local and the running
+   block is in another namespace (#96). Construction by name is the parser's and the loader's to
+   check; this is for construction through a value, which only shows when it runs. */
+static bool constructor_unreachable(Kind *c) {
+    return c->constructor_local && c->block->ns != fp->block->ns;
+}
+
+static bool raise_unreachable(Kind *c) {
+    return raisef("%s's constructor is not pub, so only namespace %s can construct it", c->name->data, c->block->ns->data);
+}
+
 /*
  * Bind a named call through a value (CALL_VALUE_NAMED, or CALL_METHOD_NAMED on a member that
  * isn't a method) against what the value will run: a function's, closure's or bound method's
@@ -451,7 +462,7 @@ static int bind_value_call(Value callee, Value *args, int argc, List *names) {
     Buf label = {0};
     if (callee.type == T_KIND) {
         Kind *c = callee.k;
-        if (c->abstract || c->is_enum) return argc;
+        if (c->abstract || c->is_enum || constructor_unreachable(c)) return argc;
         Function *constructor = method_function(c, constructor_name());
         if (constructor) locals = constructor->block->locals;
         lo = c->lo, hi = c->hi;
@@ -618,6 +629,7 @@ static bool enter_value(Value **spp, int argc, Instr *ret, Block **entered) {
     if (callee.type == T_KIND) {
         Kind *c = callee.k;
         if (c->abstract || c->is_enum) return raise_unconstructable(c);
+        if (constructor_unreachable(c)) return raise_unreachable(c);
         if (!arity_fits(c->lo, c->hi, argc)) {
             Buf what = {0};
             buf_adds(&what, "Kind ");
@@ -1716,6 +1728,11 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 goto error;
             }
             Kind *c = base->o->kind;
+            if (constructor_unreachable(c)) {
+                raise_unreachable(c);
+                decref(names);
+                goto error;
+            }
             int count = with_arguments(base, n, names.l);
             decref(names);
             if (count < 0) goto error;
@@ -1738,6 +1755,10 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
                 Kind *c = callee.k;
                 if (c->abstract || c->is_enum) {
                     raise_unconstructable(c);
+                    goto error;
+                }
+                if (constructor_unreachable(c)) {
+                    raise_unreachable(c);
                     goto error;
                 }
                 if (!arity_fits(c->lo, c->hi, argc)) {

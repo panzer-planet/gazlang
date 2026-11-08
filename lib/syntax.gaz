@@ -48,7 +48,7 @@ pub kind Token {
     /**
      * A token of $type standing for $value
      */
-    fn _($type, $value) {
+    pub fn _($type, $value) {
         #type = $type;
         #value = $value;
     }
@@ -180,7 +180,7 @@ pub kind Lexer {
      * $template is for source the compiler translated from a template, which alone may name
      * `TEMPLATE_BUFFER`.
      */
-    fn _($text, $template = false) {
+    pub fn _($text, $template = false) {
         #text = $text;
         #length = len($text);
         #char = char_at($text, 0);

@@ -113,16 +113,21 @@ $plain_text = "select 1";
 throws("a tag is called with lists", () -> db::sql($plain_text, []), "db::sql() expects \$strings to be list, got string");
 
 /*
- * Sql isn't pub, so a program can't build one from a string by accident. A constructor is always
- * reachable through kind_of(), which is deliberate, and still checks what it is given.
+ * Sql's constructor isn't pub, so no program builds one from a string: not by name, not through
+ * kind_of(), and not by a kind of its own that extends it. The tag, called directly, still checks
+ * what it is given, by the constructor's own rules.
  */
 $outside = run([program_path(), "-e", 'import "std/db.gaz"; echo db::Sql(["select 1"], []);']);
-expect("Sql can't be named outside its namespace", [$outside["status"], $outside["stderr"]],
-    [1, "Error: db::Sql is not pub, so only namespace db can use it on line 1\n"]);
+expect("Sql can't be built outside its namespace", [$outside["status"], $outside["stderr"]],
+    [1, "Error: db::Sql's constructor is not pub, so only namespace db can construct it on line 1\n"]);
+$child = run([program_path(), "-e", 'import "std/db.gaz"; kind Mine extends db::Sql {}']);
+expect("nor extended", [$child["status"], $child["stderr"]],
+    [1, "Error: Kind Mine can't extend db::Sql: its constructor is not pub, so only namespace db can extend it on line 1\n"]);
 $make = kind_of($query);
-throws("one more text part than values", () -> $make(["a"], [1]), "db::Sql() takes one more text part than values, got 1 and 1");
-throws("text parts are strings", () -> $make([1, "b"], [2]), "db::Sql() takes strings as its text parts, got an int");
-throws("values are checked", () -> $make(["a", ""], [$map]), "db::sql can't send a map: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
+throws("nor through a value", () -> $make(["drop table users"], []), "db::Sql's constructor is not pub, so only namespace db can construct it");
+throws("one more text part than values", () -> db::sql(["a"], [1]), "db::Sql() takes one more text part than values, got 1 and 1");
+throws("text parts are strings", () -> db::sql([1, "b"], [2]), "db::Sql() takes strings as its text parts, got an int");
+throws("values are checked", () -> db::sql(["a", ""], [$map]), "db::sql can't send a map: a value is an int, float, string, bool or null, a list of those, a db::sql\"...\" or a db::ident()");
 
 $first = "Ada";
 $second = "Alan";

@@ -40,7 +40,7 @@ pub kind Booking extends Event {
 }
 
 pub kind Injury extends Event {
-    fn _($minute, $team, pub #player, pub #days) { ##_($minute, $team); }
+    pub fn _($minute, $team, pub #player, pub #days) { ##_($minute, $team); }
     pub fn describe() {
         return "{#player} ({#team}) is injured and has to go off: out for " .. players::days_text(#days);
     }
@@ -66,7 +66,7 @@ pub kind Fixture {
     // How many fixtures have been played across every season this run, not just this league's
     pub static #matches_played = 0;
 
-    fn _(pub #home, pub #away) {
+    pub fn _(pub #home, pub #away) {
         Fixture::matches_played++;
     }
 

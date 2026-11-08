@@ -1,7 +1,7 @@
 GAZLANG BYTECODE 3
 globals
 
-top
+top ns shop
 locals $x
 @ "braced_constant.gaz" 19
 PUSH 1

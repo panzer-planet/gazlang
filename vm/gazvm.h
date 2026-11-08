@@ -304,6 +304,10 @@ struct Kind {
        for a parameter the constructor doesn't keep as a field, which with refuses; the block's
        with_names say what each is called. NULL without a with line. */
     int *with_fields;
+    /* Whether its constructor reaches only its own namespace: the record's _ line says local.
+       Constructing it from code in another namespace is refused (constructor_unreachable() in
+       vm.c, and the loader for NEW and CALL_CONSTRUCTOR). */
+    bool constructor_local;
 };
 
 typedef enum { B_TOP, B_FN, B_KIND, B_LAMBDA, B_INTERFACE } BlockKind;
@@ -334,6 +338,11 @@ struct Block {
     /* The kind this block's code is written in, or NULL: what a member use in it is asked for
        by. A method's own name carries it; a static method's and a lambda's header say "in K". */
     Str *owner_name;
+    /* The namespace its code is written in, interned, "" for the root: the header's "ns N" where
+       nothing else says it (top, a lambda outside a kind), else the part before the first ::
+       of its owner's name or its own. What a constructor's reach is compared with. */
+    Str *ns;
+    bool constructor_local;   /* kind: its record's _ line says local */
     Kind *owner;
     int nfields;
     Str **field_names, **field_declarers;

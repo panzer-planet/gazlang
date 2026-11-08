@@ -581,6 +581,20 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   $y;` at the top of the body. A default on a promoted parameter is the parameter's own
   (evaluated per call, so it may use `$` earlier parameters), not a field default. A
   constructor with nothing else to do ends at `;`, not an empty `{}`.
+- **A constructor reaches its kind's namespace unless `pub`**, as a function does, since
+  constructing is a call by the kind's name: `pub fn _(...)` lets any code construct the kind,
+  and a plain `fn _(...)` only code in its own namespace, so a library can promise that a kind is
+  made only by its own functions (`db::Sql` by `db::sql"..."` and `db::raw()`). Code elsewhere can
+  still name the kind in a type or `is_a`, but constructing it is an error by name (`db::Sql's
+  constructor is not pub, so only namespace db can construct it`) and when it runs through a
+  value (a kind value called or handed to `map()`, `kind_of($obj)(...)`, `$obj with (...)`). A
+  kind that declares no constructor takes its parent's, reach included, or with no parent is
+  constructed wherever its name reaches; a kind in the root namespace, as in a program without a
+  `namespace` line, is anyone's, since nothing there is private. **Extending a kind needs its
+  constructor's reach too**: a child can be made without its parent's constructor running, so a
+  kind whose constructor isn't `pub` is extended only in its own namespace. No `kin`: an abstract
+  kind's `pub fn _` already serves only its children. A function of the namespace that constructs
+  from what its caller hands it constructs for that caller, as with any private constructor.
 - **`#` is this object**, `#name` a field or method, `##name` the parent's version of a method.
   All checked at parse time against the kind.
 - **Objects are handles**: `$b = $a; $b.x = 1` changes `$a`. `==` is identity, except for two
@@ -623,7 +637,7 @@ echo is_a($c, Shape) .. " " .. $c.radius;
   version runs: an ancestor that declared a `kin` method can still call it after a child
   overrides it. `to_string()` must be `pub`, since printing calls it from outside; an
   `abstract fn` must be `pub` or `kin`, since a child defines what it can see. A constructor
-  takes no marker: it is reached by constructing, not by naming.
+  takes `pub` or nothing, and reaches as a function does (see constructors above), never `kin`.
 - **`final` closes a kind or a method**: no kind extends a `final kind`, and no kind below the one
   that says it overrides a `final fn`.
   - The marker comes first, as with `abstract` (`pub final kind Receipt`, `kin final fn
@@ -1748,12 +1762,12 @@ echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
   read as whichever value has that number. Interpolate the value instead. A bare `?`, or a named
   placeholder like `:name`, is caught by the database's own count of parameters. A false alarm, a
   `$1` inside an SQL string literal or a `$$...$$` function body, is what `db::raw()` is for.
-- **The methods refuse anything but a `db::sql"..."`**, so a plain string can't reach the database
-  by accident: `Db.query() takes db::sql"...", not a string`. **`db::raw($text)`** is the way
-  round, for SQL built some other way (a migration read from a file): used as it is, with no
-  values, and the one place to check by hand. The kind behind a `db::sql"..."` isn't public, so
-  no program builds one from a string without meaning to; building one on purpose through
-  `kind_of()` of a fragment is as deliberate as `db::raw()`.
+- **The methods take a `db::Sql`**, which only `db::sql"..."` and `db::raw()` make, so a plain
+  string can't reach the database by accident: `db::Db.query() expects $sql to be db::Sql, got
+  string`. **`db::raw($text)`** is the way round, for SQL built some other way (a migration read
+  from a file): used as it is, with no values, and the one place to check by hand. `db::Sql`'s
+  constructor isn't `pub`, so no program outside `db` builds one, by name, through a value
+  (`kind_of()` of a fragment) or by extending it.
 - Printing a `db::sql"..."` shows its text with `?` for each value, never the values, which may be
   secrets.
 

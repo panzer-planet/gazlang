@@ -10,7 +10,7 @@ interface Secret {
 }
 
 pub kind Circle implements Area {
-    fn _(float #radius) {}
+    pub fn _(float #radius) {}
 
     pub fn area(): float {
         return 3.0 * #radius * #radius;

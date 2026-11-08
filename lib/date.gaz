@@ -650,7 +650,7 @@ pub kind Reading {
     /**
      * The date as a day number, and the seconds after midnight (0 to 86399)
      */
-    fn _(pub int #days, pub int #seconds) {
+    pub fn _(pub int #days, pub int #seconds) {
         if ($seconds < 0 || $seconds >= SECONDS_PER_DAY) {
             throw "A time of day is 0 to 86399 seconds after midnight, not {$seconds}";
         }

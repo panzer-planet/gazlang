@@ -305,20 +305,28 @@ const COMPLETION_KINDS = {"function" => 3, "kind" => 7, "interface" => 8, "enum"
 /*
  * A completion for each function, kind and constant declared in $files (the same reach
  * definition() searches), each name once even if declared more than once reachably, with the
- * first line of its docblock as its detail and the whole of it as its documentation. Further
+ * first line of its docblock as its detail and the whole of it as its documentation, and a kind
+ * whose constructor the document can't reach marked "not constructible here". Further
  * than the compiler lets a file see, which only its own imports: a completion of a name the file
  * must still import is a nudge, not a mistake.
  */
 fn declared_names($files) {
     $items = [];
     $seen = {};
+    // Asked of every kind, so the members are indexed once rather than searched for each
+    $index = MemberIndex($files);
     foreach ($files as $file) {
         foreach ($file.outline.declarations as $declaration) {
             if ($declaration.owner != null || has_key($seen, $declaration.name)) {
                 continue;
             }
             $seen[$declaration.name] = true;
-            $items[] = completion_item($declaration);
+            $item = completion_item($declaration);
+            if ($declaration.what == "kind" && !constructor_reachable($files, $declaration.name, $index)) {
+                // Still a name for a type, is_a or ::, but not one to construct from here
+                $item["labelDetails"] = {"description" => "not constructible here"};
+            }
+            $items[] = $item;
         }
     }
     return $items;
@@ -786,12 +794,14 @@ fn call_signature($tokens, $at, $files, $offset) {
     if ($declaration.what != "kind") {
         return CallSignature($declaration.signature, $declaration.doc);
     }
-    // Constructing a kind runs its _, or the one it inherits
-    $constructor = find_member($files, $name, "_");
-    if ($constructor == null) {
+    // Constructing a kind runs its _, or the one it inherits, when the document can reach it
+    $index = MemberIndex($files);
+    $found = $index.find($name, "_");
+    $constructor = $found == null ? null : $found[1];
+    if ($constructor == null || !constructor_reachable($files, $name, $index)) {
         return null;
     }
-    $signature = $constructor.signature;
+    $signature = trim($constructor.signature, ";"); // one without a body ends at its ;
     return CallSignature($name .. slice($signature, index_of($signature, "(")), $declaration.doc ?? $constructor.doc);
 }
 
@@ -811,23 +821,65 @@ fn enclosing_kind($file, $offset) {
  * Declaration, or null. A qualified kind (ns::Kind) is looked up by its last part.
  */
 fn find_member($files, $kind, $name) {
-    $seen = [];
-    while ($kind != null && !in_array($kind, $seen)) {
-        $seen[] = $kind;
-        $declared = null;
+    $found = find_member_in($files, $kind, $name);
+    return $found == null ? null : $found[1];
+}
+
+/*
+ * Whether the document ($files[0]) can construct the kind named $kind: its constructor, its own _
+ * or the one it inherits, is pub or declared in the root namespace or the document's own; a kind
+ * with no constructor at all is constructed wherever its name reaches
+ */
+fn constructor_reachable($files, $kind, MemberIndex $index) {
+    $found = $index.find($kind, "_");
+    if ($found == null) {
+        return true;
+    }
+    [$file, $constructor] = $found;
+    $namespace = $file.outline.namespace;
+    return $constructor.pub || $namespace == null || $namespace == $files[0].outline.namespace;
+}
+
+// find_member()'s search, as [ReachableFile, Declaration] so the member's namespace is known, or null
+fn find_member_in($files, $kind, $name) {
+    return MemberIndex($files).find($kind, $name);
+}
+
+/*
+ * The members the reachable files declare, by kind and name, and each kind's declaration, the
+ * first of each in file order as a search finds them: made once for a request that asks about
+ * many kinds, as completion does, rather than a search through every file for each
+ */
+kind MemberIndex {
+    #members = {};
+    #kinds = {};
+
+    fn _($files) {
         foreach ($files as $file) {
             foreach ($file.outline.declarations as $declaration) {
-                if ($declaration.owner == $kind && $declaration.name == $name) {
-                    return $declaration;
-                }
-                if ($declaration.owner == null && $declaration.name == $kind && $declaration.what == "kind") {
-                    $declared = $declared ?? $declaration;
+                if ($declaration.owner != null) {
+                    #members["{$declaration.owner}.{$declaration.name}"] ??= [$file, $declaration];
+                } else if ($declaration.what == "kind") {
+                    #kinds[$declaration.name] ??= $declaration;
                 }
             }
         }
-        $kind = $declared == null ? null : parent_of($declared);
     }
-    return null;
+
+    // The member $name of the kind named $kind, or of the nearest kind it extends that has one, as [ReachableFile, Declaration], or null
+    pub fn find(?string $kind, string $name): ?list {
+        $seen = [];
+        while ($kind != null && !in_array($kind, $seen)) {
+            $seen[] = $kind;
+            $found = #members["{$kind}.{$name}"] ?? null;
+            if ($found != null) {
+                return $found;
+            }
+            $declared = #kinds[$kind] ?? null;
+            $kind = $declared == null ? null : parent_of($declared);
+        }
+        return null;
+    }
 }
 
 // The name of the kind a kind's signature says it extends (its last part), or null

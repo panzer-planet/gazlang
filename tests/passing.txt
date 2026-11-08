@@ -757,6 +757,7 @@ snippet:fff09b153f8a
 snippet:fff0fce3fd64
 tests/corpora/bytecode/call_value_named.gzb
 tests/corpora/bytecode/concat_path_without_steps.gzb
+tests/corpora/bytecode/constructor_reach.gzb
 tests/corpora/bytecode/enums.gzb
 tests/corpora/bytecode/error_abstract_readonly_kind_header.gzb
 tests/corpora/bytecode/error_abstract_without_kind.gzb
@@ -780,6 +781,7 @@ tests/corpora/bytecode/error_catch_without_an_error_kind.gzb
 tests/corpora/bytecode/error_check_in_a_lambda.gzb
 tests/corpora/bytecode/error_check_in_a_method.gzb
 tests/corpora/bytecode/error_check_param_of_a_skipped_one.gzb
+tests/corpora/bytecode/error_child_drops_local.gzb
 tests/corpora/bytecode/error_circular_inheritance.gzb
 tests/corpora/bytecode/error_concat_path_ending_in_append.gzb
 tests/corpora/bytecode/error_count_deeper_than_the_stack.gzb
@@ -820,6 +822,7 @@ tests/corpora/bytecode/error_enum_value_field_untyped.gzb
 tests/corpora/bytecode/error_enum_value_of_an_unbacked_case.gzb
 tests/corpora/bytecode/error_enum_with_code.gzb
 tests/corpora/bytecode/error_error_kind_without_its_fields.gzb
+tests/corpora/bytecode/error_extends_a_local_constructor.gzb
 tests/corpora/bytecode/error_extends_an_enum.gzb
 tests/corpora/bytecode/error_extends_an_interface.gzb
 tests/corpora/bytecode/error_extends_final_kind.gzb
@@ -872,9 +875,11 @@ tests/corpora/bytecode/error_interface_twice.gzb
 tests/corpora/bytecode/error_interface_with_code.gzb
 tests/corpora/bytecode/error_interface_without_name.gzb
 tests/corpora/bytecode/error_kind_header.gzb
+tests/corpora/bytecode/error_kind_value_from_another_namespace.gzb
 tests/corpora/bytecode/error_kind_without_name.gzb
 tests/corpora/bytecode/error_label_of_another_block.gzb
 tests/corpora/bytecode/error_lambda_index.gzb
+tests/corpora/bytecode/error_local_on_a_method.gzb
 tests/corpora/bytecode/error_location_line.gzb
 tests/corpora/bytecode/error_location_not_quoted.gzb
 tests/corpora/bytecode/error_location_words.gzb
@@ -887,10 +892,13 @@ tests/corpora/bytecode/error_method_line_too_long.gzb
 tests/corpora/bytecode/error_method_without_block.gzb
 tests/corpora/bytecode/error_missing_argument.gzb
 tests/corpora/bytecode/error_new_an_interface.gzb
+tests/corpora/bytecode/error_new_from_another_namespace.gzb
 tests/corpora/bytecode/error_no_blocks.gzb
 tests/corpora/bytecode/error_no_globals.gzb
 tests/corpora/bytecode/error_no_locals_at_end.gzb
 tests/corpora/bytecode/error_not_bytecode.gzb
+tests/corpora/bytecode/error_ns_on_a_kind.gzb
+tests/corpora/bytecode/error_ns_on_a_method.gzb
 tests/corpora/bytecode/error_parent_undefined.gzb
 tests/corpora/bytecode/error_pop_below_the_try.gzb
 tests/corpora/bytecode/error_readonly_field_added.gzb
@@ -1101,6 +1109,7 @@ tests/corpora/parser/modules/same_file_spelt_two_ways.gaz
 tests/corpora/parser/modules/symlink_is_the_file_it_points_to.gaz
 tests/corpora/parser/modules/template_imports.gaz
 tests/corpora/parser/named_arguments.gaz
+tests/corpora/parser/namespaces/constructors.gaz
 tests/corpora/parser/namespaces/enums_qualified.gaz
 tests/corpora/parser/namespaces/imported_twice.gaz
 tests/corpora/parser/namespaces/interfaces_qualified.gaz
@@ -1111,6 +1120,7 @@ tests/corpora/parser/namespaces/lib/mid.gaz
 tests/corpora/parser/namespaces/lib/more.gaz
 tests/corpora/parser/namespaces/lib/plain.gaz
 tests/corpora/parser/namespaces/lib/problems.gaz
+tests/corpora/parser/namespaces/lib/sealed.gaz
 tests/corpora/parser/namespaces/lib/shapes.gaz
 tests/corpora/parser/namespaces/lib/tags.gaz
 tests/corpora/parser/namespaces/main.gaz
@@ -1125,6 +1135,7 @@ tests/corpora/parser/postfix.gaz
 tests/corpora/parser/power.gaz
 tests/corpora/parser/precedence.gaz
 tests/corpora/parser/promoted_fields.gaz
+tests/corpora/parser/pub_on_a_constructor.gaz
 tests/corpora/parser/readonly.gaz
 tests/corpora/parser/rest_pattern.gaz
 tests/corpora/parser/rest_pattern_in_foreach.gaz
@@ -1223,6 +1234,7 @@ tests/fixtures/import/runtime.gaz
 tests/fixtures/json_roundtrip.gaz
 tests/fixtures/lsp/documented.gaz
 tests/fixtures/lsp/greeting.gaz
+tests/fixtures/lsp/guarded.gaz
 tests/fixtures/lsp/helper.gaz
 tests/fixtures/lsp/importer.gaz
 tests/fixtures/read_stdin.gaz
@@ -1295,6 +1307,8 @@ tests/gaz/lists/pattern_test.gaz
 tests/gaz/loops/foreach_test.gaz
 tests/gaz/match/match_test.gaz
 tests/gaz/numbers/floats_test.gaz
+tests/gaz/objects/constructors/sealed.gaz
+tests/gaz/objects/constructors_test.gaz
 tests/gaz/objects/enums/palette.gaz
 tests/gaz/objects/enums_test.gaz
 tests/gaz/objects/final_test.gaz

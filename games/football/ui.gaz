@@ -125,7 +125,7 @@ pub kind EndMatchday extends Action {
 
 /* Nothing to change: a key couldn't be obeyed, and the note says why */
 pub kind Notice extends Action {
-    fn _(pub #text);
+    pub fn _(pub #text);
 
     pub fn carry_out($game) {
         return #text;
@@ -136,7 +136,7 @@ pub kind Notice extends Action {
 
 /* A section of the game: a view that reads the game and never changes it */
 pub abstract kind GameView extends tui::View {
-    fn _(kin #game);
+    pub fn _(kin #game);
 }
 
 /* Messages, the newest first: a list above and the one selected in full below */

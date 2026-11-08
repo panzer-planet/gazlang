@@ -18,7 +18,7 @@ pub kind Team {
     // In pounds, over several seasons: prize money in, wages and transfer fees out
     pub #balance = 0;
 
-    fn _(pub #name, pub #formation, pub #players) {
+    pub fn _(pub #name, pub #formation, pub #players) {
         if (len(#players) != 11) {
             throw InvalidLineup(#name, len(#players) .. " players instead of 11");
         }
@@ -131,7 +131,7 @@ pub fn from_data($data) {
 pub kind Formation {
     #lines;
 
-    fn _(#name) {
+    pub fn _(#name) {
         #lines = map(split(#name, "-"), to_int);
         if (len(#lines) != 3 || sum(#lines) != 10) {
             throw "Not a formation: {#name}";

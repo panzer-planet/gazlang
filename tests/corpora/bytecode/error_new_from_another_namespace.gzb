@@ -1,0 +1,64 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $make
+@ "constructor_reach.gaz" 13
+PUSH 4
+NEW q::C 1
+GET_METHOD twice
+CALL_METHOD 0 twice
+PRINT
+@ "constructor_reach.gaz" 14
+PUSH_KIND q::P
+STORE 0
+LOAD 0
+POP
+@ "constructor_reach.gaz" 15
+LOAD 0
+PUSH 1
+CALL_VALUE 1
+GET_PROPERTY x
+PRINT
+
+kind q::P
+field x q::P pub
+method _ q::P pub local
+method twice q::P pub
+locals $#argument_0
+@ "constructor_reach.gaz" 3
+CALL_CONSTRUCTOR q::P
+POP
+LOAD_THIS
+RET
+
+fn q::P._ 1 1
+locals $x
+@ "constructor_reach.gaz" 4
+LOAD 0
+SET_FIELD x
+POP
+PUSH null
+RET
+
+fn q::P.twice 0 0
+locals
+@ "constructor_reach.gaz" 7
+LOAD_FIELD x
+PUSH 2
+MUL
+RET
+@ "constructor_reach.gaz" 6
+PUSH null
+RET
+
+kind q::C extends q::P
+field x q::P pub
+method _ q::P pub local
+method twice q::P pub
+locals $#argument_0
+@ "constructor_reach.gaz" 11
+CALL_CONSTRUCTOR q::P
+POP
+LOAD_THIS
+RET

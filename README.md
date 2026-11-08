@@ -45,7 +45,7 @@ try {
 <ul><li>&lt;script&gt;alert(1)&lt;/script&gt; &#39;); drop table notes; --</li></ul>
 <a href="about:invalid#blocked">profile</a>
 1 note, table intact
-Db.query() takes db::sql"...", not a string: write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way
+db::Db.query() expects $sql to be db::Sql, got string
 ```
 
 A value reaches the database as a value, never spliced into the SQL, and reaches the page written

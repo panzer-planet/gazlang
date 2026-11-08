@@ -909,6 +909,14 @@ static void read_case(Block *b, const char *line, Words *w) {
     b->case_names = push_name(b->case_names, &b->ncases, name);
 }
 
+/* The namespace a name is in, interned: the part before its first ::, or "" for the root's (a
+   namespace has one part, so q::K::s and q::K.m are q's), and "" for no name at all (top) */
+static Str *namespace_of(Str *name) {
+    if (!name) return intern("");
+    const char *colons = strstr(name->data, "::");
+    return colons ? str_intern(name->data, (size_t)(colons - name->data)) : intern("");
+}
+
 static Block *read_block(const char *header) {
     Words w;
     split_words(header, &w);
@@ -917,10 +925,20 @@ static Block *read_block(const char *header) {
     b->line_no = at_line;
     const char *block_word = w.w[0];
     char key[64];
-    /* "in Kind" says which kind the code is written in, where the block's own name can't:
-       take it off before the checks below, which count the words a header has */
+    /* "in Kind" says which kind the code is written in, and "ns N" which namespace, where the
+       block's own name can't: take them off before the checks below, which count the words a
+       header has */
+    Str *ns = NULL;
     if (w.n >= 3 && !strcmp(w.w[w.n - 2], "in")) {
         b->owner_name = intern(w.w[w.n - 1]);
+        w.n -= 2;
+    }
+    /* "ns N" only where nothing else can say the namespace: top, and a lambda outside every
+       kind. Anywhere else a block could claim a namespace its name doesn't give it, and reach a
+       constructor that isn't pub (and an enum named ns would lose its name) */
+    bool may_say_ns = !strcmp(block_word, "top") || (!strcmp(block_word, "lambda") && !b->owner_name);
+    if (may_say_ns && w.n >= 3 && !strcmp(w.w[w.n - 2], "ns")) {
+        ns = intern(w.w[w.n - 1]);
         w.n -= 2;
     }
     if (!strcmp(block_word, "top")) {
@@ -1030,6 +1048,12 @@ static Block *read_block(const char *header) {
             b->static_type_texts = push_name(b->static_type_texts, &b->nstatic_types, type);
         } else if (!strcmp(first, "method") && b->kind == B_KIND) {
             Str *name = intern(word(&w, 1)), *definer = intern(word(&w, 2));
+            /* local, last on the constructor's line: it reaches only its kind's namespace */
+            if (w.n > 4 && !strcmp(w.w[w.n - 1], "local")) {
+                if (strcmp(name->data, "_")) fail("Only the constructor's line says local, not method %s's", name->data);
+                b->constructor_local = true;
+                w.n--;
+            }
             /* final, last, after the marker it needs: a method its kind's own is never overridden */
             bool final = w.n > 4 && !strcmp(w.w[w.n - 1], "final");
             int words = final ? w.n - 1 : w.n;
@@ -1093,6 +1117,7 @@ static Block *read_block(const char *header) {
     }
 
     read_code(b);
+    b->ns = ns ? ns : namespace_of(b->owner_name ? b->owner_name : b->name);
     return b;
 }
 
@@ -1507,6 +1532,13 @@ static void check_block(Block *b) {
             if ((r->op == OP_NEW || r->op == OP_CALL_CONSTRUCTOR) && kind_block(r->names[0])->is_enum) {
                 FAIL("%s makes an object of enum %s, whose cases are its only objects", info->name, r->names[0]->data);
             }
+            /* A constructor whose line says local reaches only its kind's namespace */
+            if (r->op == OP_NEW || r->op == OP_CALL_CONSTRUCTOR) {
+                Block *k = kind_block(r->names[0]);
+                if (k->constructor_local && k->ns != b->ns) {
+                    FAIL("%s makes an object of %s, whose constructor is not pub, so only namespace %s can construct it", info->name, r->names[0]->data, k->ns->data);
+                }
+            }
             if ((r->op == OP_STORE_STATIC || r->op == OP_SET_PATH_STATIC || r->op == OP_DELETE_PATH_STATIC) && case_slot[r->ints[r->op == OP_STORE_STATIC ? 0 : 1]]) {
                 FAIL("%s changes %s, a case of an enum, which never changes", info->name, prog->statics[r->ints[r->op == OP_STORE_STATIC ? 0 : 1]]->data);
             }
@@ -1654,6 +1686,31 @@ static void check_implementer(Kind *c) {
     }
 }
 
+/* What a constructor's reach forbids: extending a kind whose constructor is local from another
+   namespace, since the child would make what the parent's namespace alone may make; and a child
+   whose record drops or adds local on a constructor it takes from its parent, so a kind is
+   checked against its parent alone */
+/* The kind that defines the constructor a kind's record lists, or NULL for none */
+static Str *constructor_definer(Block *b) {
+    for (int m = 0; m < b->nmethods; m++) {
+        if (!strcmp(b->method_names[m]->data, "_")) return b->method_definers[m];
+    }
+    return NULL;
+}
+
+static void check_constructor_reach(Kind *c) {
+    Kind *parent = c->parent;
+    if (!parent) return;
+    const char *kind = c->name->data;
+    if (parent->constructor_local && parent->block->ns != c->block->ns) {
+        fail_at(false, "Kind %s extends %s, whose constructor is not pub, so only namespace %s can extend it", kind, parent->name->data, parent->block->ns->data);
+    }
+    Str *mine = constructor_definer(c->block), *theirs = constructor_definer(parent->block);
+    if (mine && mine == theirs && c->constructor_local != parent->constructor_local) {
+        fail_at(false, "Kind %s takes %s's constructor but %s its local", kind, parent->name->data, c->constructor_local ? "adds" : "drops");
+    }
+}
+
 /* What final forbids: a child of a final kind, and a child whose entry of a final method's name
    runs another version or no longer says final (or a grandchild could then override it). A
    private entry of that name is the child's own, not an override, so it is left alone. */
@@ -1774,6 +1831,7 @@ static void build_kinds(void) {
         c->name = b->name;
         c->abstract = b->is_abstract;
         c->is_enum = b->is_enum;
+        c->constructor_local = b->constructor_local;
         c->block = b;
         c->nfields = b->nfields;
         c->fields = b->field_names;
@@ -1864,6 +1922,7 @@ static void build_kinds(void) {
         if (c->is_enum) check_enum(c);
     }
     for (int i = 0; i < prog->nkinds; i++) check_final(&prog->kinds[i]);
+    for (int i = 0; i < prog->nkinds; i++) check_constructor_reach(&prog->kinds[i]);
     for (int i = 0; i < prog->nkinds; i++) check_readonly(&prog->kinds[i]);
     bool *flattened = xcalloc((size_t)prog->nkinds + 1, sizeof(bool));
     for (int i = 0; i < prog->nkinds; i++) flatten_interfaces(&prog->kinds[i], flattened);

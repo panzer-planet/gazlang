@@ -19,7 +19,7 @@ kind Dumper {
     // show, the code generator's (existing), bookkeeping derived from what is shown (resolved),
     // or an index into the parser's table of member uses (use), which says nothing about
     // the source
-    const SKIPPED = ["line", "file", "existing", "resolved", "use", "copy_record"];
+    const SKIPPED = ["line", "file", "existing", "resolved", "use", "copy_record", "written_in"];
 
     // The file of the last node that had a line, false before the first
     #file = false;

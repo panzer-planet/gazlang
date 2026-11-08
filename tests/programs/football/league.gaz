@@ -47,7 +47,7 @@ pub kind League {
     // Every club plays every other club twice, home and away
     pub static fn matches_for($clubs) { return $clubs * ($clubs - 1); }
 
-    fn _($teams) {
+    pub fn _($teams) {
         #teams = $teams;
         foreach ($teams as $team) {
             #standings[$team.name] = Standing($team);
@@ -137,7 +137,7 @@ pub kind League {
 // Commentary on the first few matches of the season
 pub kind Commentator {
     #remaining;
-    fn _($matches) { #remaining = $matches; }
+    pub fn _($matches) { #remaining = $matches; }
 
     pub fn kick_off($match) {
         if (#remaining == 0) {

@@ -1,7 +1,7 @@
 GAZLANG BYTECODE 3
 globals
 
-top
+top ns json
 locals
 @ "namespaces.gaz" 36
 PUSH "a"
@@ -42,7 +42,7 @@ RET
 
 kind json::Reader
 field text json::Reader
-method _ json::Reader pub
+method _ json::Reader pub local
 method read json::Reader pub
 locals $#argument_0
 @ "namespaces.gaz" 17
@@ -78,7 +78,7 @@ RET
 
 kind json::Strict extends json::Reader
 field text json::Reader
-method _ json::Reader pub
+method _ json::Reader pub local
 method read json::Strict pub json::Reader
 locals $#argument_0
 @ "namespaces.gaz" 30

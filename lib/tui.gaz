@@ -54,7 +54,7 @@ pub readonly kind Cell {
     /**
      * The cell showing $character in $style, $width columns wide
      */
-    fn _(pub #character, pub #width, pub term::Style #style);
+    pub fn _(pub #character, pub #width, pub term::Style #style);
 
     /**
      * The blank cell, a space in no style: one shared value, which every blank cell is
@@ -99,7 +99,7 @@ pub kind Screen {
     /**
      * A blank screen $cols wide and $rows high, of which the terminal is known to show nothing yet
      */
-    fn _(pub #cols, pub #rows) {
+    pub fn _(pub #cols, pub #rows) {
         #reset();
     }
 
@@ -531,7 +531,7 @@ pub kind Rect {
     /**
      * The rectangle $width by $height with its top left at column $col, row $row
      */
-    fn _(pub #col, pub #row, pub #width, pub #height);
+    pub fn _(pub #col, pub #row, pub #width, pub #height);
 
     /**
      * Shrunk by $cols on the left and the right and $rows at the top and the bottom, to nothing
@@ -655,7 +655,7 @@ pub kind Pane {
      * The part of $screen (a Screen) in $rect, in the screen's own columns and rows; what of
      * $rect is off the screen is not in the Pane
      */
-    fn _($screen, $rect) {
+    pub fn _($screen, $rect) {
         #screen = $screen;
         #rect = $rect.within($screen.bounds());
         #cols = #rect.width;
@@ -960,7 +960,7 @@ pub readonly kind Hint {
     /**
      * The hint that $keys do $what; $keys "" for a prompt
      */
-    fn _(pub #keys, pub #what);
+    pub fn _(pub #keys, pub #what);
 
     /**
      * A prompt: $text with no keys, for a line of hints to say as it is
@@ -1159,7 +1159,7 @@ pub kind List {
     /**
      * A list of $items, the first selected
      */
-    fn _($items, $style_of = null) {
+    pub fn _($items, $style_of = null) {
         #items = $items;
         #style_of = $style_of;
         #at = Selection(len($items));
@@ -1247,7 +1247,7 @@ pub readonly kind Sort {
     /**
      * Sorted on $column, the greatest first when $descending
      */
-    fn _(pub #column, pub #descending);
+    pub fn _(pub #column, pub #descending);
 }
 
 /**
@@ -1287,7 +1287,7 @@ pub kind Table {
     /**
      * A table of $rows under $headers, in the order given, the first row selected
      */
-    fn _($headers, $rows, $style_of = null) {
+    pub fn _($headers, $rows, $style_of = null) {
         #headers = $headers;
         #style_of = $style_of;
         #rows = $rows;
@@ -1563,7 +1563,7 @@ pub kind Menu {
      * keys (as term::name() writes them) that cancel: a program that quits on q gives it
      * ["escape"] and takes q itself.
      */
-    fn _($items, $title = "", $cancel_keys = ["escape", "q", "ctrl+c"]) {
+    pub fn _($items, $title = "", $cancel_keys = ["escape", "q", "ctrl+c"]) {
         #list = List($items).marked();
         #title = $title;
         #cancel_keys = $cancel_keys;
@@ -1618,7 +1618,7 @@ pub kind TextField {
     /**
      * A field holding $value, the cursor at its end
      */
-    fn _($value = "") {
+    pub fn _($value = "") {
         #chars = term::chars($value);
         #at = len(#chars);
     }
@@ -1771,7 +1771,7 @@ pub kind Metronome {
     /**
      * A beat every $interval seconds, the first due $interval after $now
      */
-    fn _(#interval, $now) {
+    pub fn _(#interval, $now) {
         #next = $now + #interval;
     }
 

@@ -4,7 +4,7 @@ namespace trace;
  * The order static defaults ran in, each noted as it runs
  */
 pub readonly kind Mark {
-    fn _(pub #name);
+    pub fn _(pub #name);
 }
 
 pub kind Trace {

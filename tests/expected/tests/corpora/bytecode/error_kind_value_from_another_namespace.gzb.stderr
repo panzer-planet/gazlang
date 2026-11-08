@@ -1,0 +1,1 @@
+Error: q::P's constructor is not pub, so only namespace q can construct it at tests/corpora/bytecode/kind_value_from_another_namespace.gaz:4

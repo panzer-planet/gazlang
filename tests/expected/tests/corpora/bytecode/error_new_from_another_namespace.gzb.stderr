@@ -1,0 +1,1 @@
+Error: NEW makes an object of q::C, whose constructor is not pub, so only namespace q can construct it in the top level

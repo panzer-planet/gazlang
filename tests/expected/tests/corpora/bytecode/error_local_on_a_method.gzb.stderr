@@ -1,0 +1,1 @@
+Error: Only the constructor's line says local, not method twice's at tests/corpora/bytecode/error_local_on_a_method.gzb:27

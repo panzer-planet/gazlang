@@ -1,0 +1,12 @@
+ok calling the kind value
+ok with a named argument
+ok with a name it doesn't take, which says nothing of its parameters
+ok handed to a builtin
+ok through kind_of()
+ok a changed copy
+ok the namespace's own function makes one
+ok and a static default of its own, run before the program from the top level
+ok a pub constructor is anyone's
+ok the kind is still a type and an is_a
+ok a function of the namespace constructs for its caller
+ok still by the constructor's own rules

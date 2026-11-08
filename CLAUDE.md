@@ -383,7 +383,8 @@ A new open item is filed as an issue with a topic and a kind label, never added 
   children, each range the declaration with its body and the selection its name, from the
   outline's spans) and signature help (the innermost `(` open at the cursor, by the lexer; a call by
   name, `Kind::name`, `ns::name`, constructing a kind (its `_`, or the one it inherits by
-  `extends`) or `#method` in the kind the cursor is in, the signature as written and its docblock
+  `extends`, only when the document can reach it; completion still offers such a kind's name,
+  marked "not constructible here") or `#method` in the kind the cursor is in, the signature as written and its docblock
   as hover shows them, the parameter by the commas at the call's own depth; `$obj.method()` gets
   none, since which kind `$obj` is takes types the server hasn't got, and a guess could show the
   wrong signature) and semantic tokens (`textDocument/semanticTokens/full`, the whole document
@@ -910,6 +911,25 @@ and methods a table in C.
   the arguments. A kind without `_` inherits its parent's. `##_(...)` is allowed only in a
   constructor, and nothing calls the parent's automatically. `return value;` in `_` and `_` as a
   member are errors.
+- **A constructor reaches its namespace unless `pub`** (#96), so a library can promise a kind is
+  made only by its own functions (`db::Sql`, by the tag and `raw()`): a function's reach, not a
+  member's, since constructing is a call by the kind's name and a tag is a top-level function, so
+  kind-level privacy would need a `pub` factory anyone could call. The reach is kept apart from
+  the member table's marker (`public_constructor` on the kind, the `_` entry staying `pub`, which
+  says a child without a `_` takes it), the declaring kind's (`constructor_public()`), and the root
+  namespace's is anyone's, as a root function is. No `kin`: an abstract kind's `pub fn _` serves
+  its children.
+  - **Extending needs the reach too** (`resolve_kind()`), since a child's own `_` need never call
+    `##_()`: without it, `kind Evil extends db::Sql` overriding `render()` forged an `Sql` that
+    `is_a` and types accept.
+  - **Checked everywhere a kind is made**: by name in the parser (`check_constructor_reach()`),
+    `NEW`/`CALL_CONSTRUCTOR` and `extends` in the loader (the `_` line's `local`, every block's
+    namespace), and through a value in the VM (`constructor_unreachable()` in `vm.c`: `CALL_VALUE`,
+    `CALL_VALUE_NAMED` before it binds names, `enter_value()` for builtins, `WITH`), each with its
+    own test. So every block knows its namespace: `ns N` on `top` and on a lambda outside a kind,
+    and a static default that calls runs as a lambda in its kind rather than in `top`.
+  - **Known limit**: a namespace's function that constructs from what its caller hands it
+    constructs for that caller (a confused deputy), as with any private constructor.
 - **Promoted parameters** are parser sugar only (`parameters()`/`promoted_assignment()` in
   `parser.gaz`): a synthesised `#x = $x;` prepended to the body, indistinguishable from a
   hand-written one below the parser. A promoted field takes no default of its own.

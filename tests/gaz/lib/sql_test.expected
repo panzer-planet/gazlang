@@ -40,7 +40,9 @@ ok a map is refused
 ok a function is refused
 ok an object is refused by its kind
 ok a tag is called with lists
-ok Sql can't be named outside its namespace
+ok Sql can't be built outside its namespace
+ok nor extended
+ok nor through a value
 ok one more text part than values
 ok text parts are strings
 ok values are checked

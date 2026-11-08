@@ -101,6 +101,9 @@ kind EchoStatementAST extends AbstractStatementAST {}
 
 kind CompoundAST extends AST {
     pub #statements = [];
+    // The program's root only: the main file's namespace, when it isn't the root's, which its
+    // top level code runs in. Derived, so the tree dump leaves it out.
+    pub #written_in;
 }
 
 // A list [1, 2] or, with #map, a map {"k" => 1}; each entry is [key, value], the key null in a list
@@ -345,6 +348,11 @@ kind LambdaAST extends AST {
     // The kind this is written in, or null: a #name or a $obj.name in it is asked for by that
     // kind, and a lambda's block header is the only place that can say so
     pub #owner = null;
+    /*
+     * The namespace it is written in, when it isn't the root's: what a constructor's reach is
+     * compared with when it runs. Derived, so the tree dump leaves it out.
+     */
+    pub #written_in;
 
     fn _($params, $defaults, $arity, $body, $captures) {
         #params = $params;
@@ -552,6 +560,11 @@ kind KindDeclarationAST extends AST {
     pub #abstract;
     // Whether no kind may extend it: set only when it is final, as #interfaces is set
     pub #final;
+    /*
+     * Whether its own constructor is pub, so any namespace may construct it and extend it: set
+     * only when it is, as #final is. An unmarked one reaches the kind's namespace.
+     */
+    pub #public_constructor;
     // Whether every field it has is read-only, written only while an object of it is being
     // constructed: set only when it is, as #final is
     pub #readonly;

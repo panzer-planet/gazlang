@@ -110,7 +110,7 @@ pub readonly kind Style {
     /**
      * The style whose spec is $spec, starting with $sequence; Style::of() makes one, cached
      */
-    fn _(pub #spec, pub #sequence);
+    pub fn _(pub #spec, pub #sequence);
 
     /**
      * The style $spec names ("bold red on_#003"; "" for none), the same object for the same spec.
@@ -1080,7 +1080,7 @@ pub kind Input {
      * that much later. A terminal sends alt+j as ESC j in one go, so an ESC and a byte in one
      * read are alt and the key however long the wait (decode() says more).
      */
-    fn _(#escape_wait = ESCAPE_WAIT);
+    pub fn _(#escape_wait = ESCAPE_WAIT);
 
     /**
      * The next key, waiting up to $timeout seconds for one (null: as long as it takes). null when

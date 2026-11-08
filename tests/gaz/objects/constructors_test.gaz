@@ -1,0 +1,27 @@
+import "std/test.gaz" use expect, throws;
+import "./constructors/sealed.gaz";
+
+/*
+ * A constructor reaches its kind's namespace unless it is pub (#96): code elsewhere can't make
+ * one by name (the parser corpus's error_a_private_constructor*), and here, can't make one through
+ * a value either, by any of the ways a kind value constructs. The bytecode corpus has the loader's
+ * checks.
+ */
+$refused = "sealed::Even's constructor is not pub, so only namespace sealed can construct it";
+$even = sealed::kind_of_even();
+throws("calling the kind value", () -> $even(2), $refused);
+throws("with a named argument", () -> $even(n: 2), $refused);
+throws("with a name it doesn't take, which says nothing of its parameters", () -> $even(colour: 2), $refused);
+throws("handed to a builtin", () -> map([2], $even), $refused);
+throws("through kind_of()", () -> kind_of(sealed::even(2))(4), $refused);
+throws("a changed copy", () -> sealed::even(2) with (n: 3), $refused);
+
+expect("the namespace's own function makes one", sealed::even(4).n, 4);
+expect("and a static default of its own, run before the program from the top level", sealed::Defaults::two().n, 2);
+expect("a pub constructor is anyone's", sealed::Note("hi").text, "hi");
+expect("the kind is still a type and an is_a", is_a(sealed::even(2), sealed::Even), true);
+
+// What a namespace's function makes from a caller's values is the namespace's doing, as with any
+// private constructor: the confused deputy, documented, not refused
+expect("a function of the namespace constructs for its caller", sealed::maker()(6).n, 6);
+throws("still by the constructor's own rules", () -> sealed::maker()(3), "sealed::Even needs an even number");

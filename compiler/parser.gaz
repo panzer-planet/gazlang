@@ -1403,6 +1403,9 @@ final kind Html {
 
         $lambda = #at(LambdaAST($params, $defaults, $arity, $body, $captures), $start);
         $lambda.owner = #kind?.name;
+        if (#module.namespace != "") {
+            $lambda.written_in = #module.namespace;
+        }
         #with_types($lambda, $types, null);
         if (($lambda.param_types ?? null) != null) {
             #typed_lambdas[] = $lambda;
@@ -4299,15 +4302,21 @@ final kind Html {
             #fail("Expected a name but found " .. #describe($token));
         }
         $name = $token.value;
-        // A constructor is reached by constructing rather than by naming, so it escapes its
-        // kind whatever it says: a child's _ overrides its parent's, and a marker on one
-        // would be saying what is already true
+        /*
+         * A constructor reaches as a function does, since constructing is a call by the kind's
+         * name: its namespace unless pub (#public_constructor, kept apart from the member's
+         * marker, which says only that a child without a _ takes this one). No kin: a kind its
+         * children alone construct is abstract, and an abstract kind's pub _ already serves them.
+         */
         if ($name == "_" && #is_enum($kind)) {
             #fail("An enum has no constructor: its cases are made once, before the program runs");
         }
         if ($name == "_") {
-            if ($vis != "") {
-                #fail("A constructor is reached by constructing, so it needs no {$vis}");
+            if ($vis == "kin") {
+                #fail("A constructor is pub or reaches its own namespace: no kin, since a kind only its children construct is abstract, and an abstract kind's pub _ serves them");
+            }
+            if ($vis == "pub") {
+                $kind.public_constructor = true;
             }
             $vis = "pub";
         }
@@ -4559,6 +4568,10 @@ final kind Html {
         #module = $main;
         $root = CompoundAST();
         $root.statements = #top_level();
+        // Known once the main file's namespace line, if it has one, has been read
+        if ($main.namespace != "") {
+            $root.written_in = $main.namespace;
+        }
         if (#main_imported != null && #main_statement != null) {
             [$importer, $imported_line, $written] = #main_imported;
             #fail_at("Cannot import \"{$written}\": it is the program's main file, which has a statement on line " .. #main_statement .. ", and an imported file only declares (fn, kind, interface, enum, const)", $importer, $imported_line);
@@ -4697,6 +4710,7 @@ final kind Html {
                     if ($kind.abstract) {
                         #fail_at("Cannot construct abstract kind {$use.name}", $use.file, $use.line);
                     }
+                    #check_constructor_reach($kind, #scopes[$scope].namespace, $use.file, $use.line);
                     #bind_arguments($use, #constructor_of($kind), #method_label($use.name, "_"));
                     $error = #arity_error("Kind {$use.name}", #constructor_arity($kind), len($use.args));
                     if ($error != null) {
@@ -5100,6 +5114,16 @@ final kind Html {
                 #fail_at("Circular inheritance: " .. join($cycle, " extends "), $kind.file, $kind.line);
             }
             #resolve_kind($parent, $chain);
+            /*
+             * A child is constructed by its parent's constructor or its own, which runs the
+             * parent's or never does, so extending a kind needs its constructor's reach too:
+             * without it, a child in another namespace would make what the parent's namespace alone
+             * may make
+             */
+            $home = #declared_in[$parent.name] ?? "";
+            if ($home != (#declared_in[$kind.name] ?? "") && !#constructor_public($parent)) {
+                #fail_at("Kind {$kind.name} can't extend {$parent.name}: its constructor is not pub, so only namespace {$home} can extend it", $kind.file, $kind.line);
+            }
             // A parent's private member is the parent's own: a child can't name it, and may
             // declare one of its own by that name. Its slot and method entry are still
             // inherited, since the parent's own methods run on a child's objects and reach it.
@@ -5538,6 +5562,29 @@ final kind Html {
     // A resolved kind's constructor, its own or the one it inherits, or null if it has none
     fn constructor_of($kind) {
         return has_key($kind.members, "_") ? #kinds[$kind.members["_"]].methods["_"] : null;
+    }
+
+    /*
+     * Whether a resolved kind's constructor reaches every namespace: the one it declares or
+     * takes from a parent is pub, or it has none, or the kind that declares it is in the root
+     * namespace, where nothing is private (as a root function isn't)
+     */
+    fn constructor_public($kind) {
+        $declarer = $kind.members["_"] ?? null;
+        if ($declarer == null || (#declared_in[$declarer] ?? "") == "") {
+            return true;
+        }
+
+        return #kinds[$declarer].public_constructor ?? false;
+    }
+
+    // Code in namespace $namespace may construct $kind only if its constructor reaches there
+    fn check_constructor_reach($kind, $namespace, $file, $line) {
+        $home = #declared_in[$kind.name] ?? "";
+        if ($home == $namespace || #constructor_public($kind)) {
+            return;
+        }
+        #fail_at("{$kind.name}'s constructor is not pub, so only namespace {$home} can construct it", $file, $line);
     }
 
     /*

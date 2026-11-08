@@ -1,0 +1,1 @@
+Error: Kind Mine can't extend sealed::Token: its constructor is not pub, so only namespace sealed can extend it at tests/corpora/parser/namespaces/error_extending_a_private_constructor.gaz:3

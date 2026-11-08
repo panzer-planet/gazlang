@@ -849,6 +849,39 @@ class LspTest extends GazLangTestCase
         $this->assertSame(['data' => []], $messages[1]['result']);
     }
 
+    /**
+     * A kind whose constructor (its own _ or the one it inherits) isn't pub is constructed only in
+     * its namespace: from another, it is still completed, being a name for a type or is_a, but
+     * marked as not constructible, and constructing it gets no signature help
+     */
+    public function test_a_constructor_the_document_cannot_reach_is_neither_offered_nor_signed()
+    {
+        $uri = 'file://'.realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');
+        $calls = "Sealed(1);\nChild(1);\nOpen(1);\nPlain();\n";
+        $outside = "namespace mine;\nimport \"./guarded.gaz\";\n".$calls;
+        $inside = "namespace guarded;\nimport \"./guarded.gaz\";\n".$calls;
+
+        $marks = fn (string $text) => array_map(
+            fn ($item) => $item['labelDetails']['description'] ?? null,
+            array_intersect_key(array_column($this->completionsFor($uri, $text), null, 'label'), array_flip(['Sealed', 'Child', 'Open', 'Plain'])),
+        );
+        $this->assertSame(['Sealed' => 'not constructible here', 'Open' => null, 'Child' => 'not constructible here', 'Plain' => null], $marks($outside));
+        $this->assertSame(['Sealed' => null, 'Open' => null, 'Child' => null, 'Plain' => null], $marks($inside));
+
+        $labels = function (string $text) use ($uri) {
+            $messages = $this->session([
+                ['jsonrpc' => '2.0', 'method' => 'textDocument/didOpen', 'params' => ['textDocument' => ['uri' => $uri, 'text' => $text]]],
+                ...array_map(fn ($line) => ['jsonrpc' => '2.0', 'id' => $line, 'method' => 'textDocument/signatureHelp', 'params' => [
+                    'textDocument' => ['uri' => $uri], 'position' => ['line' => $line, 'character' => strpos(explode("\n", $text)[$line], '(') + 1],
+                ]], [2, 3, 4]),
+            ]);
+
+            return array_map(fn ($m) => $m['result']['signatures'][0]['label'] ?? null, array_slice($messages, 1));
+        };
+        $this->assertSame([null, null, 'Open(pub #anything)'], $labels($outside));
+        $this->assertSame(['Sealed(pub #secret)', 'Child(pub #secret)', 'Open(pub #anything)'], $labels($inside));
+    }
+
     public function test_completion_lists_a_name_declared_reachably_more_than_once_only_once()
     {
         $path = realpath(self::ROOT.'/tests/fixtures/lsp/importer.gaz');

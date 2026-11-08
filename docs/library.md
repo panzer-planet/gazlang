@@ -322,9 +322,11 @@ placeholders**, not rewritten: rewriting means reading string literals in C.
   `db::open()` is a plain `Error` (no handle to ask, and libpq gives no SQLSTATE for a connection
   refused).
 
-- **`Sql` isn't `pub`**, so `sql()`, `raw()` and `Db` (one namespace) are what make and take one.
-  A pub function may still declare `: Sql`, and `kind_of($fragment)([...], [])` stays as
-  deliberate as `db::raw()`, its constructor still checking parts and values.
+- **`Sql` is `pub` and its constructor isn't** (#96), so `sql()` and `raw()` are what make one and
+  `Db`'s methods take it by type: no program outside `db` builds one, by name, through
+  `kind_of($fragment)(...)` or by extending it, and `db::raw()` is the one deliberate way round.
+  `sql()` makes the `Sql` before reading the text, so a part that isn't a string gets the
+  constructor's sentence.
   - `Sql.render($placeholder)` gives `[$text, $params]`, walking the parts with one counter.
   - Values are checked when the `Sql` is made, so the error is at the line that wrote it.
   - An empty list is an error because rendering it `(null)` makes `not in` quietly match nothing.

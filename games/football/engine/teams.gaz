@@ -54,7 +54,7 @@ pub kind Team {
     // (a substitute for an injury, a tactical change) isn't next match's pick
     #started_with = null;
 
-    fn _(pub #name, pub #players, $eleven = null, $preferred = "4-4-2") {
+    pub fn _(pub #name, pub #players, $eleven = null, $preferred = "4-4-2") {
         if (len(#players) < 11) {
             throw InvalidLineup(#name, len(#players) .. " players in the squad, and 11 are needed");
         }
@@ -442,7 +442,7 @@ pub fn from_json($data) {
 pub kind Formation {
     #lines;
 
-    fn _(#name) {
+    pub fn _(#name) {
         #lines = map(split(#name, "-"), to_int);
         if (len(#lines) != 3 || sum(#lines) != 10) {
             throw "Not a formation: {#name}";

@@ -43,7 +43,7 @@ pub kind Fixture {
     // How many fixtures have been played across every season this run, not just this league's
     pub static #matches_played = 0;
 
-    fn _(pub #home, pub #away) {
+    pub fn _(pub #home, pub #away) {
         Fixture::matches_played++;
     }
 

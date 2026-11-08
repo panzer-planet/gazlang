@@ -1,0 +1,45 @@
+GAZLANG BYTECODE 3
+globals
+
+top ns r
+locals
+@ "forged.gaz" 10
+NEW r::C 0
+CALL_BUILTIN kind_of 1
+CALL_BUILTIN kind_name 1
+PRINT
+
+kind q::P
+field x q::P pub
+method _ q::P pub local
+locals $#argument_0
+@ "q2.gaz" 3
+CALL_CONSTRUCTOR q::P
+POP
+LOAD_THIS
+RET
+
+fn q::P._ 1 1
+locals $x
+@ "q2.gaz" 4
+LOAD 0
+SET_FIELD x
+POP
+PUSH null
+RET
+
+kind r::C extends q::P
+field x q::P pub
+method _ r::C pub q::P local
+locals
+@ "forged.gaz" 6
+CALL_CONSTRUCTOR r::C
+POP
+LOAD_THIS
+RET
+
+fn r::C._ 0 0
+locals
+@ "forged.gaz" 7
+PUSH null
+RET

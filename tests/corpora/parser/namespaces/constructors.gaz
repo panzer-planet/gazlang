@@ -1,0 +1,8 @@
+import "./lib/sealed.gaz";
+
+echo sealed::token("a").text;
+echo sealed::Open("b").text;
+
+kind Mine extends sealed::Base {}
+
+echo kind_name(kind_of(Mine()));

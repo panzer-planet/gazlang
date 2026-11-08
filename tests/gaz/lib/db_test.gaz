@@ -73,16 +73,17 @@ throws("an error from the database rolls back too", () -> $db.transaction($d -> 
 expect("and the delete is undone", $db.value(db::sql"select count(*) from t"), 2);
 
 /*
- * A plain string is refused by every method, so SQL can't be put together from values by mistake;
- * db::raw() is the way round.
+ * A plain string is refused by every method, since each takes a db::Sql, which only db::sql"..."
+ * and db::raw() make: SQL can't be put together from values by mistake.
  */
-$refused = ': write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way';
-throws("run refuses a string", () -> $db.run("select 1"), 'Db.run() takes db::sql"...", not a string' .. $refused);
-throws("query refuses a string", () -> $db.query("select 1"), 'Db.query() takes db::sql"...", not a string' .. $refused);
-throws("row refuses a string", () -> $db.row("select 1"), 'Db.row() takes db::sql"...", not a string' .. $refused);
-throws("value refuses a string", () -> $db.value("select 1"), 'Db.value() takes db::sql"...", not a string' .. $refused);
-throws("exec refuses a string", () -> $db.exec("delete from t"), 'Db.exec() takes db::sql"...", not a string' .. $refused);
-throws("and anything else", () -> $db.query(null), 'Db.query() takes db::sql"...", not null' .. $refused);
+$plain = "select 1";
+throws("run refuses a string", () -> $db.run($plain), "db::Db.run() expects \$sql to be db::Sql, got string");
+throws("query refuses a string", () -> $db.query($plain), "db::Db.query() expects \$sql to be db::Sql, got string");
+throws("row refuses a string", () -> $db.row($plain), "db::Db.row() expects \$sql to be db::Sql, got string");
+throws("value refuses a string", () -> $db.value($plain), "db::Db.value() expects \$sql to be db::Sql, got string");
+throws("exec refuses a string", () -> $db.exec($plain), "db::Db.exec() expects \$sql to be db::Sql, got string");
+$nothing = null;
+throws("and anything else", () -> $db.query($nothing), "db::Db.query() expects \$sql to be db::Sql, got null");
 expect("and ran nothing", $db.value(db::sql"select count(*) from t"), 2);
 expect("raw runs as it is", $db.value(db::raw("select count(*) from t")), 2);
 expect("a raw script", $db.run(db::raw("create table people (id integer primary key, \"Full name\" text, age int); insert into people (\"Full name\", age) values ('Ada', 36), ('Alan', 41), ('Grace', null)")),

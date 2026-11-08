@@ -59,7 +59,7 @@ kind LinkParts {
 }
 
 pub kind Heading {
-    fn _(pub int #level, pub string #text, pub string #id);
+    pub fn _(pub int #level, pub string #text, pub string #id);
 }
 
 // The lines of a document with a place in them, which the block readers move along
@@ -114,7 +114,7 @@ pub kind Renderer {
      * $escapes says whether a backslash escapes the punctuation after it, as in a document; text
      * written for another reader (a comment of the library's source) keeps every backslash
      */
-    fn _($link = null, $code = null, bool #escapes = true) {
+    pub fn _($link = null, $code = null, bool #escapes = true) {
         #link = $link ?? ($url -> $url);
         #code = $code ?? (($language, $source) -> Html::escape($source));
     }

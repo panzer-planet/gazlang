@@ -1,0 +1,1 @@
+Error: sealed::Token's constructor is not pub, so only namespace sealed can construct it at tests/corpora/parser/namespaces/error_a_private_constructor.gaz:3
