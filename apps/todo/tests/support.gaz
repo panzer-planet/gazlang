@@ -35,22 +35,31 @@ fn fresh_database() {
 }
 
 fn test_config(): Config {
-    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET));
+    return Config(
+        "unused",
+        TEST_SECRET,
+        "127.0.0.1",
+        0,
+        1,
+        false,
+        password_options: CHEAP_PASSWORDS,
+        time_zone: date::fixed(TEST_OFFSET),
+    );
 }
 
 // The test Config behind a proxy at $proxy, whose X-Forwarded-For it trusts
 fn proxied_config(string $proxy): Config {
-    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET), [$proxy]);
+    return test_config() with (trusted_proxies: [$proxy]);
 }
 
 // The test Config with $clock for the app's, so a test says what moment a page is drawn at
 fn clocked_config(function $clock): Config {
-    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::fixed(TEST_OFFSET), [], $clock);
+    return test_config() with (clock: $clock);
 }
 
 // The same in a zone whose clocks change, from the system's time zone database
 fn london_config(): Config {
-    return Config("unused", TEST_SECRET, "127.0.0.1", 0, 1, false, CHEAP_PASSWORDS, date::zone("Europe/London"));
+    return test_config() with (time_zone: date::zone("Europe/London"));
 }
 
 // A browser on the app's router, its requests from $address (null: a client the system no longer knows)

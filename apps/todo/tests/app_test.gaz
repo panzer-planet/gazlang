@@ -35,6 +35,9 @@ fn due_of($db, string $title): ?int {
     return $db.value(db::sql"select due_at from todos where title = {$title}");
 }
 
+/* --- A Config can't have a short secret, however it is made --- */
+throws("a short secret is refused by the constructor", () -> test_config() with (secret: "short"), "SESSION_SECRET must be at least 32 bytes");
+
 /* --- Anyone arriving is sent to log in, with no cookie until they do, and every page carries the security headers --- */
 $visitor = browser($db, $config);
 $home = $visitor.get("/");

@@ -21,7 +21,7 @@ fn rfc3339_in_utc(int $time): string {
     return date::utc().at($time).rfc3339();
 }
 
-kind Todo {
+readonly kind Todo {
     // $created_at and $due_at are times, seconds since 1970; a todo needn't be due
     fn _(pub int #id, pub int #user_id, pub string #title, pub bool #done, pub int #created_at, pub ?int #due_at = null);
 

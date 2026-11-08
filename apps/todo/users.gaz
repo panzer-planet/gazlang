@@ -7,7 +7,7 @@ namespace todo;
 
 import "std/db.gaz";
 
-kind User {
+readonly kind User {
     fn _(pub int #id, pub string #email, pub string #password_hash, pub int #created_at);
 
     pub static fn from_row(map $row): User {

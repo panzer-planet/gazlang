@@ -46,7 +46,7 @@ fn is_plain_text(string $text): bool {
     return utf8_valid($text) && !has_control_character($text);
 }
 
-kind RegistrationForm {
+readonly kind RegistrationForm {
     fn _(pub string #email, pub string #password, pub string #confirmation);
 
     pub static fn from_request(map $request): RegistrationForm {
@@ -98,7 +98,7 @@ kind RegistrationForm {
     }
 }
 
-kind LoginForm {
+readonly kind LoginForm {
     fn _(pub string #email, pub string #password);
 
     pub static fn from_request(map $request): LoginForm {
@@ -121,7 +121,7 @@ kind LoginForm {
  * A todo as the add and edit forms send it: a title, and when it is due as a datetime-local field
  * sends it ("2026-10-05T14:30", or "" for not due), read as the clocks of the app's zone show it
  */
-kind TodoForm {
+readonly kind TodoForm {
     fn _(pub string #title, pub string #due = "");
 
     pub static fn from_request(map $request): TodoForm {

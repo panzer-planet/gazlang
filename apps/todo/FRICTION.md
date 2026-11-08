@@ -2,18 +2,18 @@
 
 Each entry says what hurt, what the app does about it today, and the options for fixing it in the
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
-logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 889
-lines of GazLang, 225 of templates, 26 of SQL, and 617 of tests (222 checks). It was written by someone who knows the language, working from the library's own
+logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 899
+lines of GazLang, 215 of templates, 26 of SQL, and 606 of tests (230 checks). It was written by someone who knows the language, working from the library's own
 documentation, and it has been changed since only by moving what it needed into the library.
 
 Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
 (handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), 6
-(`http::TestClient`), 8 (`main_dir()`), and the redirect, the timestamps, the due dates, the CSRF field, the repeated filter and tokens and static files
-in 10. Half done: 9 (decoding needs no `try`; the request is still parsed twice). Open: 7, the rest of
-9, and the rest of 10, each
-linking the issue that tracks it (label `todo-app`).
+(`http::TestClient`), 7 (route groups), 8 (`main_dir()`),
+9 (decoding needs no `try`; parsing twice stays, measured), and all of 10 but one. Open: the rest of 5
+([#62](https://github.com/panzer-planet/gazlang/issues/62)) and an attribute a value leaves out, in 10
+([#59](https://github.com/panzer-planet/gazlang/issues/59)), each an issue labelled `todo-app`.
 
 ## What worked, so it is not lost
 
@@ -186,7 +186,7 @@ relative to where the program was started, and nothing says where the main file 
   once when the program starts. `main.gaz` finds `migrations/` and `public/` from it and the tests
   from the parent of theirs, so the app runs from anywhere, and the override went.
 
-## 9. The request is a plain map, so each helper parses it again
+## 9. The request is a plain map, so each helper parses it again  (resolved: a `$default` for decoding; parsing twice stays)
 
 `http::form($request)` decodes the body each time: `http::csrf()` does, then the handler's form kind
 does. It is cheap here (a few fields).
@@ -227,10 +227,10 @@ have caught running out of call depth.
   with a string, so telling the two apart meant matching its words. `date::parse_reading($text,
   $default)` gives a `date::Reading` (`#days`, `#seconds`) for `Zone.time()`, and `$zone.occurrences($days,
   $seconds)` every time a reading is (none, one or two), so the form resolves as an alarm clock would
-  and says which happened. Still the app's: writing a time back as the field reads it
-  (`date::iso($moment.days) .. "T" .. $moment.short_clock()`, with the seconds when there are some);
-  a `Moment.reading()` writer would be the pair to `parse_reading()` if a second form wants one
-  ([#53](https://github.com/panzer-planet/gazlang/issues/53)).
+  and says which happened. Writing a time back as the field reads it was the app's
+  (`date::iso($moment.days) .. "T" .. $moment.short_clock()`, with the seconds when there are some)
+  until `Moment.reading()`, the pair to `parse_reading()`: `Todo.due_field()` is now
+  `$zone.at(#due_at).reading().iso()` ([#53](https://github.com/panzer-planet/gazlang/issues/53)).
 - **Timestamps went in and out of PostgreSQL by hand** (resolved: a timestamptz is a time): the
   driver had no time type, so a due time was read as `floor(extract(epoch from due_at))::bigint` and
   `created_at` as text parsed with `date::parse()`. The driver now gives a timestamptz as an int,
@@ -265,6 +265,13 @@ have caught running out of call depth.
   a `Set-Cookie`, which a shared cache won't keep. A token is still in every `$request["session"]`,
   so no handler changed, but one the response doesn't carry in its body or a header can't be sent
   back, so it isn't written; `/login`, whose form carries it, still sets the cookie ([#58](https://github.com/panzer-planet/gazlang/issues/58)).
+- **A test's Config repeated every argument to change one** (resolved: named arguments and `with`,
+  [#89](https://github.com/panzer-planet/gazlang/issues/89), [#88](https://github.com/panzer-planet/gazlang/issues/88)):
+  the four test configs each wrote up to all ten of `Config`'s arguments positionally, `[]` as a
+  placeholder, to differ in one (a proxy, a clock, a zone), and `from_environment()` passed `{}`
+  only to reach the zone after it. `Config` is now a `readonly kind`, as are the records and forms,
+  which nothing changes once made; `from_environment()` names `time_zone:` and `trusted_proxies:`,
+  and a test writes `test_config() with (clock: $clock)`.
 - **An attribute can't be left out by a value**: `{{ }}` writes a value, so the selected filter link
   is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
   is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute

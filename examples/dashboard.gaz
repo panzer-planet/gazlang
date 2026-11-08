@@ -23,7 +23,7 @@ readonly kind Task {
         return # with (done: min(#done + 1, #total));
     }
 
-    pub fn set_back(): Task {
+    pub fn moved_back(): Task {
         return # with (done: max(#done - 1, 0));
     }
 
@@ -50,7 +50,7 @@ kind Board {
     }
 
     pub fn set_back_selected(): null {
-        #tasks[#selected] = #tasks[#selected].set_back();
+        #tasks[#selected] = #tasks[#selected].moved_back();
     }
 
     pub fn is_selected(int $index): bool {

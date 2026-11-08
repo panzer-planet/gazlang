@@ -90,7 +90,7 @@ composer ci                         # what CI runs, cold: phpstan with no result
   complete and the site's build holds it so; other code changes when it is worked on.
   **Clean code over dense code**: a kind for each concept rather than a list read by position
   (`Task("Write the VM", 3, 10)`, not `[name, done, total]` and `$t[1]`), small methods named for
-  what they do (`select_next()`, `advance()`), named constants for layout and other magic
+  what they do (`select_next()`, `advance_selected()`), named constants for layout and other magic
   numbers, drawing and input handling apart from the state they show, and one statement or idea
   per line: no `if` body on its condition's line, no ternaries nested into arguments, no long
   chains packed onto one line. A constructor with nothing to do but promote its parameters ends
