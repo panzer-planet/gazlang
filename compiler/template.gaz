@@ -17,9 +17,20 @@
  * - `import "...";` lines may follow, before the @template line, as at the top of any file: a
  *   template is a module, and sees what it imports (another template, a kind its parameters
  *   name, the standard library). An import after the @template line is an error.
- * - {{ expression }} is escaped as HTML, unless it is an Html (another template's result), which
- *   goes in as it is; {!! expression !!} goes in as it is whatever it is, through to_string(),
- *   since ..= refuses an Html.
+ * - The template's text is read as markup, as web::html reads a tagged string (a web::Scanner,
+ *   before any source is written, since a <meta>'s content is placed only at its tag's end), and
+ *   each {{ expression }} is written for where it lands: in text escaped, unless it is an Html
+ *   (another template's result), which goes in as it is; in an attribute or a URL as web::write()
+ *   writes it; as the whole of a quoted attribute's value through web::attribute(), so null leaves
+ *   the attribute out; and where HTML escaping doesn't make a value safe (a <script>, an unquoted
+ *   attribute, between attributes) it is an error at its line. The source imports std/web.gaz,
+ *   on the @template line, only when a value needs it.
+ * - {!! expression !!} goes in as it is whatever it is, through to_string(), since ..= refuses an
+ *   Html, and wherever it is: it is the template's way to write what it has checked itself.
+ * - A directive line stands where a line of markup can end: in text, inside <script> or <title>,
+ *   between a tag's attributes, or in a comment; and each branch of an @if or @foreach ends where
+ *   it began, so the text of all the branches, read one after another, places every value as any
+ *   path through them would.
  * - @if (...), @elseif (...), @else, @endif, @foreach (...), @endforeach, each alone on its line,
  *   and a line holding one writes nothing. Another @word (CSS's @media) is text.
  * - {{-- comment --}} writes nothing (a line holding only one, not even its line end), and @{{
@@ -33,18 +44,50 @@ namespace gazlang;
 import "./parser.gaz";
 import "std/syntax.gaz" use TEMPLATE_BUFFER;
 import "std/text.gaz" use quote;
+import "std/web.gaz";
 
 // The directives that open a block, and the one that closes each
 const TEMPLATE_BLOCKS = {"if" => "endif", "foreach" => "endforeach"};
+// How a value's writer is named in an error the scan or the running template raises
+const TEMPLATE_WRITER = "{{ }}";
+
+// What a piece of a template's line is: text, a {{ }} or a {!! !!}
+enum PieceKind {
+    Text;
+    Value;
+    Raw;
+}
+
+// One piece of a line: its text, or the expression inside a {{ }} or {!! !!}
+readonly kind TemplatePiece {
+    fn _(pub PieceKind #kind, pub string #text);
+}
+
+// A line of text, read into pieces, and its number
+readonly kind TemplateText {
+    fn _(pub int #number, pub list #pieces);
+}
+
+/*
+ * An @if or @foreach not yet closed: where it opened, its @else's line once there is one, and
+ * where in the markup it began, which each of its branches must end at too
+ */
+kind OpenBlock {
+    pub ?int #else_line = null;
+
+    fn _(pub string #word, pub int #line, pub string #place);
+}
 
 kind TemplateTranslator {
     #lines;
-    // [directive, line, the line of its @else or null] of each @if or @foreach not yet closed,
-    // innermost last
+    // Each @if or @foreach not yet closed, innermost last
     #open = [];
+    // Reads the template's text as markup, to place each {{ }}
+    #scanner;
 
     fn _($text, #file) {
         #lines = split($text, "\n");
+        #scanner = web::Scanner(TEMPLATE_WRITER, "The template", "a template");
     }
 
     // The template as GazLang source, with as many lines
@@ -61,12 +104,23 @@ kind TemplateTranslator {
             $source[] = trim(#lines[$first]);
             $first++;
         }
+        $header_at = len($source);
         $source[] = #header(#lines[$first] ?? "", $first + 1);
         $last = len(#lines) - 1;
+        // First every line is read and its text scanned, then written once every value is placed
+        $read = [];
         for ($i = $first + 1; $i <= $last; $i++) {
-            $source[] = #line(#lines[$i], $i + 1, $i < $last);
+            $read[] = #line(#lines[$i], $i + 1, $i < $last);
         }
         #check_closed();
+        #scanned($last + 1, () -> #scanner.finish());
+        $writer = TemplateWriter(#scanner.found, #file);
+        foreach ($read as $line) {
+            $source[] = is_a($line, TemplateText) ? $writer.source($line) : $line;
+        }
+        if ($writer.needs_web) {
+            $source[$header_at] = "import \"std/web.gaz\"; " .. $source[$header_at];
+        }
         $source[len($source) - 1] ..= " return Html(" .. TEMPLATE_BUFFER .. "); }";
 
         return join($source, "\n");
@@ -96,7 +150,7 @@ kind TemplateTranslator {
         return $marker .. "fn " .. $declaration .. " { " .. TEMPLATE_BUFFER .. " = \"\";";
     }
 
-    // One line of the template as a line of source: a directive, or text with what it holds
+    // One line of the template: a directive's source, or its text read into pieces and scanned
     fn line($text, $number, $newline) {
         if (is_import_line($text)) {
             #fail("An import comes before @template, after the namespace line if there is one", $number);
@@ -111,8 +165,48 @@ kind TemplateTranslator {
         if ($newline) {
             $text ..= "\n";
         }
+        $pieces = TemplateLine($text, $number, #file).read();
+        foreach ($pieces as $piece) {
+            #scan($piece, $number);
+        }
 
-        return TemplateLine($text, $number, #file).source();
+        return TemplateText($number, $pieces);
+    }
+
+    // Read a piece of a line's text as markup, or place its value
+    fn scan($piece, $number) {
+        match ($piece.kind) {
+            PieceKind::Text => { #scanned($number, () -> #scanner.feed($piece.text)); }
+            PieceKind::Value => { #scanned($number, () -> #scanner.place()); }
+            PieceKind::Raw => { #scanner.pass(); }
+        }
+    }
+
+    // Run a step of the scan, a refusal from it being an error at the template's line
+    fn scanned($number, $step) {
+        try {
+            $step();
+        } catch (web::Refusal $e) {
+            #fail($e.message, $number);
+        }
+    }
+
+    // Where the markup read so far has stopped, which a directive line must be able to stand at
+    fn resting_place($word, $number) {
+        $place = #scanner.rest();
+        if ($place == null) {
+            #fail("@{$word} can't come in the middle of a tag's name, an attribute or an end tag: put it between attributes or outside the tag", $number);
+        }
+
+        return $place;
+    }
+
+    // A branch of $block ends here, which must be where the block began
+    fn check_branch_ends($block, $word, $number) {
+        $place = #resting_place($word, $number);
+        if ($place != $block.place) {
+            #fail("The branch before this @{$word} ends {$place}, but its @{$block.word} (line {$block.line}) began {$block.place}: each branch must end where it began", $number);
+        }
     }
 
     // The source for a directive line, or null when the line isn't one
@@ -147,38 +241,39 @@ kind TemplateTranslator {
 
     fn open_block($word, $argument, $number, $keyword) {
         #check_condition($word, $argument, $number);
-        #open[] = [$word, $number, null];
+        #open[] = OpenBlock($word, $number, #resting_place($word, $number));
 
         return $keyword .. $argument .. " {";
     }
 
     // @elseif and @else, which belong to the @if open innermost
     fn continue_if($word, $argument, $number, $source) {
-        $innermost = #innermost($word, $number);
-        [$block, $opened, $else_line] = $innermost;
-        if ($block != "if") {
-            #fail("@{$word} inside @{$block} (line {$opened}): it belongs to an @if", $number);
+        $block = #innermost($word, $number);
+        if ($block.word != "if") {
+            #fail("@{$word} inside @{$block.word} (line {$block.line}): it belongs to an @if", $number);
         }
-        if ($else_line != null) {
-            #fail("@{$word} after the @else on line {$else_line}: the @else comes last", $number);
+        if ($block.else_line != null) {
+            #fail("@{$word} after the @else on line {$block.else_line}: the @else comes last", $number);
         }
+        #check_branch_ends($block, $word, $number);
         if ($word == "elseif") {
             #check_condition($word, $argument, $number);
 
             return $source .. $argument .. " {";
         }
         #check_nothing_after($word, $argument, $number);
-        #open[len(#open) - 1][2] = $number;
+        $block.else_line = $number;
 
         return $source .. " {";
     }
 
     fn close_block($word, $argument, $number) {
-        $innermost = #innermost("end{$word}", $number);
-        if ($innermost[0] != $word) {
-            #fail("@end{$word} closes @{$innermost[0]} (line {$innermost[1]}), which @" .. TEMPLATE_BLOCKS[$innermost[0]] .. " closes", $number);
+        $block = #innermost("end{$word}", $number);
+        if ($block.word != $word) {
+            #fail("@end{$word} closes @{$block.word} (line {$block.line}), which @" .. TEMPLATE_BLOCKS[$block.word] .. " closes", $number);
         }
         #check_nothing_after("end{$word}", $argument, $number);
+        #check_branch_ends($block, "end{$word}", $number);
         delete #open[len(#open) - 1];
 
         return "}";
@@ -207,8 +302,8 @@ kind TemplateTranslator {
 
     fn check_closed() {
         if (len(#open) > 0) {
-            [$word, $line, ,] = last(#open);
-            #fail("@{$word} is never closed: it needs an @" .. TEMPLATE_BLOCKS[$word], $line);
+            $block = last(#open);
+            #fail("@{$block.word} is never closed: it needs an @" .. TEMPLATE_BLOCKS[$block.word], $block.line);
         }
     }
 
@@ -218,23 +313,23 @@ kind TemplateTranslator {
 }
 
 /*
- * A line of text in a template: what it writes, as statements appending to the output, on one
- * line of source. Text between the expressions is gathered and written in one piece.
+ * A line of text in a template, read into pieces: its text, and the expression in each {{ }} and
+ * {!! !!}. Text between the expressions is gathered into one piece, comments and all.
  */
 kind TemplateLine {
-    #statements = [];
+    #pieces = [];
     #text = "";
     #at = 0;
 
     fn _(#line, #number, #file);
 
-    pub fn source() {
+    pub fn read(): list {
         while (#at < len(#line)) {
             #step();
         }
         #flush_text();
 
-        return join(#statements, " ");
+        return #pieces;
     }
 
     // Take what comes next: text up to a {{, {!! or @{{, then that
@@ -287,11 +382,7 @@ kind TemplateLine {
             #fail("{$opening} {$closing} holds nothing");
         }
         #flush_text();
-        if ($escaped) {
-            #append("Html::escape(" .. $code .. ")");
-        } else {
-            #append("to_string((" .. $code .. "))");
-        }
+        #pieces[] = TemplatePiece($escaped ? PieceKind::Value : PieceKind::Raw, $code);
         #at = $end + len($closing);
     }
 
@@ -307,6 +398,102 @@ kind TemplateLine {
 
     fn flush_text() {
         if (#text != "") {
+            #pieces[] = TemplatePiece(PieceKind::Text, #text);
+            #text = "";
+        }
+    }
+
+    fn fail($message) {
+        throw ParseError($message, #file, #number);
+    }
+}
+
+/*
+ * Writes a template's lines of text as source, once the scan has placed every value: each line
+ * as statements appending to the output, on one line of source. A value in text is
+ * Html::escape()'s, as it always was; anywhere else it is web.gaz's, and then the template
+ * imports it (needs_web).
+ */
+kind TemplateWriter {
+    pub #needs_web = false;
+    // The next value's place among the slots
+    #next = 0;
+    #statements = [];
+    #text = "";
+    /*
+     * Whether the text after the value just written starts with the quote that closes its
+     * attribute, which web::attribute() wrote or left out with it
+     */
+    #skip_quote = false;
+
+    fn _(#slots, #file);
+
+    // A line of text as a line of source
+    pub fn source(TemplateText $line): string {
+        #statements = [];
+        foreach ($line.pieces as $piece) {
+            match ($piece.kind) {
+                PieceKind::Text => { #add_text($piece.text); }
+                PieceKind::Value => { #value($piece.text, $line.number); }
+                PieceKind::Raw => { #raw($piece.text); }
+            }
+        }
+        #flush_text();
+
+        return join(#statements, " ");
+    }
+
+    fn add_text($text) {
+        if (#skip_quote) {
+            $text = slice($text, 1);
+            #skip_quote = false;
+        }
+        #text ..= $text;
+    }
+
+    fn value($code, $number) {
+        $slot = #slots[#next];
+        #next++;
+        if ($slot.whole()) {
+            #whole_attribute($slot, $code, $number);
+
+            return;
+        }
+        #flush_text();
+        if ($slot.placement == web::Placement::Markup) {
+            #append("Html::escape(" .. $code .. ")");
+
+            return;
+        }
+        #needs_web = true;
+        #append("web::write((" .. $code .. "), " .. #placement($slot) .. ", " .. quote(TEMPLATE_WRITER) .. ")");
+    }
+
+    // A value that is a quoted attribute's whole value: the attribute's opening, at the end of the
+    // text gathered, is taken back, for web::attribute() to write or leave out with the value
+    fn whole_attribute($slot, $code, $number) {
+        if (!ends_with(#text, $slot.opening)) {
+            throw ParseError("The template's text before a value isn't what the scan read: " .. quote($slot.opening), #file, $number);
+        }
+        #text = slice(#text, 0, len(#text) - len($slot.opening));
+        #flush_text();
+        #needs_web = true;
+        #append("web::attribute(" .. quote($slot.opening) .. ", (" .. $code .. "), " .. #placement($slot) .. ", " .. quote(TEMPLATE_WRITER) .. ")");
+        #skip_quote = true;
+    }
+
+    fn raw($code) {
+        #flush_text();
+        #append("to_string((" .. $code .. "))");
+    }
+
+    // A slot's placement as the source names it
+    fn placement($slot) {
+        return "web::Placement::" .. $slot.placement.value;
+    }
+
+    fn flush_text() {
+        if (#text != "") {
             #append(quote(#text));
             #text = "";
         }
@@ -314,10 +501,6 @@ kind TemplateLine {
 
     fn append($source) {
         #statements[] = TEMPLATE_BUFFER .. " ..= " .. $source .. ";";
-    }
-
-    fn fail($message) {
-        throw ParseError($message, #file, #number);
     }
 }
 

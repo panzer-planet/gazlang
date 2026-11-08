@@ -1,0 +1,1 @@
+Error: @if can't come in the middle of a tag's name, an attribute or an end tag: put it between attributes or outside the tag at tests/corpora/parser/templates/directive_in_attribute.gazml:3

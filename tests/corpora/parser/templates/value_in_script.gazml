@@ -1,0 +1,3 @@
+@template script_value($x)
+<p>fine</p>
+<script>var x = {{ $x }};</script>

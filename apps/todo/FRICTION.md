@@ -4,16 +4,16 @@ Each entry says what hurt, what the app does about it today, and the options for
 language or the library. Nothing here is decided: it is evidence. The app is registration, login and
 logout, and per-user todos with optional due dates and an All/Open/Done filter, on PostgreSQL: 899
 lines of GazLang, 215 of templates, 26 of SQL, and 606 of tests (230 checks). It was written by someone who knows the language, working from the library's own
-documentation, and it has been changed since only by moving what it needed into the library.
+documentation, and it has been changed since only by moving what it needed into the library, or
+by using a language feature its friction asked for.
 
 Ordered by how much each would matter to a stranger writing their first web app.
 
 **Status.** Resolved: 1 (middleware, now in `std/http.gaz`), 2 (a `namespace` line in a template), 3
 (handles across `workers()`), 4 (UTF-8), 5 (`http::client_address()` and a per-client login limit), 6
 (`http::TestClient`), 7 (route groups), 8 (`main_dir()`),
-9 (decoding needs no `try`; parsing twice stays, measured), and all of 10 but one. Open: the rest of 5
-([#62](https://github.com/panzer-planet/gazlang/issues/62)) and an attribute a value leaves out, in 10
-([#59](https://github.com/panzer-planet/gazlang/issues/59)), each an issue labelled `todo-app`.
+9 (decoding needs no `try`; parsing twice stays, measured), and all of 10. Open: the rest of 5
+([#62](https://github.com/panzer-planet/gazlang/issues/62)), an issue labelled `todo-app`.
 
 ## What worked, so it is not lost
 
@@ -59,7 +59,7 @@ is never written back. That is the kind of detail that is each app's own to get 
   tests pass unchanged.
 - **Left the app's**: `authentication()` and `authenticated()` (only the app knows what a user is) and
   `login_session()`, the new session a login builds with a fresh token, which is the session-fixation
-  defence. `middleware.gaz` went from 98 lines to 23.
+  defence. `middleware.gaz` went from 98 lines to 23 (24 today).
 
 ## 2. Templates can't be part of a namespaced program  (resolved: a `namespace` line and `import` lines in a template)
 
@@ -156,10 +156,11 @@ request maps, kept the cookies a response set, form-encoded bodies, and found th
 page. Every web app's tests will want this.
 
 - **Resolved** by `http::TestClient($handler)` in `std/http.gaz`, with `http::form_token($page)`
-  for the token `web::csrf_field()` writes. The request goes through the server's own reading and
-  writing, so it is stricter than the `Browser` was: a raw space in a query (`/?show=open `) is the
-  400 a real server gives, and the test now sends `open%20`. `tests/support.gaz` keeps only a
-  `browser()` that builds one for the app.
+  for the token `web::csrf_field()` writes (which the tests needed until the app's forms stopped
+  carrying one, in 10). The request goes through the server's own reading and writing, so it is
+  stricter than the `Browser` was: a raw space in a query (`/?show=open `) is the 400 a real server
+  gives, and the test now sends `open%20`. Of the `Browser`, `tests/support.gaz` keeps only a
+  `browser()` that builds a `TestClient` for the app.
 
 ## 7. Routes are wrapped one at a time  (resolved: `Router.middleware()` and `group()`, [#49](https://github.com/panzer-planet/gazlang/issues/49))
 
@@ -272,10 +273,14 @@ have caught running out of call depth.
   only to reach the zone after it. `Config` is now a `readonly kind`, as are the records and forms,
   which nothing changes once made; `from_environment()` names `time_zone:` and `trusted_proxies:`,
   and a test writes `test_config() with (clock: $clock)`.
-- **An attribute can't be left out by a value**: `{{ }}` writes a value, so the selected filter link
-  is `aria-current="{{ $selected ? "page" : "false" }}"` on every link, and an overdue todo's class
-  is two `{{ }}` side by side. Both are valid HTML; a template directive for an optional attribute
-  would read better ([#59](https://github.com/panzer-planet/gazlang/issues/59)).
+- **An attribute can't be left out by a value** (resolved: a value that is a quoted attribute's
+  whole value leaves it out for `null`, [#59](https://github.com/panzer-planet/gazlang/issues/59)):
+  `{{ }}` wrote a value, so the selected filter link was `aria-current="{{ $selected ? "page" :
+  "false" }}"` on every link. Templates now read their text as markup with `web::html`'s scanner,
+  so `aria-current="{{ $selected ? "page" : null }}"` leaves it off the others, and a boolean
+  attribute takes a bool (`checked="{{ $chosen }}"`), which the course's lesson page wanted too.
+  The overdue todo's class is still two `{{ }}` side by side, valid HTML; a `web::classes()`
+  helper waits for a second template that wants one.
 - **Static files** (resolved: `http::serve_static()` sends a weak `ETag`, `Last-Modified` and
   `Cache-Control: no-cache`, and answers a matching conditional GET with a 304) had no
   `Cache-Control`/`ETag`, so every page load refetched the stylesheet

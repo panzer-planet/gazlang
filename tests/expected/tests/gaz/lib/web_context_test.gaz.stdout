@@ -94,3 +94,21 @@ ok the same tagged string, run 1
 ok the same tagged string, run 2
 ok the same tagged string, run 3
 ok one site, a safe value then an unsafe one
+ok null leaves the attribute out
+ok anything else is written
+ok a bool on another attribute is its text
+ok single quotes, and spaces around the =
+ok with no space before it
+ok a URL left out
+ok a whole URL is still checked
+ok true is a boolean attribute's bare name
+ok false leaves it out
+ok and so does null
+ok text around the value is no whole value
+ok nor are two values
+ok a boolean attribute with text in its value is text
+ok anything but a bool or null on a boolean attribute
+ok every refusal is a web::Refusal
+ok an opening is only ever in the tag being read
+ok hidden also takes until-found
+ok but no other text

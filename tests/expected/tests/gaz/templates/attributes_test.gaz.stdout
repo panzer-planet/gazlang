@@ -1,0 +1,6 @@
+ok every attribute written
+ok null leaves an attribute out, and false a boolean one
+ok a URL at the start is checked
+ok null on a boolean attribute leaves it out
+ok a string on a boolean attribute
+ok markup in an attribute

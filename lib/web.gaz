@@ -13,6 +13,10 @@
  *
  * - in text, an `Html` as it is and anything else escaped;
  * - in a quoted attribute, or a comment, escaped, never markup;
+ * - as the whole of a quoted attribute's value (`title="{$title}"`), as above, except that `null`
+ *   leaves the attribute out; and on a boolean attribute (`checked="{$on}"`, `disabled`,
+ *   `selected` and the rest of HTML's), `true` writes the bare attribute, `false` and `null`
+ *   leave it out, and anything else is an error, since a browser reads `checked="false"` as checked;
  * - at the start of a URL (`href="{$url}"`), escaped, and blocked unless it is relative or
  *   starts http:, https:, mailto: or tel: (a `javascript:` URL becomes about:invalid#blocked);
  * - later in a URL (`href="/users/{$id}?tab={$tab}"`), percent-encoded;
@@ -35,14 +39,75 @@ namespace web;
 
 import "std/chars.gaz" use char_at, is_alnum, is_alpha;
 
-// Where a value lands, which is how it is written
-enum Placement {
-    Markup;
-    Plain;
-    UrlStart;
-    UrlPart;
-    RefreshDelay;
-    RefreshUrlStart;
+/**
+ * Where a value lands in markup, which is how it is written: `write()` writes the first six, and
+ * `attribute()` the three that are the whole of a quoted attribute's value. The template compiler
+ * names them in the code it writes.
+ */
+pub enum Placement: string {
+    /**
+     * In text: an `Html` as it is, anything else escaped, a list's elements one after another
+     */
+    Markup = "Markup";
+    /**
+     * In a quoted attribute or a comment: its text, escaped
+     */
+    Plain = "Plain";
+    /**
+     * At the start of a URL: escaped, and blocked unless relative or a scheme a link may have
+     */
+    UrlStart = "UrlStart";
+    /**
+     * Later in a URL: percent-encoded
+     */
+    UrlPart = "UrlPart";
+    /**
+     * The delay of a `<meta http-equiv="refresh">`: an int
+     */
+    RefreshDelay = "RefreshDelay";
+    /**
+     * The start of a refresh's URL: as `UrlStart`, and blocked if it starts with a quote
+     */
+    RefreshUrlStart = "RefreshUrlStart";
+    /**
+     * The whole of a quoted attribute's value: as `Plain`, or the attribute left out for `null`
+     */
+    Attribute = "Attribute";
+    /**
+     * The whole of a URL attribute's value: as `UrlStart`, or the attribute left out for `null`
+     */
+    UrlAttribute = "UrlAttribute";
+    /**
+     * The whole of a boolean attribute's value: the bare name for `true`, left out for `false` or `null`
+     */
+    BooleanAttribute = "BooleanAttribute";
+}
+
+/**
+ * What `web::html` (and a template's `{{ }}`) raises when a value can't go where it was put, or
+ * the markup can't be read safely: an `Error` whose message says where and why, so a program can
+ * catch these apart from its own bugs.
+ */
+pub kind Refusal extends Error {}
+
+/**
+ * Where one value goes: its `placement`, and for a value that is the whole of a quoted attribute's
+ * value, the text that opens the attribute (its spaces, name, `=` and quote: ` title="`), which
+ * `attribute()` writes or leaves out with it.
+ */
+pub readonly kind Slot {
+    /**
+     * A value placed as `$placement`, and the opening of the attribute it is the whole value of,
+     * if it is one.
+     */
+    fn _(pub Placement #placement, pub string #opening = "");
+
+    /**
+     * Whether the value is the whole of a quoted attribute's value.
+     */
+    pub fn whole(): bool {
+        return #opening != "";
+    }
 }
 
 // What the scanner is in the middle of reading, as the HTML tokenizer is
@@ -70,6 +135,12 @@ const RC_DATA_TAGS = ["textarea", "title"];
 const FOREIGN_TAGS = ["svg", "math"];
 
 const SPACE = [" ", "\t", "\n", "\f", "\r"];
+// HTML's boolean attributes: present means on, whatever the value, so a value in one is a bool
+const BOOLEAN_ATTRIBUTES = ["allowfullscreen", "async", "autofocus", "autoplay", "checked", "controls",
+    "default", "defer", "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop",
+    "multiple", "muted", "nomodule", "novalidate", "open", "playsinline", "readonly", "required",
+    "reversed", "selected"];
+const HIDDEN_UNTIL_FOUND = "until-found";
 // Attributes that hold code or a document, or a list of URLs, whatever the tag
 const CODE_ATTRIBUTES = ["style", "srcdoc", "srcset", "ping"];
 const URL_ATTRIBUTES = ["href", "src", "action", "formaction", "cite", "poster", "data", "background",
@@ -105,12 +176,25 @@ const SCANS_KEPT = 2000;
  */
 pub fn html(list $strings, list $values): Html {
     check_parts($strings, $values);
-    $placements = Scans::of($strings);
-    $text = $strings[0];
+    $slots = Scans::of($strings);
+    $text = "";
+    // The text part before the next value, not yet added, so a whole attribute's opening can be taken off it
+    $before = $strings[0];
     foreach ($values as $i => $value) {
-        $text ..= written($value, $placements[$i]);
-        $text ..= $strings[$i + 1];
+        $slot = $slots[$i];
+        $after = $strings[$i + 1];
+        if ($slot.whole()) {
+            // The attribute's opening and closing quote are attribute()'s to write or leave out
+            $text ..= slice($before, 0, len($before) - len($slot.opening));
+            $text ..= attribute($slot.opening, $value, $slot.placement);
+            $before = slice($after, 1);
+        } else {
+            $text ..= $before;
+            $text ..= write($value, $slot.placement);
+            $before = $after;
+        }
     }
+    $text ..= $before;
 
     return Html($text);
 }
@@ -129,56 +213,111 @@ pub fn csrf_field(string $token, string $field = "_csrf"): Html {
     return html"<input type=\"hidden\" name=\"{$field}\" value=\"{$token}\">";
 }
 
-// A value as its place needs it
-fn written($value, $placement) {
+/**
+ * A value written as `$placement` needs it (see `Placement`), for any placement but the three of a
+ * whole attribute, which are `attribute()`'s. `$who` names the writer in an error.
+ */
+pub fn write($value, Placement $placement, string $who = "web::html"): string {
     return match ($placement) {
-        Placement::Markup => markup($value),
-        Placement::Plain => plain($value),
-        Placement::UrlStart => url_start($value),
-        Placement::UrlPart => url_part($value),
-        Placement::RefreshDelay => refresh_delay($value),
-        Placement::RefreshUrlStart => refresh_url_start($value),
+        Placement::Markup => markup($value, $who),
+        Placement::Plain => plain($value, $who),
+        Placement::UrlStart => url_start($value, $who),
+        Placement::UrlPart => url_part($value, $who),
+        Placement::RefreshDelay => refresh_delay($value, $who),
+        Placement::RefreshUrlStart => refresh_url_start($value, $who),
+        Placement::Attribute, Placement::UrlAttribute, Placement::BooleanAttribute => throw Refusal("web::write() can't write a whole attribute: that is web::attribute()'s"),
     };
 }
 
+/**
+ * A quoted attribute whose whole value is `$value`, from its `$opening` (its spaces, name, `=` and
+ * quote: ` title="`) to its closing quote, as `$placement` (`Attribute`, `UrlAttribute` or
+ * `BooleanAttribute`) writes it: `null` leaves the attribute out, and so does `false` on a boolean
+ * attribute, where `true` is the bare name and anything else an error. `$who` names the writer in
+ * an error.
+ */
+pub fn attribute(string $opening, $value, Placement $placement, string $who = "web::html"): string {
+    if ($placement == Placement::BooleanAttribute) {
+        return boolean_attribute($opening, $value, $who);
+    }
+    if ($value == null) {
+        return "";
+    }
+    $inner = $placement == Placement::UrlAttribute ? url_start($value, $who) : plain($value, $who);
+
+    return $opening .. $inner .. $opening[len($opening) - 1];
+}
+
+/*
+ * A boolean attribute: its name alone for true, nothing for false or null. hidden also takes
+ * "until-found", the one other value HTML gives it.
+ */
+fn boolean_attribute($opening, $value, $who) {
+    $type = type_of($value);
+    if ($type == "null") {
+        return "";
+    }
+    if ($type == "bool") {
+        return $value ? attribute_lead($opening) : "";
+    }
+    if ($value == HIDDEN_UNTIL_FOUND && trim(attribute_lead($opening)) == "hidden") {
+        return $opening .. HIDDEN_UNTIL_FOUND .. $opening[len($opening) - 1];
+    }
+
+    $name = trim(attribute_lead($opening));
+    $also = $name == "hidden" ? ", or \"" .. HIDDEN_UNTIL_FOUND .. "\"" : "";
+
+    throw Refusal("{$who} can't put a {$type} as the whole value of the {$name} attribute: it is on or off, so give true, false or null{$also}");
+}
+
+// An attribute's opening without its =, its quote and the spaces around them: the spaces and name
+fn attribute_lead($opening) {
+    $end = len($opening) - 1;
+    while ($end > 0 && ($opening[$end - 1] == "=" || in_array($opening[$end - 1], SPACE))) {
+        $end--;
+    }
+
+    return slice($opening, 0, $end);
+}
+
 // A value in text: a list's elements one after another, anything else as {{ }} writes it
-fn markup($value) {
+fn markup($value, $who) {
     if (type_of($value) != "list") {
-        return piece($value);
+        return piece($value, $who);
     }
     $text = "";
     foreach ($value as $element) {
         if (type_of($element) == "list") {
-            throw "web::html can't put a list inside a list in markup: flatten it first";
+            throw Refusal("{$who} can't put a list inside a list in markup: flatten it first");
         }
-        $text ..= piece($element);
+        $text ..= piece($element, $who);
     }
 
     return $text;
 }
 
 // One value that isn't a list, escaped unless it is an Html
-fn piece($value) {
+fn piece($value, $who) {
     if (type_of($value) == "map") {
-        throw "web::html can't put a map in markup: interpolate its values one at a time";
+        throw Refusal("{$who} can't put a map in markup: interpolate its values one at a time");
     }
 
     return Html::escape($value);
 }
 
 // A value in a quoted attribute or a comment: its text, escaped
-fn plain($value) {
-    return Html::escape(text_of($value, "an attribute or a comment"));
+fn plain($value, $who) {
+    return Html::escape(text_of($value, "an attribute or a comment", $who));
 }
 
 // A value's text, where only text will do
-fn text_of($value, $where) {
+fn text_of($value, $where, $who) {
     $type = type_of($value);
     if ($type == "list" || $type == "map") {
-        throw "web::html can't put a {$type} in {$where}: it has no one obvious text";
+        throw Refusal("{$who} can't put a {$type} in {$where}: it has no one obvious text");
     }
     if ($type == "object" && is_a($value, Html)) {
-        throw "web::html can't put markup (an Html) in {$where}: give it the text";
+        throw Refusal("{$who} can't put markup (an Html) in {$where}: give it the text");
     }
 
     return to_string($value);
@@ -188,19 +327,19 @@ fn text_of($value, $where) {
 fn check_parts($strings, $values) {
     foreach ($strings as $part) {
         if (type_of($part) != "string") {
-            throw "web::html takes a tagged string's text parts, which are strings, got " .. type_of($part);
+            throw Refusal("web::html takes a tagged string's text parts, which are strings, got " .. type_of($part));
         }
     }
     if (len($strings) != len($values) + 1) {
-        throw "web::html takes one more text part than values, got " .. len($strings) .. " and " .. len($values);
+        throw Refusal("web::html takes one more text part than values, got " .. len($strings) .. " and " .. len($values));
     }
 }
 
 // --- URLs ---
 
 // A value at the start of a URL: itself, if it is relative or its scheme is one a link may have
-fn url_start($value) {
-    $url = text_of($value, "a URL");
+fn url_start($value, $who) {
+    $url = text_of($value, "a URL", $who);
     if (!scheme_allowed($url)) {
         return BLOCKED_URL;
     }
@@ -209,13 +348,13 @@ fn url_start($value) {
 }
 
 // A value after the start of a URL, where it is a piece of a path or a query: percent-encoded
-fn url_part($value) {
+fn url_part($value, $who) {
     // An int is digits and perhaps a -, which are all as they are
     if (type_of($value) == "int") {
         return to_string($value);
     }
     $encoded = "";
-    foreach (split(text_of($value, "a URL"), "") as $byte) {
+    foreach (split(text_of($value, "a URL", $who), "") as $byte) {
         $encoded ..= contains(UNRESERVED, $byte) ? $byte : percent($byte);
     }
 
@@ -227,19 +366,19 @@ fn url_part($value) {
  * a quote that leads a refresh's URL before it reads the scheme, so one that starts with a quote
  * is blocked rather than read past.
  */
-fn refresh_url_start($value) {
-    $start = url_start_text(text_of($value, "a URL"));
+fn refresh_url_start($value, $who) {
+    $start = url_start_text(text_of($value, "a URL", $who));
     if (in_array(char_at($start, 0), QUOTES)) {
         return BLOCKED_URL;
     }
 
-    return url_start($value);
+    return url_start($value, $who);
 }
 
 // A value that is a refresh's delay: an int, since any other text could go on into a URL
-fn refresh_delay($value) {
+fn refresh_delay($value, $who) {
     if (type_of($value) != "int") {
-        throw "web::html can't put a " .. type_of($value) .. " as the delay of a refresh: only an int, since other text could make a URL";
+        throw Refusal("{$who} can't put a " .. type_of($value) .. " as the delay of a refresh: only an int, since other text could make a URL");
     }
 
     return to_string($value);
@@ -286,8 +425,8 @@ fn url_start_text($url) {
     return slice($clean, $start);
 }
 
-fn refuse($where, $why) {
-    throw "web::html can't put a value " .. $where .. ": " .. $why;
+fn refuse($where, $why, $who) {
+    throw Refusal("{$who} can't put a value " .. $where .. ": " .. $why);
 }
 
 /*
@@ -297,18 +436,18 @@ fn refuse($where, $why) {
  * /, ?, # or : in the text puts the value after it. What is left, text with no such mark, could
  * be finished into a scheme by the value ("java" and "script:alert(1)"), so it is refused.
  */
-fn placement_in_url($text, $first, $where) {
+fn placement_in_url($text, $first, $where, $who) {
     if ($first) {
         if (url_start_text($text) == "") {
             return Placement::UrlStart;
         }
         $scheme = url_scheme($text);
         if ($scheme != null && !in_array($scheme, ALLOWED_SCHEMES)) {
-            refuse($where, "the URL starts " .. $scheme .. ":");
+            refuse($where, "the URL starts " .. $scheme .. ":", $who);
         }
     }
     if (!has_delimiter($text)) {
-        refuse($where, "with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /");
+        refuse($where, "with other text before it and no / ? # or : between, the value could finish a scheme: put the value first, or after a /", $who);
     }
 
     return Placement::UrlPart;
@@ -380,13 +519,19 @@ kind Scans {
     }
 }
 
-/*
- * Reads text as the HTML tokenizer does, as far as telling where a value would land needs:
- * which of its states the text is in when a value comes. It is told the text one part at a
- * time, and asked where a value goes between the parts. What it can't place safely it refuses,
- * with a reason, so a wrong guess is an error and not a hole.
+/**
+ * Reads markup as the HTML tokenizer does, as far as telling where a value would land needs:
+ * which of its states the text is in when a value comes. It is told the text a part at a time
+ * (`feed()`), and asked where a value goes between the parts (`place()`); `found` is where each
+ * went, a `Slot` each, once the markup is whole (`finish()`). What it can't place safely it
+ * refuses, with a reason, so a wrong guess is an error and not a hole. `web::html` reads its
+ * tagged strings with one, and the compiler reads a template's text with one, which is how a
+ * template's `{{ }}` is written for where it lands.
+ *
+ * `$who` names the writer in an error ("web::html can't put a value..."), `$source` the text that
+ * must end as markup and `$unit` what it is, as `finish()` says them.
  */
-kind Scanner {
+pub kind Scanner {
     #state = State::Data;
     // The part being read, and where in it
     #text = "";
@@ -405,8 +550,25 @@ kind Scanner {
     #foreign = 0;
     // The last of the text read, for a value that follows the start of a tag
     #recent = "";
-    // Where each value goes, in order
-    #found = [];
+    /**
+     * Where each value went, in order: a `Slot` each. A `<meta>`'s content values are placed
+     * again at the tag's end, so read it once the markup is whole.
+     */
+    pub #found = [];
+    /*
+     * Where in the part being read the attribute being read opens (the spaces before its name),
+     * null if it opened in an earlier part, and where the spaces being read began
+     */
+    #opening_from = null;
+    #space_from = null;
+    /*
+     * A value that may be the whole of its attribute's value, if a quote follows it: its index in
+     * #found, and the attribute's opening
+     */
+    #whole_at = null;
+    #whole_opening = "";
+    // Whether a directive line came right after an attribute's name, which an = must not follow
+    #rested_after_name = false;
     // A <meta>'s http-equiv values and its content attributes with values in them, and of the
     // content attribute being read, its text before each value and where that value's placement is
     #equivs = [];
@@ -414,8 +576,16 @@ kind Scanner {
     #content_befores = [];
     #content_indexes = [];
 
-    // Where each value of these text parts goes, in order
-    pub static fn placements($strings): list {
+    /**
+     * A scanner at the start of markup, naming itself in its errors as `$who`, `$source` and
+     * `$unit` say (see above).
+     */
+    fn _(#who = "web::html", #source = "web::html's text", #unit = "a tagged string");
+
+    /**
+     * Where each value of a tagged string's text parts goes, in order: a `Slot` each.
+     */
+    pub static fn placements(list $strings): list {
         $scanner = Scanner();
         $last = len($strings) - 1;
         foreach ($strings as $i => $part) {
@@ -429,26 +599,73 @@ kind Scanner {
         return $scanner.found;
     }
 
-    // Read the next part of the text
-    pub fn feed($text) {
+    /**
+     * Read the next part of the text.
+     */
+    pub fn feed(string $text): null {
         #text = $text;
         #at = 0;
+        #opening_from = null;
+        #space_from = null;
         while (#at < len(#text)) {
             #step();
         }
         #recent = slice(#recent .. $text, -RECENT);
     }
 
-    // The text must end as text: a tag opened in one tagged string is not closed in another
-    pub fn finish() {
+    /**
+     * The text must end as text: a tag opened in one tagged string is not closed in another.
+     */
+    pub fn finish(): null {
         if (#state != State::Data) {
-            throw "web::html's text ends inside " .. #describe() .. ": a tagged string must be whole markup";
+            throw Refusal("{#source} ends inside " .. #describe() .. ": {#unit} must be whole markup");
         }
     }
 
-    // Note where a value goes now, or say why it can't go there
-    pub fn place() {
-        #found[] = #placement();
+    /**
+     * Note where a value goes now, or say why it can't go there.
+     */
+    pub fn place(): null {
+        #found[] = Slot(#placement());
+    }
+
+    /**
+     * A value its writer puts in unchecked (a template's `{!! !!}`), which takes no place: the value
+     * before it isn't the whole of its attribute's value, and one after it in the same attribute
+     * isn't the first.
+     */
+    pub fn pass(): null {
+        #whole_at = null;
+        if (#state == State::DoubleQuoted || #state == State::SingleQuoted) {
+            #attribute_values++;
+        }
+    }
+
+    /**
+     * Stop where the text read so far has, for a template's directive line, and say where that is,
+     * such as `"in text"` or `"inside the <a> tag"`; or `null` in the middle of a tag's or an
+     * attribute's name, an attribute's value, an end tag or a declaration, where a line can't
+     * stop. Two places that read the same are the same for every value after them: an attribute's
+     * name the line comes right after is finished, so an `=` after it is refused, and the `<svg>`
+     * and `<math>` still open are part of the place.
+     */
+    pub fn rest(): ?string {
+        if (#state == State::AfterAttributeName) {
+            #state = State::BeforeAttribute;
+            #rested_after_name = true;
+        }
+        $place = match (#state) {
+            State::Data => "in text",
+            State::RcData, State::RawText => "inside <" .. #tag .. ">",
+            State::BeforeAttribute => "inside the <" .. #tag .. "> tag",
+            State::Comment => "in a comment",
+            default => null,
+        };
+        if ($place == null || #foreign == 0) {
+            return $place;
+        }
+
+        return $place .. " (in <svg> or <math>, " .. #foreign .. " deep)";
     }
 
     fn placement() {
@@ -469,7 +686,7 @@ kind Scanner {
     // --- Where a value goes ---
 
     fn refuse($where, $why) {
-        refuse($where, $why);
+        refuse($where, $why, #who);
     }
 
     // In text a value is markup or text, but not straight after a < that it could finish into a tag
@@ -503,6 +720,7 @@ kind Scanner {
     }
 
     fn attribute_placement() {
+        #whole_at = null;
         $name = #attribute;
         $where = "in the {$name} attribute of <" .. #tag .. ">";
         if (starts_with($name, "on") || in_array($name, CODE_ATTRIBUTES)) {
@@ -518,14 +736,38 @@ kind Scanner {
             #note_meta_content();
         }
         $placement = in_array($name, URL_ATTRIBUTES) ? #url_placement($where) : Placement::Plain;
+        #note_whole_candidate();
         #attribute_values++;
 
         return $placement;
     }
 
+    /*
+     * A value with nothing before it in its attribute's value, whose attribute opened in this
+     * part, is the whole value if the text after it starts with the closing quote: noted here, and
+     * settled by read_quoted(). A <meta>'s content is a refresh's to place.
+     */
+    fn note_whole_candidate() {
+        if (#attribute_values > 0 || #attribute_text != "" || #opening_from == null || #tag == "meta") {
+            return;
+        }
+        #whole_at = len(#found);
+        #whole_opening = slice(#text, #opening_from);
+    }
+
+    // The value noted as a candidate is the whole of its attribute's value
+    fn settle_whole() {
+        $inner = #found[#whole_at].placement;
+        $placement = $inner == Placement::UrlStart ? Placement::UrlAttribute : Placement::Attribute;
+        if (in_array(#attribute, BOOLEAN_ATTRIBUTES)) {
+            $placement = Placement::BooleanAttribute;
+        }
+        #found[#whole_at] = Slot($placement, #whole_opening);
+    }
+
     // A value in a URL (see placement_in_url()), and whether the text after it must be checked
     fn url_placement($where) {
-        $placement = placement_in_url(#attribute_text, #attribute_values == 0, $where);
+        $placement = placement_in_url(#attribute_text, #attribute_values == 0, $where, #who);
         #after_start = $placement == Placement::UrlStart;
 
         return $placement;
@@ -555,9 +797,9 @@ kind Scanner {
             }
         }
         foreach (#contents as $content) {
-            $found = Refresh::placements($content.pieces);
+            $found = Refresh::placements($content.pieces, #who);
             foreach ($content.indexes as $k => $index) {
-                #found[$index] = $found[$k];
+                #found[$index] = Slot($found[$k]);
             }
         }
     }
@@ -644,6 +886,7 @@ kind Scanner {
 
     fn begin_tag($at, $closing) {
         #at = $at;
+        #forget_opening();
         #tag = "";
         #closing = $closing;
         #self_closing = false;
@@ -724,8 +967,17 @@ kind Scanner {
     fn read_between_attributes() {
         $c = #text[#at];
         if (in_array($c, SPACE)) {
+            #note_space();
             #at++;
-        } else if ($c == "/") {
+
+            return;
+        }
+        if (#rested_after_name && $c == "=") {
+            throw Refusal("{#who} can't read an = after a directive line: the line comes between an attribute's name and its value, so write the attribute whole on one side of it");
+        }
+        #rested_after_name = false;
+        if ($c == "/") {
+            #space_from = null;
             #self_closing = char_at(#text, #at + 1) == ">";
             #at++;
         } else if ($c == ">") {
@@ -733,13 +985,28 @@ kind Scanner {
             #finish_start_tag();
         } else if ($c == "=") {
             // An = where a name should start is part of the name, as the tokenizer reads it
+            #open_attribute();
             #attribute = "=";
             #at++;
             #state = State::AttributeName;
         } else {
+            #open_attribute();
             #attribute = "";
             #state = State::AttributeName;
         }
+    }
+
+    // A space between attributes: the first of a run is where the next attribute's opening starts
+    fn note_space() {
+        if (#space_from == null) {
+            #space_from = #at;
+        }
+    }
+
+    // An attribute's name starts here, its opening with the spaces before it
+    fn open_attribute() {
+        #opening_from = #space_from ?? #at;
+        #space_from = null;
     }
 
     fn read_attribute_name() {
@@ -767,13 +1034,16 @@ kind Scanner {
     fn read_after_attribute_name() {
         $c = #text[#at];
         if (in_array($c, SPACE)) {
+            #note_space();
             #at++;
         } else if ($c == "=") {
+            #space_from = null;
             #at++;
             #state = State::BeforeValue;
         } else if ($c == "/" || $c == ">") {
             #state = State::BeforeAttribute;
         } else {
+            #open_attribute();
             #attribute = "";
             #state = State::AttributeName;
         }
@@ -808,6 +1078,12 @@ kind Scanner {
         $end = index_of(#text, $quote, #at);
         $stop = $end ?? len(#text);
         $segment = slice(#text, #at, $stop - #at);
+        if (#whole_at != null) {
+            if ($end == #at) {
+                #settle_whole();
+            }
+            #whole_at = null;
+        }
         if (#after_start) {
             #check_after_start($segment);
         }
@@ -834,8 +1110,16 @@ kind Scanner {
         }
     }
 
+    // Where an attribute opens is only ever in the tag being read
+    fn forget_opening() {
+        #opening_from = null;
+        #space_from = null;
+        #rested_after_name = false;
+    }
+
     // The > of a start tag: what its content is, if it is one that has its own rules
     fn finish_start_tag() {
+        #forget_opening();
         #settle_meta();
         if (in_array(#tag, FOREIGN_TAGS) && !#self_closing) {
             #foreign++;
@@ -874,7 +1158,7 @@ kind Scanner {
         $stop = $end ?? len(#text);
         $content = lower(slice(#text, #at, $stop - #at));
         if (contains($content, "<!--") && contains($content, "<script")) {
-            throw "web::html can't read a <script> that holds both <!-- and <script: a browser ends it at a different </script> there";
+            throw Refusal("{#who} can't read a <script> that holds both <!-- and <script: a browser ends it at a different </script> there");
         }
     }
 
@@ -935,11 +1219,11 @@ kind Refresh {
     #at = 0;
     #found = [];
 
-    fn _(#pieces);
+    fn _(#pieces, #who);
 
     // Where each value between the content's pieces goes, in order
-    pub static fn placements(list $pieces): list {
-        $refresh = Refresh($pieces);
+    pub static fn placements(list $pieces, string $who): list {
+        $refresh = Refresh($pieces, $who);
         $refresh.read();
 
         return $refresh.found;
@@ -1014,13 +1298,13 @@ kind Refresh {
         $first = true;
         while (!#on_last_piece()) {
             $url ..= #rest_of_piece();
-            $placement = placement_in_url($url, $first, REFRESH_CONTENT);
+            $placement = placement_in_url($url, $first, REFRESH_CONTENT, #who);
             $first = false;
             #next_piece();
             if ($placement == Placement::UrlStart) {
                 $placement = Placement::RefreshUrlStart;
                 if (makes_scheme(#pieces[#piece])) {
-                    refuse(REFRESH_CONTENT, MAKES_SCHEME);
+                    refuse(REFRESH_CONTENT, MAKES_SCHEME, #who);
                 }
             }
             #found[] = $placement;
@@ -1029,7 +1313,7 @@ kind Refresh {
 
     fn refuse_values_left() {
         if (!#on_last_piece()) {
-            refuse(REFRESH_CONTENT, "a value is the delay, alone at the start, or in the URL after a url= written in the text; anywhere else it could make the URL");
+            refuse(REFRESH_CONTENT, "a value is the delay, alone at the start, or in the URL after a url= written in the text; anywhere else it could make the URL", #who);
         }
     }
 

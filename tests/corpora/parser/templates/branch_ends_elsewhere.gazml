@@ -1,0 +1,7 @@
+@template branches($x)
+@if ($x)
+<div class="wide"
+@else
+<div>
+@endif
+>x</div>

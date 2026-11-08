@@ -1,0 +1,1 @@
+Error: {{ }} can't read an = after a directive line: the line comes between an attribute's name and its value, so write the attribute whole on one side of it at tests/corpora/parser/templates/branch_attribute_names.gazml:8

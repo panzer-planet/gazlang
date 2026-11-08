@@ -13,7 +13,7 @@ import "markup.gaz";
   <fieldset>
     <legend>{{ render_inline($view.lesson.question) }}</legend>
 @foreach ($view.choices as $choice)
-    <label class="choice"><input type="radio" name="choice" value="{{ $choice.position }}"{{ $view.chose($choice) ? " checked" : "" }} required> <span>{{ render_inline($choice.text) }}</span></label>
+    <label class="choice"><input type="radio" name="choice" value="{{ $choice.position }}" checked="{{ $view.chose($choice) }}" required> <span>{{ render_inline($choice.text) }}</span></label>
 @endforeach
   </fieldset>
 @if ($view.verdict != null)

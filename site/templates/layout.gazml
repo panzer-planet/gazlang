@@ -9,7 +9,8 @@ import "./nav_list.gazml";
 <meta name="color-scheme" content="light dark">
 <title>{{ $page.title }}</title>
 <meta name="description" content="{{ $page.description }}">
-<link rel="stylesheet" href="{{ $page.root() }}style.css">
+{{-- A <link>'s URL loads code, so {{ }} refuses one: root() is "" or ../ repeated, from the site's own paths --}}
+<link rel="stylesheet" href="{!! $page.root() !!}style.css">
 </head>
 <body>
 <a class="skip" href="#site:content">Skip to the content</a>
@@ -27,10 +28,10 @@ import "./nav_list.gazml";
 @if ($page.previous != null || $page.next != null)
 <nav class="pager" aria-label="Previous and next">
 @if ($page.previous != null)
-  <a class="previous" href="{{ $page.root() }}{{ $page.previous.href }}"><span>Previous</span> {{ $page.previous.title }}</a>
+  <a class="previous" href="{{ $page.root() .. $page.previous.href }}"><span>Previous</span> {{ $page.previous.title }}</a>
 @endif
 @if ($page.next != null)
-  <a class="next" href="{{ $page.root() }}{{ $page.next.href }}"><span>Next</span> {{ $page.next.title }}</a>
+  <a class="next" href="{{ $page.root() .. $page.next.href }}"><span>Next</span> {{ $page.next.title }}</a>
 @endif
 </nav>
 @endif

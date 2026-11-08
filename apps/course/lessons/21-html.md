@@ -58,14 +58,40 @@ import "views/page.gazml";
 $app.get("/", $request -> ({"body" => page("My list", ["Write a lesson"])}));
 ```
 
-- `{{ expression }}` writes a value escaped for HTML; an `Html` (another template, a
-  `web::html` fragment) is written as it is.
-- `{!! expression !!}` writes text unescaped, so it stands out in review.
+- `{{ expression }}` writes a value for where it lands, by the same rules as `web::html`: escaped
+  in text and attributes, an `Html` (another template, a `web::html` fragment) as it is in text, a
+  URL checked. A value where escaping can't make it safe, such as inside `<script>`, is an error
+  when the program is read, at the template's line.
+- `{!! expression !!}` writes text unescaped and unchecked, so it stands out in review.
 - `@if`, `@elseif`, `@else`, `@foreach` and their ends each stand on a line of their own.
 - Errors point at the template's own lines.
 
-Templates escape text and quoted attributes but don't read the markup around a value, so a URL
-from a user belongs in a `web::html` fragment, which checks it.
+## Attributes that come and go
+
+A value that is the whole of a quoted attribute's value decides whether the attribute is there:
+`null` leaves it out, and on an attribute that is on or off (`checked`, `disabled`, `selected`,
+`required` and the rest), `true` writes it bare and `false` leaves it out. `web::html` and
+templates do the same:
+
+```gaz
+import "std/web.gaz";
+
+foreach (["All", "Open"] as $label) {
+    $current = $label == "Open" ? "page" : null;
+    echo web::html"<a href=\"/{$label}\" aria-current=\"{$current}\">{$label}</a>";
+}
+$picked = false;
+echo web::html"<input type=\"radio\" name=\"answer\" checked=\"{$picked}\">";
+```
+
+```output
+<a href="/All">All</a>
+<a href="/Open" aria-current="page">Open</a>
+<input type="radio" name="answer">
+```
+
+So a template writes `checked="{{ $chosen }}"` rather than an `@if` around the attribute. Writing
+`checked="false"` yourself would tick the box: a browser reads any value as checked.
 
 ## Question
 What does `web::html` do with a `javascript:` URL in an `href`?

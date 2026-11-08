@@ -1,0 +1,2 @@
+@template raw_url($base, $path)
+<a href="{!! $base !!}{{ $path }}">x</a>

@@ -1,0 +1,1 @@
+Error: {{ }} can't put a value inside <script>: HTML escaping doesn't make a value safe in script; write what it needs into a quoted data- attribute and read it from there, or build the element yourself and pass it as an Html at tests/corpora/parser/templates/value_in_script.gazml:3

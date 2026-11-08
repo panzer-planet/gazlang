@@ -152,3 +152,35 @@ fn same_text_different_state($v) {
 }
 expect("one site, a safe value then an unsafe one", [same_text_different_state("/ok"), same_text_different_state($js)],
     ["<a href=\"/ok\">x</a>", "<a href=\"about:invalid#blocked\">x</a>"]);
+
+/*
+ * A value that is the whole of a quoted attribute's value: null leaves the attribute out, its
+ * spaces before it too, and on a boolean attribute the value is on or off
+ */
+$nothing = null;
+$page = "page";
+$on = true;
+$off = false;
+expect("null leaves the attribute out", text(web::html"<a class=\"x\" aria-current=\"{$nothing}\">x</a>"), "<a class=\"x\">x</a>");
+expect("anything else is written", text(web::html"<a aria-current=\"{$page}\">x</a>"), "<a aria-current=\"page\">x</a>");
+expect("a bool on another attribute is its text", text(web::html"<a aria-expanded=\"{$off}\">x</a>"), "<a aria-expanded=\"false\">x</a>");
+expect("single quotes, and spaces around the =", text(web::html"<a  title = '{$nothing}' id='{$page}'>x</a>"), "<a id='page'>x</a>");
+expect("with no space before it", text(web::html"<a b=\"1\"title=\"{$nothing}\">x</a>"), "<a b=\"1\">x</a>");
+expect("a URL left out", text(web::html"<a href=\"{$nothing}\">x</a>"), "<a>x</a>");
+expect("a whole URL is still checked", text(web::html"<a href=\"{$js}\">x</a>"), "<a href=\"about:invalid#blocked\">x</a>");
+expect("true is a boolean attribute's bare name", text(web::html"<input checked=\"{$on}\" required>"), "<input checked required>");
+expect("false leaves it out", text(web::html"<input type=\"radio\" checked=\"{$off}\" required>"), "<input type=\"radio\" required>");
+expect("and so does null", text(web::html"<option SELECTED=\"{$nothing}\">a</option>"), "<option>a</option>");
+expect("text around the value is no whole value", [text(web::html"<a title=\"x {$nothing}\">x</a>"), text(web::html"<a title=\"{$nothing} x\">x</a>")],
+    ["<a title=\"x null\">x</a>", "<a title=\"null x\">x</a>"]);
+expect("nor are two values", text(web::html"<p class=\"{$page}{$nothing}\">x</p>"), "<p class=\"pagenull\">x</p>");
+expect("a boolean attribute with text in its value is text", text(web::html"<input checked=\"{$on} x\">"), "<input checked=\"true x\">");
+throws("anything but a bool or null on a boolean attribute", () -> web::html"<input disabled=\"{$page}\">", web::Refusal,
+    "web::html can't put a string as the whole value of the disabled attribute: it is on or off, so give true, false or null");
+throws("every refusal is a web::Refusal", () -> web::html"<a onclick=\"{$page}\">x</a>", web::Refusal,
+    "web::html can't put a value in the onclick attribute of <a>: it holds code or a document, which HTML escaping doesn't make safe");
+expect("an opening is only ever in the tag being read", text(web::html"<br ><a title=\"{$nothing}\">x</a>"), "<br ><a>x</a>");
+$until = "until-found";
+expect("hidden also takes until-found", text(web::html"<div hidden=\"{$until}\">x</div>"), "<div hidden=\"until-found\">x</div>");
+throws("but no other text", () -> web::html"<div hidden=\"{$page}\">x</div>", web::Refusal,
+    "web::html can't put a string as the whole value of the hidden attribute: it is on or off, so give true, false or null, or \"until-found\"");

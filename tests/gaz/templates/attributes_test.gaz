@@ -1,0 +1,37 @@
+import "std/test.gaz" use expect, throws;
+import "std/web.gaz";
+import "./views/attributes.gazml";
+
+/*
+ * A template's text is read as markup, so each {{ }} is written for where it lands. A value that is
+ * the whole of a quoted attribute's value leaves the attribute out for null, and on a boolean
+ * attribute is on or off. The compile-time refusals are the parser corpus's error_template_*.
+ */
+$on = to_string(attributes("page", true, "/home", "Tom & <Jerry>"));
+expect("every attribute written", $on, join([
+    "<a href=\"/home\" aria-current=\"page\" title=\"Go to Tom &amp; &lt;Jerry&gt;\">Tom &amp; &lt;Jerry&gt;</a>",
+    "<input type=\"checkbox\"",
+    "    data-on=\"yes\"",
+    "    autofocus",
+    "    checked required>",
+    "<a href=\"/search?q=Tom%20%26%20%3CJerry%3E\" aria-expanded='true'>s</a>",
+    "",
+], "\n"));
+
+$off = to_string(attributes(null, false, null, "x"));
+expect("null leaves an attribute out, and false a boolean one", $off, join([
+    "<a title=\"Go to x\">x</a>",
+    "<input type=\"checkbox\"",
+    " required>",
+    "<a href=\"/search?q=x\" aria-expanded='false'>s</a>",
+    "",
+], "\n"));
+
+expect("a URL at the start is checked", contains(to_string(attributes(null, null, "javascript:alert(1)", "x")), "href=\"about:invalid#blocked\""), true);
+expect("null on a boolean attribute leaves it out", contains(to_string(attributes(null, null, null, "x")), "checked"), false);
+
+// What the running template refuses: the value's own type, not where it is
+throws("a string on a boolean attribute", () -> attributes(null, "yes", null, "x"), web::Refusal,
+    "{{ }} can't put a string as the whole value of the checked attribute: it is on or off, so give true, false or null");
+throws("markup in an attribute", () -> attributes(null, true, null, Html("<b>")), web::Refusal,
+    "{{ }} can't put markup (an Html) in an attribute or a comment: give it the text");

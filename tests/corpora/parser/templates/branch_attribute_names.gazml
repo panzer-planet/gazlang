@@ -1,0 +1,8 @@
+@template either_name($c, $u)
+<a
+@if ($c)
+ href
+@else
+ title
+@endif
+="{{ $u }}">x</a>

@@ -1,0 +1,1 @@
+Error: The branch before this @else ends inside the <div> tag, but its @if (line 2) began in text: each branch must end where it began at tests/corpora/parser/templates/branch_ends_elsewhere.gazml:4

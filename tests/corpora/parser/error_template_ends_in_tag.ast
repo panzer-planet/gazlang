@@ -1,0 +1,1 @@
+Error: The template ends inside a tag: a template must be whole markup at tests/corpora/parser/templates/ends_in_tag.gazml:4

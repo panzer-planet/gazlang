@@ -1257,11 +1257,34 @@ and methods a table in C.
 - **The output is gathered in `$#html`**, a name no program can write: the lexer reads it only in
   source translated from a template (`Lexer($text, true)`).
 - `ponytail:` an expression ends at the first `}}` or `!!}`, so it can't hold one, and none spans
-  lines; escaping is for HTML text and quoted attributes, not JavaScript or URLs inside a page.
-- **A URL in a template isn't checked**: templates don't read the markup around a value, as
-  `web::html` does. The compile-time version of the same scan is the next piece: the text is known
-  when the program is read, so each `{{ }}` can pick its escaper at no run-time cost and a mistake
-  can be an error then, sharing the scanner with `web.gaz`.
+  lines.
+- **A template's text is read as markup when the program is read**, by `web.gaz`'s own scanner
+  (`web::Scanner`, `pub` for this; the compiler imports `std/web.gaz`, the copy built into the
+  `bin/gaz` compiling it), so `{{ }}` and `web::html` can't disagree about where a value lands.
+  The translator works in two passes, scan then write, since a `<meta>`'s content is placed only
+  at its tag's `>`. A value in text stays `Html::escape()`, so a template with values only in text
+  compiles as it did; any other place calls `web::write()` or `web::attribute()` with the
+  placement, and only then does the source import `std/web.gaz` (on the `@template` line, which
+  keeps the line count). A refusal is a `web::Refusal`, which the translator catches by kind to
+  make it a `ParseError` at the template's line: a thrown string is caught as an `Error`, which a
+  bug is too.
+  - **Directive lines stand only where markup can rest** (`Scanner.rest()`: text, a raw text
+    element, between attributes, a comment), and each branch of an `@if`/`@foreach` must end where
+    it began, so reading the branches one after another places every value as every path through
+    them would: no copy of the scanner per branch. The restrictive choice. So the place names all
+    that a later value's placement depends on: the `<svg>`/`<math>` depth, and no attribute name
+    (a line right after a bare name finishes that attribute, and an `=` after the directive is
+    refused, since branches ending after `href` and after `title` would otherwise read alike and
+    the value after them be placed as the last branch read).
+  - **`{!! !!}` is placed nowhere** (`Scanner.pass()`): it stays the escape hatch, in `<script>` or
+    between attributes too, but the value before it isn't a whole attribute's and one after it in
+    a URL isn't at the start.
+- **A value that is a quoted attribute's whole value** (#59; `note_whole_candidate()` and
+  `settle_whole()` in `web.gaz`, a `Slot` carrying the attribute's opening): `null` leaves the
+  attribute out, and on HTML's boolean attributes `true` is the bare name, `false` and `null`
+  leave it out, and anything else is an error, since `checked="false"` is checked. Only a value
+  whose attribute opened in the same text part counts, so the opening can be cut from the text
+  before it. In `web::html` too, which had written `aria-current="null"`.
 
 ## match
 

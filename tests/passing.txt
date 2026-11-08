@@ -1330,6 +1330,7 @@ tests/gaz/strings/tagged_test.gaz
 tests/gaz/strings/utf8_case_test.gaz
 tests/gaz/strings/utf8_test.gaz
 tests/gaz/strings/utf8_width_test.gaz
+tests/gaz/templates/attributes_test.gaz
 tests/gaz/templates/html_concat_test.gaz
 tests/gaz/templates/namespaced_test.gaz
 tests/gaz/templates/templates_test.gaz

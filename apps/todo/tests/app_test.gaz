@@ -345,7 +345,7 @@ $open_page = $cleo.get("/?show=open");
 expect("only the open ones", titles_in($open_page), ["soonest", "middle", "later", "not due, newer", "not due, older"]);
 expect("only the done ones", titles_in($cleo.get("/?show=done")), ["done, not due", "done and due first"]);
 expect("all of them", len(titles_in($cleo.get("/?show=all"))), 7);
-expect("the filter shown is the one selected", [contains(text_of($open_page), "<a href=\"/?show=open\" aria-current=\"page\">Open</a>"), contains(text_of($open_page), "<a href=\"/\" aria-current=\"false\">All</a>")], [true, true]);
+expect("the filter shown is the one selected", [contains(text_of($open_page), "<a href=\"/?show=open\" aria-current=\"page\">Open</a>"), contains(text_of($open_page), "<a href=\"/\">All</a>")], [true, true]);
 expect("no form carries it", contains(text_of($open_page), "name=\"show\""), false);
 $middle = $db.value(db::sql"select id from todos where title = 'middle'");
 expect("toggling goes back to the filter it was sent from", location_of($cleo.post("/todos/{$middle}/toggle", {}, from_list("open"))), "/?show=open");

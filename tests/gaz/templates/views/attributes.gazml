@@ -1,0 +1,9 @@
+@template attributes(?string $current, $on, ?string $url, $title)
+<a href="{{ $url }}" aria-current="{{ $current }}" title="Go to {{ $title }}">{{ $title }}</a>
+<input type="checkbox"
+@if ($on == true)
+    data-on="yes"
+    autofocus
+@endif
+    checked="{{ $on }}" required>
+<a href="/search?q={{ $title }}" aria-expanded='{{ $on }}'>s</a>

@@ -1,0 +1,6 @@
+@template in_value($x)
+<a title="
+@if ($x)
+hi
+@endif
+">x</a>

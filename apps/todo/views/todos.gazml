@@ -27,7 +27,7 @@ import "std/date.gaz";
 
 <nav class="filters" aria-label="Show">
     @foreach (Filter::cases() as $shown)
-        <a href="{{ $shown.path() }}" aria-current="{{ $shown == $filter ? "page" : "false" }}">{{ $shown.label() }}</a>
+        <a href="{{ $shown.path() }}" aria-current="{{ $shown == $filter ? "page" : null }}">{{ $shown.label() }}</a>
     @endforeach
 </nav>
 

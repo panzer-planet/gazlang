@@ -2478,15 +2478,28 @@ http::serve($listener, $request -> ({"body" => user_page($user, $posts)}));
   string`; `echo`, `print`, `to_string($h)` and `$h.text` give its markup when a plain string is
   what you want. `Html` is `final`, so no kind extending it gets round the refusal.
 - `@if (...)`, `@elseif (...)`, `@else`, `@endif`, `@foreach (...)` and `@endforeach` each stand
-  alone on their line, which writes nothing. Their conditions are GazLang's, in parentheses.
+  alone on their line, which writes nothing. Their conditions are GazLang's, in parentheses. A
+  directive's line can stand in text, inside `<script>` or `<title>`, between a tag's attributes
+  (so an `@if` can hold an attribute), or in a comment, but not inside a name or an attribute's
+  value; and each branch must end where it began (an `@if` that opens a tag closes it too), which
+  is what lets every value in every branch be placed when the program is read.
 - `{{-- comment --}}` writes nothing; a line holding only one writes nothing at all. `@{{` writes
   `{{`. Any other `@word` is text, so CSS's `@media` and email addresses are fine.
 - Errors are at the template's own line: a mismatched `@endif`, a syntax error inside `{{ }}`,
   or a missing key when it runs.
 - An expression can't contain `}}` (or `!!}` in a raw one), and stays on one line.
-- Escaping is for HTML text and attribute values in quotes: a value in an unquoted attribute, a
-  URL (`href="{{ $url }}"` takes a `javascript:` URL as it is), `<script>`, `<style>` or an event
-  handler such as `onclick` needs checking or building by the program.
+- **A template's text is read as markup**, as `web::html` reads a tagged string (below), so each
+  `{{ }}` is written for where it lands by the same rules: escaped in text and quoted attributes,
+  a URL checked, a value that is a whole attribute's left out for `null`. What those rules refuse
+  (a value in `<script>`, an unquoted attribute, an `onclick`, between attributes) is an error at
+  the template's line when the program is read, before it runs, and so is a template that ends
+  inside a tag. `{!! !!}` is placed nowhere and checked for nothing, anywhere: it is how a template
+  writes what the program has checked itself.
+
+```gazml
+@template filter_link(string $path, string $label, bool $selected)
+<a href="{{ $path }}" aria-current="{{ $selected ? "page" : null }}">{{ $label }}</a>
+```
 
 **HTML built in code** is `web::html"..."` (`import "std/web.gaz";`), a tagged string that gives
 an `Html`: its text is markup as written, and each value is written for the place in the markup
@@ -2524,6 +2537,25 @@ Where a value lands decides what is done with it:
   delay, alone at the start, and must be an int (`content="{$seconds}"`); or it is in the URL after
   a `url=` the text writes (`content="0;url={$url}"`), at its start or later as above. A URL value
   that starts with a quote is blocked too, since a browser skips the quote there.
+- **As the whole of a quoted attribute's value** (`title="{$title}"`, `href="{$url}"`): as above,
+  except that `null` leaves the attribute out, with the spaces before it, so an attribute a page
+  only sometimes has needs no `@if`. On a **boolean attribute** (`checked`, `disabled`, `selected`,
+  `required`, `hidden`, `open`, `multiple`, `readonly` and the rest of HTML's), the value is a bool:
+  `true` writes the bare attribute, `false` or `null` leaves it out, and anything else is an error,
+  since a browser reads `checked="false"`, or any value at all, as checked. A bool in any other
+  attribute is its text, as `aria-expanded="false"` must be.
+
+```gaz
+import "std/web.gaz";
+
+$current = null;
+$picked = true;
+echo web::html"<a href=\"/\" aria-current=\"{$current}\">All</a> <input type=\"radio\" checked=\"{$picked}\">";
+```
+
+```
+<a href="/">All</a> <input type="radio" checked>
+```
 
 ```gaz
 import "std/web.gaz";
@@ -2562,13 +2594,16 @@ deliberate way to say a piece of markup is trusted.
 - A tagged string is read from the start as text and must end as text, so a tag isn't opened in
   one string and closed in another. An `Html` value is taken to be whole markup.
 - A value prints as `echo` prints it (`null`, `true`, `12`, `1.5`, an object's `to_string()`)
-  before it is written. A map, or a list inside a list, is an error (`web::html can't put a map
-  in markup: interpolate its values one at a time`).
+  before it is written, except as a whole attribute's value (above). A map, or a list inside a list, is an error (`web::html can't put a map
+  in markup: interpolate its values one at a time`). Every refusal is a `web::Refusal`, an `Error`
+  a program can catch apart from its own bugs.
 - The result goes into `{{ }}` and into another `web::html"..."` as it is, and is refused by `..`
   like any `Html`.
 
-Templates (`.gazml`) escape text and quoted attributes as before and don't read the markup around
-a value, so a URL in one is checked by the program.
+A template's `{{ }}` follows all of this (see above): the compiler reads the template's text with
+the same scanner (`web::Scanner`), so a template's mistakes are found when the program is read, and
+the code it writes calls `web::write()` and `web::attribute()` with each value's place, so a page
+pays for no reading when it runs.
 
 ## Libraries
 
