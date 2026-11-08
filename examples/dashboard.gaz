@@ -15,15 +15,16 @@ const NAME_WIDTH = 28;
 const GAP = 1;             // columns between a task's name and its bar
 const HELP = "up/down pick   +/- change   q quit";
 
-kind Task {
+// A task never changes: moving its progress gives a changed copy
+readonly kind Task {
     fn _(pub string #name, pub int #done, pub int #total);
 
-    pub fn advance(): null {
-        #done = min(#done + 1, #total);
+    pub fn advanced(): Task {
+        return # with (done: min(#done + 1, #total));
     }
 
-    pub fn set_back(): null {
-        #done = max(#done - 1, 0);
+    pub fn set_back(): Task {
+        return # with (done: max(#done - 1, 0));
     }
 
     pub fn progress(): float {
@@ -44,8 +45,12 @@ kind Board {
         #selected = min(#selected + 1, len(#tasks) - 1);
     }
 
-    pub fn selected_task(): Task {
-        return #tasks[#selected];
+    pub fn advance_selected(): null {
+        #tasks[#selected] = #tasks[#selected].advanced();
+    }
+
+    pub fn set_back_selected(): null {
+        #tasks[#selected] = #tasks[#selected].set_back();
     }
 
     pub fn is_selected(int $index): bool {
@@ -80,8 +85,8 @@ fn handle_key(Board $board, map $key): ?string {
     match (term::name($key)) {
         "up" => { $board.select_previous(); }
         "down" => { $board.select_next(); }
-        "+", "=" => { $board.selected_task().advance(); }
-        "-" => { $board.selected_task().set_back(); }
+        "+", "=" => { $board.advance_selected(); }
+        "-" => { $board.set_back_selected(); }
         "q", "ctrl+c" => { return "quit"; }
         default => {}
     }
