@@ -15,7 +15,7 @@ import "views/lesson.gazml";
 /**
  * A student's way through the course: which lessons they have passed, and what comes next.
  */
-final kind Progress {
+final readonly kind Progress {
     fn _(pub list #lessons, map #passed);
 
     pub fn total(): int {
@@ -63,21 +63,21 @@ final kind Progress {
 }
 
 /**
- * Everything a lesson's page shows.
+ * Everything a lesson's page shows: the lessons either side of it, and once an answer is sent, the
+ * choice it named and what the page says about it. An answer gives a changed copy, `with`.
  */
-final kind LessonView {
-    pub ?int #chosen = null;
-    pub ?string #verdict = null;
-    pub ?Lesson #previous = null;
-    pub ?Lesson #next = null;
-
+final readonly kind LessonView {
     fn _(
         pub Lesson #lesson,
         pub int #total,
         pub Html #body,
         pub list #choices,
         pub bool #passed,
-        pub string #csrf
+        pub string #csrf,
+        pub ?Lesson #previous = null,
+        pub ?Lesson #next = null,
+        pub ?int #chosen = null,
+        pub ?string #verdict = null,
     );
 
     /**
@@ -127,17 +127,14 @@ final kind Learning {
         if ($view == null) {
             return not_found($request);
         }
-        $view.chosen = to_int(http::form($request, {})["choice"] ?? "", null);
+        $sent = http::form($request, {})["choice"] ?? "";
+        $view = $view with (chosen: to_int($sent, null));
         $choice = lists::find($view.choices, $choice -> $view.chose($choice));
         if ($choice == null) {
-            $view.verdict = "Pick an answer first.";
-
-            return #show($request, $view, 422);
+            return #refuse($request, $view, "Pick an answer first.");
         }
         if (!$choice.correct) {
-            $view.verdict = "Not quite. Read the lesson again and have another go.";
-
-            return #show($request, $view, 422);
+            return #refuse($request, $view, "Not quite. Read the lesson again and have another go.");
         }
         #store.pass($request["user"], $view.lesson);
 
@@ -162,11 +159,26 @@ final kind Learning {
     fn view(map $request, list $lessons, int $index): LessonView {
         $lesson = $lessons[$index];
         $passed = has_key(#store.passed($request["user"]), $lesson.id);
-        $view = LessonView($lesson, len($lessons), render_body($lesson.body), #store.choices($lesson), $passed, csrf($request));
-        $view.previous = $lessons[$index - 1] ?? null;
-        $view.next = $lessons[$index + 1] ?? null;
+        $body = render_body($lesson.body);
+        $choices = #store.choices($lesson);
 
-        return $view;
+        return LessonView(
+            $lesson,
+            len($lessons),
+            $body,
+            $choices,
+            $passed,
+            csrf($request),
+            previous: $lessons[$index - 1] ?? null,
+            next: $lessons[$index + 1] ?? null,
+        );
+    }
+
+    /*
+     * The lesson again, the answer sent still picked, and `$verdict` saying what was wrong with it.
+     */
+    fn refuse(map $request, LessonView $view, string $verdict): map {
+        return #show($request, $view with (verdict: $verdict), 422);
     }
 
     fn show(map $request, LessonView $view, int $status): map {

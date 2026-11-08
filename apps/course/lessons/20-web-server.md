@@ -64,6 +64,32 @@ SIGTERM.
 Since the workers share nothing, state that must last belongs in a database or a cookie. Open a
 database after `workers()`, so each worker has its own connection.
 
+## Asking another server
+
+The same library is a client. `http::get()`, `http::post()` and `http::request()` send a request
+and give back a response map shaped like the ones a handler returns:
+
+```gaz norun
+import "std/http.gaz";
+import "std/json.gaz";
+
+$response = http::get("https://api.example.com/weather?city=Cape+Town", {"Accept" => "application/json"});
+if ($response["status"] != 200) {
+    throw "The weather service said {$response["status"]}";
+}
+$weather = json::decode($response["body"]);
+echo "{$weather["temperature"]} degrees";
+
+$sent = http::post("https://api.example.com/notes", json::encode({"text" => "hi"}), {"Content-Type" => "application/json"});
+echo $sent["status"];
+```
+
+- Every status is a response, 404 and 500 included, so check `"status"`. A request that gets no
+  proper answer (no such host, a refused connection, a certificate that doesn't check out, a reply
+  that isn't HTTP, more than 20 redirects) is an error.
+- Header names in the response are lowercase: `$response["headers"]["content-type"]`.
+- `https` checks the server's certificate. Redirects are followed.
+
 ## Question
 What does `workers(4)` do?
 

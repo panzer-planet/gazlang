@@ -57,6 +57,52 @@ Write a regular expression in single quotes, so `\d` reaches the pattern as writ
 Each file's page on the GazLang website lists every name it has, from the documentation in its
 source.
 
+## Dates and times
+
+`std/date.gaz` keeps three numbers apart, all of them ints, so know which one you hold: a **time**
+is seconds since 1970 began in UTC, as `time()` gives it, the one to store and compare; a **day
+number** is a date, days since 1 January 1970; and **seconds after midnight** are a time of day. A
+zone turns a time into a `Moment`, what that zone's clocks show, and a day and a time of day back
+into a time:
+
+```gaz
+import "std/date.gaz";
+
+$now = 1786197729;                        // what time() gave, fixed so this prints the same every day
+$london = date::zone("Europe/London");
+$moment = $london.at($now);
+echo $moment.rfc3339();
+echo $moment.format() .. ", " .. $moment.short_clock() .. " " .. $moment.abbreviation;
+echo date::utc().at($now).short_clock() .. " in UTC";
+
+$today = $london.date($now);
+$deadline = date::days(2026, 8, 31);
+echo ($deadline - $today) .. " days to go";
+echo date::format(date::next_weekday($today, date::Weekday::Monday));
+
+$meeting = $london.time(date::days(2026, 10, 25), date::time_of_day(9, 30));
+echo $london.at($meeting).rfc3339();
+echo date::parse("2026-08-08T14:02:09+02:00").time;
+```
+
+```output
+2026-08-08T15:02:09+01:00
+Sat 8 Aug 2026, 15:02 BST
+14:02 in UTC
+23 days to go
+Mon 10 Aug 2026
+2026-10-25T09:30:00Z
+1786190529
+```
+
+- Store times, and turn one into a `Moment` only to show it, in the zone of whoever reads it.
+  `date::zone()` reads the system's time zone database, summer time and all: by 25 October London
+  is back on UTC, so the meeting's offset is `Z`.
+- Nothing in the library reads the clock. A function that takes the time as an argument gives the
+  same answer every run, which is what makes date code testable.
+- `date::parse()` reads the RFC 3339 text APIs and databases send, and `date::parse_reading()` what
+  an HTML `datetime-local` field sends.
+
 ## Question
 How does a program use the JSON library?
 

@@ -38,6 +38,35 @@ finished looking
   lambda.
 - `finally` runs however the `try` is left.
 
+One `catch` can take several kinds, written with `|`, when each is handled the same way:
+
+```gaz
+kind NotFound extends Error {}
+kind Forbidden extends Error {}
+
+fn open_page(string $path) {
+    match ($path) {
+        "/" => { return "Home"; }
+        "/secret" => { throw Forbidden("Not for you"); }
+        default => { throw NotFound("No page at {$path}"); }
+    }
+}
+
+foreach (["/", "/nope", "/secret"] as $path) {
+    try {
+        echo open_page($path);
+    } catch (NotFound | Forbidden $e) {
+        echo kind_name(kind_of($e)) .. ": " .. $e.message;
+    }
+}
+```
+
+```output
+Home
+NotFound: No page at /nope
+Forbidden: Not for you
+```
+
 ## Keeping the cause
 
 An error that wraps another can keep it as its cause, so the whole story is printed when nothing

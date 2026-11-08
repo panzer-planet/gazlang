@@ -26,7 +26,7 @@ import "markup.gaz";
 </form>
 <nav class="pager">
 @if ($view.previous != null)
-  <a href="/lessons/{{ $view.previous.slug }}">← {{ $view.previous.title }}</a>
+  <a class="previous" href="/lessons/{{ $view.previous.slug }}">← {{ $view.previous.title }}</a>
 @endif
 @if ($view.next != null)
   <a class="next" href="/lessons/{{ $view.next.slug }}">{{ $view.next.title }} →</a>

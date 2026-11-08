@@ -121,6 +121,11 @@ $example = course::code_blocks($first.body)[0];
 expect("a lesson shows its title and unit", [shows($lesson, $first.title), shows($lesson, $first.unit)], [true, true]);
 expect("and its question, with its inline code", shows($lesson, $question), true);
 expect("its code highlighted, and still escaped", shows($lesson, highlight::to_html($example.language(), $example.code).text), true);
+$last_page = $ada.get("/lessons/{$course[$total - 1].slug}");
+expect("it links on to the next lesson", shows($lesson, "href=\"/lessons/{$second.slug}\""), true);
+expect("and the next lesson back to it", shows($ada.get("/lessons/{$second.slug}"), "href=\"/lessons/{$first.slug}\""), true);
+expect("the first has nothing before it", shows($lesson, "class=\"previous\""), false);
+expect("and the last nothing after it", shows($last_page, "class=\"next\""), false);
 expect("an unknown lesson is a 404", $ada.get("/lessons/nope")["status"], 404);
 
 $none = answer($ada, $first.slug, null);

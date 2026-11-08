@@ -61,6 +61,39 @@ echo $a == $b;
 true
 ```
 
+## When there might be no object
+
+A field or a variable that may hold `null` instead of an object needs a check before `.`, since
+`.` on `null` is an error. `?.` is that check: `$customer.address?.city` is `null` when the address
+is, and so is everything after it in the chain, which never runs. `??` then gives the fallback:
+
+```gaz
+kind Address {
+    fn _(pub string #city);
+}
+
+kind Customer {
+    fn _(pub string #name, pub ?Address #address = null);
+}
+
+$known = Customer("Ada", Address("Cape Town"));
+$walk_in = Customer("Grace");
+$nobody = null;
+
+echo $known.address?.city;
+echo $walk_in.address?.city ?? "no address";
+echo $nobody?.address.city ?? "no customer";
+```
+
+```output
+Cape Town
+no address
+no customer
+```
+
+Only `null` is skipped. A member that doesn't exist is still an error through `?.`, so a typo
+isn't hidden as a quiet `null`.
+
 ## Objects nobody can change
 
 Sharing is what you want for a connection, a router or a screen, but not for a value such as an
@@ -72,7 +105,11 @@ readonly kind Money {
     fn _(pub int #cents, pub string #currency);
 
     pub fn plus(Money $other): Money {
-        return Money(#cents + $other.cents, #currency);
+        if ($other.currency != #currency) {
+            throw "Can't add {$other.currency} to {#currency}";
+        }
+
+        return # with (cents: #cents + $other.cents);
     }
 
     pub fn to_string() {
@@ -82,8 +119,10 @@ readonly kind Money {
 
 $price = Money(1500, "ZAR");
 $total = $price.plus(Money(250, "ZAR"));
+$free = $price with (cents: 0);
 echo $price;
 echo $total;
+echo $free;
 
 try {
     $total.cents = 0;
@@ -95,13 +134,15 @@ try {
 ```output
 ZAR 15.0
 ZAR 17.5
+ZAR 0.0
 Money #cents is read-only: only Money's constructor sets it
 ```
 
 A method of a read-only kind changes nothing; it gives back a new object, as `plus()` does. Such
-an object can be shared as freely as a number. A single field can be read-only too, in a kind
-whose other fields can change: `pub readonly int #id;` is an id anyone can read and nobody can
-alter once the object is made.
+an object can be shared as freely as a number. `with` makes that new object, the old one with the
+fields you name changed: the next lesson is about it. A single field can be read-only too, in a
+kind whose other fields can change: `pub readonly int #id;` is an id anyone can read and nobody can alter
+once the object is made.
 
 ## Extending a kind
 

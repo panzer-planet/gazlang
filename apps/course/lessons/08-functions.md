@@ -8,6 +8,7 @@ declared. A parameter can have a default.
 ```gaz
 echo greet("Ada");
 echo greet("Grace", "Howzit");
+echo greet("Linus", greeting: "Hi");
 
 fn greet($name, $greeting = "Hello") {
     return "{$greeting}, {$name}!";
@@ -17,7 +18,12 @@ fn greet($name, $greeting = "Hello") {
 ```output
 Hello, Ada!
 Howzit, Grace!
+Hi, Linus!
 ```
+
+An argument can also be passed by its parameter's name, without the `$`, after any passed in
+order, as Linus's greeting is. That is how you skip a default to reach the one after it, or make a
+call with several flags say what each one is.
 
 A function with no `return` gives `null`. A parameter is a copy, like any list or map you assign,
 so a function changes what it was given only by returning something new.

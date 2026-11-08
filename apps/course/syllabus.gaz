@@ -37,14 +37,14 @@ const LEAST_CHOICES = 2;
 /**
  * One answer to a lesson's question.
  */
-pub final kind Choice {
+pub final readonly kind Choice {
     fn _(pub string #text, pub bool #correct);
 }
 
 /**
  * A lesson as written: where it sits, what it teaches, and the question that checks it.
  */
-pub final kind Lesson {
+pub final readonly kind Lesson {
     fn _(
         pub string #slug,
         pub string #unit,

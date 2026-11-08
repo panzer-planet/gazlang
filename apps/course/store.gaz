@@ -8,7 +8,7 @@ import "std/db.gaz";
 /**
  * A student with an account.
  */
-pub final kind User {
+pub final readonly kind User {
     fn _(pub int #id, pub string #name, pub string #email);
 
     pub static fn from_row(map $row): User {
@@ -19,7 +19,7 @@ pub final kind User {
 /**
  * A lesson as the database holds it.
  */
-final kind Lesson {
+final readonly kind Lesson {
     fn _(
         pub int #id,
         pub int #position,
@@ -53,7 +53,7 @@ final kind Lesson {
 /**
  * One answer to a lesson's question; `position` is how a form names it.
  */
-final kind Choice {
+final readonly kind Choice {
     fn _(pub int #position, pub string #text, pub bool #correct);
 
     pub static fn from_row(map $row): Choice {

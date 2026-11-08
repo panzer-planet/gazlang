@@ -1,7 +1,7 @@
 # Learn GazLang
 
 A web app where students make an account and take a course on GazLang and its toolkit, from
-installing `gaz` to deploying a web app: 24 lessons in six units, each ending with a question that
+installing `gaz` to deploying a web app: 27 lessons in six units, each ending with a question that
 has to be answered right to pass it, and their progress kept.
 
 Like `apps/todo`, it is here to find out what a real web app needs from the language and the
