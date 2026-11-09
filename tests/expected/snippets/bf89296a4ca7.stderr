@@ -1,0 +1,3 @@
+Error: http::serve() expects $options to be map, got list at <std>/http.gaz:673
+  http::serve at <std>/http.gaz:673
+  top level on line 1

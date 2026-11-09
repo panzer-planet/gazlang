@@ -89,7 +89,7 @@ expect("bad patterns", $failures, [
     "A route's pattern starts with /, got \"users\"",
     "A : in a route's pattern needs a name: /users/:",
     "A route's pattern names :id twice: /a/:id/b/:id",
-    "A route's pattern starts with /, got 5",
+    "http::Router.get() expects \$pattern to be string, got int",
 ]);
 
 /* Groups: middleware for a set of routes, a prefix for their paths */
@@ -132,8 +132,9 @@ expect("nor does a 405", $serve(request("PUT", "/home"))["status"], 405);
 expect("nor a trailing slash's redirect", $serve(request("GET", "/admin/"))["status"], 308);
 throws("a prefix ending in /", () -> http::Router().prefix("/admin/"), "A group's prefix starts with / and doesn't end with one, got \"/admin/\"");
 throws("or not starting with one", () -> http::Router().prefix("admin"), "A group's prefix starts with / and doesn't end with one, got \"admin\"");
-throws("middleware that isn't a function", () -> http::Router().middleware("auth"), "Middleware is a function of a request and the next handler, not string");
-throws("for the router's own too", () -> http::Router().use("auth"), "Middleware is a function of a request and the next handler, not string");
+$auth = "auth";
+throws("middleware that isn't a function", () -> http::Router().middleware($auth), "http::Router.middleware() expects \$middleware to be function, got string");
+throws("for the router's own too", () -> http::Router().use($auth), "http::Router.use() expects \$middleware to be function, got string");
 throws("a prefix of / alone", () -> http::Router().prefix("/"), "A group's prefix of / adds nothing: give the group middleware() alone");
 throws("a prefix's segments are checked when it is given", () -> http::Router().prefix("/a/:"), "A : in a route's pattern needs a name: /a/:");
 throws("a pattern in a group is checked as the router checks one", () -> http::Router().prefix("/a").get("users", $r -> null), "A route's pattern starts with /, got \"users\"");

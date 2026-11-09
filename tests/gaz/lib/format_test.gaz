@@ -80,6 +80,6 @@ expect("what sprintf refuses", $failures, [
     "sprintf: \"%5%\": %% takes no flags, width or precision",
     "sprintf: %f can't show 1.0E+300 (argument 1): with its decimals it must fit in an int",
     "sprintf: %.2f can't show 1.0E+17 (argument 1): with its decimals it must fit in an int",
-    "sprintf: expects a string and a list, got string and string",
-    "sprintf: expects a string and a list, got list and list",
+    "format::sprintf() expects \$args to be list, got string",
+    "format::sprintf() expects \$template to be string, got list",
 ]);

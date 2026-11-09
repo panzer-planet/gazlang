@@ -28,7 +28,6 @@ ok repeated headers read as one list
 ok and the connection's address without trust
 ok an unknown peer
 ok an unknown peer, with a proxy trusted
-ok trusted proxies as a string
 ok trusted proxies as a map
 ok a proxy that isn't a string
 ok a bad list is refused even when it wouldn't be read

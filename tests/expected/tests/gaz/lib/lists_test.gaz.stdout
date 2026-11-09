@@ -9,9 +9,7 @@ ok min_by gives the first on a tie
 ok a list of keys breaks ties in order
 ok max_by of one element
 ok the key is called once for each element, in order
-ok flatten needs a list
 ok flatten needs lists in it
-ok max_by needs a list
 ok min_by needs something in it
 ok keys must be orderable
 ok unique keeps the first of each, in order
@@ -44,7 +42,6 @@ ok take refuses a negative count
 ok drop
 ok drop more than there is
 ok drop none
-ok drop refuses a float count
 ok pluck
 ok pluck of nothing
 ok pluck of a missing key is the map's error
@@ -65,5 +62,5 @@ ok find stops at the first match
 ok contains_by finds one
 ok contains_by finds none
 ok contains_by of nothing
-ok take names a string count as a string
+ok a count is an int
 ok a helper refuses what isn't a list

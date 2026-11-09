@@ -575,7 +575,7 @@ fn captured($s, $slots, $group) {
  *
  *     regex::replace("a1b22", '\d+', $g -> to_string(to_int($g[0]) * 2))   // "a2b44"
  */
-pub fn replace($s, $pattern, $replacement) {
+pub fn replace(string $s, $pattern, string|function $replacement): string {
     $compiled = compile($pattern);
     [, $groups] = $compiled;
     $fill = replacement($replacement, $groups, $pattern);
@@ -606,9 +606,6 @@ pub fn replace($s, $pattern, $replacement) {
 fn replacement($replacement, $groups, $pattern) {
     if (type_of($replacement) == "function") {
         return $taken -> checked_text($replacement($taken));
-    }
-    if (type_of($replacement) != "string") {
-        throw "regex: replace() takes a string or a function, not " .. type_of($replacement);
     }
     $pieces = pieces($replacement, $groups, $pattern);
     return $taken -> filled($pieces, $taken);

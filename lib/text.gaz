@@ -14,10 +14,7 @@ const WHITESPACE = " \t\n\r";      // what trim() takes off without a set
  * and one without give the same lines; an empty line in the middle or at the end of the text
  * is kept ("a\n\n" is ["a", ""]). The empty string has no lines.
  */
-pub fn lines($text) {
-    if (type_of($text) != "string") {
-        throw "text::lines() expects a string, got " .. type_of($text);
-    }
+pub fn lines(string $text): list {
     $lines = split($text, "\n");
     $terminated = len($lines) - 1;
     if (last($lines) == "") {

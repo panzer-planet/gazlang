@@ -18,7 +18,8 @@ expect("only a line that ends is stripped of its \\r", text::lines("a\r\nb\r"), 
 expect("a \\r\\n and nothing else is one empty line", text::lines("\r\n"), [""]);
 expect("spaces are kept", text::lines("  a \n b"), ["  a ", " b"]);
 expect("bytes past ASCII pass through", text::lines("é\nü\n"), ["é", "ü"]);
-throws("a list is an error", () -> text::lines(["a"]), "text::lines() expects a string, got list");
+$list = ["a"];
+throws("a list is an error", () -> text::lines($list), "text::lines() expects \$text to be string, got list");
 
 expect("no indentation", text::indentation("a b"), 0);
 expect("spaces count", text::indentation("   a"), 3);

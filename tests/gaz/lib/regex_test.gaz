@@ -173,7 +173,8 @@ expect("a group with no part is null there", regex::replace("a", "(x)?a", $g -> 
 expect("an empty match is replaced too", regex::replace("ab", "x*", $g -> "-"), "-a-b-");
 expect("its $ is text", regex::replace("ab", "a", $g -> "$1"), "$1b");
 throws("it must return a string", () -> regex::replace("ab", "a", $g -> 1), "regex: replace()'s function must return a string, not int");
-throws("a replacement is a string or a function", () -> regex::replace("ab", "a", null), "regex: replace() takes a string or a function, not null");
+$nothing = null;
+throws("a replacement is a string or a function", () -> regex::replace("ab", "a", $nothing), "regex::replace() expects \$replacement to be string|function, got null");
 
 /* A pattern's compiled size is capped, so its size alone can't make matching slow */
 $words = [];

@@ -85,18 +85,11 @@ const DIGITS = "0123456789abcdef";
  * As many placeholders as arguments, a type %d, %f, %x or %o can't take, and a placeholder this
  * doesn't know are errors, raised before anything is formatted.
  */
-pub fn sprintf($template, $args) {
-    check_arguments($template, $args);
+pub fn sprintf(string $template, list $args): string {
     $pieces = split_template($template);
     check_count($pieces, $args);
 
     return fill($pieces, $args);
-}
-
-fn check_arguments($template, $args) {
-    if (type_of($template) != "string" || type_of($args) != "list") {
-        throw "sprintf: expects a string and a list, got " .. type_of($template) .. " and " .. type_of($args);
-    }
 }
 
 // The template in order: its text between placeholders as strings, its placeholders as Placeholders

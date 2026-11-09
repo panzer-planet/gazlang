@@ -782,30 +782,16 @@ RET
 
 fn text::lines 1 1
 locals $text $lines $terminated $i
+@ "<std>/text.gaz" 17
+CHECK_PARAM 0 string
 @ "<std>/text.gaz" 18
-LOAD 0
-CALL_BUILTIN type_of 1
-PUSH "string"
-NOT_EQUALS
-JZ ELSE_0
-@ "<std>/text.gaz" 19
-PUSH "text::lines() expects a string, got "
-LOAD 0
-CALL_BUILTIN type_of 1
-CONCAT
-THROW
-@ "<std>/text.gaz" 18
-JMP ENDIF_0
-LABEL ELSE_0
-LABEL ENDIF_0
-@ "<std>/text.gaz" 21
 LOAD 0
 PUSH "\n"
 CALL_BUILTIN split 2
 STORE 1
 LOAD 1
 POP
-@ "<std>/text.gaz" 22
+@ "<std>/text.gaz" 19
 LOAD 1
 CALL_BUILTIN len 1
 PUSH 1
@@ -813,57 +799,58 @@ SUB
 STORE 2
 LOAD 2
 POP
-@ "<std>/text.gaz" 23
+@ "<std>/text.gaz" 20
 LOAD 1
 CALL_BUILTIN last 1
 PUSH ""
 EQUALS
-JZ ELSE_1
-@ "<std>/text.gaz" 24
+JZ ELSE_0
+@ "<std>/text.gaz" 21
 LOAD 2
 KEY_CHECK
 DELETE_PATH [k] 1
-@ "<std>/text.gaz" 25
+@ "<std>/text.gaz" 22
 LOAD 1
 CALL_BUILTIN len 1
 STORE 2
 LOAD 2
 POP
-@ "<std>/text.gaz" 23
-JMP ENDIF_1
-LABEL ELSE_1
-LABEL ENDIF_1
-@ "<std>/text.gaz" 27
+@ "<std>/text.gaz" 20
+JMP ENDIF_0
+LABEL ELSE_0
+LABEL ENDIF_0
+@ "<std>/text.gaz" 24
 LOAD 0
 PUSH "\r"
 CALL_BUILTIN contains 2
 NOT
-JZ ELSE_2
-@ "<std>/text.gaz" 28
+JZ ELSE_1
+@ "<std>/text.gaz" 25
 LOAD 1
+CHECK_RETURN list
 RET
+@ "<std>/text.gaz" 24
+JMP ENDIF_1
+LABEL ELSE_1
+LABEL ENDIF_1
 @ "<std>/text.gaz" 27
-JMP ENDIF_2
-LABEL ELSE_2
-LABEL ENDIF_2
-@ "<std>/text.gaz" 30
 PUSH 0
 STORE 3
 LOAD 3
 POP
-LABEL WHILE_3
+LABEL WHILE_2
 LOAD 3
 LOAD 2
 LT
-JZ ENDWHILE_3
-@ "<std>/text.gaz" 31
+JZ ENDWHILE_2
+@ "<std>/text.gaz" 28
 LOAD 1
 LOAD 3
 INDEX_GET
 PUSH "\r"
 CALL_BUILTIN ends_with 2
-JZ ELSE_4
-@ "<std>/text.gaz" 32
+JZ ELSE_3
+@ "<std>/text.gaz" 29
 LOAD 3
 KEY_CHECK
 LOAD 1
@@ -875,37 +862,39 @@ NEG
 CALL_BUILTIN slice 3
 SET_PATH [k] 1
 POP
-@ "<std>/text.gaz" 31
-JMP ENDIF_4
-LABEL ELSE_4
-LABEL ENDIF_4
-LABEL CONTINUE_3
-@ "<std>/text.gaz" 30
+@ "<std>/text.gaz" 28
+JMP ENDIF_3
+LABEL ELSE_3
+LABEL ENDIF_3
+LABEL CONTINUE_2
+@ "<std>/text.gaz" 27
 LOAD 3
 INC
 STORE 3
 LOAD 3
 POP
-JMP WHILE_3
-LABEL ENDWHILE_3
-@ "<std>/text.gaz" 36
+JMP WHILE_2
+LABEL ENDWHILE_2
+@ "<std>/text.gaz" 33
 LOAD 1
+CHECK_RETURN list
 RET
 @ "<std>/text.gaz" 17
 PUSH null
+CHECK_RETURN list
 RET
 
 fn text::indentation 1 1
 locals $line $count
-@ "<std>/text.gaz" 42
+@ "<std>/text.gaz" 39
 CHECK_PARAM 0 string
-@ "<std>/text.gaz" 43
+@ "<std>/text.gaz" 40
 PUSH 0
 STORE 1
 LOAD 1
 POP
 LABEL WHILE_0
-@ "<std>/text.gaz" 44
+@ "<std>/text.gaz" 41
 LOAD 1
 LOAD 0
 CALL_BUILTIN len 1
@@ -937,43 +926,43 @@ LABEL AND_FALSE_1
 PUSH false
 LABEL AND_END_1
 JZ ENDWHILE_0
-@ "<std>/text.gaz" 45
+@ "<std>/text.gaz" 42
 LOAD 1
 INC
 STORE 1
 LOAD 1
 POP
-@ "<std>/text.gaz" 44
+@ "<std>/text.gaz" 41
 JMP WHILE_0
 LABEL ENDWHILE_0
-@ "<std>/text.gaz" 48
+@ "<std>/text.gaz" 45
 LOAD 1
 CHECK_RETURN int
 RET
-@ "<std>/text.gaz" 42
+@ "<std>/text.gaz" 39
 PUSH null
 CHECK_RETURN int
 RET
 
 fn text::unindented 1 1
 locals $line
-@ "<std>/text.gaz" 54
+@ "<std>/text.gaz" 51
 CHECK_PARAM 0 string
-@ "<std>/text.gaz" 55
+@ "<std>/text.gaz" 52
 LOAD 0
 LOAD 0
 CALL text::indentation 1
 CALL_BUILTIN slice 2
 CHECK_RETURN string
 RET
-@ "<std>/text.gaz" 54
+@ "<std>/text.gaz" 51
 PUSH null
 CHECK_RETURN string
 RET
 
 fn text::quote 1 1
 locals $value
-@ "<std>/text.gaz" 65
+@ "<std>/text.gaz" 62
 NEW_ARRAY
 LOAD 0
 ARRAY_PUSH
@@ -983,26 +972,26 @@ PUSH 1
 NEG
 CALL_BUILTIN slice 3
 RET
-@ "<std>/text.gaz" 64
+@ "<std>/text.gaz" 61
 PUSH null
 RET
 
 fn text::trim_start 1 2
 locals $s $chars $from
-@ "<std>/text.gaz" 73
+@ "<std>/text.gaz" 70
 PASSED 1 PASSED_0
 PUSH " \t\n\r"
 STORE 1
 LABEL PASSED_0
 CHECK_PARAM 0 string
 CHECK_PARAM 1 string
-@ "<std>/text.gaz" 74
+@ "<std>/text.gaz" 71
 PUSH 0
 STORE 2
 LOAD 2
 POP
 LABEL WHILE_1
-@ "<std>/text.gaz" 75
+@ "<std>/text.gaz" 72
 LOAD 2
 LOAD 0
 CALL_BUILTIN len 1
@@ -1020,43 +1009,43 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ENDWHILE_1
-@ "<std>/text.gaz" 76
+@ "<std>/text.gaz" 73
 LOAD 2
 INC
 STORE 2
 LOAD 2
 POP
-@ "<std>/text.gaz" 75
+@ "<std>/text.gaz" 72
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/text.gaz" 79
+@ "<std>/text.gaz" 76
 LOAD 0
 LOAD 2
 CALL_BUILTIN slice 2
 CHECK_RETURN string
 RET
-@ "<std>/text.gaz" 73
+@ "<std>/text.gaz" 70
 PUSH null
 CHECK_RETURN string
 RET
 
 fn text::trim_end 1 2
 locals $s $chars $to
-@ "<std>/text.gaz" 85
+@ "<std>/text.gaz" 82
 PASSED 1 PASSED_0
 PUSH " \t\n\r"
 STORE 1
 LABEL PASSED_0
 CHECK_PARAM 0 string
 CHECK_PARAM 1 string
-@ "<std>/text.gaz" 86
+@ "<std>/text.gaz" 83
 LOAD 0
 CALL_BUILTIN len 1
 STORE 2
 LOAD 2
 POP
 LABEL WHILE_1
-@ "<std>/text.gaz" 87
+@ "<std>/text.gaz" 84
 LOAD 2
 PUSH 0
 GT
@@ -1075,23 +1064,23 @@ LABEL AND_FALSE_2
 PUSH false
 LABEL AND_END_2
 JZ ENDWHILE_1
-@ "<std>/text.gaz" 88
+@ "<std>/text.gaz" 85
 LOAD 2
 DEC
 STORE 2
 LOAD 2
 POP
-@ "<std>/text.gaz" 87
+@ "<std>/text.gaz" 84
 JMP WHILE_1
 LABEL ENDWHILE_1
-@ "<std>/text.gaz" 91
+@ "<std>/text.gaz" 88
 LOAD 0
 PUSH 0
 LOAD 2
 CALL_BUILTIN slice 3
 CHECK_RETURN string
 RET
-@ "<std>/text.gaz" 85
+@ "<std>/text.gaz" 82
 PUSH null
 CHECK_RETURN string
 RET

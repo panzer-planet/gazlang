@@ -1,0 +1,3 @@
+Error: http::post() expects $body to be string, got list at <std>/http.gaz:45
+  http::post at <std>/http.gaz:45
+  top level on line 1

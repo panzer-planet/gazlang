@@ -35,4 +35,5 @@ expect("weighted skips a zero weight", random::weighted([["never", 0], ["always"
 throws("pick of nothing", () -> random::pick([]), "random::key() expects a non-empty list or map");
 throws("key of nothing", () -> random::key({}), "random::key() expects a non-empty list or map");
 throws("weighted of nothing", () -> random::weighted([]), "random::weighted() expects weights that add up to more than 0");
-throws("shuffle of a map", () -> random::shuffle({}), "random::shuffle() expects list or string, got map");
+$map = {};
+throws("shuffle of a map", () -> random::shuffle($map), "random::shuffle() expects \$x to be list|string, got map");

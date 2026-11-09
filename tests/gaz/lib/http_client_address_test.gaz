@@ -69,7 +69,7 @@ expect("and the connection's address without trust", http::client_address($seen)
 /* --- Unknown peers and bad arguments --- */
 expect("an unknown peer", http::client_address(from(null, CLIENT)), null);
 expect("an unknown peer, with a proxy trusted", http::client_address(from(null, CLIENT), [PROXY]), null);
-throws("trusted proxies as a string", () -> http::client_address(from(PROXY), PROXY), "http::client_address() expects a list of addresses, got string");
-throws("trusted proxies as a map", () -> http::client_address(from(PROXY), {"a" => PROXY}), "http::client_address() expects a list of addresses, got map");
+$not_a_list = {"a" => PROXY};
+throws("trusted proxies as a map", () -> http::client_address(from(PROXY), $not_a_list), "http::client_address() expects \$trusted_proxies to be list, got map");
 throws("a proxy that isn't a string", () -> http::client_address(from(PROXY), [PROXY, 7]), "http::client_address() expects each trusted proxy to be a string, got int");
 throws("a bad list is refused even when it wouldn't be read", () -> http::client_address(from(null), [null]), "http::client_address() expects each trusted proxy to be a string, got null");

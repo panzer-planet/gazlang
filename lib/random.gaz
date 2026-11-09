@@ -10,12 +10,9 @@ namespace random;
  * A copy of the list or string in a random order (Fisher-Yates); a copy, since a function
  * can't change its argument
  */
-pub fn shuffle($x) {
+pub fn shuffle(list|string $x): list|string {
     if (type_of($x) == "string") {
         return join(shuffle(split($x, "")), "");
-    }
-    if (type_of($x) != "list") {
-        throw "random::shuffle() expects list or string, got " .. type_of($x);
     }
     for ($i = len($x) - 1; $i > 0; $i--) {
         $j = rand_int(0, $i);

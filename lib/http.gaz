@@ -34,7 +34,7 @@ const MAX_HEAD = 65536;      // a request's line and headers, in bytes
 /**
  * A GET request for $url with $headers: the response, as the overview above says
  */
-pub fn get($url, $headers = {}) {
+pub fn get(string $url, map $headers = {}): map {
     return request("GET", $url, $headers);
 }
 
@@ -42,7 +42,7 @@ pub fn get($url, $headers = {}) {
  * A POST request of $body, a string, to $url with $headers: the response, as the overview
  * above says
  */
-pub fn post($url, $body, $headers = {}) {
+pub fn post(string $url, string $body, map $headers = {}): map {
     return request("POST", $url, $headers, $body);
 }
 
@@ -51,11 +51,8 @@ pub fn post($url, $body, $headers = {}) {
  * says. A method or header name that isn't an HTTP token, or a URL with a space or control
  * character in it, is an error, so nothing can end a line of the request.
  */
-pub fn request($method, $url, $headers = {}, $body = null) {
+pub fn request(string $method, string $url, map $headers = {}, ?string $body = null): map {
     check_token("method", $method);
-    if ($body != null && type_of($body) != "string") {
-        throw "HTTP error: the body must be a string, got " .. type_of($body);
-    }
     // By lowercased name: [the name as given, its value]
     $sent = {};
     foreach ($headers as $name => $value) {
@@ -131,10 +128,7 @@ fn exchange($method, $target, $sent, $body) {
 }
 
 // {"scheme", "host", "port", "path", "host_header", "origin"} from an http or https URL
-fn parse_url($url) {
-    if (type_of($url) != "string") {
-        throw "HTTP error: a URL must be a string, got " .. type_of($url);
-    }
+fn parse_url(string $url) {
     $shown = quote($url);
     // Nothing a request line can't carry: no space or control character
     foreach (split($url, "") as $c) {
@@ -676,7 +670,7 @@ kind Refusal extends Error {
  *   server; with "tls", so does a client slow to finish its handshake, for up to "header_timeout".
  * - ponytail: writing the response has only the per-write timeout.
  */
-pub fn serve($listener, $handler, $options = {}) {
+pub fn serve($listener, $handler, map $options = {}) {
     $options = server_options($options);
     $lifetime = Lifetime($options["max_requests"]);
     $rule = master_rule($options);
@@ -1554,7 +1548,7 @@ fn h2_request($stream, $options, $address, $line) {
 /**
  * One connection: its requests read and answered, and the connection closed, whatever happens
  */
-pub fn handle($socket, $handler, $options = {}) {
+pub fn handle($socket, $handler, map $options = {}) {
     connection($socket, Turns(null), $handler, server_options($options), null);
 }
 
@@ -2530,7 +2524,7 @@ const CONTENT_TYPES = {
  *   (style.3f9a1c.css) can be kept for good: {"cache_control" => "public, max-age=31536000,
  *   immutable"}.
  */
-pub fn serve_static($dir, $options = {}) {
+pub fn serve_static($dir, map $options = {}) {
     $options = with_defaults("http::serve_static()", $options, STATIC_OPTIONS);
 
     return $request -> {
@@ -2660,42 +2654,42 @@ pub kind Router {
     /**
      * Route GET requests for paths $pattern matches to $handler (and HEAD requests too)
      */
-    pub fn get($pattern, $handler) {
+    pub fn get(string $pattern, $handler) {
         #add("GET", $pattern, $handler);
     }
 
     /**
      * Route POST requests for paths $pattern matches to $handler
      */
-    pub fn post($pattern, $handler) {
+    pub fn post(string $pattern, $handler) {
         #add("POST", $pattern, $handler);
     }
 
     /**
      * Route PUT requests for paths $pattern matches to $handler
      */
-    pub fn put($pattern, $handler) {
+    pub fn put(string $pattern, $handler) {
         #add("PUT", $pattern, $handler);
     }
 
     /**
      * Route PATCH requests for paths $pattern matches to $handler
      */
-    pub fn patch($pattern, $handler) {
+    pub fn patch(string $pattern, $handler) {
         #add("PATCH", $pattern, $handler);
     }
 
     /**
      * Route DELETE requests for paths $pattern matches to $handler
      */
-    pub fn delete($pattern, $handler) {
+    pub fn delete(string $pattern, $handler) {
         #add("DELETE", $pattern, $handler);
     }
 
     /**
      * Any other method, by name
      */
-    pub fn route($method, $pattern, $handler) {
+    pub fn route($method, string $pattern, $handler) {
         #add($method, $pattern, $handler);
     }
 
@@ -2703,21 +2697,21 @@ pub kind Router {
      * Add middleware, ($request, $next) -> response, around everything the router does, inside
      * what was added before it
      */
-    pub fn use($middleware) {
-        #around[] = checked_middleware($middleware);
+    pub fn use(function $middleware) {
+        #around[] = $middleware;
     }
 
     /**
      * A group whose routes $middleware wraps, once one of them matched: add them to the group
      */
-    pub fn middleware($middleware): Group {
+    pub fn middleware(function $middleware): Group {
         return #root().middleware($middleware);
     }
 
     /**
      * A group whose routes' paths start with $prefix ("/admin"): add them to the group
      */
-    pub fn prefix($prefix): Group {
+    pub fn prefix(string $prefix): Group {
         return #root().prefix($prefix);
     }
 
@@ -2821,18 +2815,18 @@ pub kind Group {
     /**
      * This group with $middleware too, inside what it has
      */
-    pub fn middleware($middleware): Group {
-        return Group(#add, [...#wrappers, checked_middleware($middleware)], #path);
+    pub fn middleware(function $middleware): Group {
+        return Group(#add, [...#wrappers, $middleware], #path);
     }
 
     /**
      * This group with its paths under $prefix too, after the prefix it has
      */
-    pub fn prefix($prefix): Group {
+    pub fn prefix(string $prefix): Group {
         if ($prefix == "/") {
             throw "A group's prefix of / adds nothing: give the group middleware() alone";
         }
-        if (type_of($prefix) != "string" || !starts_with($prefix, "/") || ends_with($prefix, "/")) {
+        if (!starts_with($prefix, "/") || ends_with($prefix, "/")) {
             throw "A group's prefix starts with / and doesn't end with one, got " .. quote($prefix);
         }
         // Its segments are checked as a pattern's, here rather than at the first route under it
@@ -2850,42 +2844,42 @@ pub kind Group {
     /**
      * Route GET requests (and HEAD) for paths $pattern matches, after the prefix, to $handler
      */
-    pub fn get($pattern, $handler) {
+    pub fn get(string $pattern, $handler) {
         #route("GET", $pattern, $handler);
     }
 
     /**
      * Route POST requests for paths $pattern matches, after the prefix, to $handler
      */
-    pub fn post($pattern, $handler) {
+    pub fn post(string $pattern, $handler) {
         #route("POST", $pattern, $handler);
     }
 
     /**
      * Route PUT requests for paths $pattern matches, after the prefix, to $handler
      */
-    pub fn put($pattern, $handler) {
+    pub fn put(string $pattern, $handler) {
         #route("PUT", $pattern, $handler);
     }
 
     /**
      * Route PATCH requests for paths $pattern matches, after the prefix, to $handler
      */
-    pub fn patch($pattern, $handler) {
+    pub fn patch(string $pattern, $handler) {
         #route("PATCH", $pattern, $handler);
     }
 
     /**
      * Route DELETE requests for paths $pattern matches, after the prefix, to $handler
      */
-    pub fn delete($pattern, $handler) {
+    pub fn delete(string $pattern, $handler) {
         #route("DELETE", $pattern, $handler);
     }
 
     /**
      * Any other method, by name
      */
-    pub fn route($method, $pattern, $handler) {
+    pub fn route($method, string $pattern, $handler) {
         $wrapped = $handler;
         foreach (reverse(#wrappers) as $middleware) {
             $wrapped = wrap($middleware, $wrapped);
@@ -2896,7 +2890,7 @@ pub kind Group {
     // "/" under a prefix is the prefix itself, as "/admin" is the group's first page
     fn prefixed($pattern) {
         // One that doesn't start with / is left for the router to refuse as it is
-        if (#path == "" || type_of($pattern) != "string" || !starts_with($pattern, "/")) {
+        if (#path == "" || !starts_with($pattern, "/")) {
             return $pattern;
         }
         if ($pattern == "/") {
@@ -2951,8 +2945,8 @@ kind Route {
 }
 
 // A pattern's segments, checked: "/users/:id" is ["users", ":id"]
-fn pattern_segments($pattern) {
-    if (type_of($pattern) != "string" || !starts_with($pattern, "/")) {
+fn pattern_segments(string $pattern) {
+    if (!starts_with($pattern, "/")) {
         throw "A route's pattern starts with /, got " .. quote($pattern);
     }
     $segments = segments($pattern);
@@ -3006,14 +3000,6 @@ fn other_spelling($path) {
     }
 
     return $path .. "/";
-}
-
-// Middleware, checked when it is added rather than at the first request it would wrap
-fn checked_middleware($middleware) {
-    if (type_of($middleware) != "function") {
-        throw "Middleware is a function of a request and the next handler, not " .. type_of($middleware);
-    }
-    return $middleware;
 }
 
 fn wrap($middleware, $next) {
@@ -3627,7 +3613,7 @@ const MAX_ADDRESS_LENGTH = 45;   // the longest IPv6 text, an IPv4 address in it
  * for IPv6, so "::1" and "0:0:0:0:0:0:0:1" are different entries. A range type and an address
  * parser would lift both.
  */
-pub fn client_address($request, $trusted_proxies = []) {
+pub fn client_address(map $request, list $trusted_proxies = []) {
     check_trusted_proxies($trusted_proxies);
     $vouched = $request["remote_address"];
     if ($vouched == null || !in_array($vouched, $trusted_proxies)) {
@@ -3647,9 +3633,6 @@ pub fn client_address($request, $trusted_proxies = []) {
 }
 
 fn check_trusted_proxies($trusted_proxies) {
-    if (type_of($trusted_proxies) != "list") {
-        throw "http::client_address() expects a list of addresses, got " .. type_of($trusted_proxies);
-    }
     foreach ($trusted_proxies as $proxy) {
         if (type_of($proxy) != "string") {
             throw "http::client_address() expects each trusted proxy to be a string, got " .. type_of($proxy);
@@ -3759,7 +3742,7 @@ fn sent_cookies($request) {
  *   isn't a plain navigation, the common CSRF vector;
  * - "max_age", a Max-Age attribute in seconds, a session cookie with none.
  */
-pub fn set_cookie($response, $name, $value, $options = {}) {
+pub fn set_cookie($response, $name, $value, map $options = {}) {
     $headers = $response["headers"] ?? {};
     $existing = $headers["Set-Cookie"] ?? [];
     if (type_of($existing) != "list") {
@@ -3800,10 +3783,7 @@ fn cookie_options($options) {
 }
 
 // $options over $defaults, refusing a name $defaults doesn't have, in $who's words
-fn with_defaults($who, $options, $defaults) {
-    if (type_of($options) != "map") {
-        throw "$who expects a map of options, got " .. type_of($options);
-    }
+fn with_defaults($who, map $options, $defaults) {
     foreach ($options as $name => $value) {
         if (!has_key($defaults, $name)) {
             throw "$who has no option " .. quote($name) .. ": only " .. join(keys($defaults), ", ");
@@ -3845,7 +3825,7 @@ pub fn session($request, $secret) {
  * $response with the session's Set-Cookie added, signed with $secret: session()'s other
  * direction. $options are set_cookie()'s.
  */
-pub fn session_cookie($response, $session, $secret, $options = {}) {
+pub fn session_cookie($response, $session, $secret, map $options = {}) {
     $payload = crypto::sign(json::encode($session), $secret);
 
     return set_cookie($response, SESSION_COOKIE, $payload, $options);
@@ -3906,16 +3886,13 @@ const CSRF_REFUSAL = "Forbidden: this form has expired. Go back, reload the page
  *     $app.use(http::sessions($secret, {"secure" => true}));
  *     $app.use(http::csrf());
  */
-pub fn security_headers($options = {}) {
+pub fn security_headers(map $options = {}) {
     $headers = security_header_values($options);
 
     return ($request, $next) -> with_missing_headers($next($request), $headers);
 }
 
 fn security_header_values($options) {
-    if (type_of($options) != "map") {
-        throw "http::security_headers() expects a map of options, got " .. type_of($options);
-    }
     $headers = SECURITY_HEADERS;
     foreach ($options as $name => $value) {
         check_token("header name", $name);
@@ -3968,7 +3945,7 @@ fn header_key($headers, $name) {
  * once: the next session has none unless the handler set one. $secret must be at least 32 bytes.
  * $options are http::set_cookie()'s, "max_age" two weeks by default.
  */
-pub fn sessions(string $secret, $options = {}) {
+pub fn sessions(string $secret, map $options = {}) {
     if (len($secret) < MINIMUM_SECRET) {
         throw "http::sessions() needs a secret of at least " .. MINIMUM_SECRET .. " bytes, not " .. len($secret) .. ": a short one can be guessed, and every session forged with it";
     }
@@ -4065,7 +4042,7 @@ pub fn flash(map $request, string $message, ?map $session = null): map {
  * the form field's name, and "failure", a function from the request to the response to answer
  * with instead. It needs http::sessions() before it, and says so on the first request otherwise.
  */
-pub fn csrf($options = {}) {
+pub fn csrf(map $options = {}) {
     $options = with_defaults("http::csrf()", $options, CSRF_OPTIONS);
     $field = $options["field"];
     if (type_of($field) != "string") {
@@ -4163,7 +4140,7 @@ pub kind TestClient {
     /**
      * A client of $handler with no cookies yet; $options as above
      */
-    pub fn _($handler, $options = {}) {
+    pub fn _($handler, map $options = {}) {
         #handler = $handler;
         #options = with_defaults("http::TestClient()", $options, TEST_CLIENT_OPTIONS);
         #server_options = server_options({"max_body" => #options["max_body"]});

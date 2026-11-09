@@ -318,7 +318,7 @@ class HttpTest extends GazLangTestCase
             'line break in a header value' => ['http::get("http://localhost/", {"X" => "a\r\nY: b"});', 'HTTP error: header X has a line break or NUL byte in its value'],
             'a header http writes' => ['http::get("http://localhost/", {"Content-Length" => 5});', 'HTTP error: header Content-Length is written by http::request'],
             'bad method' => ['http::request("GE T", "http://localhost/");', 'HTTP error: bad method: "GE T"'],
-            'body not a string' => ['http::post("http://localhost/", [1]);', 'HTTP error: the body must be a string, got list'],
+            'body not a string' => ['$body = [1]; http::post("http://localhost/", $body);', 'http::post() expects $body to be string, got list'],
             'another scheme' => ['http::get("file:///etc/passwd");', 'HTTP error: only http and https URLs, got "file:///etc/passwd"'],
             'no scheme' => ['http::get("localhost/x");', 'HTTP error: bad URL: "localhost/x"'],
             'space in a URL' => ['http::get("http://localhost/a b");', 'HTTP error: bad URL: "http://localhost/a b"'],

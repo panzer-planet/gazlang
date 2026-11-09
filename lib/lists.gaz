@@ -4,15 +4,10 @@
  */
 namespace lists;
 
-import "std/text.gaz" use quote;
-
 /**
  * The elements of a list of lists, in order, one level deep: [[1, 2], [], [3]] is [1, 2, 3]
  */
-pub fn flatten($lists) {
-    if (type_of($lists) != "list") {
-        throw "lists::flatten() expects a list of lists, got " .. type_of($lists);
-    }
+pub fn flatten(list $lists): list {
     $all = [];
     foreach ($lists as $list) {
         if (type_of($list) != "list") {
@@ -30,7 +25,7 @@ pub fn flatten($lists) {
  * ponytail: compares every element with those kept, so a long list of many different values takes
  * time in proportion to the square of its length; a list of strings or ints could use a map's keys
  */
-pub fn unique($xs) {
+pub fn unique(list $xs): list {
     $kept = [];
     foreach ($xs as $x) {
         if (!in_array($x, $kept)) {
@@ -45,21 +40,18 @@ pub fn unique($xs) {
  * The element whose key is largest, the first of them on a tie: $key($x) is called once for
  * each element and the keys compared with <=>, so a list of keys breaks ties in order
  */
-pub fn max_by($xs, $key) {
+pub fn max_by(list $xs, function $key) {
     return extreme($xs, $key, 1, "max_by");
 }
 
 /**
  * The element whose key is smallest, the first of them on a tie
  */
-pub fn min_by($xs, $key) {
+pub fn min_by(list $xs, function $key) {
     return extreme($xs, $key, -1, "min_by");
 }
 
 fn extreme($xs, $key, $sign, $name) {
-    if (type_of($xs) != "list") {
-        throw "lists::{$name}() expects a non-empty list, got " .. type_of($xs);
-    }
     if ($xs == []) {
         throw "lists::{$name}() expects a non-empty list";
     }
@@ -73,15 +65,9 @@ fn extreme($xs, $key, $sign, $name) {
     return $best;
 }
 
-fn expect_list($xs, $name) {
-    if (type_of($xs) != "list") {
-        throw "lists::{$name}() expects a list, got " .. type_of($xs);
-    }
-}
-
-fn expect_count($n, $name, $least) {
-    if (type_of($n) != "int" || $n < $least) {
-        throw "lists::{$name}() expects an int of {$least} or more, got " .. quote($n);
+fn expect_count($n, $name, $parameter, $least) {
+    if ($n < $least) {
+        throw "lists::{$name}() expects \${$parameter} to be {$least} or more, got {$n}";
     }
 }
 
@@ -89,8 +75,7 @@ fn expect_count($n, $name, $least) {
  * The elements as a map from each one's key to the list of elements with that key, in the order
  * the keys first come: $key($x) is called once for each element and must give an int or a string
  */
-pub fn group_by($xs, $key) {
-    expect_list($xs, "group_by");
+pub fn group_by(list $xs, function $key): map {
     $groups = {};
     foreach ($xs as $x) {
         $k = $key($x);
@@ -105,8 +90,7 @@ pub fn group_by($xs, $key) {
  * How many elements have each key, as a map in the order the keys first come: $key($x) is called
  * once for each element and must give an int or a string
  */
-pub fn count_by($xs, $key) {
-    expect_list($xs, "count_by");
+pub fn count_by(list $xs, function $key): map {
     $counts = {};
     foreach ($xs as $x) {
         $k = $key($x);
@@ -120,8 +104,7 @@ pub fn count_by($xs, $key) {
  * [$matching, $rest]: the elements $predicate($x) is true for and those it isn't, each in order,
  * with the predicate called once for each element
  */
-pub fn partition($xs, $predicate) {
-    expect_list($xs, "partition");
+pub fn partition(list $xs, function $predicate): list {
     $matching = [];
     $rest = [];
     foreach ($xs as $x) {
@@ -138,9 +121,8 @@ pub fn partition($xs, $predicate) {
 /**
  * The list in lists of $size elements, the last one shorter when they don't divide evenly
  */
-pub fn chunk($xs, $size) {
-    expect_list($xs, "chunk");
-    expect_count($size, "chunk", 1);
+pub fn chunk(list $xs, int $size): list {
+    expect_count($size, "chunk", "size", 1);
     $chunks = [];
     for ($i = 0; $i < len($xs); $i += $size) {
         $chunks[] = slice($xs, $i, $size);
@@ -153,9 +135,7 @@ pub fn chunk($xs, $size) {
  * [$a[0], $b[0]], [$a[1], $b[1]] and so on, as many pairs as the shorter list has elements
  * (the rest of the longer one is dropped)
  */
-pub fn zip($a, $b) {
-    expect_list($a, "zip");
-    expect_list($b, "zip");
+pub fn zip(list $a, list $b): list {
     $pairs = [];
     $count = min(len($a), len($b));
     for ($i = 0; $i < $count; $i++) {
@@ -168,18 +148,16 @@ pub fn zip($a, $b) {
 /**
  * The first $n elements, or all of them when there are fewer
  */
-pub fn take($xs, $n) {
-    expect_list($xs, "take");
-    expect_count($n, "take", 0);
+pub fn take(list $xs, int $n): list {
+    expect_count($n, "take", "n", 0);
     return slice($xs, 0, $n);
 }
 
 /**
  * All but the first $n elements, none when there are fewer
  */
-pub fn drop($xs, $n) {
-    expect_list($xs, "drop");
-    expect_count($n, "drop", 0);
+pub fn drop(list $xs, int $n): list {
+    expect_count($n, "drop", "n", 0);
     if ($n >= len($xs)) {
         return [];
     }
@@ -190,8 +168,7 @@ pub fn drop($xs, $n) {
 /**
  * $key of each map in the list, in order; a map without it is an error, as reading it is
  */
-pub fn pluck($xs, $key) {
-    expect_list($xs, "pluck");
+pub fn pluck(list $xs, $key): list {
     $values = [];
     foreach ($xs as $x) {
         if (type_of($x) != "map") {
@@ -206,8 +183,7 @@ pub fn pluck($xs, $key) {
 /**
  * The sum of $key($x) over the elements, 0 for none, added as sum() adds
  */
-pub fn sum_by($xs, $key) {
-    expect_list($xs, "sum_by");
+pub fn sum_by(list $xs, function $key) {
     $keys = [];
     foreach ($xs as $x) {
         $keys[] = $key($x);
@@ -219,8 +195,7 @@ pub fn sum_by($xs, $key) {
 /**
  * The mean of the numbers in the list, always a float; an empty list has none, so it is an error
  */
-pub fn avg($xs) {
-    expect_list($xs, "avg");
+pub fn avg(list $xs): float {
     if ($xs == []) {
         throw "lists::avg() expects a non-empty list";
     }
@@ -231,8 +206,7 @@ pub fn avg($xs) {
 /**
  * The mean of $key($x) over the elements, always a float; an empty list is an error
  */
-pub fn avg_by($xs, $key) {
-    expect_list($xs, "avg_by");
+pub fn avg_by(list $xs, function $key): float {
     if ($xs == []) {
         throw "lists::avg_by() expects a non-empty list";
     }
@@ -243,8 +217,7 @@ pub fn avg_by($xs, $key) {
 /**
  * The first element, as last() gives the last: an empty list is an error
  */
-pub fn first($xs) {
-    expect_list($xs, "first");
+pub fn first(list $xs) {
     if ($xs == []) {
         throw "lists::first() expects a non-empty list";
     }
@@ -256,8 +229,7 @@ pub fn first($xs) {
  * The first element $predicate($x) is true for, or null when there is none: not finding one is
  * an ordinary outcome, and a list holding null can't tell the two apart
  */
-pub fn find($xs, $predicate) {
-    expect_list($xs, "find");
+pub fn find(list $xs, function $predicate) {
     foreach ($xs as $x) {
         if ($predicate($x)) {
             return $x;
@@ -271,8 +243,7 @@ pub fn find($xs, $predicate) {
  * Whether $predicate($x) is true for some element: in_array() asks about a value, this about a
  * property, and stops at the first
  */
-pub fn contains_by($xs, $predicate) {
-    expect_list($xs, "contains_by");
+pub fn contains_by(list $xs, function $predicate): bool {
     foreach ($xs as $x) {
         if ($predicate($x)) {
             return true;
