@@ -1,0 +1,28 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $x
+@ "error_match_table_negating_the_smallest_int.gaz" 1
+PUSH 5
+STORE 0
+LOAD 0
+PUSH 1
+EQUALS
+NOT
+JZ END
+@ "error_match_table_negating_the_smallest_int.gaz" 2
+LOAD 0
+PUSH -9223372036854775808
+NEG
+EQUALS
+NOT
+JZ END
+LOAD 0
+PUSH 2
+EQUALS
+NOT
+JZ END
+LABEL END
+PUSH "not reached"
+PRINT

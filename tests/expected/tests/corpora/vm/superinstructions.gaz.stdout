@@ -74,3 +74,96 @@ a string == Low: false
 a < top: Cannot use < on string and int (line 187)
 max + top: Integer overflow (line 188)
 unset == Low: Undefined variable: $x (line 191)
+1: one
+3: two or three
+the string 1: the string one
+2 once: two or three
+1.0: one
+3.0: two or three
+1.5: something else
+null: something else
+true: something else
+a list: something else
+a point: something else
+4: something else
+Dog: Dog
+Cat: Cat
+Named: Named
+Point: no kind
+a cat: no kind
+the string Dog: no kind
+broken 2: two
+broken 2.5: two and a half
+broken y: y
+broken 3: three
+broken a: a
+broken b: No arm matches "b" (line 234)
+broken 3.0: three
+-1: minus one
+-2: minus two
+1: other
+-1.0: minus one
+0: zero
+true: true
+false: false
+null: null
+ab: ab
+abc: other
+abcd: abcd
+a: other
+a long string: other
+an empty list: other
+crowded [true]: other
+crowded [false]: false
+crowded [null]: other
+crowded [-10]: other
+crowded [-9]: other
+crowded [-8]: other
+crowded [-7]: other
+crowded [-6]: other
+crowded [-5]: other
+crowded [-4]: other
+crowded [-3]: other
+crowded [-2]: other
+crowded [-1]: other
+crowded [0]: 0
+crowded [1]: 1
+crowded [2]: 2
+crowded [3]: 3
+crowded [4]: 4
+crowded [5]: 5
+crowded [6]: 6
+crowded [7]: 7
+crowded [8]: 8
+crowded [9]: 9
+crowded [10]: 10
+crowded [11]: 11
+crowded [12]: 12
+crowded [13]: 13
+crowded [14]: 14
+crowded [15]: 15
+crowded [16]: 16
+crowded [17]: 17
+crowded [18]: 18
+crowded [19]: 19
+crowded [20]: 20
+crowded [21]: 21
+crowded [22]: 22
+crowded [23]: 23
+crowded [24]: 24
+crowded [25]: 25
+crowded [26]: 26
+crowded [27]: 27
+crowded [28]: 28
+crowded [29]: 29
+crowded [30]: other
+crowded [31]: other
+crowded [32]: other
+crowded [33]: other
+crowded [34]: other
+crowded [35]: other
+crowded [36]: other
+crowded [37]: other
+crowded [38]: other
+crowded [39]: other
+crowded [40]: other

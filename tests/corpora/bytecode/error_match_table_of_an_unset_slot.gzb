@@ -1,0 +1,20 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $u
+@ "error_match_table_of_an_unset_slot.gaz" 2
+LOAD 0
+PUSH 1
+EQUALS
+NOT
+JZ END
+LOAD 0
+PUSH 2
+EQUALS
+NOT
+JZ END
+LABEL END
+PUSH "not reached"
+PRINT
+

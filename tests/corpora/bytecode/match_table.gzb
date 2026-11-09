@@ -1,0 +1,60 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals $u
+@ "match_table.gaz" 1
+PUSH 1
+PUSH false
+CALL pick 2
+PRINT
+PUSH 1
+PUSH true
+CALL pick 2
+PRINT
+PUSH 3
+PUSH true
+CALL pick 2
+PRINT
+PUSH "two"
+PUSH false
+CALL pick 2
+PRINT
+PUSH 3.0
+PUSH false
+CALL pick 2
+PRINT
+fn pick 2 2
+locals $x $skip
+@ "match_table.gaz" 3
+LOAD 1
+JZ START
+JMP MIDDLE
+LABEL START
+LOAD 0
+PUSH 1
+EQUALS
+NOT
+JZ ONE
+LABEL MIDDLE
+LOAD 0
+PUSH "two"
+EQUALS
+NOT
+JZ TWO
+LOAD 0
+PUSH 3
+EQUALS
+NOT
+JZ THREE
+PUSH "none"
+RET
+LABEL ONE
+PUSH "one"
+RET
+LABEL TWO
+PUSH "two"
+RET
+LABEL THREE
+PUSH "three"
+RET

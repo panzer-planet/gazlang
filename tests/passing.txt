@@ -888,6 +888,8 @@ tests/corpora/bytecode/error_location_not_quoted.gzb
 tests/corpora/bytecode/error_location_words.gzb
 tests/corpora/bytecode/error_map_extend_into_a_list.gzb
 tests/corpora/bytecode/error_map_set_in_an_int.gzb
+tests/corpora/bytecode/error_match_table_negating_the_smallest_int.gzb
+tests/corpora/bytecode/error_match_table_of_an_unset_slot.gzb
 tests/corpora/bytecode/error_method_called_as_a_function.gzb
 tests/corpora/bytecode/error_method_declarer_undefined.gzb
 tests/corpora/bytecode/error_method_definer_undefined.gzb
@@ -994,6 +996,7 @@ tests/corpora/bytecode/final.gzb
 tests/corpora/bytecode/foreach_next.gzb
 tests/corpora/bytecode/interfaces.gzb
 tests/corpora/bytecode/map_extend.gzb
+tests/corpora/bytecode/match_table.gzb
 tests/corpora/bytecode/raised_error_as_a_value.gzb
 tests/corpora/bytecode/readonly.gzb
 tests/corpora/bytecode/set_field_undeclared.gzb

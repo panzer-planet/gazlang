@@ -469,6 +469,7 @@ enum {
     OP_SET_FIELD_POP,   /* SET_FIELD; POP */
     OP_LOAD_LOAD_INDEX, /* LOAD; LOAD; INDEX_GET */
     OP_LOAD_STATIC_OP,  /* LOAD; LOAD_STATIC; a quick operator: a match on an enum's cases */
+    OP_MATCH_TABLE,     /* a run of LOAD x; PUSH or PUSH_KIND; EQUALS; NOT; JZ: a match's arms (MatchTable) */
 };
 
 /* ---- value.c --------------------------------------------------------------------------- */
@@ -518,6 +519,7 @@ Str *str_append(Str *s, const char *data, size_t len);  /* s must be unshared; m
 bool str_eq(const Str *a, const Str *b);
 int str_cmp(const Str *a, const Str *b);
 uint64_t str_hash(Str *s);
+
 uint64_t siphash13(const unsigned char *data, size_t len, uint64_t k0, uint64_t k1);  /* siphash.c */
 /* An address as text (ipaddr.c): out holds IP_TEXT_MAX bytes, the text is NUL-terminated and its length is returned */
 #define IP_V4 4
@@ -630,6 +632,72 @@ int callable_min_args(Value callee);  /* fewest arguments a program-defined func
 bool call_value(Value callee, Value *args, int argc, Value *out);  /* calls a value to its end, as map() does */
 extern FILE *output;        /* where echo and print write: standard output, or memory while compiling */
 void flush_output(void);
+
+/* ---- match tables (built by match_tables() in load.c, run by OP_MATCH_TABLE in vm.c) ------- */
+
+/*
+ * A match's jump table: each null, bool, int, string or kind an arm compares the subject with,
+ * and where its arm starts. Open addressing, at most half full, a bucket with an unset key
+ * empty. The keys are the program's own constants, so a subject can only ever probe as far as
+ * the longest run of them, and no key is needed in the hash. A key an earlier arm already has
+ * keeps the earlier arm, as the comparisons would.
+ */
+typedef struct MatchEntry {
+    Value key;
+    int32_t target;
+} MatchEntry;
+typedef struct MatchTable {
+    size_t mask;            /* buckets - 1, a power of two */
+    int32_t miss;           /* the instruction after the last comparison the table answers for */
+    int32_t fallback;       /* the op the first LOAD had before the table: what runs when it can't answer */
+    size_t shortest, longest;  /* the string keys' lengths, so a string no key's length is never hashed */
+    MatchEntry buckets[];   /* a flexible array member: mask + 1 entries follow the struct */
+} MatchTable;
+
+/* The types a key can have; == between two of them is equality of type and payload */
+static inline bool match_key_type(Type t) {
+    return t == T_NULL || t == T_BOOL || t == T_INT || t == T_STRING || t == T_KIND;
+}
+
+static inline bool match_key_equal(Value a, Value b) {
+    if (a.type != b.type) return false;
+    switch (a.type) {
+    case T_BOOL: return a.b == b.b;
+    case T_INT: return a.i == b.i;
+    case T_STRING: return str_eq(a.s, b.s);
+    case T_KIND: return a.k == b.k;
+    default: return true;   /* null */
+    }
+}
+
+static inline uint64_t match_hash(Value key) {
+    if (key.type == T_STRING) return str_hash(key.s);
+    uint64_t x = key.type == T_INT ? (uint64_t)key.i
+        : key.type == T_KIND ? (uint64_t)(uintptr_t)key.k
+        : key.type == T_BOOL ? (uint64_t)key.b + 1
+        : 0;
+    x ^= (uint64_t)key.type << 56;
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    return x;
+}
+
+/*
+ * Where the subject's arm starts, or -1 when only the comparisons can say: a float may equal
+ * an int arm, and an unset slot is the LOAD's error. A list, map, object or anything else
+ * equals no key (values_equal() in value.c), so it misses every arm.
+ */
+static inline int32_t match_lookup(const MatchTable *t, Value subject) {
+    if (subject.type == T_FLOAT || subject.type == T_UNSET) return -1;
+    if (!match_key_type(subject.type)) return t->miss;
+    if (subject.type == T_STRING && (subject.s->len < t->shortest || subject.s->len > t->longest)) return t->miss;
+    for (size_t i = match_hash(subject) & t->mask;; i = (i + 1) & t->mask) {
+        const MatchEntry *e = &t->buckets[i];
+        if (e->key.type == T_UNSET) return t->miss;
+        if (match_key_equal(e->key, subject)) return e->target;
+    }
+}
 
 /* ---- load.c ---------------------------------------------------------------------------- */
 

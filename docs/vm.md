@@ -190,9 +190,9 @@ shell calls are its session and a sequence showing a bug is already a test case.
   program code. The tested build lowers the threshold's floor to 64 containers (`GC_MINIMUM`,
   10000 otherwise) so the harness exercises it.
 - **Superinstructions** (`fuse()` in `load.c`): the loader puts one in place of the first
-  instruction of a common sequence (`LOAD; PUSH; LT; JZ`, `LOAD x; INC; STORE x`, eight in all,
-  after `OP_COUNT` so no file can name one) and leaves the sequence where it was, so a jump into
-  it still lands on real instructions.
+  instruction of a common sequence (`LOAD; PUSH; LT; JZ`, `LOAD x; INC; STORE x`, nine in all
+  with the match table, after `OP_COUNT` so no file can name one) and leaves the sequence where it
+  was, so a jump into it still lands on real instructions.
   - A superinstruction's quick path must be one that can't fail or run program code; otherwise it
     runs its first instruction alone and the rest follow, so errors and their lines are the
     sequence's own.
@@ -201,6 +201,22 @@ shell calls are its session and a sequence showing a bug is already a test case.
     bytecode has.
   - `LOAD; LOAD_STATIC; op` is for a `match` on an enum's cases: without it each arm took two more
     dispatches than a string constant's, which `LOAD; PUSH; op` fuses.
+  - **A match's arms are a jump table** (`match_tables()` in `load.c`, `OP_MATCH_TABLE`): a run
+    of two or more `LOAD x; value; EQUALS; NOT; JZ arm` on one slot, the value a `PUSH` of `null`,
+    a bool, an int or a string, a `PUSH_KIND`, or a negative literal's `PUSH n; NEG`, gets a hash
+    table from each value to its arm on its first `LOAD`, the earlier arm winning a repeated key,
+    so a match costs one lookup however many arms it has. A subject of one of those types is
+    answered by the table and any other misses every arm, both without the comparisons, which
+    can't fail or run code for them; a string no key's length misses before it is hashed, as
+    `str_eq()` refused it at once. A float (`2.0 == 2`) and an unset slot run the comparisons,
+    through the superinstruction `fuse()` gave the first `LOAD`, and the comparisons stay in place
+    for a jump into the middle, like any superinstruction's. A float or computed arm ends the run,
+    and the arms after it start another; so does the smallest int's `NEG`, which overflows. In the
+    loader, not the compiler, so the bytecode is the comparisons it always was. Measured: a table
+    of two ties a hit on the first arm and beats the comparisons everywhere else; 45 arms on kinds
+    cost what one does, where the last took nine times the first. `ponytail:` an enum's cases
+    (`LOAD_STATIC`) aren't keys, being objects made when the run starts; a table built in
+    `make_cases()` would lift that.
 
 ## Speed
 

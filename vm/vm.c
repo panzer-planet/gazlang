@@ -1094,6 +1094,17 @@ static bool execute(Instr *pc, Frame *first, Value *result) {
             }
             op = in->orig;
             goto dispatch;
+        case OP_MATCH_TABLE: {
+            const MatchTable *t = in->p;
+            int32_t target = match_lookup(t, fp->base[in->a]);
+            if (target >= 0) {
+                pc = code + target;
+                break;
+            }
+            /* The comparisons from the start, as fuse() would have run the first one */
+            op = t->fallback;
+            goto dispatch;
+        }
         case OP_NOT_JZ:
             a = POP();
             if (a.type == T_BOOL ? a.b : is_truthy(a)) pc = code + in[1].a;

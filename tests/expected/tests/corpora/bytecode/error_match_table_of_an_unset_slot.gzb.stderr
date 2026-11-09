@@ -1,0 +1,1 @@
+Error: Undefined variable: $u at tests/corpora/bytecode/error_match_table_of_an_unset_slot.gaz:2

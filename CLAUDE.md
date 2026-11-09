@@ -1309,8 +1309,8 @@ and methods a table in C.
 ## match
 
 - **Two forms, kept apart**: `match` without a subject exists because `match (true)` silently
-  misses a condition returning a truthy non-bool, and keeping `match ($x)` all-`==` leaves a jump
-  table possible.
+  misses a condition returning a truthy non-bool, and keeping `match ($x)` all-`==` is what lets
+  the loader find an arm by hashing (`match_tables()` in `load.c`, see `docs/vm.md`).
 - **No ranges** as arms: `"a".."z"` is already concatenation.
 - `No arm matches "x"` quotes a string and names anything else by its type, since printing it
   could run `to_string()`, which must never happen while raising. No arms is a parse error.

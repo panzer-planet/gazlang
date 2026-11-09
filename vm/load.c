@@ -2015,6 +2015,96 @@ static void fuse(Instr *in, Instr *end) {
     }
 }
 
+/* The fewest comparisons a match table is built for: measured, a table of two already ties a
+   hit on the first arm and beats everything else */
+#define MATCH_TABLE_MIN 2
+
+/*
+ * One of a match's comparisons on slot x, as the compiler writes it: LOAD x; the arm's value;
+ * EQUALS; NOT; JZ, the JZ jumping to the arm when they are equal. The value is a PUSH of null,
+ * a bool, an int or a string, a PUSH_KIND, or a PUSH of an int then NEG, which is how a
+ * negative literal is written (the smallest int's NEG overflows, so it isn't one). The
+ * comparison's length, 0 when it isn't one, and its key. ponytail: an enum's case
+ * (LOAD_STATIC) is no key, being an object made when the run starts; a table built in
+ * make_cases() would lift that.
+ */
+static int match_comparison(const Instr *in, const Instr *end, int32_t slot, Value *key) {
+    if (end - in < 5 || in->orig != OP_LOAD || in->a != slot) return 0;
+    const Instr *value = &in[1], *rest = &in[2];
+    if (value->orig == OP_PUSH_KIND) {
+        *key = v_kind(value->p);
+    } else if (value->orig == OP_PUSH && match_key_type(value->v.type)) {
+        *key = value->v;
+        if (rest->orig == OP_NEG && key->type == T_INT && key->i != INT64_MIN && end - rest >= 4) {
+            key->i = -key->i;
+            rest++;
+        }
+    } else {
+        return 0;
+    }
+    if (rest[0].orig != OP_EQUALS || rest[1].orig != OP_NOT || rest[2].orig != OP_JZ) return 0;
+    return (int)(rest + 3 - in);
+}
+
+static void match_insert(MatchTable *t, Value key, int32_t target) {
+    for (size_t i = match_hash(key) & t->mask;; i = (i + 1) & t->mask) {
+        MatchEntry *e = &t->buckets[i];
+        if (match_key_equal(e->key, key)) return;   /* the earlier arm wins, as the comparisons would have it */
+        if (e->key.type == T_UNSET) {
+            e->key = key;
+            e->target = target;
+            return;
+        }
+    }
+}
+
+static MatchTable *match_table_new(int count) {
+    size_t buckets = 8;
+    while (buckets < (size_t)count * 2) buckets *= 2;
+    MatchTable *t = xcalloc(1, sizeof(MatchTable) + buckets * sizeof(MatchEntry));
+    t->mask = buckets - 1;
+    t->shortest = SIZE_MAX;
+    return t;
+}
+
+/*
+ * A match's arms compared one at a time cost a comparison each, so where a block has a run of
+ * at least MATCH_TABLE_MIN comparisons of one slot, its first LOAD becomes OP_MATCH_TABLE,
+ * which finds the arm by hashing. None of them can fail or run program code for a subject the
+ * table answers for, so skipping them changes nothing; the comparisons stay where they are, for
+ * any other subject and for a jump into the middle, as a superinstruction's sequence does. The
+ * table borrows its strings from the PUSHes, which live as long as the code. Run after fuse(),
+ * whose choice for the first LOAD is kept as the table's fallback.
+ */
+static void match_tables(Instr *in, Instr *end) {
+    while (in < end) {
+        int32_t slot = in->a;
+        Value key;
+        int count = 0, length;
+        Instr *after = in;
+        while ((length = match_comparison(after, end, slot, &key)) > 0) {
+            count++;
+            after += length;
+        }
+        if (count < MATCH_TABLE_MIN) {
+            in = after == in ? in + 1 : after;
+            continue;
+        }
+        MatchTable *t = match_table_new(count);
+        t->miss = (int32_t)(after - prog->code);
+        t->fallback = in->op;
+        for (Instr *c = in; c < after; c += length) {
+            length = match_comparison(c, end, slot, &key);
+            match_insert(t, key, c[length - 1].a);
+            if (key.type == T_STRING && key.s->len < t->shortest) t->shortest = key.s->len;
+            if (key.type == T_STRING && key.s->len > t->longest) t->longest = key.s->len;
+        }
+        in->op = OP_MATCH_TABLE;
+        in->p = t;
+        in = after;
+    }
+}
+
 static void link_program(void) {
     int total = 0;
     for (int i = 0; i < prog->nblocks; i++) total += prog->blocks[i]->nraw + 1;
@@ -2147,6 +2237,7 @@ static void link_program(void) {
             prog->ncode++;
         }
         fuse(prog->code + b->entry, prog->code + prog->ncode);
+        match_tables(prog->code + b->entry, prog->code + prog->ncode);
         free(dropped);
         free(b->raw);
         free(b->label_names);
