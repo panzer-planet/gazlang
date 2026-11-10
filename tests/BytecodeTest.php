@@ -232,6 +232,22 @@ class BytecodeTest extends GazLangTestCase
         self::succeed([], "GAZLANG BYTECODE 3\nglobals\n\ntop\nlocals\nPUSH 1\nADD\nPOP\n");
     }
 
+    public function test_a_literal_nested_to_the_call_depth_loads()
+    {
+        $depth = 100000;
+        $output = self::succeed([], "GAZLANG BYTECODE 3\nglobals\n\ntop\nlocals\nPUSH ".str_repeat('[', $depth).str_repeat(']', $depth)."\nPRINT\n");
+        $this->assertSame(str_repeat('[', $depth).str_repeat(']', $depth)."\n", $output);
+    }
+
+    public function test_a_literal_nested_deeper_than_the_call_depth_is_a_load_error()
+    {
+        // Each level is a C frame: a mutant nested millions deep ran off the stack. The literal is
+        // cut short in the message, which once left no room for the reason
+        $depth = 100001;
+        $this->expectExceptionMessage("Bad value '".str_repeat('[', 100)."...': Bad value: nested more than 100000 deep on line 6");
+        self::succeed([], "GAZLANG BYTECODE 3\nglobals\n\ntop\nlocals\nPUSH ".str_repeat('[', $depth).str_repeat(']', $depth)."\nPRINT\n");
+    }
+
     public function test_a_stack_that_differs_between_paths_is_a_load_error()
     {
         $this->expectExceptionMessage('The stack is 0 deep at LABEL END (instruction 3), but 1 on another path in the top level');

@@ -761,6 +761,7 @@ tests/corpora/bytecode/constructor_reach.gzb
 tests/corpora/bytecode/enums.gzb
 tests/corpora/bytecode/error_abstract_readonly_kind_header.gzb
 tests/corpora/bytecode/error_abstract_without_kind.gzb
+tests/corpora/bytecode/error_arity_beyond_locals.gzb
 tests/corpora/bytecode/error_array_extend_into_an_int.gzb
 tests/corpora/bytecode/error_array_push_onto_a_float.gzb
 tests/corpora/bytecode/error_bad_path.gzb
@@ -772,6 +773,8 @@ tests/corpora/bytecode/error_call_method_of_a_number.gzb
 tests/corpora/bytecode/error_call_parent_without_a_block.gzb
 tests/corpora/bytecode/error_call_value_named_naming_more_than_it_passes.gzb
 tests/corpora/bytecode/error_call_value_named_with_names_not_strings.gzb
+tests/corpora/bytecode/error_capture_captured_beyond_the_block.gzb
+tests/corpora/bytecode/error_capture_local_beyond_the_block.gzb
 tests/corpora/bytecode/error_capture_slot.gzb
 tests/corpora/bytecode/error_capture_where.gzb
 tests/corpora/bytecode/error_case_in_a_kind.gzb
@@ -890,6 +893,7 @@ tests/corpora/bytecode/error_method_declarer_undefined.gzb
 tests/corpora/bytecode/error_method_definer_undefined.gzb
 tests/corpora/bytecode/error_method_line_too_long.gzb
 tests/corpora/bytecode/error_method_without_block.gzb
+tests/corpora/bytecode/error_minus_twice.gzb
 tests/corpora/bytecode/error_missing_argument.gzb
 tests/corpora/bytecode/error_new_an_interface.gzb
 tests/corpora/bytecode/error_new_from_another_namespace.gzb

@@ -259,6 +259,7 @@ typedef enum { L_EOF, L_MINUS, L_LBRACKET, L_RBRACKET, L_LBRACE, L_RBRACE, L_COM
 typedef struct {
     const char *text;   /* the whole literal, for messages */
     const char *p;
+    int depth;          /* lists and maps open, which items() reads by recursion */
 } LitLexer;
 
 typedef struct {
@@ -268,6 +269,7 @@ typedef struct {
     const char *type;       /* L_OTHER: the token type the lexer would give it */
 } Lit;
 
+#define SHOWN_LITERAL 100   /* bytes of a bad literal an error shows */
 static _Noreturn void bad_value(LitLexer *lx, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 static _Noreturn void bad_value(LitLexer *lx, const char *fmt, ...) {
     char reason[512];
@@ -275,7 +277,16 @@ static _Noreturn void bad_value(LitLexer *lx, const char *fmt, ...) {
     va_start(args, fmt);
     vsnprintf(reason, sizeof reason, fmt, args);
     va_end(args);
-    fail("Bad value '%s': %s", lx->text, reason);
+    /* At most the first SHOWN_LITERAL bytes of the literal, cut where a character starts, so a
+       long one (a mutant nested deep, say) leaves room in fail()'s message for the reason */
+    size_t shown = strlen(lx->text);
+    const char *more = "";
+    if (shown > SHOWN_LITERAL) {
+        shown = SHOWN_LITERAL;
+        while (shown > 0 && ((unsigned char)lx->text[shown] & 0xC0) == 0x80) shown--;
+        more = "...";
+    }
+    fail("Bad value '%.*s%s': %s", (int)shown, lx->text, more, reason);
 }
 
 static int hex_digit(char c) {
@@ -543,6 +554,9 @@ static Value literal(LitLexer *lx, Lit t);
 /* The items of a list or map literal, up to its closing bracket */
 static Value items(LitLexer *lx, bool is_map) {
     LitKind end = is_map ? L_RBRACE : L_RBRACKET;
+    /* Each level is a C frame, so a mutant nested millions deep would run off the stack; the
+       compiler writes nothing this deep, its own parser stopping at the call depth first */
+    if (++lx->depth > MAX_CALL_DEPTH) bad_value(lx, "Bad value: nested more than %d deep", MAX_CALL_DEPTH);
     List *l = is_map ? NULL : list_new(0);
     Map *m = is_map ? map_new() : NULL;
     for (Lit t = lit_next(lx); t.kind != end; t = lit_next(lx)) {
@@ -559,6 +573,7 @@ static Value items(LitLexer *lx, bool is_map) {
         if (t.kind == end) break;
         if (t.kind != L_COMMA) bad_value(lx, "Bad value: expected ',' or the end of the literal");
     }
+    lx->depth--;
     return is_map ? v_map(m) : v_list(l);
 }
 
@@ -567,11 +582,12 @@ static const char *LIT_TYPES[] = {"EOF", "MINUS", "LEFT_BRACKET", "RIGHT_BRACKET
 
 static Value literal(LitLexer *lx, Lit t) {
     if (t.kind == L_MINUS) {
+        /* A number token, not a literal: - - 5 would negate a negation, and the smallest int
+           (read through too_large, its digits not fitting) negated again overflows */
         Lit number = lit_next(lx);
         if (number.too_large) return v_int(INT64_MIN);
-        Value v = literal(lx, number);
-        if (v.type == T_INT) return v_int(-v.i);   /* never the smallest int: its digits don't fit */
-        if (v.type == T_FLOAT) return v_float(-v.f);
+        if (number.kind == L_INT) return v_int(-number.value.i);   /* never the smallest int */
+        if (number.kind == L_FLOAT) return v_float(-number.value.f);
         bad_value(lx, "Bad value: - takes a number");
     }
     if (t.too_large) bad_value(lx, "Integer literal too large: 9223372036854775808");
@@ -591,7 +607,7 @@ static Value literal(LitLexer *lx, Lit t) {
 
 /* A value written as a GazLang literal: the whole of text */
 static Value read_value(const char *text) {
-    LitLexer lx = {text, text};
+    LitLexer lx = {text, text, 0};
     Value v = literal(&lx, lit_next(&lx));
     if (lit_next(&lx).kind != L_EOF) bad_value(&lx, "Bad value '%s'", text);
     return v;
@@ -1110,6 +1126,11 @@ static Block *read_block(const char *header) {
             if (b->self < 0) fail("%s is not captured", name->data);
         } else if (!strcmp(first, "locals")) {
             for (int i = 1; i < w.n; i++) b->locals = push_name(b->locals, &b->nlocals, intern(w.w[i]));
+            /* Arguments are slots 0 to argc - 1, and a named call reads each parameter's name
+               from locals up to the most the arity takes, so the arity can't take more */
+            if ((b->kind == B_FN || b->kind == B_LAMBDA) && b->hi > b->nlocals) {
+                fail("An arity of up to %d arguments needs as many locals, not %d", b->hi, b->nlocals);
+            }
             break;
         } else {
             fail("Expected 'locals'");
@@ -1494,9 +1515,23 @@ static void check_block(Block *b) {
                     /* An interface is a value too, but nothing else can be done with one */
                     if (!(r->op == OP_PUSH_KIND ? find_kind_or_interface(name) : find_kind(name))) FAIL("Undefined kind '%s'", name->data);
                     break;
-                case K_LAMBDA:
-                    if (!find_lambda(n)) FAIL("Undefined lambda %d", n);
+                case K_LAMBDA: {
+                    Lambda *found = find_lambda(n);
+                    if (!found) FAIL("Undefined lambda %d", n);
+                    Block *lambda = found->block;
+                    /* Its capture lines name slots of the block making it, which MAKE_CLOSURE
+                       copies from, so they must be slots this block has */
+                    for (int i = 0; i < lambda->nmap; i++) {
+                        int outer = lambda->map[i].outer;
+                        bool from_closure = lambda->map[i].from_closure;
+                        int has = from_closure ? b->ncaptures : b->nlocals;
+                        if (outer >= has) {
+                            FAIL("Lambda %d captures %s %d, but the block making it has only %d", n,
+                                 from_closure ? "captured variable" : "local", outer, has);
+                        }
+                    }
                     break;
+                }
                 case K_SLOT:
                     if (n >= b->nlocals) FAIL("Slot %d is not one of the block's %d locals", n, b->nlocals);
                     break;

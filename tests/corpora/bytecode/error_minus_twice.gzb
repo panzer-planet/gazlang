@@ -1,0 +1,7 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+PUSH - -9223372036854775808
+PRINT

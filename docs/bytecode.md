@@ -279,7 +279,10 @@ A `LABEL` is a position rather than an instruction, so it carries no location.
 `PUSH` takes the rest of the line as a GazLang literal: an int, a float, a string, `true`,
 `false`, `null`, or a list or map of literals. Numbers may be written with a leading `-`, and a
 loader must read the sign and the digits as one number: the smallest int is written
-`-9223372036854775808`, whose digits alone don't fit an int (a folded constant can be it).
+`-9223372036854775808`, whose digits alone don't fit an int (a folded constant can be it). A
+`-` takes a number, never another `-` or anything else, and a list or map is nested at most
+100000 deep (the call depth, which the compiler's own parser stops at first), since a reader
+that recurses would otherwise run off its stack.
 Floats are written as GazLang prints them, with the shortest digits that read back as the same
 float. Strings are quoted as `echo` shows one inside a list (`quote()` in `vm/value.c`), so a
 literal never spans lines.
@@ -473,6 +476,12 @@ A file that loads is one the VM can run, so the checks are part of the format:
   refused rather than clamped, since it is a number nothing meant.
 - Every label a jump names is defined in the same block, and every function, builtin, kind
   and lambda a name or index refers to exists.
+- A function's or lambda's arity takes at most as many arguments as it has locals: arguments
+  are its first slots, and a call with named arguments reads each parameter's name from
+  `locals`.
+- Each `capture` line of a lambda names a slot the block holding its `MAKE_CLOSURE` has (a local
+  for `local`, a captured variable for `captured`), since that is where the closure copies it
+  from.
 - A `CALL_BUILTIN` passes a count within the builtin's arity, since a builtin reads its
   arguments by position and trusts the count.
 - Nothing that needs the object a method runs on (`LOAD_FIELD`, `SET_FIELD`, `CALL_PARENT`,

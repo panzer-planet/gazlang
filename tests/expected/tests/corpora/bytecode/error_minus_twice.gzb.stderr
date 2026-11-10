@@ -1,0 +1,1 @@
+Error: Bad value '- -9223372036854775808': Bad value: - takes a number at tests/corpora/bytecode/error_minus_twice.gzb:6

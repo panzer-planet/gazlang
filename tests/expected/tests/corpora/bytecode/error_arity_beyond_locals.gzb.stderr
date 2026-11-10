@@ -1,0 +1,1 @@
+Error: An arity of up to 3 arguments needs as many locals, not 1 at tests/corpora/bytecode/error_arity_beyond_locals.gzb:11

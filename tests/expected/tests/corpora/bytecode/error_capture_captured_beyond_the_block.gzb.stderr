@@ -1,0 +1,1 @@
+Error: Lambda 1 captures captured variable 3, but the block making it has only 1 in '->0'

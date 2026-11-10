@@ -1,0 +1,21 @@
+GAZLANG BYTECODE 3
+globals
+
+top
+locals
+CALL f 0
+PRINT
+
+fn f 0 0
+locals $a
+PUSH 1
+STORE 0
+MAKE_CLOSURE 0
+CALL_VALUE 0
+RET
+
+lambda 0 0 0
+capture $a local 4
+locals
+LOAD_CAPTURED 0
+RET
