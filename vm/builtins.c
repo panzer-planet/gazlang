@@ -1486,6 +1486,19 @@ __attribute__((noinline)) static void read_stream(FILE *f, Buf *text) {
     while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) buf_add(text, chunk, n);
 }
 
+/* Up to $want more bytes of a stream onto text, fewer only at its end or a failure. The buffer
+   grows with what arrives, never to $want up front: $want comes from the program, or from a
+   peer's Content-Length, and allocating it whole let a huge one end the process. */
+__attribute__((noinline)) static void read_stream_bytes(FILE *f, Buf *text, size_t want) {
+    char chunk[65536];
+    while (want > 0) {
+        size_t n = fread(chunk, 1, want < sizeof chunk ? want : sizeof chunk, f);
+        if (n == 0) return;
+        buf_add(text, chunk, n);
+        want -= n;
+    }
+}
+
 /* The working directory as a string, or null when it can't be read */
 __attribute__((noinline)) static Str *working_directory(void) {
     char dir[PATH_MAX];
@@ -1889,7 +1902,9 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
             if (f) fclose(f);
             return raisef("Cannot write file: %s", a.s->data);
         }
-        fclose(f);
+        /* Below the size of stdio's buffer the data is only written out here, so a full disk or
+           a file size limit is found by fclose(), not fwrite() */
+        if (fclose(f) != 0) return raisef("Cannot write file: %s", a.s->data);
         *out = v_null();
         return true;
     }
@@ -2009,15 +2024,14 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
         if (!want(index, a, INT)) return false;
         if (a.i < 0) return raisef("read_stdin_bytes() expects n >= 0, got %lld", (long long)a.i);
         flush_output();
-        /* One allocation of exactly $n, not a stack chunk read in a loop: $n is known up front,
-           and a stack buffer here would grow call_builtin's frame, which every level of a
-           recursive call pays for (map/filter calling back into GazLang, say). */
+        /* Read in chunks by read_stream_bytes(), so the stack buffer is in its frame, not
+           call_builtin's, which every level of a recursive call pays for (map/filter calling back
+           into GazLang, say), and memory grows with the bytes that came, not with $n */
         size_t n = (size_t)a.i;
-        char *buf = xmalloc(n ? n : 1);
-        size_t have = 0;
+        Buf text = {0};
         if (piped_input) {
-            have = n < piped_input_len ? n : piped_input_len;
-            memcpy(buf, piped_input, have);
+            size_t have = n < piped_input_len ? n : piped_input_len;
+            buf_add(&text, piped_input, have);
             piped_input_len -= have;
             if (piped_input_len) memmove(piped_input, piped_input + have, piped_input_len);
             else {
@@ -2025,24 +2039,21 @@ bool call_builtin(int index, Value *args, int argc, Value *out) {
                 piped_input = NULL;
             }
         }
-        while (have < n) {
-            size_t got = fread(buf + have, 1, n - have, stdin);
-            if (got == 0) {
-                int err = errno;
-                bool failed = ferror(stdin);
-                size_t short_by = n - have;
-                free(buf);
-                if (failed) {
-                    clearerr(stdin);
-                    return raisef("Cannot read standard input: %s", strerror(err));
-                }
-                return raisef("read_stdin_bytes() expects %lld bytes, standard input ended %zu short",
-                              (long long)a.i, short_by);
+        errno = 0;
+        read_stream_bytes(stdin, &text, n - text.len);
+        if (text.len < n) {
+            int err = errno;
+            bool failed = ferror(stdin);
+            size_t short_by = n - text.len;
+            free(text.data);
+            if (failed) {
+                clearerr(stdin);
+                return raisef("Cannot read standard input: %s", strerror(err));
             }
-            have += got;
+            return raisef("read_stdin_bytes() expects %lld bytes, standard input ended %zu short",
+                          (long long)a.i, short_by);
         }
-        *out = v_string(buf, n);
-        free(buf);
+        *out = v_str(buf_to_str(&text));
         return true;
     }
     case B_ARGS: {

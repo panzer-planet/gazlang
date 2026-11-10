@@ -1,0 +1,28 @@
+import "std/test.gaz" use expect, throws;
+
+/*
+ * read_stdin_bytes(): exactly $n bytes of standard input, the rest left for the next read, as the
+ * language server reads a message framed by its Content-Length. Run as a program of its own with
+ * run(), which gives it its input. A count larger than the input is an error the program can
+ * catch, however large: the buffer grows with what arrives, so a peer's absurd Content-Length
+ * can't end the process by asking for more memory than there is.
+ */
+
+// What a program of $code prints with $input on its standard input
+fn fed(string $code, string $input): string {
+    return run([program_path(), "-e", $code], $input)["stdout"];
+}
+
+// What reading $n bytes of $input raises, caught
+fn refused(int $n, string $input): string {
+    return fed('try { read_stdin_bytes(' .. $n .. '); } catch (Error $e) { print($e.message); }', $input);
+}
+
+expect("it reads what is asked and leaves the rest", fed('print(read_stdin_bytes(3) .. "|" .. read_stdin());', "abcdef"), "abc|def");
+expect("reads follow on", fed('print(read_stdin_bytes(2) .. "|" .. read_stdin_bytes(2));', "abcd"), "ab|cd");
+expect("none is the empty string", fed('print("[" .. read_stdin_bytes(0) .. "]" .. read_stdin());', "abc"), "[]abc");
+expect("a line read after it carries on", fed('print(replace(read_stdin_bytes(5), "\n", "\\\\n") .. "|" .. read_line());', "head\nline\n"), "head\\n|line");
+expect("more than a read gives at once", fed('$s = read_stdin_bytes(200000); print(len($s) .. " " .. read_stdin());', repeat("x", 200000) .. "tail"), "200000 tail");
+expect("input that ends short is an error", refused(5, "abc"), "read_stdin_bytes() expects 5 bytes, standard input ended 2 short");
+expect("so is a count larger than any memory", refused(40000000000, "abc"), "read_stdin_bytes() expects 40000000000 bytes, standard input ended 39999999997 short");
+throws("a negative count", () -> read_stdin_bytes(-1), "read_stdin_bytes() expects n >= 0, got -1");

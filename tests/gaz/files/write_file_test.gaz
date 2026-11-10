@@ -1,0 +1,51 @@
+import "std/test.gaz" use expect, throws;
+import "std/fs.gaz";
+
+/*
+ * write_file(): what it writes, and that a write that fails is an error however small. A file
+ * grown past the process's limit (ulimit -f, here 1 block) can't be written, and SIGXFSZ is
+ * ignored so the write fails with EFBIG instead of ending the program. Below the size of stdio's
+ * buffer only the close finds out, which write_file() once ignored and said nothing.
+ */
+
+// A string as a GazLang literal, to put into a program
+fn text_literal(string $s): string {
+    return slice(to_string([$s]), 1, -1);
+}
+
+// What a program writing $bytes bytes to $path prints under the file size limit
+fn limited_write(string $path, int $bytes): string {
+    $limited = 'trap "" XFSZ; ulimit -f 1; exec "$0" -e "$1"';
+    $code = 'try { write_file($path, repeat("x", $bytes)); print("written"); } catch (Error $e) { print($e.message); }';
+    $code = replace(replace($code, '$path', text_literal($path)), '$bytes', to_string($bytes));
+    return run(["sh", "-c", $limited, program_path(), $code])["stdout"];
+}
+
+fn writing(string $dir): null {
+    $path = $dir .. "/plain.txt";
+    write_file($path, "first");
+    expect("it writes the file", read_file($path), "first");
+    write_file($path, "two");
+    expect("it replaces what was there", read_file($path), "two");
+    write_file($path, "");
+    expect("it writes an empty file", read_file($path), "");
+    throws("a directory can't be written", () -> write_file($dir, "x"), "Cannot write file: " .. $dir);
+    return null;
+}
+
+fn failing(string $dir): null {
+    expect("within the limit it writes", limited_write($dir .. "/small.txt", 100), "written");
+    $at_close = $dir .. "/at_close.txt";
+    expect("a write only the close finds failing is an error", limited_write($at_close, 2000), "Cannot write file: " .. $at_close);
+    $at_write = $dir .. "/at_write.txt";
+    expect("a big write fails at once", limited_write($at_write, 100000), "Cannot write file: " .. $at_write);
+    return null;
+}
+
+$dir = fs::temp_dir();
+try {
+    writing($dir);
+    failing($dir);
+} finally {
+    run(["rm", "-rf", $dir]);
+}

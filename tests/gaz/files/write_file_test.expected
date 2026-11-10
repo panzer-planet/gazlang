@@ -1,0 +1,7 @@
+ok it writes the file
+ok it replaces what was there
+ok it writes an empty file
+ok a directory can't be written
+ok within the limit it writes
+ok a write only the close finds failing is an error
+ok a big write fails at once

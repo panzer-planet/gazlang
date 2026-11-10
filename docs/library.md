@@ -157,6 +157,14 @@ own](http.md).
 - `read_line()`: `getline()` on `stdin`, through the stdio buffer `read_stdin()` reads too, so the
   two share the input without losing a byte. Tested through `CliTest` rows with
   `tests/corpora/cli/lines.txt`.
+- `read_stdin_bytes($n)`: exactly `$n` bytes through the same buffer, the rest left for the next
+  read, for the language server's `Content-Length` framing. **Its buffer grows with what arrives,
+  never to `$n` up front**: a peer's absurd length then ends in the catchable `standard input ended
+  N short`, not an out-of-memory that ends the process (`read_stream_bytes()`, which keeps the
+  chunk out of `call_builtin()`'s frame). Tested by `tests/gaz/processes/read_stdin_bytes_test.gaz`.
+- **`write_file()` reports a failed write, `fclose()`'s too**: below stdio's buffer the data is only
+  written out at the close, so a full disk or a size limit is found there. Tested by
+  `tests/gaz/files/write_file_test.gaz` with `ulimit -f`, as `file_close()` is.
 
 ## Processes and sockets
 

@@ -1,0 +1,8 @@
+ok it reads what is asked and leaves the rest
+ok reads follow on
+ok none is the empty string
+ok a line read after it carries on
+ok more than a read gives at once
+ok input that ends short is an error
+ok so is a count larger than any memory
+ok a negative count
