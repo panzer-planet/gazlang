@@ -78,6 +78,19 @@ class HttpTlsTest extends GazLangTestCase
     }
 
     /**
+     * TLS started on a plain connection, trusting the fixture's certificate for localhost: whether
+     * the handshake succeeded
+     *
+     * @param  resource  $socket
+     */
+    private static function secure($socket): bool
+    {
+        stream_context_set_options($socket, ['ssl' => ['cafile' => self::ROOT.'/'.self::CERTIFICATE, 'peer_name' => 'localhost']]);
+
+        return @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) === true;
+    }
+
+    /**
      * A plain TCP connection
      *
      * @return resource
@@ -235,8 +248,12 @@ class HttpTlsTest extends GazLangTestCase
             $quiet = self::plain($port);
             $partial = self::plain($port);
             fwrite($partial, "\x16\x03\x01");
-            usleep(100000);
-            // Each holds a worker for its handshake; a new client waits its turn, then is answered
+            /*
+             * Each holds a worker for its handshake; a new client waits its turn, then is answered.
+             * Its time runs from its own accept, so it has what is left of it once they time out:
+             * this pause, which must leave room for a handshake and a request on a slow machine
+             */
+            usleep(400000);
             $started = self::clock();
             $answered = self::ask(self::connect($port), '/meanwhile');
             $this->assertSame(200, $answered['status'] ?? null);
@@ -246,6 +263,32 @@ class HttpTlsTest extends GazLangTestCase
                 $this->assertLessThan(2.5, self::clock() - $started, 'at the header timeout');
             }
             $this->assertLessThan(2.5, self::clock() - $started);
+        } finally {
+            self::stop($server);
+        }
+    }
+
+    public function test_a_client_queued_past_its_header_timeout_is_dropped_without_holding_a_worker()
+    {
+        $handler = '$r -> { if ($r["path"] == "/slow") { sleep(1.5); } return {"body" => "{$n} {$r["path"]}"}; }';
+        [$server, $port] = self::startServer(1, '"header_timeout" => 1, "request_timeout" => 3', $handler);
+        try {
+            // The one worker is busy past the header timeout of a client accepted meanwhile
+            $busy = self::connect($port);
+            fwrite($busy, "GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n");
+            usleep(100000);
+            $queued = self::plain($port);
+            /*
+             * Its time ran from its accept, so once the worker is free it is dropped at once rather
+             * than given a whole header timeout: a flood of silent connections queued behind busy
+             * workers drains in an instant and doesn't hold the pool one timeout at a time. Its
+             * handshake starts after the wait, which PHP would time by the wall clock
+             */
+            usleep(1600000);
+            $this->assertFalse(self::secure($queued));
+            $answered = self::ask(self::connect($port), '/after');
+            $this->assertSame(200, $answered['status'] ?? null);
+            $this->assertSame('1 /after', $answered['body']);
         } finally {
             self::stop($server);
         }

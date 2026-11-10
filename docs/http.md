@@ -352,7 +352,13 @@ libssl built for it), while two of CI's three platforms are macOS; it is the Lin
 
 - **The master hands a TLS connection over at its accept** (the rule's `"at_accept"`): a `C` with
   no bytes, its first byte's time the accept's, so the worker's handshake and head have
-  `header_timeout` from the accept, as a plain head has in the master. So a client slow to finish
+  `header_timeout` from the accept, as a plain head has in the master. **Time spent queued for a
+  busy pool counts, on purpose**: the master doesn't expire a connection it has queued for a
+  worker, so a queued one whose time is up fails its handshake at once, and a flood of silent or
+  trickling connections drains in an instant once a worker is free. Counting from when a worker
+  takes it would be kinder to a client queued under load, but would give every queued connection
+  a whole `header_timeout` of a worker, so 400 silent connects would hold four workers for a
+  hundred timeouts (`HttpTlsTest`'s queued client is dropped, which pins it). So a client slow to finish
   its handshake holds a worker for up to `header_timeout`, which plain HTTP's master spares; under
   load, as for slow bodies, that is a buffering proxy's to absorb.
 - **Between requests the worker keeps the connection**, since its session can't go back to the
