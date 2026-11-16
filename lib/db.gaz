@@ -65,37 +65,37 @@ pub kind Db {
     /**
      * {"rows" => [row, ...], "changes" => rows an insert, update or delete changed}
      */
-    pub fn run(Sql $sql): map {
-        return #result($sql);
+    pub fn run($sql): map {
+        return #result($sql, "run");
     }
 
     /**
      * The rows, each a map from column name to value
      */
-    pub fn query(Sql $sql): list {
-        return #result($sql)["rows"];
+    pub fn query($sql): list {
+        return #result($sql, "query")["rows"];
     }
 
     /**
      * The first row, or null when there is none
      */
-    pub fn row(Sql $sql): ?map {
-        return #result($sql)["rows"][0] ?? null;
+    pub fn row($sql): ?map {
+        return #result($sql, "row")["rows"][0] ?? null;
     }
 
     /**
      * The first column of the first row, or null when there is none
      */
-    pub fn value(Sql $sql): int|float|string|bool|null {
-        $row = #result($sql)["rows"][0] ?? null;
+    pub fn value($sql): int|float|string|bool|null {
+        $row = #result($sql, "value")["rows"][0] ?? null;
         return $row == null ? null : values($row)[0];
     }
 
     /**
      * How many rows an insert, update or delete changed
      */
-    pub fn exec(Sql $sql): int {
-        return #result($sql)["changes"];
+    pub fn exec($sql): int {
+        return #result($sql, "exec")["changes"];
     }
 
     /**
@@ -127,8 +127,14 @@ pub kind Db {
         db_close(#handle);
     }
 
-    // Runs an Sql, rendered for this database
-    fn result(Sql $sql): map {
+    /*
+     * Runs an Sql, rendered for this database. Anything else is refused here rather than by a type
+     * on the methods' parameter, so the message can say what to write instead.
+     */
+    fn result($sql, string $method): map {
+        if (!is_a($sql, Sql)) {
+            throw "Db.{$method}() takes db::sql\"...\", not " .. described($sql) .. ': write db::sql"select ... where id = {$id}", or db::raw($text) for SQL built some other way';
+        }
         [$text, $params] = $sql.render(#placeholder);
         return #execute($text, $params);
     }

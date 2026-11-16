@@ -1763,11 +1763,14 @@ echo $db.query(db::sql"select {$column} from users where id in {$ids}{$older}");
   placeholder like `:name`, is caught by the database's own count of parameters. A false alarm, a
   `$1` inside an SQL string literal or a `$$...$$` function body, is what `db::raw()` is for.
 - **The methods take a `db::Sql`**, which only `db::sql"..."` and `db::raw()` make, so a plain
-  string can't reach the database by accident: `db::Db.query() expects $sql to be db::Sql, got
-  string`. **`db::raw($text)`** is the way round, for SQL built some other way (a migration read
-  from a file): used as it is, with no values, and the one place to check by hand. `db::Sql`'s
-  constructor isn't `pub`, so no program outside `db` builds one, by name, through a value
-  (`kind_of()` of a fragment) or by extending it.
+  string can't reach the database by accident, and the error says what to write instead:
+  `Db.query() takes db::sql"...", not a string: write db::sql"select ... where id = {$id}", or
+  db::raw($text) for SQL built some other way`. Each method checks for itself rather than by a
+  type on its parameter, since a type's error can't give that advice. **`db::raw($text)`** is
+  the way round, for SQL built some other way (a migration read from a file): used as it is,
+  with no values, and the one place to check by hand. `db::Sql`'s constructor isn't `pub`, so
+  no program outside `db` builds one, by name, through a value (`kind_of()` of a fragment) or by
+  extending it.
 - Printing a `db::sql"..."` shows its text with `?` for each value, never the values, which may be
   secrets.
 
