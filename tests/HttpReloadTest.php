@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class HttpReloadTest extends GazLangTestCase
 {
-    /** A server answering every request with VERSION (or as HANDLER says), set up before workers() by SETUP */
+    /** A server answering every request with VERSION (or as HANDLER says), set up before workers() by SETUP, and AFTER run once serving ends */
     private const SERVER = <<<'GAZ'
         import "std/http.gaz";
         $listener = socket_listen("127.0.0.1", 0);
@@ -21,6 +21,7 @@ class HttpReloadTest extends GazLangTestCase
         SETUP
         workers(2);
         http::serve($listener, HANDLER, {"access_log" => false});
+        AFTER
         GAZ;
 
     private const ANSWER = '$request -> ({"body" => "VERSION"})';
@@ -108,7 +109,7 @@ class HttpReloadTest extends GazLangTestCase
     public function test_a_reload_to_code_that_fails_to_start_keeps_the_old_pool_serving(string $from, string $to, string $logged): void
     {
         [$master, $port] = $this->start('v1');
-        $broken = str_replace(['HANDLER', 'VERSION', 'SETUP', $from], [self::ANSWER, 'v2', '', str_replace('FREE', (string) self::freePort(), $to)], self::SERVER);
+        $broken = strtr(self::SERVER, [$from => str_replace('FREE', (string) self::freePort(), $to), 'HANDLER' => strtr(self::ANSWER, ['VERSION' => 'v2']), 'AFTER' => '', 'VERSION' => 'v2', 'SETUP' => '']);
         file_put_contents($this->dir.'/server.gaz', $broken);
         posix_kill(proc_get_status($master)['pid'], SIGUSR2);
         $this->waitForLog('still serving the old code');
@@ -229,6 +230,46 @@ class HttpReloadTest extends GazLangTestCase
         fclose($held);
     }
 
+    public function test_a_worker_the_drain_asked_to_leave_is_handed_nothing_and_killed_after_the_grace_once_the_pool_is_taken_back(): void
+    {
+        // Each worker, once serve() returns, says so and stays until the test makes a file, as a
+        // program stuck closing a pool or flushing a log after serving does
+        $after = <<<GAZ
+            write_file("{$this->dir}/after-" .. rand_int(1, 1000000000), "");
+            // Bounded, so a test that fails before making the file leaves nothing behind for long
+            \$until = monotonic_time() + 30;
+            while (!file_exists("{$this->dir}/leave") && monotonic_time() < \$until) {
+                sleep(0.01);
+            }
+            GAZ;
+        [$master, $port] = $this->start('v1', after: $after);
+        $this->write('v2');
+        posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+        $this->waitForLog('gaz: reloaded: pid ');
+        // Both were idle, so the drain asks both to leave
+        for ($wait = 0; count(glob($this->dir.'/after-*') ?: []) < 2 && $wait < 100; $wait++) {
+            usleep(50000);
+        }
+        $this->assertCount(2, glob($this->dir.'/after-*') ?: [], 'the drain did not ask both workers to leave');
+        $told = self::clock();
+        posix_kill($this->pids()[0], SIGKILL);
+        $this->waitForLog('gaz: taking the pool back');
+        // A request now waits for a worker that will take it, not one already gone from serve(): the
+        // two still there are killed STOP_GRACE (10s) after they were asked, and started again
+        $waiting = $this->connect($port);
+        stream_set_timeout($waiting, 20);
+        fwrite($waiting, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
+        $this->assertSame('v1', self::body(self::readResponse($waiting)));
+        $this->assertGreaterThan(9.0, self::clock() - $told, 'answered before the grace could have ended the leavers');
+        fclose($waiting);
+        $this->assertMatchesRegularExpression('/^gaz: worker [12] died of signal 9 after it was asked to leave; starting another$/m', $this->log());
+        // Stopped here rather than killed by tearDown, whose orphaned workers would write into the
+        // directory as it is emptied
+        touch($this->dir.'/leave');
+        posix_kill(proc_get_status($master)['pid'], SIGTERM);
+        $this->assertFalse(self::ended($master)['running'], 'the server did not stop');
+    }
+
     public function test_systemd_is_told_the_new_main_pid(): void
     {
         $path = '/tmp/gaz-notify-'.getmypid().'-'.bin2hex(random_bytes(4));
@@ -341,9 +382,9 @@ class HttpReloadTest extends GazLangTestCase
      * @param  array<string, string>  $env
      * @return array{resource, int}
      */
-    private function start(string $version, string $setup = '', bool $relative = false, array $env = [], string $handler = self::ANSWER): array
+    private function start(string $version, string $setup = '', bool $relative = false, array $env = [], string $handler = self::ANSWER, string $after = ''): array
     {
-        $this->write($version, $setup, $handler);
+        $this->write($version, $setup, $handler, $after);
         $command = [self::binary(), $relative ? 'server.gaz' : $this->dir.'/server.gaz'];
         $process = proc_open($command, [['file', '/dev/null', 'r'], ['file', $this->dir.'/out', 'w'], ['file', $this->dir.'/log', 'w']], $pipes, $relative ? $this->dir : self::ROOT, $env + getenv());
         if ($process === false) {
@@ -365,10 +406,10 @@ class HttpReloadTest extends GazLangTestCase
         throw new \RuntimeException('The server never listened: '.$this->log());
     }
 
-    /** The server's file at a version, with set-up before workers() and a handler */
-    private function write(string $version, string $setup = '', string $handler = self::ANSWER): void
+    /** The server's file at a version, with set-up before workers(), a handler and what runs after serving */
+    private function write(string $version, string $setup = '', string $handler = self::ANSWER, string $after = ''): void
     {
-        file_put_contents($this->dir.'/server.gaz', str_replace(['HANDLER', 'VERSION', 'SETUP'], [$handler, $version, $setup], self::SERVER));
+        file_put_contents($this->dir.'/server.gaz', strtr(self::SERVER, ['HANDLER' => strtr($handler, ['VERSION' => $version]), 'AFTER' => $after, 'VERSION' => $version, 'SETUP' => $setup]));
     }
 
     private function log(): string

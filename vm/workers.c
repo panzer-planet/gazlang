@@ -994,6 +994,10 @@ typedef struct {
     int fds[MOST_FDS_A_READ];   /* descriptors that came with them, oldest first */
     int nfds;
     int sent;                   /* the connection last handed to it, kept until its next message (-1 when none) */
+    double told_to_leave;       /* when a drain asked it to stop while it waited, or 0: its worker_accept()
+                                   gives null, so it is handed nothing, its kept TLS connection is closed
+                                   on the way out, and it is killed STOP_GRACE later, even if the pool has
+                                   been taken back meanwhile */
 } Channel;
 
 /* A connection in the master's table: a head coming, or a kept-open one waiting for its next request */
@@ -1170,7 +1174,7 @@ static pid_t fork_worker(Pool *pool, int i, Value *out) {
 /* Connections open: in the table, and held by workers */
 static int connections_open(Pool *pool) {
     int open = pool->open;
-    for (int i = 0; i < 2 * pool->count; i++) open += pool->channels[i].holding;
+    for (int i = 0; i < 2 * pool->count; i++) open += pool->channels[i].holding && !pool->channels[i].told_to_leave;
     return open;
 }
 
@@ -1442,7 +1446,7 @@ static int pick_worker(Pool *pool) {
     int best_rank = 0;
     for (int i = 0; i < 2 * pool->count; i++) {
         Channel *ch = &pool->channels[i];
-        if (ch->fd < 0 || !ch->wants) continue;
+        if (ch->fd < 0 || !ch->wants || ch->told_to_leave) continue;
         if (i >= pool->count && pool->relieved[i - pool->count]) continue;
         bool leaving = i >= pool->count || pool->slots[i].retiring;
         /* Lower is better: a free worker, then one whose idle client would give way, then a leaver */
@@ -1810,6 +1814,10 @@ static bool hand_over(Pool *pool, int i, Value *out, int *failed, int *alive) {
         *leaving = pool->pids[i];
         pool->pids[i] = 0;
         pool->relieved[i] = 0;
+        /* A drain's mark is the leaving worker's, not the replacement's: one the drain asked to leave
+           before the pool was taken back, still serving, would have its replacement started again
+           however that one ended, with no line and no start-up check */
+        pool->drained[i] = false;
         pool->channels[pool->count + i] = pool->channels[i];
         pool->channels[i] = (Channel){.fd = -1, .sent = -1};
         return start_replacement(pool, i, out, failed, alive);
@@ -1995,12 +2003,27 @@ static void new_master_ended(Pool *pool, int status) {
 }
 
 /* Draining: each worker waiting for a connection, which none will get now, asked to stop; one
-   finishing a request is asked once it gives its connection back (forwarded) and waits */
+   finishing a request is asked once it gives its connection back (forwarded) and waits. It is
+   marked (Channel.told_to_leave), not counted as no longer waiting: its worker_accept() gives null,
+   so a connection handed it if the pool is taken back before it has gone would never be read, but
+   a B it sends still has its N. */
 static void drain_idle_workers(Pool *pool) {
     for (int i = 0; i < 2 * pool->count; i++) {
-        if (pool->pids[i] <= 0 || !pool->channels[i].wants) continue;
+        Channel *ch = &pool->channels[i];
+        if (pool->pids[i] <= 0 || !ch->wants) continue;
         kill(pool->pids[i], SIGTERM);
+        if (!ch->told_to_leave) ch->told_to_leave = pool->now;
         if (i < pool->count) pool->drained[i] = true;
+    }
+}
+
+/* A worker the drain asked to leave that is still there STOP_GRACE later is killed, as a stop kills
+   after its grace: once the pool is taken back nothing else would end it, and its number is started
+   again only when it has gone */
+static void end_overdue_leavers(Pool *pool) {
+    for (int i = 0; i < 2 * pool->count; i++) {
+        double told = pool->channels[i].told_to_leave;
+        if (pool->pids[i] > 0 && told > 0 && pool->now - told > STOP_GRACE) kill(pool->pids[i], SIGKILL);
     }
 }
 
@@ -2119,6 +2142,7 @@ bool start_workers(int64_t count, Value *out) {
             start_reload(&pool);
         }
         if (look && pool.draining) drain_idle_workers(&pool);
+        if (look) end_overdue_leavers(&pool);
         pid_t pid;
         int status;
         while (look && failed < 0 && (pid = waitpid(-1, &status, WNOHANG)) > 0) {
@@ -2158,6 +2182,14 @@ bool start_workers(int64_t count, Value *out) {
             }
             if (undrained) {
                 pool.drained[i] = false;
+                /* Asked to leave, so a clean end or the stop's own signal is no news; anything else
+                   (a crash in the code after serving, the grace's SIGKILL) is said */
+                bool expected = (WIFEXITED(status) && WEXITSTATUS(status) == 0) || (WIFSIGNALED(status) && WTERMSIG(status) == SIGUSR2);
+                if (!expected) {
+                    char how[64];
+                    describe(status, how, sizeof how);
+                    fprintf(stderr, "gaz: worker %d %s after it was asked to leave; starting another\n", i + 1, how);
+                }
                 if (start_replacement(&pool, i, out, &failed, &alive)) {
                     pool_free(&pool);
                     return true;

@@ -172,6 +172,15 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
     ended while it drained, asked to or not (a crash or a deadline meanwhile is the drain's too,
     `drained`; tested by `HttpReloadTest`'s `dies_during_the_drain`). Its connections go
     with it, as a worker's do.
+    - A worker the drain asked to leave is marked (`Channel.told_to_leave`, with when), and
+      handed nothing: its `worker_accept()` has given null, and it may still be running the
+      program's code after `http::serve()` when the pool is taken back, so a connection handed to
+      it would close unanswered as it ends. A mark of its own rather than clearing `wants`, which a
+      B's answer reads. Its kept TLS connection, which it closes on the way out, no longer counts
+      toward `max_connections`; it is killed `STOP_GRACE` after it was asked (`end_overdue_leavers()`),
+      taken back or not, since nothing else would end it then; and it is started again once it has
+      gone, with a line unless it ended cleanly or recycled (tested by `handed_nothing_and_killed`).
+      The drain's mark on a number goes with the worker: a hand-over clears it for the replacement.
   - **A child, not an exec in place**: only that keeps the old pool serving through a slow start
     and after a failed one. So the pid changes (nginx's and unicorn's shape).
     - Under systemd (`NOTIFY_SOCKET`) the old master sends `MAINPID=` of the new one as it hands
