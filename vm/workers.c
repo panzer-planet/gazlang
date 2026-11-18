@@ -10,7 +10,9 @@
  *
  * The call returns the worker's number, 1 to $count, in each worker. The process that called it,
  * the master, never returns: it waits here, starts a worker again when one dies of an error or a
- * signal, and ends once every worker has ended with code 0. A worker that dies within a second of
+ * signal, and ends once every worker has ended with code 0; except that a clean exit with a
+ * connection the master handed it still in hand (an exit(0) in an http::serve() handler) is a death
+ * too, which would otherwise leave the pool a worker short. A worker that dies within a second of
  * starting without having taken a connection is a program that can't start, not bad luck, so rather
  * than start it again and again the master stops the others and exits with its code; one that took
  * a connection first died of a request, and is started again like any other.
@@ -212,6 +214,8 @@ typedef struct {
     unsigned char accepted;    /* it has taken a connection: a death now is a request's, not start-up's */
     unsigned char listening;   /* it has waited for one: it can take over from a worker retiring */
     unsigned char retiring;    /* it asked for a replacement (worker_retire()) and serves on until then */
+    unsigned char serving;     /* it holds a connection worker_accept() gave and worker_release() hasn't
+                                  taken: a clean exit now leaves a client unanswered */
 } Slot;
 
 /* In a worker: SIGTERM asks it to stop, and its slot, until it retires and the slot is its
@@ -235,6 +239,12 @@ static void on_worker_stop(int sig) {
 /* The master's pid, which a worker's getppid() gives for as long as the master runs: once it has
    died the worker has been given to another parent (init, or a subreaper such as a container's) */
 static pid_t master_pid;
+
+/* SIGTERM in a worker of a program started ignoring it: a stop only when the master sent it */
+static void on_master_stop(int sig, siginfo_t *info, void *context) {
+    (void)context;
+    if (info && info->si_pid == master_pid) on_worker_stop(sig);
+}
 
 /* Whether this worker should stop: asked to (SIGTERM), or orphaned, which it takes as being asked,
    so the request in hand is finished and the next wait gives null, as after a graceful stop */
@@ -760,6 +770,7 @@ static bool take_handed(Value *out, bool *nothing) {
     held = fds[0];
     asked = false;
     worker_accepted();
+    if (slot) slot->serving = 1;
     List *taken = list_new(5);
     list_push(taken, net_adopt(fds[0], registered_rule.timeout));
     list_push(taken, v_str(str_new(message + HEADER_SIZE, len)));
@@ -914,6 +925,7 @@ bool worker_release(Socket *s, Value bytes, int64_t served, Value *out) {
         return raisef("worker_release() expects at most %zu bytes, the rule's cap: a longer head is the reader's to refuse", cap);
     }
     held = -1;
+    if (slot) slot->serving = 0;
     /* A master that has gone takes the connection with it. The I carries no descriptor: the master
        still holds its own copy of the connection it handed this worker (Channel.sent) */
     if (bytes.type == T_STRING && !stopping) {
@@ -1035,7 +1047,8 @@ typedef struct {
     bool draining;          /* the new master serves: this one forwards and finishes */
     double drain_since;
     int paused_listener;    /* draining: the listener, kept in case the new master dies; -1 otherwise */
-    bool *drained;          /* worker i was asked to leave by a drain, so is started again if it is undone */
+    bool *drained;          /* worker i was asked to leave by a drain, or ended during one, so is
+                               started again if it is undone */
     bool taking_back;       /* the new master died while this one drained: refill what the drain ended */
 } Pool;
 
@@ -1110,6 +1123,7 @@ static pid_t fork_worker(Pool *pool, int i, Value *out) {
     own->accepted = 0;
     own->listening = 0;
     own->retiring = 0;
+    own->serving = 0;
     int ends[2];
     if (channel_pair(ends) != 0) return -1;
     sigset_t stops, before;
@@ -1127,10 +1141,17 @@ static pid_t fork_worker(Pool *pool, int i, Value *out) {
         slot = own;
         close(ends[0]);
         channel = ends[1];
-        /* Not SA_RESTART, so a socket_accept() waiting is woken to give null */
+        /* Not SA_RESTART, so a socket_accept() waiting is woken to give null. A program started
+           ignoring SIGTERM has its workers ignore it too, except from the master: that is someone's
+           choice that the signal shouldn't stop the server, but SIGTERM is also how the master asks
+           a worker to leave (a stop, a hand-over, a reload's drain), and a worker ignoring the
+           master's would be killed mid-request STOP_GRACE later instead */
         struct sigaction stop = {.sa_handler = on_worker_stop};
+        if (saved_stop[1].sa_handler == SIG_IGN) {
+            stop = (struct sigaction){.sa_sigaction = on_master_stop, .sa_flags = SA_SIGINFO};
+        }
         sigemptyset(&stop.sa_mask);
-        if (saved_stop[1].sa_handler != SIG_IGN) sigaction(SIGTERM, &stop, NULL);
+        sigaction(SIGTERM, &stop, NULL);
         /* Or every worker would draw the same random numbers */
         random_seed_unpredictable();
         *out = v_int(i + 1);
@@ -2114,10 +2135,24 @@ bool start_workers(int64_t count, Value *out) {
                 retired(i - n, status);
                 continue;
             }
+            /* Draining, nothing is started again: the new pool serves. However it ended (asked by the
+               drain, or a crash or a handler's deadline meanwhile), the drain counts it as its own, so
+               taking the pool back starts it again */
+            if (pool.draining) {
+                pool.drained[i] = true;
+                alive--;
+                continue;
+            }
             /* Asked to leave by a drain that has since been undone (take_back()) */
-            bool undrained = pool.drained[i] && !pool.draining;
-            /* Draining, nothing is started again: the new pool serves */
-            if (!undrained && ((WIFEXITED(status) && WEXITSTATUS(status) == 0) || pool.draining)) {
+            bool undrained = pool.drained[i];
+            /* A clean exit is a worker done with its work, except one that left holding a connection
+               the master handed it (an exit(0) in an http::serve() handler), which its slot says:
+               the pool would be a worker short for good, without a word, so that one is a death
+               like any other. The worker's word rather than the master's Channel.holding, which
+               can't tell a worker mid-request from one that released its connection, asked for
+               the next and ended before it came. */
+            bool done = WIFEXITED(status) && WEXITSTATUS(status) == 0 && (!pool.slots[i].serving || stop_signal);
+            if (!undrained && done) {
                 alive--;
                 continue;
             }

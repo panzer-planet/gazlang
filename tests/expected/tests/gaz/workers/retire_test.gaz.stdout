@@ -2,3 +2,6 @@ ok outside workers() there is no one to hand over to
 ok the retiring worker asks once, and the replacement takes over before it is relieved
 ok the master says so
 ok and ended cleanly
+ok started ignoring SIGTERM, the retiring worker is still relieved
+ok and not killed
+ok and the pool ended cleanly

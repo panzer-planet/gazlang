@@ -1950,6 +1950,8 @@ the rest of these builtins itself.
 - It returns the worker's number, 1 to `$count`, in each of them.
 - The process that called it, the master, never returns from it. It waits, starts a worker again
   when one ends with an error or a signal, and ends once every worker has ended with code 0.
+  One that exits cleanly in the middle of a request (an `exit(0)` in an `http::serve()` handler)
+  is started again too, with a line saying so.
 - A worker that fails within a second of starting, before it has accepted a connection, is a
   program that can't start: the rest are stopped and the program exits with its code.
 - Workers share nothing after the call, except a `socket_listen()` listener made before it, which
@@ -1962,7 +1964,8 @@ the rest of these builtins itself.
   `worker_accept()` gives `null`, so `http::serve()` returns once the request in hand is answered
   and the program ends. A worker still running after 10 seconds is killed.
 - Ctrl-C reaches the workers too, and ends them at once.
-- A signal the program was started ignoring stays ignored (`nohup` ignores SIGHUP).
+- A signal the program was started ignoring stays ignored by the master (`nohup` ignores SIGHUP).
+  The workers still take SIGTERM from the master, which is how it asks them to leave.
 
 SIGUSR2 reloads a server under `http::serve()` without refusing or dropping a connection:
 

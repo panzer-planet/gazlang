@@ -1358,6 +1358,7 @@ tests/gaz/templates/views/shop.gaz
 tests/gaz/templates/web_html_test.gaz
 tests/gaz/workers/chdir_test.gaz
 tests/gaz/workers/handed_test.gaz
+tests/gaz/workers/ignored_term_test.gaz
 tests/gaz/workers/inherited_test.gaz
 tests/gaz/workers/inherited_writer_test.gaz
 tests/gaz/workers/retire_grace_test.gaz

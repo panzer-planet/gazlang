@@ -1,0 +1,4 @@
+ok started ignoring SIGTERM, a worker ignores one from another process
+ok and the pool ends cleanly
+ok started normally, a worker is stopped by one
+ok and the pool ends cleanly too

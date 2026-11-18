@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class HttpReloadTest extends GazLangTestCase
 {
-    /** A server answering every request with VERSION, set up before workers() by SETUP */
+    /** A server answering every request with VERSION (or as HANDLER says), set up before workers() by SETUP */
     private const SERVER = <<<'GAZ'
         import "std/http.gaz";
         $listener = socket_listen("127.0.0.1", 0);
@@ -20,8 +20,10 @@ class HttpReloadTest extends GazLangTestCase
         flush_output();
         SETUP
         workers(2);
-        http::serve($listener, $request -> ({"body" => "VERSION"}), {"access_log" => false});
+        http::serve($listener, HANDLER, {"access_log" => false});
         GAZ;
+
+    private const ANSWER = '$request -> ({"body" => "VERSION"})';
 
     private string $dir = '';
 
@@ -106,7 +108,7 @@ class HttpReloadTest extends GazLangTestCase
     public function test_a_reload_to_code_that_fails_to_start_keeps_the_old_pool_serving(string $from, string $to, string $logged): void
     {
         [$master, $port] = $this->start('v1');
-        $broken = str_replace(['VERSION', 'SETUP', $from], ['v2', '', str_replace('FREE', (string) self::freePort(), $to)], self::SERVER);
+        $broken = str_replace(['HANDLER', 'VERSION', 'SETUP', $from], [self::ANSWER, 'v2', '', str_replace('FREE', (string) self::freePort(), $to)], self::SERVER);
         file_put_contents($this->dir.'/server.gaz', $broken);
         posix_kill(proc_get_status($master)['pid'], SIGUSR2);
         $this->waitForLog('still serving the old code');
@@ -178,6 +180,53 @@ class HttpReloadTest extends GazLangTestCase
         posix_kill(proc_get_status($master)['pid'], SIGUSR2);
         $this->waitForLog('gaz: reloaded: pid ', 2);
         $this->assertSame('v2', self::body(self::exchange($port, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")));
+    }
+
+    public function test_a_worker_that_dies_during_the_drain_is_started_again_when_the_pool_is_taken_back(): void
+    {
+        // Each worker holds a request across the reload, until the test makes a file: one exits in its
+        // handler meanwhile, which the drain must count as its own, as it does a worker it asked to leave
+        $setup = <<<GAZ
+            fn wait_for(\$name) {
+                while (!file_exists("{$this->dir}/" .. \$name)) {
+                    sleep(0.01);
+                }
+            }
+            fn answer(\$request) {
+                if (\$request["path"] == "/die") {
+                    wait_for("die");
+                    exit(3);
+                }
+                if (\$request["path"] == "/hold") {
+                    wait_for("hold");
+                }
+                return {"body" => "v1"};
+            }
+            GAZ;
+        [$master, $port] = $this->start('v1', $setup, handler: 'answer');
+        $dying = $this->connect($port);
+        fwrite($dying, "GET /die HTTP/1.1\r\nHost: x\r\n\r\n");
+        usleep(200000);
+        $held = $this->connect($port);
+        fwrite($held, "GET /hold HTTP/1.1\r\nHost: x\r\n\r\n");
+        usleep(200000);
+        $this->write('v2');
+        posix_kill(proc_get_status($master)['pid'], SIGUSR2);
+        $this->waitForLog('gaz: reloaded: pid ');
+        // Both workers are busy, so the drain asks neither to leave; one ends by itself
+        touch($this->dir.'/die');
+        $this->assertSame(2, $this->waitForChildren($master, 2), 'the dying worker never ended');
+        posix_kill($this->pids()[0], SIGKILL);
+        $this->waitForLog('gaz: taking the pool back');
+        // The new master is gone, so its children now are the old pool's workers alone
+        $this->assertSame(2, $this->waitForChildren($master, 2), 'the worker that died during the drain was not started again');
+        touch($this->dir.'/hold');
+        $this->assertSame('v1', self::body(self::readResponse($held)));
+        for ($i = 0; $i < 4; $i++) {
+            $this->assertSame('v1', self::body(self::exchange($port, "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")));
+        }
+        fclose($dying);
+        fclose($held);
     }
 
     public function test_systemd_is_told_the_new_main_pid(): void
@@ -292,9 +341,9 @@ class HttpReloadTest extends GazLangTestCase
      * @param  array<string, string>  $env
      * @return array{resource, int}
      */
-    private function start(string $version, string $setup = '', bool $relative = false, array $env = []): array
+    private function start(string $version, string $setup = '', bool $relative = false, array $env = [], string $handler = self::ANSWER): array
     {
-        $this->write($version, $setup);
+        $this->write($version, $setup, $handler);
         $command = [self::binary(), $relative ? 'server.gaz' : $this->dir.'/server.gaz'];
         $process = proc_open($command, [['file', '/dev/null', 'r'], ['file', $this->dir.'/out', 'w'], ['file', $this->dir.'/log', 'w']], $pipes, $relative ? $this->dir : self::ROOT, $env + getenv());
         if ($process === false) {
@@ -316,10 +365,10 @@ class HttpReloadTest extends GazLangTestCase
         throw new \RuntimeException('The server never listened: '.$this->log());
     }
 
-    /** The server's file at a version, with set-up before workers() */
-    private function write(string $version, string $setup = ''): void
+    /** The server's file at a version, with set-up before workers() and a handler */
+    private function write(string $version, string $setup = '', string $handler = self::ANSWER): void
     {
-        file_put_contents($this->dir.'/server.gaz', str_replace(['VERSION', 'SETUP'], [$version, $setup], self::SERVER));
+        file_put_contents($this->dir.'/server.gaz', str_replace(['HANDLER', 'VERSION', 'SETUP'], [$handler, $version, $setup], self::SERVER));
     }
 
     private function log(): string
@@ -363,6 +412,20 @@ class HttpReloadTest extends GazLangTestCase
         $out = (string) shell_exec('pgrep -P '.(int) $pid);
 
         return array_map('intval', array_filter(explode("\n", trim($out))));
+    }
+
+    /**
+     * Wait up to 5 seconds for a process to have count children, and give how many it has then
+     *
+     * @param  resource  $process
+     */
+    private function waitForChildren($process, int $count): int
+    {
+        for ($wait = 0; count($this->children($process)) !== $count && $wait < 100; $wait++) {
+            usleep(50000);
+        }
+
+        return count($this->children($process));
     }
 
     /** @return resource */

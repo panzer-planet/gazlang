@@ -49,7 +49,39 @@ expect("the master says so", master_lines($result["stderr"]), [
     "gaz: worker 1 exited with code 3 while retiring",
 ]);
 expect("and ended cleanly", $result["status"], 0);
+
+/*
+ * The same, started ignoring SIGTERM: that keeps a stop signal from stopping the master, but SIGTERM
+ * is also how the master asks a worker to leave, so the retiring worker is relieved as quickly,
+ * rather than killed mid-request once the grace is over
+ */
+delete_file($mark);
+/*
+ * Under the old rule the retiring one is killed and the replacement waits for ever for a
+ * connection it never gets, so a cap far above the second this takes ends that
+ */
+$result = try_run(["sh", "-c", "trap \"\" TERM; exec \"$0\" -e \"$1\"", program_path(), $program]);
+expect("started ignoring SIGTERM, the retiring worker is still relieved", text::lines($result["stdout"]), [
+    "asked true",
+    "asked again false",
+    "replacement",
+    "relieved null",
+]);
+expect("and not killed", master_lines($result["stderr"]), [
+    "gaz: worker 1 recycled; starting another",
+    "gaz: worker 1 exited with code 3 while retiring",
+]);
+expect("and the pool ended cleanly", $result["status"], 0);
 fs::remove_tree($dir);
+
+// run() with a cap, giving what came before it as a run's result
+fn try_run($command) {
+    try {
+        return run($command, "", {"timeout" => 15});
+    } catch (Error $e) {
+        return {"stdout" => "", "stderr" => $e.message, "status" => null};
+    }
+}
 
 // What the master says: its own "gaz: " lines, without what a sanitized run adds about each process
 // (GAZVM_STATS's "gazvm: " values, and LeakSanitizer's note on Linux about a forked one)

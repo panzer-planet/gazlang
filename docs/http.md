@@ -95,9 +95,25 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
   `worker_deadline()` 503 or an `exit()` in a handler ends that client's connection and no other;
   the master closes the worker's channel when it reaps it, and a connection queued for a worker goes
   to the next one that asks.
+- **A clean exit with a request in hand is a death too**: a worker that exits 0 while it still
+  holds a connection `worker_accept()` gave it and `worker_release()` hasn't taken (`Slot.serving`:
+  an `exit(0)` in an `http::serve()` handler) is logged (`worker N exited with code 0; starting
+  another`) and started again, where it once left the pool a worker short, without a word, for
+  good. The worker says so in its slot rather than the master working it out from
+  `Channel.holding`, which can't tell a worker mid-request from one that released its connection,
+  asked for the next and ended before it came. A worker that released its connection and then
+  ended is done, as code 0 always meant (a pool of jobs, `handed_test.gaz`). Tested by
+  `HttpServerTest`'s `exits_cleanly_from_a_handler`.
 - **Stopping**: a worker catches SIGTERM without `SA_RESTART`, so a waiting `accept()` wakes;
   `socket_accept()` and `worker_accept()` wait in `poll()` a second at a time, so a stop that lands
   between the check and the wait is still seen. The grace is `STOP_GRACE`.
+  - **A program started ignoring SIGTERM has its workers take it from the master alone**
+    (`SA_SIGINFO`, `si_pid` against `master_pid`): ignoring it is a choice that the signal
+    shouldn't stop the server, which a `pkill` or a signal to the process group would otherwise
+    do by stopping every worker; but SIGTERM is also how the master asks a worker to leave (a stop,
+    a hand-over's relief, a reload's drain), and a worker ignoring the master's was killed
+    mid-request `STOP_GRACE` later instead. Tested by `retire_test.gaz` and `ignored_term_test.gaz`,
+    each under `trap "" TERM`.
   - Under the master reading heads, **a stop first closes the listener and the master's
     connections** (`close_front()`):
     1. the master closes its copy from the rule;
@@ -152,7 +168,9 @@ needs non-blocking sockets and callbacks or coroutines the language doesn't have
       `SETTLE` (a second) has passed, or kills the rest after `STOP_GRACE`.
   - **A new master that dies is taken back from**: one that ends other than cleanly or by a stop
     signal while the old one is still there (a pool failing in its first second, a crash) has the
-    old master listen again and start what the drain ended (`take_back()`). Its connections go
+    old master listen again and start what the drain ended (`take_back()`): every worker that
+    ended while it drained, asked to or not (a crash or a deadline meanwhile is the drain's too,
+    `drained`; tested by `HttpReloadTest`'s `dies_during_the_drain`). Its connections go
     with it, as a worker's do.
   - **A child, not an exec in place**: only that keeps the old pool serving through a slow start
     and after a failed one. So the pid changes (nginx's and unicorn's shape).

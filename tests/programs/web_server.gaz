@@ -51,6 +51,7 @@ http::serve($listener, $request -> match ($request["path"]) {
     "/visits" => visits($request),
     "/two-cookies" => http::set_cookie(http::set_cookie({}, "a", "1"), "b", "2"),
     "/exit" => exit(3),
+    "/exit-cleanly" => exit(0),
     default => {"status" => 404, "body" => "no page at {$request["path"]}\n"},
 }, {"max_body" => 100000, "timeout" => 2, "request_timeout" => 1.5, "max_requests" => $max_requests});
 

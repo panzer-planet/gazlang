@@ -554,6 +554,32 @@ class HttpServerTest extends GazLangTestCase
         $this->assertSame(200, self::get('/')['status']);
     }
 
+    public function test_a_worker_that_exits_cleanly_from_a_handler_is_started_again()
+    {
+        // Under http::serve() a worker ends only when asked, so an exit(0) it wasn't asked for is a
+        // death: without a restart each one would leave the pool a worker short, and two would end
+        // a pool of two, without a word
+        $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');
+        [$server, $port] = self::startServer(2, $log);
+        try {
+            for ($i = 0; $i < 2; $i++) {
+                $this->assertSame('', self::exchange("GET /exit-cleanly HTTP/1.1\r\nHost: x\r\n\r\n", $port));
+            }
+            for ($wait = 0; substr_count((string) file_get_contents($log), 'exited with code 0; starting another') < 2 && $wait < 100; $wait++) {
+                usleep(20000);
+            }
+            $this->assertSame(2, preg_match_all('/^gaz: worker [12] exited with code 0; starting another$/m', (string) file_get_contents($log)));
+            $this->assertTrue(proc_get_status($server)['running']);
+            for ($i = 0; $i < 4; $i++) {
+                $this->assertSame(200, self::response(self::exchange("GET / HTTP/1.1\r\nHost: x\r\n\r\n", $port))['status']);
+            }
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+            @unlink($log);
+        }
+    }
+
     public function test_a_worker_that_dies_is_started_again_and_stopping_the_master_stops_them_all()
     {
         $log = (string) tempnam(sys_get_temp_dir(), 'gazlang-server');

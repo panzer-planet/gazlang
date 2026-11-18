@@ -1,0 +1,23 @@
+import "std/test.gaz" use expect;
+
+/*
+ * A program started ignoring SIGTERM keeps it from stopping the server: its workers ignore one from
+ * anyone but the master (which asks them to leave with it, see retire_test.gaz), so a pkill or a
+ * signal to the process group stops nothing. Started normally, a worker takes one from anyone. The
+ * worker signals itself from a shell it starts, then waits for a connection, which a worker asked
+ * to stop gets as null. A program of its own, run with run(), since the master never returns from
+ * workers().
+ */
+$program = '
+    $listener = socket_listen("127.0.0.1", 0);
+    workers(1);
+    run(["sh", "-c", "kill -TERM \$PPID"]);
+    $client = socket_open("127.0.0.1", socket_port($listener));
+    print(type_of(socket_accept($listener)) .. "\n");
+';
+$ignoring = run(["sh", "-c", "trap \"\" TERM; exec \"$0\" -e \"$1\"", program_path(), $program], "", {"timeout" => 15});
+expect("started ignoring SIGTERM, a worker ignores one from another process", $ignoring["stdout"], "socket\n");
+expect("and the pool ends cleanly", $ignoring["status"], 0);
+$taking = run([program_path(), "-e", $program], "", {"timeout" => 15});
+expect("started normally, a worker is stopped by one", $taking["stdout"], "null\n");
+expect("and the pool ends cleanly too", $taking["status"], 0);
